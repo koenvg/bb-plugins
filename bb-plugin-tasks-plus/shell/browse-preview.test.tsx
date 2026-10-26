@@ -54,7 +54,7 @@ describe("retained browse detail", () => {
     observer.disconnect();
     expect(blanks).toEqual([]);
     expect(lookups(slot, "TSK-1")).toHaveLength(1);
-    expect(slot.inspection.experimental_fixedTabOpenCalls).toHaveLength(0);
+    expect(slot.inspection.experimental_tabOpenCalls).toHaveLength(0);
   });
 
   it("does not bypass a failed save when the destination is retained", async () => {

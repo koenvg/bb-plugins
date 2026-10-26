@@ -223,11 +223,11 @@ describe("prefetch from the rendered visible order", () => {
     row(slot, 2).focus();
     const focused = document.activeElement;
     const calls = slot.inspection.rpcCalls.length;
-    const opens = slot.inspection.experimental_fixedTabOpenCalls.length;
+    const opens = slot.inspection.experimental_tabOpenCalls.length;
     await act(async () => hidden.resolve({ task: records[2] }));
     expect(document.activeElement).toBe(focused);
     expect(slot.inspection.navigateCalls).toEqual([]);
-    expect(slot.inspection.experimental_fixedTabOpenCalls).toHaveLength(opens);
+    expect(slot.inspection.experimental_tabOpenCalls).toHaveLength(opens);
     expect(slot.inspection.rpcCalls).toHaveLength(calls);
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
   });
@@ -242,9 +242,9 @@ describe("prefetch from the rendered visible order", () => {
     });
     await waitFor(() => expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4"]));
     slot.lifecycle.rerender(<Panel subPath="all?task=TSK-2" ticketVisible={false} />);
-    const opens = slot.inspection.experimental_fixedTabOpenCalls.length;
+    const opens = slot.inspection.experimental_tabOpenCalls.length;
     await act(async () => next.resolve({ task: records[3] }));
-    expect(slot.inspection.experimental_fixedTabOpenCalls).toHaveLength(opens);
+    expect(slot.inspection.experimental_tabOpenCalls).toHaveLength(opens);
     expect(slot.inspection.navigateCalls).toEqual([]);
     slot.lifecycle.unmount();
     await act(async () => {});

@@ -164,12 +164,12 @@ describe("retained preview safety", () => {
   it("does not mistake a hidden mounted Ticket outlet for a visible one", async () => {
     const slot = setup("all?task=TSK-1");
     await slot.findByRole("textbox", { name: "Task title" });
-    expect(slot.inspection.experimental_fixedTabOpenCalls).toHaveLength(0);
+    expect(slot.inspection.experimental_tabOpenCalls).toHaveLength(0);
     const outlet = slot.getByRole("region", { name: "Selected ticket" }).parentElement!
       .parentElement!;
     outlet.style.display = "none";
     fireEvent.click(row(slot, 2));
-    expect(slot.inspection.experimental_fixedTabOpenCalls).toHaveLength(1);
+    expect(slot.inspection.experimental_tabOpenCalls).toHaveLength(1);
     outlet.style.display = "";
     await acceptNavigation(slot);
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");

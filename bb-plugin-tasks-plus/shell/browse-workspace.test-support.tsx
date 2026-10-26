@@ -5,6 +5,13 @@ import { makeTask, rpcInput } from "../test-fixtures.js";
 
 const app = await loadPluginApp(() => import("../app"));
 export const panel = app.navPanels[0]!;
+export const ticketRegistration = app.tabs.find(
+  (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
+    tab.id === "ticket" &&
+    tab.availability === "fixed" &&
+    tab.context.kind === "nav-panel" &&
+    tab.context.panelId === "tasks",
+)!;
 const TasksPage = panel.component;
 export function Panel({
   subPath,
@@ -13,7 +20,7 @@ export function Panel({
   subPath: string;
   ticketVisible?: boolean;
 }) {
-  const Ticket = panel.fixedTabs![0]!.component;
+  const Ticket = ticketRegistration.component;
   return (
     <>
       <TasksPage subPath={subPath} />
@@ -68,16 +75,13 @@ export function useWorkspaceTestLifecycle() {
 export function setup(
   subPath = "all",
   overrides: Record<string, (raw: unknown) => unknown> = {},
-  {
-    nativeTab = true,
-    openFixedTab = () => true,
-  }: { nativeTab?: boolean; openFixedTab?: () => boolean } = {},
+  { nativeTab = true, openTab = () => true }: { nativeTab?: boolean; openTab?: () => boolean } = {},
 ) {
   const slot = renderSlot(
     { ...panel, component: nativeTab ? Panel : TasksPage },
     { subPath },
     {
-      experimental_openFixedTab: openFixedTab,
+      experimental_openTab: openTab,
       rpc: {
         listProjects: () => ({ projects: [project] }),
         listFolders: () => ({ folders: [] }),

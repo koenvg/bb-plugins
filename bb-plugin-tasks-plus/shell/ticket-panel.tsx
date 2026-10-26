@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { experimental_useAppPanel, type PluginFixedTabRegistration } from "@get-bb/plugin-sdk/app";
+import { experimental_useAppPanel, type ExperimentalTabRegistration } from "@get-bb/plugin-sdk/app";
 import { useShortcutScope } from "./shortcut-provider.js";
 import { PaneVisibilityContext } from "../lib/pane-visibility.js";
 import { useTasksSession } from "../views/detail/task-session.js";
@@ -73,13 +73,14 @@ function TicketTab() {
 }
 
 export const ticketTab = {
-  panelId: "tasks",
+  context: { kind: "nav-panel", panelId: "tasks" },
+  availability: "fixed",
   id: "ticket",
   title: "Ticket",
   icon: "ListTodo",
   layout: "flush",
   component: TicketTab,
-} satisfies PluginFixedTabRegistration;
+} satisfies ExperimentalTabRegistration;
 
 function outletIsVisible(element: HTMLElement) {
   if (!element.isConnected) return false;
@@ -103,10 +104,8 @@ export function useOpenTicketPanel() {
     latest.current = panel;
   }, [panel]);
   return useCallback(() => {
-    // Controller identity proves that the mounted owner belongs to this surface.
-    // A visible outlet on another surface is not evidence that reveal can be skipped.
     if (owner && outletPanels.get(owner) === latest.current && outletIsVisible(owner)) return true;
-    return latest.current.openFixedTab({
+    return latest.current.experimental_openTab({
       surface: { kind: "current" },
       tab: ticketTab,
     });
