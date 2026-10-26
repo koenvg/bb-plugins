@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from "react";
-import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "../core/relative-time";
@@ -8,6 +8,7 @@ import { JUMPED_RING, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, TEXTAREA }
 import { useJumpHighlight } from "./jump-highlight";
 import { useNewComment, useThreadHasNewComment } from "./new-comment-glow";
 import "./new-comment.css";
+import { PrMarkdown } from "./pr-markdown";
 import { useThreadActions } from "./thread-actions";
 import { useThreadSelection } from "./thread-selection";
 
@@ -138,9 +139,7 @@ function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: 
         </UrlLink>
         {trailing !== null && <div className="ml-auto shrink-0">{trailing}</div>}
       </div>
-      <div className="pl-7 leading-relaxed [&_pre]:overflow-x-auto">
-        <Markdown content={comment.body} />
-      </div>
+      <PrMarkdown content={comment.body} className="pl-7 leading-relaxed [&_pre]:overflow-x-auto" />
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Markdown, UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
+import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, TimelineResult } from "../contract";
 import { countOf } from "../core/blockers";
 import { relativeTime } from "../core/relative-time";
@@ -28,6 +28,7 @@ import { NewCommentGlowContext, useNewComment, useNewCommentGlowState } from "./
 import "./new-comment.css";
 import { OverviewSection } from "./overview-section";
 import { PrCommentComposer } from "./pr-comment-composer";
+import { PrMarkdown } from "./pr-markdown";
 import { SUCCESS_TEXT } from "./text-tones";
 
 type LoadedPage = Extract<TimelineResult, { kind: "ok" }>;
@@ -567,9 +568,10 @@ function CommentCard({ commentId, children }: { commentId: string; children: Rea
 
 function Body({ markdown }: { markdown: string }) {
   return (
-    <div className="min-w-0 overflow-x-auto text-sm leading-relaxed break-words [contain:inline-size] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
-      <Markdown content={markdown} />
-    </div>
+    <PrMarkdown
+      content={markdown}
+      className="min-w-0 overflow-x-auto text-sm leading-relaxed break-words [contain:inline-size] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
+    />
   );
 }
 
