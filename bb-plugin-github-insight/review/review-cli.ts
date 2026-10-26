@@ -1,5 +1,12 @@
 import { cliCommand, defineCli, PluginCliError, type PluginCliContext } from "@get-bb/plugin-sdk";
-import type { ReadTextFileRequest, ReadTextFileResult } from "../contract";
+import type {
+  ReadTextFileRequest,
+  ReadTextFileResult,
+  UploadImageRequest,
+  UploadImageResult,
+} from "../contract";
+import { parseAttachSpec, withAttachments, type Attachment } from "../core/attachments";
+import type { PrTarget } from "../pr-lookup";
 import {
   formatReviewDrafts,
   formatReviewList,
@@ -13,6 +20,7 @@ import type { PrLoad, ReviewService } from "./review-service";
 interface ReviewCliDeps {
   review: ReviewService;
   readTextFile(hostId: string, request: ReadTextFileRequest): Promise<ReadTextFileResult>;
+  uploadImage(hostId: string, request: UploadImageRequest): Promise<UploadImageResult>;
   now(): number;
 }
 
@@ -24,6 +32,22 @@ const bodyOptions = {
     description: "File with the draft text, max 64 KB, relative to the working directory",
   },
 } as const;
+
+const commentBodyOptions = {
+  ...bodyOptions,
+  attach: {
+    type: "string",
+    repeatable: true,
+    placeholder: "path[#alt]",
+    description:
+      "PNG, JPEG, or GIF screenshot to add below the text, max 10 MB, relative to the working directory. Uploads to GitHub when the draft is saved. Text after the first # is the alt text",
+  },
+} as const;
+
+const commentBodyConstraints = [
+  { kind: "at-most-one", options: ["body", "body-file"] },
+  { kind: "at-least-one", options: ["body", "body-file", "attach"] },
+] as const;
 
 const draftIdPositional = {
   name: "draft-id",
@@ -67,6 +91,27 @@ export function createReviewCli(deps: ReviewCliDeps) {
     const result = await deps.readTextFile(hostId, { path, cwd: ctx.cwd ?? null });
     if (!result.ok) throw new PluginCliError(result.message);
     return result.text;
+  }
+
+  async function uploadAttachments(
+    target: PrTarget,
+    specs: readonly string[],
+    ctx: PluginCliContext,
+  ): Promise<Attachment[]> {
+    const attachments: Attachment[] = [];
+    for (const spec of specs) {
+      const { path, alt } = parseAttachSpec(spec);
+      if (path === "") throw new PluginCliError(`--attach needs a file path: ${spec}`);
+      const result = await deps.uploadImage(target.hostId, {
+        owner: target.ref.owner,
+        repo: target.ref.repo,
+        path,
+        cwd: ctx.cwd ?? null,
+      });
+      if (!result.ok) throw new PluginCliError(`Could not attach ${path}: ${result.message}`);
+      attachments.push({ alt, url: result.url });
+    }
+    return attachments;
   }
 
   return defineCli({
@@ -151,9 +196,9 @@ export function createReviewCli(deps: ReviewCliDeps) {
             default: "RIGHT",
             description: "RIGHT for the new file, LEFT for the old file",
           },
-          ...bodyOptions,
+          ...commentBodyOptions,
         },
-        constraints: [{ kind: "exactly-one", options: ["body", "body-file"] }],
+        constraints: commentBodyConstraints,
         run: async ({ positionals, options }, ctx) => {
           const { threadId, target, review } = await loadReview(ctx);
           const anchor = {
@@ -165,7 +210,11 @@ export function createReviewCli(deps: ReviewCliDeps) {
           const created = await deps.review.createCommentDraft(threadId, target.ref, review, {
             anchor,
             source: "agent",
-            readBody: () => readBody(target.hostId, options, ctx),
+            readBody: async () =>
+              withAttachments(
+                await readBody(target.hostId, options, ctx),
+                await uploadAttachments(target, options.attach, ctx),
+              ),
           });
           if (created.kind === "error") {
             throw new PluginCliError(created.message, {
@@ -180,14 +229,20 @@ export function createReviewCli(deps: ReviewCliDeps) {
       }),
       "review comment edit": cliCommand({
         summary:
-          "Replace the text of a comment draft. Keeps its line and commit. Never posts to GitHub.",
+          "Replace the text of a comment draft, or add screenshots to it. Keeps its line and commit. Never posts to GitHub.",
+        description:
+          "With only --attach, the screenshots go below the current text. With --body or --body-file, the new text replaces the old one, screenshots included.",
         positionals: [draftIdPositional],
-        options: bodyOptions,
-        constraints: [{ kind: "exactly-one", options: ["body", "body-file"] }],
+        options: commentBodyOptions,
+        constraints: commentBodyConstraints,
         run: async ({ positionals, options }, ctx) => {
           const draftId = positionals["draft-id"];
           const { threadId, target } = await loadTarget(ctx);
-          const body = await readBody(target.hostId, options, ctx);
+          const current = await deps.review.commentDraft(target.ref, draftId);
+          if (current === null) throw unknownCommentDraft(draftId);
+          const replacesText = options.body !== undefined || options["body-file"] !== undefined;
+          const text = replacesText ? await readBody(target.hostId, options, ctx) : current.body;
+          const body = withAttachments(text, await uploadAttachments(target, options.attach, ctx));
           if (body.trim() === "") throw new PluginCliError("Comment is empty");
           const edited = await deps.review.editCommentDraft(threadId, target.ref, draftId, {
             body,

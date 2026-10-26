@@ -10,7 +10,12 @@ import reviewQueue from "./test/fixtures/review-queue.json";
 import reviewQueueTracked from "./test/fixtures/review-queue-tracked.json";
 import { reviewThreadsWithAttachment, SIGNED_ATTACHMENT_URL } from "./test/attachment";
 import type { NewThreadRequest } from "@get-bb/plugin-sdk";
-import type { CreateCommentDraftResult, LoadedReviewQueue, ReviewResult } from "./contract";
+import type {
+  CreateCommentDraftResult,
+  DraftsResult,
+  LoadedReviewQueue,
+  ReviewResult,
+} from "./contract";
 import type { PrSummary } from "./core/summary";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
@@ -2278,6 +2283,7 @@ describe("getDrafts", () => {
       drafts: { [OPEN_THREAD]: replyDraft },
       commentDrafts: [{ ...commentDraftRow("def456", 10), v: undefined, id: "d1" }],
       summaryDraft: { body: "Summary", updatedAt: 1, source: "agent" },
+      draftMedia: {},
     });
     expect(harness.experimental_hostRpcCalls).toHaveLength(reads);
   });
@@ -2300,6 +2306,98 @@ describe("getDrafts", () => {
     expect(await harness.behavior.callRpc("getDrafts", { threadId: "thr_1" })).toEqual({
       kind: "no_pr",
     });
+  });
+});
+
+describe("draft media", () => {
+  const ID_A = "1bc7aa19-b5b1-40ea-95c8-ab8be878d7ba";
+  const ID_B = "5676ccda-f9b1-4eb5-b1b2-b5370588b2b5";
+  const asset = (id: string) => `https://github.com/user-attachments/assets/${id}`;
+  const signed = (id: string) =>
+    `https://private-user-images.githubusercontent.com/1/2-${id}.png?jwt=token-${id}`;
+  const withImages = (line: number, ...ids: string[]) => ({
+    ...commentDraftRow("def456", line),
+    body: [`Line ${line}`, ...ids.map((id) => `<img alt="shot" src="${asset(id)}">`)].join("\n"),
+  });
+
+  function setupWithDrafts(
+    renderMarkdown: () => unknown,
+    kv: Record<string, unknown> = {
+      "comment:collibra/frontend#25259:d1": withImages(3, ID_A),
+      "comment:collibra/frontend#25259:d2": withImages(4, ID_A, ID_B),
+    },
+  ) {
+    return setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(25259) },
+      host: (call) =>
+        call.method === "renderMarkdown" ? renderMarkdown() : recordedReviewHost(call),
+      kv,
+    });
+  }
+
+  const renderCalls = (harness: Awaited<ReturnType<typeof setup>>) =>
+    harness.experimental_hostRpcCalls.filter(({ method }) => method === "renderMarkdown");
+
+  const signedHtml = () => ({
+    ok: true,
+    html: `<p><img src="${signed(ID_A)}"><img src="${signed(ID_B)}"></p>`,
+  });
+
+  it("maps each attachment of the comment drafts to its signed URL with one render", async () => {
+    const harness = await setupWithDrafts(signedHtml);
+
+    const review = (await harness.behavior.callRpc("getReview", {
+      threadId: "thr_1",
+    })) as ReviewResult;
+    const drafts = (await harness.behavior.callRpc("getDrafts", {
+      threadId: "thr_1",
+    })) as DraftsResult;
+
+    const expected = { [asset(ID_A)]: signed(ID_A), [asset(ID_B)]: signed(ID_B) };
+    expect(review).toMatchObject({ kind: "ok", draftMedia: expected });
+    expect(drafts).toMatchObject({ kind: "ok", draftMedia: expected });
+    const calls = renderCalls(harness);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]!.input).toEqual({
+      owner: "collibra",
+      repo: "frontend",
+      text: `<img alt="" src="${asset(ID_A)}">\n<img alt="" src="${asset(ID_B)}">`,
+    });
+  });
+
+  it("leaves out an attachment that GitHub did not sign", async () => {
+    const harness = await setupWithDrafts(() => ({
+      ok: true,
+      html: `<p><img src="${signed(ID_B)}"></p>`,
+    }));
+
+    expect(await harness.behavior.callRpc("getReview", { threadId: "thr_1" })).toMatchObject({
+      draftMedia: { [asset(ID_B)]: signed(ID_B) },
+    });
+  });
+
+  it("loads the review with no signed URLs when rendering fails", async () => {
+    const harness = await setupWithDrafts(() => ({
+      ok: false,
+      failure: { kind: "failed", message: "gh: HTTP 502" },
+    }));
+
+    const review = await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+
+    expect(review).toMatchObject({ kind: "ok", draftMedia: {} });
+    expect((review as Extract<ReviewResult, { kind: "ok" }>).commentDrafts).toHaveLength(2);
+  });
+
+  it("renders nothing when no draft has an attachment", async () => {
+    const harness = await setupWithDrafts(signedHtml, {
+      "comment:collibra/frontend#25259:d1": commentDraftRow("def456", 3),
+    });
+
+    expect(await harness.behavior.callRpc("getReview", { threadId: "thr_1" })).toMatchObject({
+      draftMedia: {},
+    });
+    expect(renderCalls(harness)).toEqual([]);
   });
 });
 

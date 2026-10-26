@@ -16,12 +16,14 @@ import {
 } from "../core/image-content";
 import type {
   ActionResult,
+  DisplayedDrafts,
   MarkCommentsSeenRequest,
   ReviewDrafts,
   SendToAgentResult,
   UpdateViewedRequest,
 } from "../contract";
 import { buildAgentPrompt } from "../core/agent-prompt";
+import { attachmentTag, draftAttachments } from "../core/attachments";
 import type { Draft, Drafts } from "../core/drafts";
 import { checkAnchor, type Anchor } from "../core/diff-lines";
 import { checkOneCommit } from "../core/draft-commits";
@@ -29,7 +31,12 @@ import { newCommentIds } from "../core/new-comments";
 import { collectPrFiles, type ReviewFile } from "../core/pr-files";
 import { parsePrHead, type PrHead } from "../core/pr-head";
 import { prKey, type PullRequestRef } from "../core/pr-ref";
-import { hasText, type ListedCommentDraft, type SummaryDraft } from "../core/review-drafts";
+import {
+  hasText,
+  type CommentDraft,
+  type ListedCommentDraft,
+  type SummaryDraft,
+} from "../core/review-drafts";
 import {
   collectReviewThreads,
   type CollectedReviewThreads,
@@ -74,7 +81,11 @@ export type PrLoad<T> =
   | ({ kind: "ok"; target: PrTarget } & T);
 
 export type ReviewLoad = PrLoad<{ allThreadsRead: boolean; review: PrReview }>;
-export type DraftsLoad = PrLoad<{ drafts: ReviewDrafts }>;
+export type DisplayedReviewLoad = PrLoad<{
+  allThreadsRead: boolean;
+  review: PrReview & Pick<DisplayedDrafts, "draftMedia">;
+}>;
+export type DraftsLoad = PrLoad<{ drafts: DisplayedDrafts }>;
 export type BasisLoad = PrLoad<{ basis: ReviewBasis }>;
 export type TargetLoad = PrLoad<object>;
 
@@ -106,6 +117,7 @@ interface ReviewServiceDeps {
   markCommentsSeen(pr: PullRequestRef, ids: readonly string[]): Promise<ActionResult>;
   publishDrafts(update: ReviewUpdated): void;
   sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
+  renderMarkdown(target: PrTarget, text: string): Promise<string>;
   signMedia: SignMedia;
   now(): number;
   newDraftId(): string;
@@ -209,12 +221,37 @@ export function createReviewService(deps: ReviewServiceDeps) {
     }));
   }
 
+  async function draftMedia(
+    target: PrTarget,
+    commentDrafts: readonly ListedCommentDraft[],
+  ): Promise<DisplayedDrafts["draftMedia"]> {
+    const urls = [
+      ...new Set(commentDrafts.flatMap(({ body }) => draftAttachments(body).map(({ url }) => url))),
+    ];
+    if (urls.length === 0) return {};
+    try {
+      const tags = urls.map((url) => attachmentTag({ alt: "", url })).join("\n");
+      const signed = deps.signMedia(urls.join("\n"), await deps.renderMarkdown(target, tags));
+      return Object.fromEntries(
+        signed
+          .split("\n")
+          .map((url, index) => [urls[index]!, url] as const)
+          .filter(([original, url]) => url !== original),
+      );
+    } catch {
+      return {};
+    }
+  }
+
   function load(threadId: string): Promise<ReviewLoad> {
     return loadReview(threadId, ({ threads }) => threads);
   }
 
-  function loadForDisplay(threadId: string): Promise<ReviewLoad> {
-    return loadReview(threadId, signedThreads);
+  async function loadForDisplay(threadId: string): Promise<DisplayedReviewLoad> {
+    const load = await loadReview(threadId, signedThreads);
+    if (load.kind !== "ok") return load;
+    const media = await draftMedia(load.target, load.review.commentDrafts);
+    return { ...load, review: { ...load.review, draftMedia: media } };
   }
 
   function loadReview(
@@ -240,9 +277,8 @@ export function createReviewService(deps: ReviewServiceDeps) {
   function loadDrafts(threadId: string): Promise<DraftsLoad> {
     return withPr(threadId, async (target) => {
       const { collected } = await loadedPr(target);
-      return {
-        drafts: await readDrafts(target.ref, deps.drafts.knownDrafts(target.ref, collected)),
-      };
+      const drafts = await readDrafts(target.ref, deps.drafts.knownDrafts(target.ref, collected));
+      return { drafts: { ...drafts, draftMedia: await draftMedia(target, drafts.commentDrafts) } };
     });
   }
 
@@ -305,6 +341,10 @@ export function createReviewService(deps: ReviewServiceDeps) {
     const edited = await deps.drafts.editComment(pr, draftId, edit);
     if (edited) deps.publishDrafts({ threadId });
     return edited;
+  }
+
+  function commentDraft(pr: PullRequestRef, draftId: string): Promise<CommentDraft | null> {
+    return deps.drafts.comment(pr, draftId);
   }
 
   async function deleteCommentDraft(
@@ -437,6 +477,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
     loadTarget,
     saveDraft,
     createCommentDraft,
+    commentDraft,
     editCommentDraft,
     deleteCommentDraft,
     saveSummaryDraft,
