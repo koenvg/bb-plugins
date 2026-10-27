@@ -37,6 +37,7 @@ import type {
   Task,
   TaskDependencyState,
   TaskLabel,
+  TaskStatusTransition,
   TaskThread,
   TaskThreadLiveStatus,
   UpdateAttachmentInput,
@@ -497,6 +498,11 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     JOIN projects p ON p.id = t.project_id
   `;
   const getTaskRow = db.prepare<[string], TaskRow>(`${taskSelect} WHERE t.id = ?`);
+  const taskStatusTransitions = db.prepare<[string], TaskStatusTransition>(`
+    SELECT id, task_id AS taskId, from_status AS fromStatus,
+      to_status AS toStatus, changed_at AS changedAt
+    FROM task_status_transitions WHERE task_id = ? ORDER BY id ASC
+  `);
   const getLabelRow = db.prepare<[string], LabelRow>("SELECT * FROM labels WHERE id = ?");
   const getAttachmentRow = db.prepare<[string], AttachmentRow>(
     "SELECT * FROM attachments WHERE id = ?",
@@ -676,6 +682,10 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   function getTask(id: string): Task | undefined {
     const row = getTaskRow.get(id);
     return row ? taskFromRow(row) : undefined;
+  }
+
+  function listTaskStatusTransitions(taskId: string): TaskStatusTransition[] {
+    return taskStatusTransitions.all(taskId);
   }
 
   const getTaskByKeyRow = db.prepare<[string, number], TaskRow>(
@@ -1850,6 +1860,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     setCreatorThreadBlocked,
     createTask,
     getTask,
+    listTaskStatusTransitions,
     getTaskByKey,
     listTasksPage,
     listTasks,
