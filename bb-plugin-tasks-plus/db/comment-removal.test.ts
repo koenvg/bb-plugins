@@ -144,7 +144,7 @@ describe("comment-removal forward migration", () => {
       initializeTasksSchema(db);
       expectCommentFree(db);
       expect(db.prepare("SELECT COUNT(*) AS count FROM schema_version").get()).toEqual({
-        count: 13,
+        count: 14,
       });
       expect(() =>
         db.exec(`INSERT INTO attachments VALUES
