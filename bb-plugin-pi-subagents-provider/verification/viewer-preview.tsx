@@ -24,7 +24,15 @@ const state: ViewState = {
   rows: [
     {
       ...base,
+      id: "empty-root",
+      runId: "empty-root-run",
+      kind: "workflow",
+      label: "Empty review workflow",
+    },
+    {
+      ...base,
       id: "review",
+      parentId: "empty-root",
       runId: "review-run",
       label: "Review viewer behavior",
       durationMs: 102000,
@@ -109,8 +117,17 @@ const state: ViewState = {
     },
     {
       ...base,
-      id: "nested",
+      id: "empty-nested",
       parentId: "review",
+      runId: "empty-nested-run",
+      kind: "workflow",
+      label: "Empty nested workflow",
+      capture: { status: "captured", capturedAt: 100000 },
+    },
+    {
+      ...base,
+      id: "nested",
+      parentId: "empty-nested",
       runId: "nested-run",
       label: "Check nested capture",
       source: "background",

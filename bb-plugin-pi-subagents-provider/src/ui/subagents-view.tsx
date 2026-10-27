@@ -26,20 +26,46 @@ function modelLabel(row: ViewRow) {
   const model = row.capture?.resolvedModel;
   return model ? `Captured model: ${model.model} · ${model.provider}` : "Model unavailable";
 }
-function orderedRows(rows: readonly ViewRow[]) {
-  const result: { row: ViewRow; depth: number }[] = [];
+type OverviewEntry = Readonly<{ row: ViewRow; depth: number; rawPosition: number }>;
+function canFlattenWorkflow(row: ViewRow, hasTraversableChild: boolean) {
+  const capture = row.capture;
+  return (
+    row.kind === "workflow" &&
+    row.state === "complete" &&
+    !row.incomplete &&
+    hasTraversableChild &&
+    !capture?.task?.trim() &&
+    !capture?.finalOutput?.trim() &&
+    !capture?.messages?.length &&
+    !capture?.resolvedModel &&
+    (!capture || capture.status === "captured") &&
+    !capture?.reason?.trim() &&
+    !capture?.truncated?.task &&
+    !capture?.truncated?.finalOutput &&
+    !(capture?.truncated && capture.truncated.messages > 0)
+  );
+}
+function projectRows(rows: readonly ViewRow[]) {
+  const ordered: ViewRow[] = [];
+  const overviewEntries: OverviewEntry[] = [];
   const seen = new Set<string>();
   function visit(row: ViewRow, depth: number) {
     if (seen.has(row.id)) return;
     seen.add(row.id);
-    result.push({ row, depth });
-    for (const child of rows.filter((r) => r.parentId === row.id))
-      visit(child, Math.min(depth + 1, 4));
+    const rawPosition = ordered.length;
+    ordered.push(row);
+    const children = rows.filter((child) => child.parentId === row.id);
+    const hidden = canFlattenWorkflow(
+      row,
+      children.some((child) => !seen.has(child.id)),
+    );
+    if (!hidden) overviewEntries.push({ row, depth: Math.min(depth, 4), rawPosition });
+    for (const child of children) visit(child, depth + (hidden ? 0 : 1));
   }
   for (const row of rows.filter((r) => !r.parentId || !rows.some((p) => p.id === r.parentId)))
     visit(row, 0);
   for (const row of rows) visit(row, 0);
-  return result;
+  return { ordered, overviewEntries };
 }
 function rowPresentation(row: ViewRow, orderedPosition: number) {
   const kindContext = `${row.source === "background" ? "Background" : "Foreground"} ${row.kind}`;
@@ -364,8 +390,8 @@ export function SubagentsView({
   target?: string | null;
   overview?: boolean;
 }) {
-  const items = useMemo(() => orderedRows(state?.rows ?? []), [state]);
-  const rows = useMemo(() => new Map(items.map(({ row }) => [row.id, row])), [items]);
+  const { ordered, overviewEntries } = useMemo(() => projectRows(state?.rows ?? []), [state]);
+  const rows = useMemo(() => new Map(ordered.map((row) => [row.id, row])), [ordered]);
   const navigation: Navigation =
     target === null
       ? { kind: "invalid" }
@@ -388,6 +414,7 @@ export function SubagentsView({
   const tabId = (tab: Tab) => `${prefix}-tab-${tabKey(tab)}`;
   const panelId = (tab: Tab) => `${prefix}-panel-${tabKey(tab)}`;
   const focused = root.current?.ownerDocument.activeElement;
+  const focusedOverviewIndex = buttons.current.findIndex((button) => button === focused);
   if (focused && root.current?.contains(focused)) {
     const panel = focused.closest<HTMLElement>("[role=tabpanel]");
     if (panel) {
@@ -403,6 +430,16 @@ export function SubagentsView({
     if (focusRequested.current) {
       focusRequested.current = false;
       button?.focus({ preventScroll: true });
+    } else if (
+      focusedOverviewIndex >= 0 &&
+      !focused?.isConnected &&
+      tabs.active.kind === "agents"
+    ) {
+      (
+        buttons.current[Math.min(focusedOverviewIndex, overviewEntries.length - 1)] ?? button
+      )?.focus({
+        preventScroll: true,
+      });
     }
     if (!sameTab(lastRevealed.current, tabs.active)) {
       button?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
@@ -446,7 +483,7 @@ export function SubagentsView({
     const row = tab.kind === "row" ? rows.get(tab.id) : undefined;
     const label =
       tab.kind === "agents" ? "Agents" : row ? rowPresentation(row, 0).label : "Unavailable agent";
-    const position = row ? items.findIndex((item) => item.row.id === row.id) : -1;
+    const position = row ? ordered.findIndex((item) => item.id === row.id) : -1;
     const reference = row
       ? rowPresentation(row, position).entryLabel
       : tab.kind === "row"
@@ -487,12 +524,12 @@ export function SubagentsView({
           onKeyDown={(event) => tabKeyDown(event, tab)}
           aria-description={
             tab.kind === "agents" && state
-              ? `${items.length} observed entries in available history. Not an active-worker count.`
+              ? `${ordered.length} observed entries in available history. Not an active-worker count.`
               : undefined
           }
           title={
             tab.kind === "agents" && state
-              ? `Agents · ${items.length} observed entries in available history`
+              ? `Agents · ${ordered.length} observed entries in available history`
               : row
                 ? `${label} · ${reference} · ${row.state}`
                 : accessibleLabel
@@ -506,7 +543,7 @@ export function SubagentsView({
           )}
           {tab.kind === "agents" && state && (
             <span className="pi-subagents-tab-count" aria-hidden="true">
-              {items.length}
+              {ordered.length}
             </span>
           )}
         </button>
@@ -581,13 +618,13 @@ export function SubagentsView({
           hidden={tabs.active.kind !== "agents"}
           className="pi-subagents-tabpanel pi-subagents-overview"
         >
-          {!items.length && !loading && (
+          {!overviewEntries.length && !loading && (
             <p>No child work has been captured. Ordinary Pi work remains available.</p>
           )}
           <nav aria-label="Observed children">
             <ul>
-              {items.map(({ row, depth }, index) => {
-                const presentation = rowPresentation(row, index);
+              {overviewEntries.map(({ row, depth, rawPosition }, index) => {
+                const presentation = rowPresentation(row, rawPosition);
                 return (
                   <li key={row.id} style={{ paddingInlineStart: `${depth * 12}px` }}>
                     <button
@@ -614,10 +651,11 @@ export function SubagentsView({
                           return;
                         }
                         let next: number;
-                        if (event.key === "ArrowDown") next = Math.min(items.length - 1, index + 1);
+                        if (event.key === "ArrowDown")
+                          next = Math.min(overviewEntries.length - 1, index + 1);
                         else if (event.key === "ArrowUp") next = Math.max(0, index - 1);
                         else if (event.key === "Home") next = 0;
-                        else if (event.key === "End") next = items.length - 1;
+                        else if (event.key === "End") next = overviewEntries.length - 1;
                         else return;
                         event.preventDefault();
                         setTabs((current) => transition(current, { kind: "cancel-wait" }));
@@ -697,7 +735,7 @@ export function SubagentsView({
                   active={active}
                   presentation={rowPresentation(
                     row,
-                    items.findIndex((item) => item.row.id === id),
+                    ordered.findIndex((item) => item.id === id),
                   )}
                 />
               ) : (
