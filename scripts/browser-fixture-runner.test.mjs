@@ -40,7 +40,7 @@ test("config accepts only the runner's actual bare origin", () => {
   }
 });
 const runner = fileURLToPath(new URL("./browser-fixture-runner.mjs", import.meta.url));
-async function scenario(mode, args = [], viaPackage = false) {
+async function scenario(mode, args = [], viaPackage = false, runtime) {
   const root = await mkdtemp(join(tmpdir(), "browser-runner-contract-"));
   await mkdir(join(root, "node_modules/@playwright/test"), { recursive: true });
   await mkdir(join(root, "temporary"));
@@ -61,7 +61,7 @@ async function scenario(mode, args = [], viaPackage = false) {
     `
 import {writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
-await writeFile('handoff.json', JSON.stringify({args:process.argv.slice(2),origin:process.env.BB_BROWSER_BASE_URL,parent:process.env.BB_FIXTURE_RUN_DIR}));
+await writeFile('handoff.json', JSON.stringify({runtime:process.versions.bun?'bun':'node',args:process.argv.slice(2),origin:process.env.BB_BROWSER_BASE_URL,parent:process.env.BB_FIXTURE_RUN_DIR}));
 const response=await fetch(process.env.BB_BROWSER_BASE_URL);
 await writeFile('body.txt',await response.text());
 if(process.env.MODE==='descendant') {
@@ -80,6 +80,7 @@ import {createServer} from 'node:http';
 import {writeFile} from 'node:fs/promises';
 import {reportPreviewReady} from ${JSON.stringify(new URL("./browser-fixture-runner.mjs", import.meta.url).href)};
 await writeFile('parent.txt',process.env.BB_FIXTURE_RUN_DIR);
+await writeFile('preview-runtime.txt',process.versions.bun?'bun':'node');
 const mode=process.env.MODE;
 if(mode==='startup-failure')throw new Error('controlled startup failure');
 if(['cancel-startup','timeout'].includes(mode)){console.log('STARTING');await new Promise(()=>{});}
@@ -95,6 +96,17 @@ process.on('SIGTERM',()=>{server.closeAllConnections();server.close()});
 process.on('SIGINT',()=>{server.closeAllConnections();server.close()});
 `,
   );
+  const env = {
+    ...process.env,
+    MODE: mode,
+    TMPDIR: join(root, "temporary"),
+    TMP: join(root, "temporary"),
+    TEMP: join(root, "temporary"),
+    BB_BROWSER_BASE_URL: "http://127.0.0.1:1",
+    BB_FIXTURE_RUN_DIR: "/not-owned",
+  };
+  if (runtime === undefined) delete env.BB_PLAYWRIGHT_RUNTIME;
+  else env.BB_PLAYWRIGHT_RUNTIME = runtime;
   const child = spawn(
     process.execPath,
     viaPackage
@@ -102,15 +114,7 @@ process.on('SIGINT',()=>{server.closeAllConnections();server.close()});
       : [runner, "preview.mjs", mode === "timeout" ? "100" : "3000", ...args],
     {
       cwd: root,
-      env: {
-        ...process.env,
-        MODE: mode,
-        TMPDIR: join(root, "temporary"),
-        TMP: join(root, "temporary"),
-        TEMP: join(root, "temporary"),
-        BB_BROWSER_BASE_URL: "http://127.0.0.1:1",
-        BB_FIXTURE_RUN_DIR: "/not-owned",
-      },
+      env,
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
@@ -143,18 +147,24 @@ process.on('SIGINT',()=>{server.closeAllConnections();server.close()});
   };
 }
 
-for (const mode of [
-  "success",
-  "split",
-  "test-failure",
-  "startup-failure",
-  "timeout",
-  "malformed",
-  "duplicate-late",
-  "preview-death",
-  "descendant",
+for (const [mode, runtime] of [
+  ["success"],
+  ["split"],
+  ["test-failure"],
+  ["startup-failure"],
+  ["timeout"],
+  ["malformed"],
+  ["duplicate-late"],
+  ["preview-death"],
+  ["descendant"],
+  ["success", "bun"],
+  ["success", "node"],
+  ["test-failure", "node"],
+  ["malformed", "node"],
+  ["preview-death", "node"],
+  ["descendant", "node"],
 ]) {
-  test(`runner owns URL and cleanup on ${mode}`, async () => {
+  test(`runner owns URL and cleanup on ${mode} with ${runtime ?? "default"} runtime`, async () => {
     const args = [
       "suite.spec.ts",
       "--grep",
@@ -170,7 +180,7 @@ for (const mode of [
       "retained evidence",
       "--list",
     ];
-    const run = await scenario(mode, args);
+    const run = await scenario(mode, args, false, runtime);
     try {
       const [code] = await run.exited;
       assert.equal(
@@ -191,6 +201,8 @@ for (const mode of [
       if (["success", "split", "test-failure", "descendant"].includes(mode)) {
         const handoff = JSON.parse(await readFile(join(run.root, "handoff.json"), "utf8"));
         assert.deepEqual(handoff.args, ["test", ...args]);
+        assert.equal(handoff.runtime, runtime ?? "bun");
+        assert.equal(await readFile(join(run.root, "preview-runtime.txt"), "utf8"), "bun");
         assert.match(handoff.origin, /^http:\/\/127\.0\.0\.1:\d+$/);
         assert.equal(await readFile(join(run.root, "body.txt"), "utf8"), "owned checkout marker");
         await assert.rejects(fetch(handoff.origin));
@@ -204,12 +216,14 @@ for (const mode of [
     }
   }, 15000);
 }
-for (const [mode, signal, code] of [
+for (const [mode, signal, code, runtime] of [
   ["cancel-startup", "SIGTERM", 143],
   ["cancel-tests", "SIGINT", 130],
+  ["cancel-startup", "SIGTERM", 143, "node"],
+  ["cancel-tests", "SIGINT", 130, "node"],
 ]) {
-  test(`runner cleans ${mode}`, async () => {
-    const run = await scenario(mode);
+  test(`runner cleans ${mode} with ${runtime ?? "default"} runtime`, async () => {
+    const run = await scenario(mode, [], false, runtime);
     try {
       await run.waitFor(mode === "cancel-startup" ? "parent.txt" : "handoff.json");
       run.child.kill(signal);
@@ -217,32 +231,57 @@ for (const [mode, signal, code] of [
       assert.equal((await run.exited)[0], code, run.output());
       assert.equal(run.output().includes("Infrastructure failure"), false, run.output());
       assert.deepEqual(await readdir(join(run.root, "temporary")), ["historical.png"]);
+      if (mode === "cancel-tests") {
+        const handoff = JSON.parse(await readFile(join(run.root, "handoff.json"), "utf8"));
+        assert.equal(handoff.runtime, runtime ?? "bun");
+        await assert.rejects(fetch(handoff.origin));
+      }
     } finally {
       await run.clean();
     }
   }, 15000);
 }
 
-test("package command forwards delimiter, positional filters and quoted values", async () => {
-  const args = [
-    "--",
-    "suite.spec.ts",
-    "--grep",
-    "two words",
-    "--output",
-    "retained evidence",
-    "--reporter",
-    "list",
-    "--list",
-  ];
-  const run = await scenario("success", args, true);
-  try {
-    assert.equal((await run.exited)[0], 0, run.output());
-    const handoff = JSON.parse(await readFile(join(run.root, "handoff.json"), "utf8"));
-    assert.deepEqual(handoff.args, ["test", ...args.slice(1)]);
-    assert.equal(await readFile(join(run.root, "body.txt"), "utf8"), "owned checkout marker");
-    assert.deepEqual(await readdir(join(run.root, "temporary")), ["historical.png"]);
-  } finally {
-    await run.clean();
+test("invalid worker runtime fails before launching the preview", async () => {
+  for (const runtime of ["deno", "", "/usr/bin/node"]) {
+    const run = await scenario("success", [], false, runtime);
+    try {
+      assert.equal((await run.exited)[0], 1, run.output());
+      assert.match(run.output(), /BB_PLAYWRIGHT_RUNTIME must be bun or node/);
+      assert.deepEqual(await readdir(join(run.root, "temporary")), ["historical.png"]);
+      await assert.rejects(readFile(join(run.root, "parent.txt")), { code: "ENOENT" });
+      await assert.rejects(readFile(join(run.root, "handoff.json")), { code: "ENOENT" });
+    } finally {
+      await run.clean();
+    }
   }
 });
+
+test.each([undefined, "node"])(
+  "package command forwards delimiter, positional filters and quoted values with %s runtime",
+  async (runtime) => {
+    const args = [
+      "--",
+      "suite.spec.ts",
+      "--grep",
+      "two words",
+      "--output",
+      "retained evidence",
+      "--reporter",
+      "list",
+      "--list",
+    ];
+    const run = await scenario("success", args, true, runtime);
+    try {
+      assert.equal((await run.exited)[0], 0, run.output());
+      const handoff = JSON.parse(await readFile(join(run.root, "handoff.json"), "utf8"));
+      assert.deepEqual(handoff.args, ["test", ...args.slice(1)]);
+      assert.equal(handoff.runtime, runtime ?? "bun");
+      assert.equal(await readFile(join(run.root, "preview-runtime.txt"), "utf8"), "bun");
+      assert.equal(await readFile(join(run.root, "body.txt"), "utf8"), "owned checkout marker");
+      assert.deepEqual(await readdir(join(run.root, "temporary")), ["historical.png"]);
+    } finally {
+      await run.clean();
+    }
+  },
+);
