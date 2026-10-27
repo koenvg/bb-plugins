@@ -50,6 +50,14 @@ export interface Task {
   updatedAt: string;
 }
 
+export interface TaskStatusTransition {
+  id: number;
+  taskId: string;
+  fromStatus: TaskStatus;
+  toStatus: TaskStatus;
+  changedAt: string;
+}
+
 export interface Label {
   id: string;
   projectId: string;
