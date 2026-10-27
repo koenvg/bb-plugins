@@ -20,7 +20,9 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
-    "check": "bun run test:setup && bun run test:workspaces && bun run test:browser-lifecycle && bun run lint && bun run format:check"
+    "check": "bun --no-install scripts/checks.mjs root",
+    "check:review": "bun --no-install scripts/checks.mjs review",
+    "test:review": "bun test scripts/checks.test.mjs"
   },
   "engines": {
     "node": ">=26.0.0 <27",

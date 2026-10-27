@@ -11,7 +11,7 @@ BB is the real application. This checkout contains 13 plugin packages, not BB's 
 
 ## Launch
 
-Use Bun 1.4.4 and Node `>=26.0.0 <27`. Start at the repository root. Inspect package scripts/lifecycle hooks before execution. Set the selected package and a new private evidence directory:
+Use Bun 1.4.4 and Node `>=26.0.0 <27`. Start at the repository root. Inspect root and selected package scripts/lifecycle hooks before execution. Set the selected package and a new private evidence directory outside the checkout:
 
 ```sh
 SKILL="$PWD/.pi/skills/verify-bb-plugins"
@@ -23,25 +23,36 @@ mkdir -m 700 "$EVIDENCE"
 
 Choose `PLUGIN` from the index, not an installed catalog name. Follow its additional prerequisites before checks. GitHub Insight needs its sibling PR thread-list dependencies. Tasks Plus needs SQLite, the built local Markdown package, Quota fixture dependencies, and its pinned TypeScript 7 compiler. Do not use generic setup to bypass these requirements.
 
-After the package-specific prerequisites are available, install workspace dependencies from the root lockfile and build shared Markdown:
+Reuse prepared dependencies. Setup requires separate permission. If authorized and the package-specific prerequisites are available, install workspace dependencies from the root lockfile and build shared Markdown:
 
 ```sh
 bash .bb-env-setup.sh
 ```
 
-After successful setup, run tests and typecheck separately so a test failure does not skip typecheck:
+Run the pre-review command for the selected package:
 
 ```sh
-bun run --cwd "$PACKAGE" test > "$EVIDENCE/tests.log" 2>&1
-TEST_EXIT=$?
-bun run --cwd "$PACKAGE" typecheck > "$EVIDENCE/typecheck.log" 2>&1
-TYPECHECK_EXIT=$?
-printf 'tests=%s typecheck=%s\n' "$TEST_EXIT" "$TYPECHECK_EXIT" > "$EVIDENCE/check-exits.txt"
+bun --no-install run check:review --evidence "$EVIDENCE/checks" --package "bb-plugin-$PLUGIN"
 ```
 
-Record both exit codes. Either failure blocks dependent installed activation. Do not suppress a failing check or upgrade dependencies to make setup pass.
+With no `--package`, run root checks only. This never selects all plugins:
 
-For Compose Chat, Codex Quota or Markdown Reader, install the package's pinned Chromium, then run the existing browser suite through the evidence wrapper:
+```sh
+bun --no-install run check:review --evidence "$EVIDENCE/root-checks"
+```
+
+Repeat `--package` to select multiple exact directory names:
+
+```sh
+bun --no-install run check:review --evidence "$EVIDENCE/selected-checks" \
+  --package bb-plugin-compose-chat --package bb-plugin-markdown-reader
+```
+
+Both `check` and `check:review` run the same ordered root checks, including lint and formatting. Review then runs each selected package's existing test and typecheck scripts. Every check runs independently, even after a failure. The command creates a new private evidence subdirectory with checkout HEAD/status, selected packages, a command plan, numbered combined stdout/stderr logs, individual results and a final summary after all checks.
+
+Inspect every result. Nonzero exits, unavailable exits, signals and evidence errors block review readiness and dependent installed activation. Do not suppress failures or upgrade dependencies to make checks pass. A local check pass is not installed acceptance. Setup, SDK synchronization, browser suites and installed activation each require separate permission; this command grants none.
+
+With separate permission for browser setup and execution, install the package's pinned Chromium for Compose Chat, Codex Quota or Markdown Reader, then run the existing browser suite through the evidence wrapper:
 
 ```sh
 (cd "$PACKAGE" && bun --bun run playwright install chromium)
