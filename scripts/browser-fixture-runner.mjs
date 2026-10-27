@@ -35,8 +35,8 @@ export function reportPreviewReady(origin) {
     console.log(readyPrefix + JSON.stringify({ version: 1, origin: actual }));
 }
 
-function spawnOwned(args, env) {
-  const child = spawn(process.execPath, args, {
+function spawnOwned(args, env, executable = process.execPath) {
+  const child = spawn(executable, args, {
     cwd: process.cwd(),
     env,
     detached: true,
@@ -98,6 +98,9 @@ async function run() {
     throw new Error("Expected preview entry and startup deadline");
   if (process.platform === "win32")
     throw new Error("Infrastructure failure: POSIX process groups are required");
+  const runtime = process.env.BB_PLAYWRIGHT_RUNTIME ?? "bun";
+  if (runtime !== "bun" && runtime !== "node")
+    throw new Error("BB_PLAYWRIGHT_RUNTIME must be bun or node");
   const owners = [];
   let directory;
   let cancellation;
@@ -179,10 +182,11 @@ async function run() {
     clearTimeout(deadline);
     if (startup.error || failure) throw startup.error ?? failure;
     const cli = createRequire(join(process.cwd(), "package.json")).resolve("@playwright/test/cli");
-    const playwright = spawnOwned(["--bun", cli, "test", ...args], {
-      ...env,
-      [originKey]: startup.origin,
-    });
+    const playwright = spawnOwned(
+      [...(runtime === "bun" ? ["--bun"] : []), cli, "test", ...args],
+      { ...env, [originKey]: startup.origin },
+      runtime === "node" ? "node" : process.execPath,
+    );
     owners.push(playwright);
     playwright.child.stdout.pipe(process.stdout, { end: false });
     playwright.child.stderr.pipe(process.stderr, { end: false });

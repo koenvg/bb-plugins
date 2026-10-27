@@ -47,6 +47,8 @@ BBP53_CAPTURE_PHASE=none bun run test:browser \
   --trace on --output "$EVIDENCE/results"
 ```
 
+Tasks Plus selects `BB_PLAYWRIGHT_RUNTIME=node` in `test:browser` so its database-backed Playwright tests can load `better-sqlite3`. The launcher and preview still use Bun. The shared runner defaults to Bun when this variable is unset, accepts only `bun` or `node`, and rejects other values before fixture launch.
+
 The browser script starts this checkout on an OS-assigned loopback port with a private Vite cache. Playwright requires the runner's origin handoff and does not reuse another listener. Cross-origin fixture URLs use `localhost` on that same owned port. Teardown stops only the run's process groups. Keep `BBP53_CAPTURE_PHASE=none` and the private-capture config to preserve historical captures.
 
 Typecheck uses TypeScript **7.0.2**, the stable npm release selected for BBP-127.
