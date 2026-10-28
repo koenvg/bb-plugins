@@ -24,7 +24,7 @@ bun run build
 
 Also run the read-only `bb plugin types . --check` and retain its actual exit code and complete output. The normal current-host gate must pass before building. When updating BB compatibility, synchronize the canonical SDK with `bb plugin types`, update the runtime alias to the same exact version, and rerun all checks. The historical BB 0.44.0 / SDK 0.5.29 exception does not apply. Local checks do not authorize installation or paid tests.
 
-The [latest-release CI check](../.github/workflows/pi-compatibility.yml) tests published BB and SDK upgrades daily, on relevant pull requests, and on manual dispatch. It uses a disposable checkout and retains failure evidence. Production pins and supported ranges require an explicit update after review. See [release compatibility checks](COMPATIBILITY.md#release-compatibility-checks) for the limits.
+The [latest-release CI check](../.github/workflows/pi-compatibility.yml) tests the latest published BB daily, on relevant pull requests, and on manual dispatch. It selects the matching SDK from BB's built-in plugin build metadata. Candidate setup and all compatibility checks remain blocking. Independently latest SDK metadata is advisory, with mismatches and lookup failures visible in the summary and retained evidence. It uses a disposable checkout without changing source pins or engine ranges. Production pins and supported ranges require an explicit update after review. See [release compatibility checks](COMPATIBILITY.md#release-compatibility-checks) for the limits.
 
 ## Install after approval
 

@@ -12,7 +12,7 @@
     "npm": "11.21.0"
   },
   "scripts": {
-    "test:setup": "bun test ./scripts/environment-setup.test.mjs",
+    "test:setup": "bun test ./scripts/environment-setup.test.mjs ./scripts/pi-compatibility.test.mjs",
     "test:workspaces": "bun test scripts/workspaces.test.mjs",
     "test:browser-lifecycle": "bun test scripts/browser-fixture-runner.test.mjs scripts/browser-preview-servers.test.mjs",
     "test:browser": "bun run --cwd bb-plugin-compose-chat test:browser && bun run --cwd bb-plugin-markdown-reader test:browser && bun run --cwd bb-plugin-codex-quota test:browser",
