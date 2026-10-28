@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+const mp4 = Buffer.from("000000186674797069736f6d0000000069736f6d6d703432", "hex");
 const state = vi.hoisted(() => ({
   calls: [] as unknown[][],
-  size: "24",
-  bytes: Buffer.from("000000186674797069736f6d0000000069736f6d6d703432", "hex"),
+  contents: {} as object,
   error: null as object | null,
 }));
 vi.mock("node:child_process", async () => {
@@ -11,10 +11,9 @@ vi.mock("node:child_process", async () => {
     execFile: Object.assign(() => {}, {
       [promisify.custom]: (...args: unknown[]) => {
         state.calls.push(args);
-        const options = args[2] as { encoding?: string };
         return state.error
           ? Promise.reject(state.error)
-          : Promise.resolve({ stdout: options.encoding === "buffer" ? state.bytes : state.size });
+          : Promise.resolve({ stdout: JSON.stringify(state.contents) });
       },
     }),
   };
@@ -26,54 +25,42 @@ const request = {
   sha: "1111111111111111111111111111111111111111",
   path: "videos/a b#?.mp4",
 };
+function serve(size: number) {
+  state.contents = {
+    sha: "2222222222222222222222222222222222222222",
+    size,
+    encoding: "base64",
+    content: mp4.toString("base64"),
+  };
+}
 beforeEach(() => {
   state.calls = [];
-  state.size = "24";
   state.error = null;
+  serve(24);
 });
 describe("authenticated bounded video host", () => {
-  it("checks size before reading raw bytes at an encoded immutable revision", async () => {
+  it("reads base64 content at an encoded immutable revision", async () => {
     const signal = new AbortController().signal;
     expect(await host.handlers.readPrVideo(request, { signal } as never)).toMatchObject({
       kind: "ready",
       mime: "video/mp4",
       sizeBytes: 24,
     });
-    expect(state.calls).toEqual([
+    expect(state.calls.map((call) => call[1])).toEqual([
       [
-        "gh",
-        [
-          "api",
-          "repos/private-owner/private-fork/contents/videos/a%20b%23%3F.mp4?ref=1111111111111111111111111111111111111111",
-          "-H",
-          "Accept: application/vnd.github.object+json",
-          "--jq",
-          ".size",
-        ],
-        { signal, maxBuffer: 4096, timeout: 20_000 },
-      ],
-      [
-        "gh",
-        [
-          "api",
-          "repos/private-owner/private-fork/contents/videos/a%20b%23%3F.mp4?ref=1111111111111111111111111111111111111111",
-          "-H",
-          "Accept: application/vnd.github.raw+json",
-        ],
-        { signal, encoding: "buffer", maxBuffer: 8388608, timeout: 20_000 },
+        "api",
+        "repos/private-owner/private-fork/contents/videos/a%20b%23%3F.mp4?ref=1111111111111111111111111111111111111111",
       ],
     ]);
+    expect(state.calls[0]?.[2]).toMatchObject({ signal });
   });
-  it.each(["8388609", "-1", "unknown", "0"])(
-    "does not read raw bytes after invalid or oversized size %s",
-    async (size) => {
-      state.size = size;
-      expect(
-        await host.handlers.readPrVideo(request, { signal: new AbortController().signal } as never),
-      ).toMatchObject({ kind: "error", code: size === "8388609" ? "too_large" : "read" });
-      expect(state.calls).toHaveLength(1);
-    },
-  );
+  it("does not download content over the preview limit", async () => {
+    serve(8 * 1024 * 1024 + 1);
+    expect(
+      await host.handlers.readPrVideo(request, { signal: new AbortController().signal } as never),
+    ).toMatchObject({ kind: "error", code: "too_large" });
+    expect(state.calls).toHaveLength(1);
+  });
   it("rejects unsafe input before spawning gh and rejects partial content", async () => {
     expect(
       await host.handlers.readPrVideo({ ...request, path: "../secret.mp4" }, {
@@ -81,7 +68,7 @@ describe("authenticated bounded video host", () => {
       } as never),
     ).toMatchObject({ kind: "error", code: "read" });
     expect(state.calls).toHaveLength(0);
-    state.size = "25";
+    serve(25);
     expect(
       await host.handlers.readPrVideo(request, { signal: new AbortController().signal } as never),
     ).toMatchObject({ kind: "error", code: "read" });

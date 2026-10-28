@@ -15,6 +15,7 @@ import { ShowFilesProvider, type FilesJump, type FilesJumpRequest } from "./file
 import { FilesTab } from "./files-tab";
 import { ReportSummaryProvider, type PrTabSummary } from "./pr-tab-summary";
 import { OverviewTab } from "./overview-tab";
+import { RepoImageThreadProvider } from "./pr-markdown";
 import { rememberedSubTab, rememberSubTab, type PrSubTab } from "./pr-sub-tab";
 
 const SUB_TABS: readonly { id: PrSubTab; label: string }[] = [
@@ -68,29 +69,31 @@ function PrPanelContent({ threadId }: { threadId: string }) {
     panel: `${idPrefix}-${subTab}-panel`,
   });
   return (
-    <div className="flex h-full min-w-0 flex-col [contain:inline-size]">
-      <SubTabBar
-        selected={selected}
-        select={select}
-        ids={ids}
-        filesShown={filesShown}
-        summary={summary}
-      />
-      <SubTabPanel ids={ids("overview")} shown={selected === "overview"}>
-        <div ref={overviewScroll} className="h-full overflow-y-auto px-4 py-4">
-          <ShowFilesProvider value={showFiles}>
-            <ReportSummaryProvider value={setSummary}>
-              <OverviewTab threadId={threadId} scrollRoot={overviewScroll} />
-            </ReportSummaryProvider>
-          </ShowFilesProvider>
-        </div>
-      </SubTabPanel>
-      {filesShown && (
-        <SubTabPanel ids={ids("files")} shown={selected === "files"}>
-          <FilesTab threadId={threadId} jump={jumpRequest} />
+    <RepoImageThreadProvider value={threadId}>
+      <div className="flex h-full min-w-0 flex-col [contain:inline-size]">
+        <SubTabBar
+          selected={selected}
+          select={select}
+          ids={ids}
+          filesShown={filesShown}
+          summary={summary}
+        />
+        <SubTabPanel ids={ids("overview")} shown={selected === "overview"}>
+          <div ref={overviewScroll} className="h-full overflow-y-auto px-4 py-4">
+            <ShowFilesProvider value={showFiles}>
+              <ReportSummaryProvider value={setSummary}>
+                <OverviewTab threadId={threadId} scrollRoot={overviewScroll} />
+              </ReportSummaryProvider>
+            </ShowFilesProvider>
+          </div>
         </SubTabPanel>
-      )}
-    </div>
+        {filesShown && (
+          <SubTabPanel ids={ids("files")} shown={selected === "files"}>
+            <FilesTab threadId={threadId} jump={jumpRequest} />
+          </SubTabPanel>
+        )}
+      </div>
+    </RepoImageThreadProvider>
   );
 }
 

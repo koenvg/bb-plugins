@@ -289,3 +289,37 @@ describe("PR image RPC", () => {
     ).toHaveLength(2);
   });
 });
+
+describe("PR body image RPC", () => {
+  const request = { owner: "collibra", repo: "frontend", sha: headSha, path: "docs/top.png" };
+  const ready = { kind: "ready", content: "iVBORw0KGgoAAAAA", mime: "image/png", sizeBytes: 12 };
+
+  it("reads the repo file on the host of the thread's PR", async () => {
+    const harness = await setup({
+      threads: [{ id: "thr_1", environmentId: "env_1" }],
+      pullRequests: { env_1: linkedPr(43) },
+      host: ({ method }) => {
+        if (method === "readPrImage") return ready;
+        throw Error(`Unexpected ${method}`);
+      },
+    });
+
+    expect(
+      await harness.behavior.callRpc("getPrBodyImage", { threadId: "thr_1", ...request }),
+    ).toEqual(ready);
+    expect(
+      harness.experimental_hostRpcCalls
+        .filter(({ method }) => method === "readPrImage")
+        .map(({ input, hostId }) => ({ input, hostId })),
+    ).toEqual([{ hostId: "host-1", input: request }]);
+  });
+
+  it("reads nothing for a thread without a PR", async () => {
+    const harness = await setup({ threads: [{ id: "thr_1", environmentId: null }] });
+
+    expect(
+      await harness.behavior.callRpc("getPrBodyImage", { threadId: "thr_1", ...request }),
+    ).toMatchObject({ kind: "error", code: "read" });
+    expect(harness.experimental_hostRpcCalls).toEqual([]);
+  });
+});
