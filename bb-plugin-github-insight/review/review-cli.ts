@@ -2,6 +2,7 @@ import { cliCommand, defineCli, PluginCliError, type PluginCliContext } from "@g
 import type {
   ReadTextFileRequest,
   ReadTextFileResult,
+  ReviewQueueResult,
   UploadImageRequest,
   UploadImageResult,
 } from "../contract";
@@ -13,6 +14,7 @@ import {
   reviewCommentEntries,
   reviewListEntries,
 } from "../core/review-list";
+import { formatQueueList, queueListOf, type QueueList } from "../core/queue-list";
 import { MAX_THREAD_PAGES, type ReviewThread } from "../core/review-threads";
 import type { ThreadPlacement } from "../core/thread-placement";
 import type { PrLoad, ReviewService } from "./review-service";
@@ -21,6 +23,7 @@ interface ReviewCliDeps {
   review: ReviewService;
   readTextFile(hostId: string, request: ReadTextFileRequest): Promise<ReadTextFileResult>;
   uploadImage(hostId: string, request: UploadImageRequest): Promise<UploadImageResult>;
+  readReviewQueue(): Promise<ReviewQueueResult>;
   now(): number;
 }
 
@@ -114,10 +117,33 @@ export function createReviewCli(deps: ReviewCliDeps) {
     return attachments;
   }
 
+  async function storedQueueList(): Promise<QueueList> {
+    const load = queueListOf(await deps.readReviewQueue());
+    if (load.kind === "loading") {
+      throw new PluginCliError("The review queue has not loaded yet", {
+        hint: "The queue loads when bb starts, then every 5 minutes. Try again in a moment.",
+      });
+    }
+    if (load.kind === "error") throw new PluginCliError(load.message);
+    return load.list;
+  }
+
   return defineCli({
     name: "github-insight",
-    summary: "Review threads of this thread's pull request",
+    summary: "Review threads of this thread's pull request, and the review queue",
     commands: {
+      "queue list": cliCommand({
+        summary:
+          "List the pull requests in the review queue, with their marks and linked review threads. Reads the stored queue, never calls GitHub.",
+        options: { json: { type: "boolean", description: "Print JSON" } },
+        run: async ({ options }) => {
+          const list = await storedQueueList();
+          return {
+            exitCode: 0,
+            stdout: options.json ? `${JSON.stringify(list, null, 2)}\n` : formatQueueList(list),
+          };
+        },
+      }),
       "review list": cliCommand({
         summary:
           "List the unresolved review threads of this thread's PR, the comment drafts, and the summary draft",

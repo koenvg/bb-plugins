@@ -12,6 +12,7 @@ import {
   type HostCall,
   type PullRequestResult,
 } from "../test/plugin-harness";
+import { ok as okQueue, queuePr, reviewThread, view } from "../test/review-queue-fixtures";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -1187,5 +1188,75 @@ describe("review CLI", () => {
       );
       expect(result.stdout.endsWith("Summary draft:\n    Two notes.\n")).toBe(true);
     });
+  });
+});
+
+describe("queue CLI", () => {
+  it("prints the stored review queue as JSON without calling GitHub or a thread", async () => {
+    const harness = await setup({
+      threads: [],
+      kv: {
+        "review-queue": {
+          v: 5,
+          result: okQueue(
+            view([
+              queuePr({
+                number: 15,
+                review: "updated_since_review",
+                newActivity: ["new_comments"],
+                thread: { ...reviewThread, status: "idle", returned: "finished" },
+              }),
+              queuePr({
+                number: 16,
+                title: "Fix cache",
+                author: "bob",
+                url: "https://github.com/acme/api/pull/16",
+                review: "reviewed",
+              }),
+            ]),
+          ),
+        },
+      },
+    });
+
+    const result = await harness.behavior.runCli(["queue", "list", "--json"], {});
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      loadedAt: "2026-10-02T09:30:00.000Z",
+      truncated: false,
+      error: null,
+      prs: [
+        {
+          key: "acme/api#15",
+          title: "Add rate limits",
+          url: "https://github.com/acme/api/pull/15",
+          author: "alice",
+          section: "needs_review",
+          marks: ["New commits", "New comments"],
+          thread: { id: "thr_review", status: "finished" },
+        },
+        {
+          key: "acme/api#16",
+          title: "Fix cache",
+          url: "https://github.com/acme/api/pull/16",
+          author: "bob",
+          section: "reviewed",
+          marks: [],
+          thread: null,
+        },
+      ],
+    });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
+  });
+
+  it("fails with a hint before the queue first loads", async () => {
+    const harness = await setup({ threads: [] });
+
+    const result = await harness.behavior.runCli(["queue", "list"], {});
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("The review queue has not loaded yet");
+    expect(harness.experimental_hostRpcCalls).toHaveLength(0);
   });
 });
