@@ -1,16 +1,16 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
-import type {
-  LinkedQueuePr,
-  NewActivity,
-  QueueSection,
-  ReturnedReason,
-  ReviewThreadStatus,
-  rpcContract,
-} from "../contract";
+import type { LinkedQueuePr, QueueSection, rpcContract } from "../contract";
 import { prKey, type PullRequestRef } from "../core/pr-ref";
 import { relativeTime } from "../core/relative-time";
-import { isReviewed } from "../core/review-queue-view";
+import {
+  agentStateOf,
+  ATTENTION_TEXT,
+  attentionReasons,
+  isReviewed,
+  type AgentState,
+  type AttentionReason,
+} from "../core/review-queue-view";
 import type { CiState, PrState, QueuePr } from "../core/review-queue";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -53,28 +53,30 @@ const STATE_LABEL: Record<PrState, { text: string; icon: IconName; className: st
   closed: { text: "Closed", icon: "GitPullRequestClosed", className: "" },
 };
 
-const ATTENTION_LABEL: Record<
-  NewActivity | "updated_since_review",
-  { text: string; icon: IconName }
-> = {
-  updated_since_review: { text: "New commits", icon: "ArrowUp" },
-  new_comments: { text: "New comments", icon: "MessageSquare" },
-  requested_again: { text: "Review requested again", icon: "UserRoundPlus" },
+const ATTENTION_ICON: Record<AttentionReason, IconName> = {
+  updated_since_review: "ArrowUp",
+  new_comments: "MessageSquare",
+  requested_again: "UserRoundPlus",
 };
 
 function attentionLabels(pr: LinkedQueuePr): { text: string; icon: IconName }[] {
-  const reasons = pr.review === "updated_since_review" ? ["updated_since_review" as const] : [];
-  return [...reasons, ...pr.newActivity].map((reason) => ATTENTION_LABEL[reason]);
+  return attentionReasons(pr).map((reason) => ({
+    text: ATTENTION_TEXT[reason],
+    icon: ATTENTION_ICON[reason],
+  }));
 }
 
 const NEUTRAL_PILL_TONE =
   "review-agent-orbit review-agent-idle text-muted-foreground hover:bg-state-hover hover:text-foreground";
 
-const ACTIVE_AGENT_STATES = ["running", "needs_you", "finished", "failed"] as const;
+const ACTIVE_AGENT_STATES = [
+  "running",
+  "needs_you",
+  "finished",
+  "failed",
+] as const satisfies readonly AgentState[];
 
 type ActiveAgentState = (typeof ACTIVE_AGENT_STATES)[number];
-
-type AgentState = ActiveAgentState | "idle";
 
 const AGENT: Record<AgentState, { label: string; dotClass: string; toneClass: string }> = {
   running: {
@@ -107,25 +109,6 @@ const AGENT: Record<AgentState, { label: string; dotClass: string; toneClass: st
     toneClass: NEUTRAL_PILL_TONE,
   },
 };
-
-const THREAD_STATUS_STATE: Record<ReviewThreadStatus, AgentState> = {
-  running: "running",
-  needs_you: "needs_you",
-  idle: "idle",
-  error: "failed",
-};
-
-const RETURNED_STATE: Record<ReturnedReason, AgentState> = {
-  finished: "finished",
-  needs_you: "needs_you",
-  failed: "failed",
-};
-
-function agentStateOf(thread: NonNullable<LinkedQueuePr["thread"]>): AgentState {
-  return thread.returned !== null
-    ? RETURNED_STATE[thread.returned]
-    : THREAD_STATUS_STATE[thread.status];
-}
 
 const STATUS_PILL_CLASS =
   "group inline-flex h-9 shrink-0 pointer-coarse:h-11 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition-colors duration-150 hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
