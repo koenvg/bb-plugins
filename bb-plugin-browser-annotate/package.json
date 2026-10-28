@@ -17,7 +17,7 @@
     "app": "./app.tsx",
     "skills": []
   },
-  "packageManager": "bun@1.4.3",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "lint": "bun run --cwd .. lint bb-plugin-browser-annotate",
     "lint:fix": "bun run --cwd .. lint:fix bb-plugin-browser-annotate",

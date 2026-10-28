@@ -8,7 +8,7 @@ The package/plugin ID is `bb-plugin-pi-subagents-provider` / `pi-subagents-provi
 
 This package is a Bun workspace. Run `bash .bb-env-setup.sh` at the repository root to prepare all local dependencies. Package-local Bun commands also discover the shared root lockfile. The production packaging test uses that root lock with a filtered production-only install.
 
-Use Bun 1.4.3 for installs and scripts, with Node 26.0.0 or newer within Node 26 for Vitest. The package needs no sibling BB packages, running BB server, account, or model credentials for these checks:
+Use Bun 1.4.4 for installs and scripts, with Node 26.0.0 or newer within Node 26 for Vitest. The package needs no sibling BB packages, running BB server, account, or model credentials for these checks:
 
 ```sh
 cd bb-plugin-pi-subagents-provider

@@ -31,7 +31,7 @@
   "keywords": [
     "bb-plugin"
   ],
-  "packageManager": "bun@1.4.3",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "lint": "bun run --cwd .. lint bb-plugin-tasks-plus",
     "lint:fix": "bun run --cwd .. lint:fix bb-plugin-tasks-plus",

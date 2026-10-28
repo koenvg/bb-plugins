@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.4.3",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "lint": "bun run --cwd .. lint bb-plugin-changes",
     "lint:fix": "bun run --cwd .. lint:fix bb-plugin-changes",

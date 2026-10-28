@@ -72,7 +72,7 @@ bun run build
 
 ### Browser matrix
 
-Use Bun 1.4.3. From this package:
+Use Bun 1.4.4. From this package:
 
 ```sh
 bun install --frozen-lockfile

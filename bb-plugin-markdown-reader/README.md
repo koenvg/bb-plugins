@@ -108,7 +108,7 @@ The Tasks adapter has no filesystem root and explicitly permits only document-lo
 
 The package targets BB **>=0.46** and Plugin SDK **>=0.6.37 <0.7**, with declarations pinned to **0.6.49**. Experimental host, line-range, and Original contracts can change; recheck them with a newer BB before use.
 
-From this package directory, use Bun 1.4.3 and Node 26.0 or newer within Node 26. Verify the shared package first, then the consumer. Package exports intentionally resolve to source, so a clean BB build can compile them without a pre-build hook.
+From this package directory, use Bun 1.4.4 and Node 26.0 or newer within Node 26. Verify the shared package first, then the consumer. Package exports intentionally resolve to source, so a clean BB build can compile them without a pre-build hook.
 
 ```sh
 bun install --cwd ../packages/markdown-document --frozen-lockfile

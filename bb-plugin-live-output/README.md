@@ -32,7 +32,7 @@ Memory is limited to 10,000 tracked threads, at most 635 second buckets per thre
 
 Targets BB 0.46 and the public `@get-bb/plugin-sdk` 0.6.37 contract. The manifest requires SDK `>=0.6.37 <0.7`. The experimental thread-event hook must be available.
 
-Use Bun 1.4.3 and Node 26.0 or newer within Node 26 for Vitest. From this directory:
+Use Bun 1.4.4 and Node 26.0 or newer within Node 26 for Vitest. From this directory:
 
 ```sh
 bun install --frozen-lockfile
