@@ -12,7 +12,7 @@ The served Tasks app matches the installed disk app by SHA-256. The served quota
 
 ## Repository-only rerun and cleanup
 
-Run from the repository root with Bun 1.4.3. These commands do not contact the tracker or open a browser.
+Run from the repository root with Bun 1.4.4. These commands do not contact the tracker or open a browser.
 
 ```sh
 bun test ./bb-plugin-tasks-plus/scripts/navigation-benchmark/benchmark.test.mjs bb-plugin-tasks-plus/scripts/navigation-benchmark/qualification.test.mjs

@@ -1,6 +1,6 @@
 # Local video playback fixture
 
-Run from the repository root with Bun 1.4.3, Node 26, the locked Changes dependencies, ffmpeg, and the package's pinned Playwright Chromium.
+Run from the repository root with Bun 1.4.4, Node 26, the locked Changes dependencies, ffmpeg, and the package's pinned Playwright Chromium.
 
 ```sh
 bun install --cwd bb-plugin-changes --frozen-lockfile

@@ -125,7 +125,7 @@ test("setup can be repeated without changing manifests or lockfiles", (t) => {
   assert.deepEqual(result.trace, [...successfulCalls, ...successfulCalls]);
 });
 
-for (const bunVersion of ["1.3.14", "1.4.2", "1.4.4", "1.4.3-canary.1"]) {
+for (const bunVersion of ["1.3.14", "1.4.3", "1.4.5", "1.4.4-canary.1"]) {
   test(`unpinned Bun ${bunVersion} fails before installation`, (t) => {
     const result = runSetup(t, { bunVersion });
     assert.equal(result.status, 1);

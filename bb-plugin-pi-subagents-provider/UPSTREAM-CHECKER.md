@@ -16,7 +16,7 @@ bun /ABSOLUTE_SOURCE/bb-plugin-pi-subagents-provider/src/upstream/cli.ts \
   --project proj_gjz4e6jtmg
 ```
 
-`bun run check:upstream --source ABSOLUTE_PACKAGE_PATH --project proj_gjz4e6jtmg` is equivalent. Bun 1.4.3 and Git are prerequisites. The checker uses Bun's native TypeScript support. It does not need installed plugin dependencies or a model. These examples are instructions for later approved use, not evidence of a run here.
+`bun run check:upstream --source ABSOLUTE_PACKAGE_PATH --project proj_gjz4e6jtmg` is equivalent. Bun 1.4.4 and Git are prerequisites. The checker uses Bun's native TypeScript support. It does not need installed plugin dependencies or a model. These examples are instructions for later approved use, not evidence of a run here.
 
 The checker reads `HEAD:bb-plugin-pi-subagents-provider/UPSTREAM.json` with read-only Git commands. It ignores an uncommitted baseline. Other dirty work stays untouched. The scheduled wrapper takes a stricter approach and refuses uncommitted baseline/checker prerequisites before it executes the checker. Raw content checks also catch dirty files hidden by Git index flags.
 

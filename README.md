@@ -47,7 +47,7 @@ Code Cleanup's [default guidance](bb-plugin-code-cleanup/guidance.ts) uses `bb t
 
 ## BB worktree setup
 
-BB runs the tracked root `.bb-env-setup.sh` when it creates a new managed worktree. The hook requires Bun 1.4.3, pinned in `.bun-version`. One frozen workspace install prepares the root tools, all plugins, shared Markdown, and `review-ui`. It then builds shared Markdown for its consumers. Dependencies stay inside the worktree; Bun can reuse its download cache.
+BB runs the tracked root `.bb-env-setup.sh` when it creates a new managed worktree. The hook requires Bun 1.4.4, pinned in `.bun-version`. One frozen workspace install prepares the root tools, all plugins, shared Markdown, and `review-ui`. It then builds shared Markdown for its consumers. Dependencies stay inside the worktree; Bun can reuse its download cache.
 
 The hook includes dev dependencies even when `NODE_ENV=production`. The repository root `bun.lock` owns every workspace resolution. Missing locks, unsupported Bun versions, and failed installs or builds stop provisioning with a non-zero exit. Repeating setup uses the same lockfile without changing it.
 
@@ -81,7 +81,7 @@ The shared [lint config](.oxlintrc.json) makes correctness violations errors. Ex
 
 ## Running tests and typechecks
 
-Use Bun 1.4.3 for installs and package scripts. Keep Node 26.0 or newer within Node 26 on `PATH` for Vitest and Node-host bundle checks. Several existing Vitest/jsdom suites and Quota's artifact-reload check do not run correctly under Bun, so these checks retain their supported Node runtime. Each plugin has its own dependencies, test command, and typecheck command. From the repository root, for example:
+Use Bun 1.4.4 for installs and package scripts. Keep Node 26.0 or newer within Node 26 on `PATH` for Vitest and Node-host bundle checks. Several existing Vitest/jsdom suites and Quota's artifact-reload check do not run correctly under Bun, so these checks retain their supported Node runtime. Each plugin has its own dependencies, test command, and typecheck command. From the repository root, for example:
 
 ```sh
 bash .bb-env-setup.sh

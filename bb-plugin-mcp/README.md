@@ -323,7 +323,7 @@ For cleanup, preserve the plugin database while unresolved records exist. Comple
 
 ## Local checks and release limits
 
-Use Bun 1.4.3 and Node 26.0 or newer within Node 26. From `bb-plugin-mcp`, run:
+Use Bun 1.4.4 and Node 26.0 or newer within Node 26. From `bb-plugin-mcp`, run:
 
 ```sh
 bun install --frozen-lockfile

@@ -32,7 +32,7 @@
       }
     ]
   },
-  "packageManager": "bun@1.4.3",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "lint": "bun run --cwd .. lint bb-plugin-codex-inspired",
     "lint:fix": "bun run --cwd .. lint:fix bb-plugin-codex-inspired",
