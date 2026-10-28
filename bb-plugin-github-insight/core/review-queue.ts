@@ -164,10 +164,15 @@ export function parseReviewQueue(
   const gone: PullRequestRef[] = [];
   trackedRefs.forEach((ref, index) => {
     const node = trackedNodeSchema.parse(data[trackedAlias(index)])?.pullRequest ?? null;
-    if (node === null || closedBefore(node, now - TEAM_PR_WINDOW_MS)) gone.push(ref);
+    if (node === null || closedBefore(node, now - TEAM_PR_WINDOW_MS) || isAuthor(node, viewer))
+      gone.push(ref);
     else tracked.push({ ...toQueuePr(node), activity: activityOf(node, viewer) });
   });
   return { requests: toQueueList(data.reviewRequests), tracked, gone };
+}
+
+function isAuthor(node: PrNode, viewer: string): boolean {
+  return node.author?.login.toLowerCase() === viewer.toLowerCase();
 }
 
 function closedBefore(node: PrNode, at: number): boolean {
