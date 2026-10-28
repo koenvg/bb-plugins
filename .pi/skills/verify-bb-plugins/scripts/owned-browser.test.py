@@ -36,7 +36,14 @@ if role == 'sentinel-process':
 elif role == 'chrome':
     profile = pathlib.Path(next(a.split('=',1)[1] for a in sys.argv if a.startswith('--user-data-dir=')))
     log('chrome', profile_mode=profile.stat().st_mode & 0o777)
-    save([dict(id='initial', type='page', url='about:blank')])
+    initial = [
+        dict(id='A9A891705E03ED36FE506FB95283F104', type='browser_ui', url='chrome://omnibox-popup.top-chrome/'),
+        dict(id='4ADEF8567FC3EADDAD65CC402B1FAA56', type='browser_ui', url='chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html'),
+        dict(id='initial', type='page', url='about:blank'),
+    ]
+    if mode in ('initial-page', 'initial-webview'):
+        initial.append(dict(id='unowned', type=mode.removeprefix('initial-'), url='https://example.test'))
+    save(initial)
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             data = dict(webSocketDebuggerUrl=f'ws://127.0.0.1:{self.server.server_port}/devtools/browser/owned') if self.path == '/json/version' else targets()
@@ -322,6 +329,35 @@ class OwnerCLI(unittest.TestCase):
                 self.assertEqual(env['BROWSER_USE_API_KEY'],'')
                 if c not in provisioning: self.assertEqual(env['BH_REQUIRE_EXISTING_DAEMON'],'1')
         self.assertEqual([c['params']['targetId'] for c in calls if c['kind']=='cdp' and c['method']=='Target.closeTarget'], ['initial','provisioning'])
+        self.assertEqual(json.loads((self.root/'targets').read_text()), [
+            dict(id='A9A891705E03ED36FE506FB95283F104', type='browser_ui', url='chrome://omnibox-popup.top-chrome/'),
+            dict(id='4ADEF8567FC3EADDAD65CC402B1FAA56', type='browser_ui', url='chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html'),
+        ])
+
+    def test_initial_extra_page_or_webview_retains_resources_without_provisioning(self):
+        for target_type in ('page', 'webview'):
+            with self.subTest(target_type=target_type):
+                if (self.root/'evidence').exists():
+                    self.tearDown(); self.setUp()
+                result = self.run_cli('initial-' + target_type)
+                self.assertEqual(result.returncode, 3, result.stderr + result.stdout)
+                self.assertIn('Unexpected initial pages; ownership uncertain', result.stderr)
+                ledger = self.ledger()
+                self.assertEqual(ledger['status'], 'cleanup_pending')
+                self.assertEqual(ledger['targets'], {})
+                self.assertNotIn('provisioning', ledger)
+                self.assertNotIn('verifier_exit', ledger)
+                self.assertEqual(ledger['cleanup'], dict(targets='never_sent', daemon='never_sent', browser='never_sent'))
+                self.assertEqual(set(ledger['resources'].values()), {'retained'})
+                self.assertTrue(Path(ledger['profile']).is_dir())
+                self.assertFalse((self.root/'daemon').exists())
+                self.assertEqual([call['kind'] for call in self.calls()], ['chrome'])
+                self.assertEqual(json.loads((self.root/'targets').read_text()), [
+                    dict(id='A9A891705E03ED36FE506FB95283F104', type='browser_ui', url='chrome://omnibox-popup.top-chrome/'),
+                    dict(id='4ADEF8567FC3EADDAD65CC402B1FAA56', type='browser_ui', url='chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html'),
+                    dict(id='initial', type='page', url='about:blank'),
+                    dict(id='unowned', type=target_type, url='https://example.test'),
+                ])
 
     def test_installed_env_cannot_restore_recording_or_cloud(self):
         (self.root/'lib/python3.11/.env').write_text('BH_RECORD=1\nBH_TAB_MARKER=1\nBH_DOMAIN_SKILLS=1\nBH_RUNTIME_DIR=/unrelated\nBROWSER_USE_API_KEY=dotenv-secret\n')

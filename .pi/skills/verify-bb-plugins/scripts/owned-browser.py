@@ -338,7 +338,9 @@ class Invocation:
         identity, stamp = self.browser_identity(deadline)
         self.resource("browser_stamp", stamp)
         pages = self.http("/json/list", deadline)
-        require(isinstance(pages, list) and len(pages) == 1 and isinstance(pages[0], dict), "Unexpected initial pages; ownership uncertain")
+        require(isinstance(pages, list) and all(isinstance(page, dict) and page.get("id") for page in pages), "Invalid target inventory")
+        pages = [page for page in pages if page.get("type") in {"page", "webview"}]
+        require(len(pages) == 1, "Unexpected initial pages; ownership uncertain")
         initial = pages[0].get("id")
         require(pages[0].get("type") == "page" and pages[0].get("url") == "about:blank" and isinstance(initial, str) and initial and not any(c.isspace() for c in initial), "Unexpected initial page identity")
         self.ledger["targets"]["initial"] = pages[0]["id"]

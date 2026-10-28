@@ -45,7 +45,9 @@ python3 "$helper" run \
 
 The evidence directory must be new and its parent must exist. Keep approval references, commands, and logs free of secrets. Read verifier output from the ledger's private `call-*.stdout` and `call-*.stderr` files. Stdout from the helper contains a final JSON summary. The default verifier deadline is 300 seconds. Timeout and cancellation still run cleanup.
 
-The foreground owner holds the browser and active child handles. It launches Chrome directly with a fresh private profile and literal port zero. It proves the actual loopback listener and process/profile identity, then records the single initial blank target before daemon connection. A private short runtime and fresh non-default name isolate routing.
+The foreground owner holds the browser and active child handles. It launches Chrome directly with a fresh private profile and literal port zero. It proves the actual loopback listener and process/profile identity, then records the sole initial `page` target at `about:blank` before daemon connection. A private short runtime and fresh non-default name isolate routing.
+
+The initial inventory must contain exactly one page and no webviews. Additional pages or webviews refuse before provisioning and retain the browser and profile. Nonpage targets such as Chrome's `browser_ui` are not task tabs and are never selected or explicitly tab-closed.
 
 Strict Doctor must report that exact name absent before one read-only non-strict public Browser Use provisioning invocation. The returned provisioning ID is recorded before later browser calls. The public CLI may retry internally. The helper never retries provisioning and preserves resources if the ID is missing. Every later call uses the same strict route. Conflicting installed `.env` routes refuse before allocation. Explicit pins prevent `.env` from restoring cloud routing, auto-spawn, recording, or title marking.
 
