@@ -237,6 +237,7 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
           handlers.getPrVideo ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getPrImage:
           handlers.getPrImage ?? (() => ({ kind: "error", code: "read", message: "unavailable" })),
+        getPrBodyImage: () => ({ kind: "error", code: "read", message: "unavailable" }),
         getInsight: () => ({ kind: "no_pr" }),
         refresh: () => ({ kind: "no_pr" }),
         reply:

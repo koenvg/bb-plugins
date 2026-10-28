@@ -7,7 +7,9 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import { useRpc, type PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { rpcContract } from "../contract";
+import type { RepoImageRef } from "../core/repo-image";
 import { cn } from "@/lib/utils";
 import { countOf } from "../core/blockers";
 import { peekIntent, useCommandIntent, type IntentOf } from "./command-intents";
@@ -15,6 +17,7 @@ import { ShowFilesProvider, type FilesJump, type FilesJumpRequest } from "./file
 import { FilesTab } from "./files-tab";
 import { ReportSummaryProvider, type PrTabSummary } from "./pr-tab-summary";
 import { OverviewTab } from "./overview-tab";
+import { RepoImageLoaderProvider } from "./pr-markdown";
 import { rememberedSubTab, rememberSubTab, type PrSubTab } from "./pr-sub-tab";
 
 const SUB_TABS: readonly { id: PrSubTab; label: string }[] = [
@@ -37,6 +40,11 @@ export function PrPanel({ threadId }: PluginThreadPanelProps) {
 }
 
 function PrPanelContent({ threadId }: { threadId: string }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const loadRepoImage = useCallback(
+    (file: RepoImageRef) => rpc.call("getPrBodyImage", { threadId, ...file }),
+    [rpc, threadId],
+  );
   const [selected, setSelected] = useState(() => initialSubTab(threadId));
   const [filesShown, setFilesShown] = useState(selected === "files");
   const select = useCallback(
@@ -68,29 +76,31 @@ function PrPanelContent({ threadId }: { threadId: string }) {
     panel: `${idPrefix}-${subTab}-panel`,
   });
   return (
-    <div className="flex h-full min-w-0 flex-col [contain:inline-size]">
-      <SubTabBar
-        selected={selected}
-        select={select}
-        ids={ids}
-        filesShown={filesShown}
-        summary={summary}
-      />
-      <SubTabPanel ids={ids("overview")} shown={selected === "overview"}>
-        <div ref={overviewScroll} className="h-full overflow-y-auto px-4 py-4">
-          <ShowFilesProvider value={showFiles}>
-            <ReportSummaryProvider value={setSummary}>
-              <OverviewTab threadId={threadId} scrollRoot={overviewScroll} />
-            </ReportSummaryProvider>
-          </ShowFilesProvider>
-        </div>
-      </SubTabPanel>
-      {filesShown && (
-        <SubTabPanel ids={ids("files")} shown={selected === "files"}>
-          <FilesTab threadId={threadId} jump={jumpRequest} />
+    <RepoImageLoaderProvider value={loadRepoImage}>
+      <div className="flex h-full min-w-0 flex-col [contain:inline-size]">
+        <SubTabBar
+          selected={selected}
+          select={select}
+          ids={ids}
+          filesShown={filesShown}
+          summary={summary}
+        />
+        <SubTabPanel ids={ids("overview")} shown={selected === "overview"}>
+          <div ref={overviewScroll} className="h-full overflow-y-auto px-4 py-4">
+            <ShowFilesProvider value={showFiles}>
+              <ReportSummaryProvider value={setSummary}>
+                <OverviewTab threadId={threadId} scrollRoot={overviewScroll} />
+              </ReportSummaryProvider>
+            </ShowFilesProvider>
+          </div>
         </SubTabPanel>
-      )}
-    </div>
+        {filesShown && (
+          <SubTabPanel ids={ids("files")} shown={selected === "files"}>
+            <FilesTab threadId={threadId} jump={jumpRequest} />
+          </SubTabPanel>
+        )}
+      </div>
+    </RepoImageLoaderProvider>
   );
 }
 

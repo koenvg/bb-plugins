@@ -1,14 +1,6 @@
 import { videoResultSchema } from "./core/video-content";
-import {
-  imagePathSchema,
-  imageShaSchema,
-  imageSideSchema,
-  imageResultSchema,
-} from "./core/image-content";
-import { imageRepoSchema, prImageRefsSchema, prImageBasisSchema } from "./core/pr-image-basis";
-export const prImageRequestSchema = imageRepoSchema
-  .extend({ sha: imageShaSchema, path: imagePathSchema })
-  .strict();
+import { imagePathSchema, imageSideSchema, imageResultSchema } from "./core/image-content";
+import { prImageRefsSchema, prImageBasisSchema, prImageRequestSchema } from "./core/pr-image-basis";
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
@@ -546,6 +538,10 @@ export const rpcContract = defineRpcContract({
         side: imageSideSchema,
       })
       .strict(),
+    output: imageResultSchema,
+  },
+  getPrBodyImage: {
+    input: prImageRequestSchema.extend({ threadId: z.string().min(1) }).strict(),
     output: imageResultSchema,
   },
   getInsight: { input: threadRequestSchema, output: insightResultSchema },

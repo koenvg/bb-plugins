@@ -71,6 +71,7 @@ export const unusedRpc = {
   refresh: () => ({ kind: "no_pr" as const }),
   getPrVideo: () => ({ kind: "error" as const, code: "read" as const, message: "unavailable" }),
   getPrImage: () => ({ kind: "error" as const, code: "read" as const, message: "unavailable" }),
+  getPrBodyImage: () => ({ kind: "error" as const, code: "read" as const, message: "unavailable" }),
   getReview: () => ({ kind: "no_pr" as const }),
   getDrafts: () => ({ kind: "no_pr" as const }),
   getTimeline: () => ({ kind: "no_pr" as const }),

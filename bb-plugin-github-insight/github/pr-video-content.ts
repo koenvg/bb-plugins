@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
-import { prImageRequestSchema } from "../contract";
+import { prImageRequestSchema } from "../core/pr-image-basis";
 import {
   MAX_VIDEO_BYTES,
   videoBytes,

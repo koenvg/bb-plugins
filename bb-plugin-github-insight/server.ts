@@ -6,6 +6,7 @@ import {
   type GhResult,
   type ReviewResult,
 } from "./contract";
+import { imageError, type ImageWireResult } from "./core/image-content";
 import { INSIGHT_UPDATED_CHANNEL, type InsightUpdated } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
 import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
@@ -17,6 +18,7 @@ import {
 import { newCommentDraftId } from "./core/review-drafts";
 import { createMediaSigner } from "./core/signed-media";
 import { reviewPrMetadata } from "./core/review-pr";
+import type { RepoImageRef } from "./core/repo-image";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { parseReviewQueue } from "./core/review-queue";
@@ -237,11 +239,22 @@ export default async function plugin(bb: BbPluginApi) {
     return load.kind === "ok" ? { kind: "ok", ...load.drafts } : load;
   }
 
+  async function getPrBodyImage(threadId: string, file: RepoImageRef): Promise<ImageWireResult> {
+    const resolution = await resolvePr(threadId);
+    if (resolution.kind === "pr")
+      return host.call("readPrImage", file, { hostId: resolution.target.hostId });
+    return imageError(
+      "read",
+      resolution.kind === "error" ? resolution.message : "No pull request for this thread",
+    );
+  }
+
   bb.rpc.register(rpcContract, {
     getPrVideo: ({ threadId, expectedBasisKey, path, side }) =>
       review.getPrVideo(threadId, expectedBasisKey, path, side),
     getPrImage: ({ threadId, expectedBasisKey, path, side }) =>
       review.getPrImage(threadId, expectedBasisKey, path, side),
+    getPrBodyImage: ({ threadId, ...file }) => getPrBodyImage(threadId, file),
     getInsight: ({ threadId }) => service.getInsight(threadId),
     refresh: ({ threadId }) => service.refresh(threadId),
     getPrInsight: (ref) => service.getPrInsight(ref),
