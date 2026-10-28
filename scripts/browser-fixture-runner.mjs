@@ -184,7 +184,11 @@ async function run() {
     const cli = createRequire(join(process.cwd(), "package.json")).resolve("@playwright/test/cli");
     const playwright = spawnOwned(
       [...(runtime === "bun" ? ["--bun"] : []), cli, "test", ...args],
-      { ...env, [originKey]: startup.origin },
+      {
+        ...env,
+        [originKey]: startup.origin,
+        PWTEST_CACHE_DIR: join(directory, "playwright-transform-cache"),
+      },
       runtime === "node" ? "node" : process.execPath,
     );
     owners.push(playwright);

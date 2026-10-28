@@ -39,13 +39,14 @@ const previews = [
     marker: "./preview.tsx",
   },
 ];
-function start(preview, parent, port, args = [], preload) {
+function start(preview, parent, port, args = [], preload, runtime) {
   const env = { ...process.env, TMPDIR: parent, TMP: parent, TEMP: parent };
   delete env.BB_FIXTURE_RUN_DIR;
   delete env.BB_FIXTURE_PORT;
   delete env[preview.key];
   if (port !== undefined) env[preview.key] = port;
   if (preload) env.DEBUG = "vite:deps";
+  if (runtime) env.BB_PLAYWRIGHT_RUNTIME = runtime;
   const child = spawn(
     process.execPath,
     [...(preload ? ["--preload", preload] : []), preview.entry, ...args],
@@ -250,8 +251,13 @@ for (const preview of previews) {
   }
 }
 
-for (const mode of ["failure", "cancellation"]) {
-  test(`tasks-plus runner ${mode} removes only its listener and cache`, async () => {
+for (const [runtime, mode] of [
+  ["bun", "failure"],
+  ["bun", "cancellation"],
+  ["node", "failure"],
+  ["node", "cancellation"],
+]) {
+  test(`tasks-plus runner ${mode} (${runtime}) removes only its listener and cache`, async () => {
     const parent = await mkdtemp(join(tmpdir(), "tasks-runner-contract-"));
     const preview = previews.find((preview) => preview.name === "tasks-plus");
     const peer = start(preview, parent);
@@ -275,6 +281,8 @@ for (const mode of ["failure", "cancellation"]) {
             ? ["--unknown-fixture-option"]
             : ["--list", "--config", heldConfig]),
         ],
+        undefined,
+        runtime,
       );
       const origin = await owner.ready();
       assert.notEqual(origin, peerOrigin);
