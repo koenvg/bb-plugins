@@ -8,9 +8,9 @@ function variable(args: string[], name: string): string | undefined {
 describe("teamPrPageArgs", () => {
   const request = { repo: "collibra/frontend", since: "2026-10-14T09:07:45.536Z", after: null };
 
-  it("searches the PRs of one repository updated since a time, oldest update first", () => {
+  it("searches the PRs others wrote in one repository updated since a time, oldest update first", () => {
     expect(variable(teamPrPageArgs(request), "q")).toBe(
-      "is:pr repo:collibra/frontend updated:>=2026-10-14T09:07:45Z sort:updated-asc",
+      "is:pr repo:collibra/frontend -author:@me updated:>=2026-10-14T09:07:45Z sort:updated-asc",
     );
   });
 

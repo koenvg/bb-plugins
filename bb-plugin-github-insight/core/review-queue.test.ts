@@ -171,6 +171,17 @@ describe("parseReviewQueue with tracked PRs", () => {
     expect(parseReviewQueue([trackedFixture], refs, later).gone).toEqual([refs[2], refs[3]]);
   });
 
+  it("reports a tracked PR that the viewer wrote as gone", () => {
+    const { t0 } = trackedFixture.data;
+    const ownPr = { ...t0, pullRequest: { ...t0.pullRequest, author: { login: "Me" } } };
+    const data = { ...trackedFixture.data, t0: ownPr };
+
+    const own = parseReviewQueue([{ data }], refs, NOW);
+
+    expect(own.tracked.map((pr) => pr.number)).toEqual([8, 12]);
+    expect(own.gone).toEqual([refs[0], refs[2], refs[3]]);
+  });
+
   it("keeps the review requests next to the tracked PRs", () => {
     expect(prs(fetched.requests).map((pr) => pr.number)).toEqual([12]);
   });
