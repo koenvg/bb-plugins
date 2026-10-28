@@ -64,3 +64,37 @@ export const reviewQueueResultSchema = z.union([
   z.object({ kind: z.literal("loading") }),
 ]);
 export type ReviewQueueResult = z.infer<typeof reviewQueueResultSchema>;
+
+export type AttentionReason = NewActivity | "updated_since_review";
+
+export const ATTENTION_TEXT = {
+  updated_since_review: "New commits",
+  new_comments: "New comments",
+  requested_again: "Review requested again",
+} as const satisfies Record<AttentionReason, string>;
+
+export function attentionReasons(pr: LinkedQueuePr): AttentionReason[] {
+  const reasons = pr.review === "updated_since_review" ? ["updated_since_review" as const] : [];
+  return [...reasons, ...pr.newActivity];
+}
+
+export type AgentState = "running" | "needs_you" | "finished" | "failed" | "idle";
+
+const THREAD_STATUS_STATE: Record<ReviewThreadStatus, AgentState> = {
+  running: "running",
+  needs_you: "needs_you",
+  idle: "idle",
+  error: "failed",
+};
+
+const RETURNED_STATE: Record<ReturnedReason, AgentState> = {
+  finished: "finished",
+  needs_you: "needs_you",
+  failed: "failed",
+};
+
+export function agentStateOf(thread: LinkedThread): AgentState {
+  return thread.returned !== null
+    ? RETURNED_STATE[thread.returned]
+    : THREAD_STATUS_STATE[thread.status];
+}

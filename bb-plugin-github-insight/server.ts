@@ -283,6 +283,7 @@ export default async function plugin(bb: BbPluginApi) {
       readTextFile: (hostId, request) => host.call("readTextFile", request, { hostId }),
       uploadImage: (hostId, request) =>
         host.call("uploadImage", request, { hostId, timeoutMs: 150_000 }),
+      readReviewQueue: () => reviewQueue.getReviewQueue(),
       now: Date.now,
     }),
   );

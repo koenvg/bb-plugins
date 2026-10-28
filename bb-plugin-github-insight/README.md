@@ -31,7 +31,7 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `pr-lookup.ts`: finds the thread's PR through the built-in `bb--github-pr-status` plugin's keyed `pullRequests` RPC, which runs `gh` on the environment's host. Both sub-tabs use it. No PR means no GitHub call. It keeps each environment's result in memory: an open or draft PR for 60 seconds, no PR for 5 minutes, a closed PR for 15 minutes, a merged PR for 60 minutes. A failure is not kept and clears the stored result. Concurrent lookups of one environment share one call, for at most 30 seconds, because a call through a disconnected host can hang. A manual refresh, a refresh after a write, and the idle refresh pass `fresh`: they wait for a running lookup, then always ask bb. The review reads and writes pass `recheckNoPr`: they ask bb again when the stored result is no PR, so a review command finds the PR right after the thread's branch changes. When bb's lookup reports a rate limit, it reads the reset time with the `readRateLimitReset` host call, starts the shared pause (`github/rate-limit-pause.ts`), and returns the stored PR or "rate limited". While paused, a lookup that is not `fresh` returns the last known result, also when expired, or "rate limited" when there is none. A lookup that reports `no git remotes found` also means no PR: the composer PR banner is hidden, and the PR tab shows "No pull request for this thread". Other lookup and refresh errors remain visible with Retry.
 - `server.ts`: asks the thread's host for the PR data.
 - `review/review-service.ts`: reads the PR files and review threads (max 5 pages of 100) in parallel on each load, without a cache, and attaches the drafts. The Files sub-tab and the CLI both use it.
-- `review/review-cli.ts`: the `bb github-insight review` commands (see "Review threads").
+- `review/review-cli.ts`: the `bb github-insight review` commands (see "Review threads") and `queue list` (see "Review queue CLI").
 - `review/review-writes.ts`: the review thread writes. `reply` posts a reply, and for "Post + resolve" then resolves the thread. When the resolve fails, the reply stays posted and the error shows. `setResolved` resolves or unresolves. Only the tab's RPCs call it. The CLI does not. After a successful resolve or unresolve, both refresh the PR insight and write `prSummary` before they return. Then the tab posts `{ threadId }` on the `github-insight.summary-written` BroadcastChannel (`ui/summary-written.ts`), and the pr-thread-list sidebar reads the summary again.
 - `merge/pr-writes.ts`: all PR writes behind `runPrAction`: merge, enqueue, branch update with merge or rebase, and auto-merge on or off (see "Merge and enqueue", "Update branch", and "Auto-merge"). `merge/local-commits-lookup.ts`: the `localCommitsAhead` check for the rebase.
 - `refresh/insight-service.ts`: keeps the last insight per PR in memory. The `pr-poller` service refreshes each open PR every 60 seconds, one refresh per PR, max 4 at once. When a thread goes idle, `server.ts` calls `refreshOnIdle`, which refreshes that thread's PR at once. When BB links no PR yet, it tries one more time after 10 seconds. A merged or closed PR gets one last refresh. After a rate limit on its own calls or on bb's PR lookup, it waits until the reset time or 5 minutes. Meanwhile `getInsight` returns the last reading with the error "rate limited". After a refresh that changes the data, it publishes `insight.updated` with the thread ids and the PR key (`{ threadIds, prKeys: ["<owner>/<repo>#<number>"] }`) and writes the reading to the kv entry `insight:<owner>/<repo>#<number>` (`{ v: 1, refreshedAt, reading }`). On a memory miss, for example after a restart, `getInsight` returns that stored reading with its original time at once and refreshes it in the background. An entry of another version reads as no entry. Each poll deletes the entries of PRs that no thread links, but only when bb could read the PR of every thread.
@@ -95,6 +95,27 @@ composer banner --markThreadOpened--> server --> deletes "review-returned:<threa
 - The repo name and the "No bb project for this repository" hint show once, on the group header. A card shows the number, title, and time since the last update, then one row with the author, CI state, review decision, Merged or Closed (else Draft), and the actions. The review decision shows only Approved or Changes requested.
 - A card shows a status button (Running, Needs you, Ready, Failed, or Waiting) that opens the thread when an unarchived thread, hidden or visible, is linked to the PR (most recently updated first). A thread is linked when bb links its branch to the PR, or when it has the `review-pr` metadata of that PR. Else a PR in a repo with a bb project shows "Start review". Every card has "Archive thread", but it works only for a review thread; otherwise it is disabled and its tooltip says "Only review threads can be archived". Every card has "Mark reviewed" or "Mark as needs review", and a GitHub icon that shows the PR overview (see "PR overview"). In a wide panel, the status buttons line up on the right, next to the 3 icon buttons, which keep the same place on every card.
 - The "Needs review" header shows a chip with a count for each thread status other than Waiting that has at least one PR. A click on a chip shows only the PRs with that status. A second click shows all PRs again. When the last PR with the chosen status changes, the chip stays with 0 and the list says "No pull requests match this filter" and offers "Show all". The header count stays the total.
+
+### Review queue CLI
+
+An agent can read the stored review queue:
+
+```bash
+bb github-insight queue list [--json]
+```
+
+- It reads the kv entry `review-queue`. It makes no GitHub call and needs no bb thread.
+- The order is the panel order: "Needs review" first, then "Reviewed".
+- `--json` prints `{ loadedAt, truncated, error, prs }`. `loadedAt` is an ISO time. Each PR has:
+  - `key`: `owner/repo#n`.
+  - `title`, `url`, and `author` (`null` when GitHub has no author).
+  - `section`: `needs_review` or `reviewed`.
+  - `marks`: the labels of the card, from "New commits", "New comments", and "Review requested again".
+  - `thread`: `{ id, status }` of the linked thread, or `null`. `status` is `running`, `needs_you`, `finished`, `failed`, or `idle`. These are the Running, Needs you, Ready, Failed, and Waiting buttons of the panel.
+- Without `--json`, it prints one line per PR under "Needs review" and "Reviewed".
+- After a failed load, it prints the last good queue and the reason in `error`. With no good queue, the command fails with the reason.
+- Before the first load, the command fails. The queue loads when bb starts, then every 5 minutes.
+- `core/queue-list.ts` builds the list. The marks and the thread status come from `core/review-queue-view.ts`, which the panel also uses.
 
 ### PR overview
 
