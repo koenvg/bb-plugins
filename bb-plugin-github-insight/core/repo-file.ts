@@ -1,7 +1,11 @@
-import type { z } from "zod";
-import { prImageRequestSchema } from "./pr-image-basis";
+import { z } from "zod";
+import { imagePathSchema, imageShaSchema } from "./image-content";
+import { imageRepoSchema } from "./pr-image-basis";
 
-export type RepoImageRef = z.infer<typeof prImageRequestSchema>;
+export const repoFileSchema = imageRepoSchema
+  .extend({ sha: imageShaSchema, path: imagePathSchema })
+  .strict();
+export type RepoFile = z.infer<typeof repoFileSchema>;
 
 const RAW_FILE_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/raw\/([a-f0-9]{40})\/([^?#]+)$/i;
 
@@ -14,9 +18,9 @@ function decodedPath(encoded: string): string | null {
   }
 }
 
-export function repoImageRef(url: string): RepoImageRef | null {
+export function repoFileFromRawUrl(url: string): RepoFile | null {
   const [, owner, repo, sha, encodedPath = ""] = RAW_FILE_URL.exec(url) ?? [];
-  const parsed = prImageRequestSchema.safeParse({
+  const parsed = repoFileSchema.safeParse({
     owner,
     repo,
     sha,

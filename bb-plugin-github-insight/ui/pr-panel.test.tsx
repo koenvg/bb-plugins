@@ -39,6 +39,7 @@ afterEach(() => {
   cleanup();
   forgetInsights();
   forgetSubTabs();
+  vi.restoreAllMocks();
 });
 
 const emptyReview: ReviewResult = {
@@ -419,7 +420,7 @@ describe("PR panel Overview conversation", () => {
   ])("shows a %s image of a private repo file in the description", async (_form, image) => {
     const sha = "dffbecff4ed7e07f585558fe80a74ce684f9aae8";
     const src = `https://github.com/collibra/frontend/raw/${sha}/ac-image-AC-1-1-top.png`;
-    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:top");
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:top");
     const slot = renderPanel("thr_1", {
       getInsight: () => openPr(1),
       getTimeline: () => ({
@@ -450,7 +451,6 @@ describe("PR panel Overview conversation", () => {
         path: "ac-image-AC-1-1-top.png",
       },
     ]);
-    create.mockRestore();
   });
 
   it("keeps the PR status when the conversation read fails", async () => {

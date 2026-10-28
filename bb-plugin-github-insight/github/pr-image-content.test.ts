@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   calls: [] as unknown[][],
   stdout: (_args: string[]): string | Buffer => "",
@@ -41,12 +41,13 @@ const readyPng = {
   mime: "image/png",
   sizeBytes: 12,
 };
-beforeEach(() => {
+function resetGh() {
   state.calls = [];
   state.error = null;
-});
+}
 describe("authenticated bounded image host", () => {
   it("reads base64 content from the JSON contents response at a literal immutable ref", async () => {
+    resetGh();
     serve({ size: 12, encoding: "base64", content: `${png.toString("base64")}\n` });
     const signal = new AbortController().signal;
     expect(await host.handlers.readPrImage(request, { signal } as never)).toEqual(readyPng);
@@ -54,6 +55,7 @@ describe("authenticated bounded image host", () => {
     expect(state.calls[0]?.[2]).toMatchObject({ signal });
   });
   it("reads the blob when the contents response omits content for files over 1 MB", async () => {
+    resetGh();
     serve(
       { size: 12, encoding: "none", content: "" },
       { sha: blobSha, size: 12, encoding: "base64", content: png.toString("base64") },
@@ -67,6 +69,7 @@ describe("authenticated bounded image host", () => {
     ]);
   });
   it("does not download content over the preview limit", async () => {
+    resetGh();
     serve({ size: 4 * 1024 * 1024 + 1, encoding: "none", content: "" });
     expect(
       await host.handlers.readPrImage(request, { signal: new AbortController().signal } as never),
@@ -74,12 +77,14 @@ describe("authenticated bounded image host", () => {
     expect(state.calls).toHaveLength(1);
   });
   it("rejects content shorter than the reported size", async () => {
+    resetGh();
     serve({ size: 13, encoding: "base64", content: png.toString("base64") });
     expect(
       await host.handlers.readPrImage(request, { signal: new AbortController().signal } as never),
     ).toMatchObject({ kind: "error", code: "read" });
   });
   it("rejects repository and path traversal before starting gh", async () => {
+    resetGh();
     for (const input of [
       { ...request, repo: ".." },
       { ...request, path: "../secret.png" },
@@ -91,6 +96,7 @@ describe("authenticated bounded image host", () => {
     expect(state.calls).toEqual([]);
   });
   it("compares pinned fork refs through authenticated gh in the base repository", async () => {
+    resetGh();
     state.stdout = () =>
       Buffer.from(
         JSON.stringify({ merge_base_commit: { sha: "3333333333333333333333333333333333333333" } }),
@@ -125,6 +131,7 @@ describe("authenticated bounded image host", () => {
     [{ code: "ABORT_ERR" }, "read"],
     [{ killed: true }, "read"],
   ])("returns sanitized failures without partial data", async (error, code) => {
+    resetGh();
     state.error = error;
     const result = await host.handlers.readPrImage(request, {
       signal: new AbortController().signal,

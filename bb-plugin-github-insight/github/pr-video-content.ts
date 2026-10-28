@@ -1,12 +1,11 @@
-import { z } from "zod";
-import { prImageRequestSchema } from "../core/pr-image-basis";
 import {
   MAX_VIDEO_BYTES,
   videoBytes,
   videoError,
   type VideoWireResult,
 } from "../core/video-content";
-import { readRepoFile } from "./pr-image-content";
+import type { RepoFile } from "../core/repo-file";
+import { readRepoFile } from "./repo-file";
 
 let activeReads = 0;
 const videoFailures = {
@@ -15,16 +14,13 @@ const videoFailures = {
   missing: "Video not found at this revision",
   read: "Could not read video from GitHub. Retry or use a local player.",
 } as const;
-export async function readPrVideo(
-  value: z.infer<typeof prImageRequestSchema>,
-  signal: AbortSignal,
-): Promise<VideoWireResult> {
+export async function readPrVideo(file: RepoFile, signal: AbortSignal): Promise<VideoWireResult> {
   if (activeReads >= 2)
     return videoError("read", "Two video reads are already running. Wait and retry.");
   activeReads++;
   try {
-    const file = await readRepoFile(value, MAX_VIDEO_BYTES, signal);
-    return file.ok ? videoBytes(file.bytes) : videoError(file.code, videoFailures[file.code]);
+    const read = await readRepoFile(file, MAX_VIDEO_BYTES, signal);
+    return read.ok ? videoBytes(read.bytes) : videoError(read.code, videoFailures[read.code]);
   } finally {
     activeReads--;
   }

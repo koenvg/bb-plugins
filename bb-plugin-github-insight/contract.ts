@@ -1,6 +1,7 @@
 import { videoResultSchema } from "./core/video-content";
 import { imagePathSchema, imageSideSchema, imageResultSchema } from "./core/image-content";
-import { prImageRefsSchema, prImageBasisSchema, prImageRequestSchema } from "./core/pr-image-basis";
+import { prImageRefsSchema, prImageBasisSchema } from "./core/pr-image-basis";
+import { repoFileSchema } from "./core/repo-file";
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
@@ -177,8 +178,8 @@ const addPullRequestReviewRequestSchema = z
 export type AddPullRequestReviewRequest = z.infer<typeof addPullRequestReviewRequestSchema>;
 
 export const hostContract = defineRpcContract({
-  readPrVideo: { input: prImageRequestSchema, output: videoResultSchema },
-  readPrImage: { input: prImageRequestSchema, output: imageResultSchema },
+  readPrVideo: { input: repoFileSchema, output: videoResultSchema },
+  readPrImage: { input: repoFileSchema, output: imageResultSchema },
   fetchImageMergeBase: { input: prImageRefsSchema, output: ghResultSchema },
   fetchOverviewPage: {
     input: prPageRequestSchema,
@@ -541,7 +542,7 @@ export const rpcContract = defineRpcContract({
     output: imageResultSchema,
   },
   getPrBodyImage: {
-    input: prImageRequestSchema.extend({ threadId: z.string().min(1) }).strict(),
+    input: repoFileSchema.extend({ threadId: z.string().min(1) }).strict(),
     output: imageResultSchema,
   },
   getInsight: { input: threadRequestSchema, output: insightResultSchema },

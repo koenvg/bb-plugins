@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { repoImageRef } from "./repo-image";
+import { repoFileFromRawUrl } from "./repo-file";
 
 const sha = "dffbecff4ed7e07f585558fe80a74ce684f9aae8";
 
-describe("repoImageRef", () => {
+describe("repoFileFromRawUrl", () => {
   it("reads the repo, revision and path of a raw repo file URL", () => {
     expect(
-      repoImageRef(`https://github.com/collibra/frontend/raw/${sha}/ac-image-AC-1-1-top.png`),
+      repoFileFromRawUrl(`https://github.com/collibra/frontend/raw/${sha}/ac-image-AC-1-1-top.png`),
     ).toEqual({ owner: "collibra", repo: "frontend", sha, path: "ac-image-AC-1-1-top.png" });
   });
 
   it("decodes each path segment", () => {
-    expect(repoImageRef(`https://github.com/o/r/raw/${sha}/docs/my%20shot%231.png`)).toEqual({
+    expect(repoFileFromRawUrl(`https://github.com/o/r/raw/${sha}/docs/my%20shot%231.png`)).toEqual({
       owner: "o",
       repo: "r",
       sha,
@@ -33,6 +33,6 @@ describe("repoImageRef", () => {
     ["an attachment", "https://github.com/user-attachments/assets/1bc7aa19"],
     ["not a URL", "a.png"],
   ])("ignores %s", (_name, url) => {
-    expect(repoImageRef(url)).toBeNull();
+    expect(repoFileFromRawUrl(url)).toBeNull();
   });
 });

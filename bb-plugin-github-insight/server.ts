@@ -18,7 +18,7 @@ import {
 import { newCommentDraftId } from "./core/review-drafts";
 import { createMediaSigner } from "./core/signed-media";
 import { reviewPrMetadata } from "./core/review-pr";
-import type { RepoImageRef } from "./core/repo-image";
+import type { RepoFile } from "./core/repo-file";
 import { SUMMARY_METADATA_KEY } from "./core/summary";
 import { GhFailureError } from "./github/gh-failure";
 import { parseReviewQueue } from "./core/review-queue";
@@ -239,7 +239,7 @@ export default async function plugin(bb: BbPluginApi) {
     return load.kind === "ok" ? { kind: "ok", ...load.drafts } : load;
   }
 
-  async function getPrBodyImage(threadId: string, file: RepoImageRef): Promise<ImageWireResult> {
+  async function getPrBodyImage(threadId: string, file: RepoFile): Promise<ImageWireResult> {
     const resolution = await resolvePr(threadId);
     if (resolution.kind === "pr")
       return host.call("readPrImage", file, { hostId: resolution.target.hostId });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { imagePathSchema, imageShaSchema } from "./image-content";
+import { imageShaSchema } from "./image-content";
 
 export const imageRepoSchema = z.object({
   owner: z.string().regex(/^[a-z0-9-]+$/i),
@@ -8,9 +8,6 @@ export const imageRepoSchema = z.object({
     .regex(/^[a-z0-9_.-]+$/i)
     .refine((repo) => repo !== "." && repo !== ".."),
 });
-export const prImageRequestSchema = imageRepoSchema
-  .extend({ sha: imageShaSchema, path: imagePathSchema })
-  .strict();
 export const prImageRefsSchema = z.object({
   baseRepo: imageRepoSchema,
   headRepo: imageRepoSchema,

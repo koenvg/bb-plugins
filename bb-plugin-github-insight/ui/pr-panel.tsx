@@ -7,9 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useRpc, type PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
-import type { rpcContract } from "../contract";
-import type { RepoImageRef } from "../core/repo-image";
+import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import { cn } from "@/lib/utils";
 import { countOf } from "../core/blockers";
 import { peekIntent, useCommandIntent, type IntentOf } from "./command-intents";
@@ -17,7 +15,7 @@ import { ShowFilesProvider, type FilesJump, type FilesJumpRequest } from "./file
 import { FilesTab } from "./files-tab";
 import { ReportSummaryProvider, type PrTabSummary } from "./pr-tab-summary";
 import { OverviewTab } from "./overview-tab";
-import { RepoImageLoaderProvider } from "./pr-markdown";
+import { RepoImageThreadProvider } from "./pr-markdown";
 import { rememberedSubTab, rememberSubTab, type PrSubTab } from "./pr-sub-tab";
 
 const SUB_TABS: readonly { id: PrSubTab; label: string }[] = [
@@ -40,11 +38,6 @@ export function PrPanel({ threadId }: PluginThreadPanelProps) {
 }
 
 function PrPanelContent({ threadId }: { threadId: string }) {
-  const rpc = useRpc<typeof rpcContract>();
-  const loadRepoImage = useCallback(
-    (file: RepoImageRef) => rpc.call("getPrBodyImage", { threadId, ...file }),
-    [rpc, threadId],
-  );
   const [selected, setSelected] = useState(() => initialSubTab(threadId));
   const [filesShown, setFilesShown] = useState(selected === "files");
   const select = useCallback(
@@ -76,7 +69,7 @@ function PrPanelContent({ threadId }: { threadId: string }) {
     panel: `${idPrefix}-${subTab}-panel`,
   });
   return (
-    <RepoImageLoaderProvider value={loadRepoImage}>
+    <RepoImageThreadProvider value={threadId}>
       <div className="flex h-full min-w-0 flex-col [contain:inline-size]">
         <SubTabBar
           selected={selected}
@@ -100,7 +93,7 @@ function PrPanelContent({ threadId }: { threadId: string }) {
           </SubTabPanel>
         )}
       </div>
-    </RepoImageLoaderProvider>
+    </RepoImageThreadProvider>
   );
 }
 
