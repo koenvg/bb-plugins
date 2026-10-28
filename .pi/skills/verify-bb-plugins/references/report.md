@@ -11,6 +11,7 @@ Record:
 - BB instance and relevant project/environment/host identifiers, without credentials.
 - Original and observed installed sources, enabled state, activation result, and available artifact/generation identity.
 - Actual browser process/profile identity, explicit endpoint without credentials, unique daemon name and ownership, strict health result, and recorded tab target IDs, including the daemon's provisioning tab. Record explicit session binding for page commands. Distinguish task-created tabs from user-selected tabs. Record signed-in Chrome approval or why browser checks are blocked/non-applicable.
+- For the foreground browser owner, link its private `ledger.json`, approval references, initial and provisioning IDs, child command logs, verifier exit, and cleanup outcome. Record acquired or retained resources and sent-but-uncertain operations. The ledger is diagnostic evidence, not a recovery or adoption API.
 - Evidence location and commands with exit codes. Record any unavailable tool, missing test script, or optional diagnostic channel.
 
 ## Check table
@@ -20,6 +21,8 @@ Record:
 | Stable check ID and behavior | Observable acceptance condition | What happened, or the missing prerequisite | passed / failed / blocked | Command and exit code, safe log excerpt, screenshot, or blocker detail |
 
 Keep automated checks, build/activation, live behavior, and cleanup distinguishable. Label walkthroughs and fixtures as such. Do not merge their results into a live check. List non-applicable checks separately with a reason; do not count them as passes.
+
+For changes to the browser owner, add separate rows for its fake-executable CLI tests, static `check`, owned fixtures, approved exact-checkout installed acceptance, and cleanup. Fake listeners and OS observations do not prove real Chrome or macOS process/socket behavior. `cleanup_pending` is nonzero and prevents an overall pass even when the verifier passed.
 
 ### Result rules
 

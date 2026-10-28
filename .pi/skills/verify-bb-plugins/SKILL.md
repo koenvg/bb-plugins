@@ -95,6 +95,7 @@ All shipped scripts are executable; run from the root as shown above:
 - `scripts/browser.sh PLUGIN NEW_EVIDENCE_DIRECTORY [PLAYWRIGHT_FILTERS]` runs existing owned suites for Compose Chat, Codex Quota or Markdown Reader. It does not install dependencies or activate plugins.
 - `scripts/verify.sh NEW_EVIDENCE_DIRECTORY` runs the Markdown Reader smoke proof only.
 - `scripts/doctor.sh PREVIEW_PID ORIGIN` checks that live smoke preview read-only.
+- `python3 "$SKILL/scripts/owned-browser.py" check` inspects installed dedicated-Chrome prerequisites without launch or Doctor. For an approved disposable installed-browser run, read [the owner usage and approval requirements](references/owned-browser.md) and [browser contract](references/browser-contract.md), then use `run` around a trusted verifier. It does not replace the owned fixture runners.
 - `node "$SKILL/scripts/prove.mjs" "$ORIGIN" "$EVIDENCE"` drives a smoke preview already owned and checked by this run. `verify.sh` calls it automatically. It closes its browser in a finally block.
 
 Use `/maintain-verification-skill` when available to update the maps as plugins change. Add a new package to the index with observed launch, driving, ownership and proof requirements before calling it covered.
