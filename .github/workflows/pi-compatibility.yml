@@ -67,8 +67,16 @@ jobs:
         id: candidate
         run: |
           unset BB_CLI NODE_ENV
-          bun add --dev --exact bb-app@latest @get-bb/plugin-sdk@latest 2>&1 | tee "$COMPATIBILITY_REPORT/candidate-install.log"
-          sdk_version="$(bun -e 'console.log((await Bun.file("package.json").json()).devDependencies["@get-bb/plugin-sdk"])')"
+          bun add --dev --exact bb-app@latest 2>&1 | tee "$COMPATIBILITY_REPORT/candidate-install.log"
+          sdk_version="$(bun run - <<'BUN'
+            const metas = new Bun.Glob("node_modules/bb-app/server/dist/builtin-plugins/*/dist/*.meta.json");
+            const versions = new Set();
+            for await (const path of metas.scan(".")) versions.add((await Bun.file(path).json()).builtWith.pluginSdkVersion);
+            if (versions.size !== 1 || typeof [...versions][0] !== "string") throw new Error(`Expected one builtWith.pluginSdkVersion in bb-app, found: ${[...versions].join(", ") || "none"}`);
+            console.log([...versions][0]);
+          BUN
+          )"
+          bun add --dev --exact "@get-bb/plugin-sdk@$sdk_version" 2>&1 | tee -a "$COMPATIBILITY_REPORT/candidate-install.log"
           bun add --exact "@get-bb/plugin-sdk-runtime@npm:@get-bb/plugin-sdk@$sdk_version" 2>&1 | tee "$COMPATIBILITY_REPORT/runtime-install.log"
 
       - name: Check candidate admission, SDK alignment, types, tests, and build
@@ -132,7 +140,7 @@ jobs:
           git diff -- bb-plugin-pi-subagents-provider/package.json bun.lock > "$COMPATIBILITY_REPORT/candidate.diff"
           cp bb-plugin-pi-subagents-provider/package.json "$COMPATIBILITY_REPORT/candidate-package.json"
           {
-            echo '## Latest published BB and SDK candidate'
+            echo '## Latest published BB and the SDK it was built with'
             echo
             echo 'This disposable candidate does not change source pins or engine ranges.'
             echo
