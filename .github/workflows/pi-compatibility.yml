@@ -79,6 +79,40 @@ jobs:
           bun add --dev --exact "@get-bb/plugin-sdk@$sdk_version" 2>&1 | tee -a "$COMPATIBILITY_REPORT/candidate-install.log"
           bun add --exact "@get-bb/plugin-sdk-runtime@npm:@get-bb/plugin-sdk@$sdk_version" 2>&1 | tee "$COMPATIBILITY_REPORT/runtime-install.log"
 
+      - name: Record independently latest SDK advisory
+        id: advisory
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          unset BB_CLI NODE_ENV
+          if npm view @get-bb/plugin-sdk@latest version --json > "$COMPATIBILITY_REPORT/sdk-lookup.stdout" 2> "$COMPATIBILITY_REPORT/sdk-lookup.stderr"; then
+            lookup_exit=0
+          else
+            lookup_exit=$?
+          fi
+          printf '%s\n' "$lookup_exit" > "$COMPATIBILITY_REPORT/sdk-lookup-exit.txt"
+          cat "$COMPATIBILITY_REPORT/sdk-lookup.stdout"
+          cat "$COMPATIBILITY_REPORT/sdk-lookup.stderr" >&2
+          bun run - <<'BUN'
+            const report = process.env.COMPATIBILITY_REPORT;
+            const candidateSdk = (await Bun.file("package.json").json()).devDependencies["@get-bb/plugin-sdk"];
+            const lookupExitCode = Number((await Bun.file(`${report}/sdk-lookup-exit.txt`).text()).trim());
+            let latestPublishedSdk = null;
+            if (lookupExitCode === 0) {
+              try {
+                const version = await Bun.file(`${report}/sdk-lookup.stdout`).json();
+                if (typeof version === "string" && version.length > 0) latestPublishedSdk = version;
+              } catch {}
+            }
+            const status = latestPublishedSdk === null ? "unavailable" : latestPublishedSdk === candidateSdk ? "matched" : "different";
+            const advisory = { latestPublishedSdk, candidateSdk, lookupExitCode, status };
+            await Bun.write(`${report}/sdk-advisory.json`, JSON.stringify(advisory, null, 2));
+            console.log(JSON.stringify(advisory, null, 2));
+            if (status === "different") console.log(`::warning::Independent latest SDK ${latestPublishedSdk} differs from BB candidate SDK ${candidateSdk}. Advisory only.`);
+            if (status === "unavailable") console.log(`::warning::Independent latest SDK metadata unavailable. Query exit ${lookupExitCode}. Advisory only.`);
+          BUN
+          exit "$lookup_exit"
+
       - name: Check candidate admission, SDK alignment, types, tests, and build
         id: checks
         if: ${{ !cancelled() && steps.candidate.outcome == 'success' }}
@@ -135,6 +169,7 @@ jobs:
           DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
           CANDIDATE_OUTCOME: ${{ steps.candidate.outcome }}
           CHECKS_OUTCOME: ${{ steps.checks.outcome }}
+          ADVISORY_OUTCOME: ${{ steps.advisory.outcome }}
         run: |
           mkdir -p "$COMPATIBILITY_REPORT"
           git diff -- bb-plugin-pi-subagents-provider/package.json bun.lock > "$COMPATIBILITY_REPORT/candidate.diff"
@@ -149,6 +184,17 @@ jobs:
             printf '| Locked install | %s |\n' "$DEPENDENCIES_OUTCOME"
             printf '| Latest candidate install | %s |\n' "$CANDIDATE_OUTCOME"
             printf '| Candidate checks | %s |\n' "$CHECKS_OUTCOME"
+            printf '| Independent latest SDK advisory | %s |\n' "$ADVISORY_OUTCOME"
+            echo
+            echo '### Independently latest SDK advisory'
+            if [ -f "$COMPATIBILITY_REPORT/sdk-advisory.json" ]; then
+              echo '```json'
+              cat "$COMPATIBILITY_REPORT/sdk-advisory.json"
+              echo
+              echo '```'
+            else
+              echo 'Independent latest SDK metadata unavailable. See advisory step outcome and lookup logs.'
+            fi
             if [ -f "$COMPATIBILITY_REPORT/exits.tsv" ]; then
               echo
               echo '| Check | Exit code |'
