@@ -4,12 +4,23 @@ import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, ReviewResult, rpcContract, TimelineResult } from "../contract";
+import type { ImageWireResult } from "../core/image-content";
 import type { ReviewThread } from "../core/review-threads";
 import type { TimelineEvent } from "../core/timeline";
 import { postIntent } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
 import { forgetInsights } from "./pr-availability";
 import { forgetSubTabs } from "./pr-sub-tab";
+
+vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@get-bb/plugin-sdk/app")>()),
+  Markdown: ({ content }: { content: string }) => (
+    <div
+      data-testid="bb-markdown"
+      dangerouslySetInnerHTML={{ __html: content.replaceAll(' id="', ' id="user-content-') }}
+    />
+  ),
+}));
 
 class Unobserved {
   observe() {}
@@ -53,6 +64,7 @@ interface Handlers {
   getInsight?: () => InsightResult | Promise<InsightResult>;
   getReview?: () => ReviewResult | Promise<ReviewResult>;
   getTimeline?: () => TimelineResult | Promise<TimelineResult>;
+  getPrBodyImage?: () => ImageWireResult;
 }
 
 function renderPanel(threadId = "thr_1", handlers: Handlers = {}) {
@@ -64,6 +76,9 @@ function renderPanel(threadId = "thr_1", handlers: Handlers = {}) {
       rpc: {
         getPrVideo: () => ({ kind: "error", code: "read", message: "unavailable" }),
         getPrImage: () => ({ kind: "error", code: "read", message: "unavailable" }),
+        getPrBodyImage:
+          handlers.getPrBodyImage ??
+          (() => ({ kind: "error", code: "read", message: "unavailable" })),
         getInsight: handlers.getInsight ?? (() => ({ kind: "no_pr" })),
         refresh: () => ({ kind: "no_pr" }),
         getReview: handlers.getReview ?? (() => emptyReview),
@@ -396,6 +411,46 @@ describe("PR panel Overview conversation", () => {
 
     expect(await slot.findByText("No conversation yet")).toBeTruthy();
     expect(slot.getByText("#42")).toBeTruthy();
+  });
+
+  it.each([
+    ["Markdown", (src: string) => `![top](${src} "Top")`],
+    ["HTML", (src: string) => `<img width="300" alt="top" src="${src}">`],
+  ])("shows a %s image of a private repo file in the description", async (_form, image) => {
+    const sha = "dffbecff4ed7e07f585558fe80a74ce684f9aae8";
+    const src = `https://github.com/collibra/frontend/raw/${sha}/ac-image-AC-1-1-top.png`;
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:top");
+    const slot = renderPanel("thr_1", {
+      getInsight: () => openPr(1),
+      getTimeline: () => ({
+        ...timelineOf([]),
+        description: { body: `| ${image(src)} |`, author: "koenvg", at: "2026-10-01T09:00:00Z" },
+      }),
+      getPrBodyImage: () => ({
+        kind: "ready",
+        content: "iVBORw0KGgoAAAAA",
+        mime: "image/png",
+        sizeBytes: 12,
+      }),
+    });
+
+    const shown = await slot.findByRole("img", { name: "top" });
+
+    expect(shown.getAttribute("src")).toBe("blob:top");
+    expect(
+      slot.inspection.rpcCalls
+        .filter((call) => call.method === "getPrBodyImage")
+        .map((call) => call.input),
+    ).toEqual([
+      {
+        threadId: "thr_1",
+        owner: "collibra",
+        repo: "frontend",
+        sha,
+        path: "ac-image-AC-1-1-top.png",
+      },
+    ]);
+    create.mockRestore();
   });
 
   it("keeps the PR status when the conversation read fails", async () => {
