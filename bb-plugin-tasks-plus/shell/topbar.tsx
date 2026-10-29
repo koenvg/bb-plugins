@@ -208,6 +208,13 @@ export function TasksTopbar({
             </div>
           </div>
         );
+      case "stats":
+        return (
+          <span className="block truncate font-semibold">
+            {projects?.find((item) => item.id === route.projectId)?.name ??
+              (route.projectId ? "Project" : "All projects")}
+          </span>
+        );
       case "manage":
         return (
           <span className="flex items-center gap-2">
@@ -278,11 +285,60 @@ export function TasksTopbar({
           <ViewToggle view={route.view} onChange={(view) => onNavigate({ ...route, view })} />
         </span>
       ) : null}
+      {route.kind === "all" ||
+      route.kind === "active" ||
+      route.kind === "project" ||
+      route.kind === "stats" ? (
+        <nav aria-label="Tasks views" className="flex shrink-0 items-center gap-1 text-xs">
+          <button
+            type="button"
+            aria-current={route.kind !== "stats" ? "page" : undefined}
+            className={cn(
+              "h-12 border-b-2 px-2 hover:bg-state-hover focus-visible:outline-ring",
+              route.kind === "stats"
+                ? "border-transparent text-muted-foreground"
+                : "border-ring text-foreground",
+            )}
+            onClick={() =>
+              onNavigate(
+                route.kind === "stats"
+                  ? route.projectId
+                    ? { kind: "project", projectId: route.projectId, view: null }
+                    : { kind: "all" }
+                  : route,
+              )
+            }
+          >
+            Tasks
+          </button>
+          <button
+            type="button"
+            aria-current={route.kind === "stats" ? "page" : undefined}
+            className={cn(
+              "h-12 border-b-2 px-2 hover:bg-state-hover focus-visible:outline-ring",
+              route.kind === "stats"
+                ? "border-ring text-foreground"
+                : "border-transparent text-muted-foreground",
+            )}
+            onClick={() =>
+              onNavigate({
+                kind: "stats",
+                ...((route.kind === "project" || route.kind === "stats") && route.projectId
+                  ? { projectId: route.projectId }
+                  : {}),
+              })
+            }
+          >
+            Stats
+          </button>
+        </nav>
+      ) : null}
       <RefreshTasksButton />
       {projects?.length !== 0 &&
       route.kind !== "entry" &&
       route.kind !== "task" &&
-      route.kind !== "manage" ? (
+      route.kind !== "manage" &&
+      route.kind !== "stats" ? (
         <Button size="sm" className="h-9 shrink-0 gap-2" aria-label="New task" onClick={onNewTask}>
           <Icon name="Plus" className="size-3.5" />
           <span className="hidden @lg:inline">New task</span>

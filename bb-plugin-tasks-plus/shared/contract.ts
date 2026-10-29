@@ -62,6 +62,43 @@ const dueDateSchema = z
   }, "must be a valid calendar date in YYYY-MM-DD format");
 const taskStatusSchema = z.enum(TASK_STATUSES);
 const taskPrioritySchema = z.enum(TASK_PRIORITIES);
+const statsMeasuresFields = {
+  count: z.number().int().nonnegative(),
+  medianMs: z.number().nonnegative().nullable(),
+  averageMs: z.number().nonnegative().nullable(),
+};
+const statsTaskSchema = z
+  .object({
+    id: idSchema,
+    key: z.string(),
+    title: z.string(),
+    projectId: idSchema,
+    priority: taskPrioritySchema,
+    milliseconds: z.number().nonnegative(),
+  })
+  .strict();
+const taskStatsSchema = z
+  .object({
+    summary: z.object(statsMeasuresFields).strict(),
+    byProject: z.array(
+      z
+        .object({ id: idSchema, name: z.string(), color: z.string(), ...statsMeasuresFields })
+        .strict(),
+    ),
+    byPriority: z.array(
+      z.object({ priority: taskPrioritySchema, ...statsMeasuresFields }).strict(),
+    ),
+    slowest: z.array(statsTaskSchema).max(5),
+    interrupted: z
+      .object({ count: z.number().int().nonnegative(), tasks: z.array(statsTaskSchema).optional() })
+      .strict(),
+    canceledCount: z.number().int().nonnegative(),
+    unavailableCompletedCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type TaskStats = z.infer<typeof taskStatsSchema>;
+export type StatsDurationRow = z.infer<typeof statsTaskSchema>;
+export type StatsMeasures = TaskStats["summary"];
 const taskSortSchema = z.enum(TASK_SORTS);
 const threadSearchStatusSchema = z.enum([
   "pending",
@@ -533,6 +570,12 @@ const updatePresetInputSchema = z
   });
 
 export const tasksRpcContract = defineRpcContract({
+  getTaskStats: {
+    input: z
+      .object({ projectId: idSchema.optional(), includeInterrupted: z.boolean().default(false) })
+      .strict(),
+    output: taskStatsSchema,
+  },
   createFolder: {
     input: z
       .object({
