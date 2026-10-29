@@ -12,6 +12,9 @@
   --color-input: var(--border);
   --color-ring: var(--ring);
   --color-secondary: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-warning: var(--warning);
   --color-state-hover: var(--state-hover);
   --color-state-active: var(--state-active);
 }
@@ -21,6 +24,9 @@
   --background: var(--canvas);
   --foreground: var(--ink);
   --muted-foreground: oklch(44% 0 0);
+  --primary: oklch(45% 0.14 290);
+  --primary-foreground: oklch(100% 0 0);
+  --warning: oklch(45% 0.1 75);
   --surface-recessed: color-mix(in oklab, var(--ink) 6%, transparent);
   --border: color-mix(in oklch, var(--ink) 14%, var(--canvas));
   --muted: var(--surface-recessed);
@@ -36,6 +42,9 @@
   --canvas: oklch(19.5% 0 0);
   --ink: oklch(81% 0 0);
   --muted-foreground: oklch(78% 0 0);
+  --primary: oklch(78% 0.12 290);
+  --primary-foreground: oklch(19.5% 0 0);
+  --warning: oklch(80% 0.12 75);
   --ring: oklch(82% 0 0);
   --border: color-mix(in oklch, var(--ink) 19.4%, var(--canvas));
   --state-hover: color-mix(in oklab, var(--ink) 13.8%, transparent);
