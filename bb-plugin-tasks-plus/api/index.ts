@@ -26,6 +26,7 @@ import {
 } from "../shared/contract";
 import { calculateTaskDuration } from "../shared/task-duration.js";
 import type { Webhooks } from "../webhooks";
+import { aggregateTaskStats } from "../shared/task-stats.js";
 
 import { createWorkStatusReader } from "./work-status.js";
 import { lookupPullRequest, type PullRequestResult } from "./pr-status.js";
@@ -520,6 +521,10 @@ export function registerHandlers(
   });
   bb.onDispose(readWorkStatus.dispose);
   return {
+    getTaskStats(input) {
+      const { tasks, projects } = store.tasks.readTaskStatsInputs(input.projectId);
+      return aggregateTaskStats(tasks, projects, input.includeInterrupted);
+    },
     createFolder(input) {
       const folder = store.tasks.createFolder(input);
       publishProjectsChanged(bb, null);

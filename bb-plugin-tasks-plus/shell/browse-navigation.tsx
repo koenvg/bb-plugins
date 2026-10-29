@@ -190,6 +190,20 @@ export function TasksNavigationMenu({
           <Icon name="Zap" />
           Active
         </DropdownMenuItem>
+        <DropdownMenuItem
+          className="min-h-9"
+          onSelect={() =>
+            onNavigate({
+              kind: "stats",
+              ...((route.kind === "project" || route.kind === "stats") && route.projectId
+                ? { projectId: route.projectId }
+                : {}),
+            })
+          }
+        >
+          <Icon name="Clock" />
+          Stats
+        </DropdownMenuItem>
         <DropdownMenuItem className="min-h-9" onSelect={() => onNavigate({ kind: "manage" })}>
           <Icon name="Settings" />
           Manage

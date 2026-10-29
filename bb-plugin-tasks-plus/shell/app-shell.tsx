@@ -18,6 +18,7 @@ import { TasksSessionProvider, useSafeTaskTarget } from "../views/detail/task-se
 import { NewTaskDialog } from "../views/manage/new-task-dialog.js";
 import { NewProjectDialog } from "../views/manage/new-project-dialog.js";
 import { ManagePanel } from "../views/manage/manage-panel.js";
+import { StatsView } from "../views/stats/index.js";
 import { EmptyState } from "../components/empty-state.js";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -47,6 +48,8 @@ function RouteOutlet({
     case "all":
     case "active":
       return <BrowseWorkspace key={route.kind} route={route} noProjects={noProjects} />;
+    case "stats":
+      return <StatsView key={route.projectId ?? "all"} projectId={route.projectId} />;
     case "manage":
       return <ManagePanel />;
     case "task":
@@ -162,8 +165,9 @@ function TasksAppShellContent({ subPath: requestedSubPath }: PluginNavPanelProps
                 ? null
                 : {
                     projectId:
-                      lastBrowseRouteRef.current.kind === "project"
-                        ? lastBrowseRouteRef.current.projectId
+                      lastBrowseRouteRef.current.kind === "project" ||
+                      lastBrowseRouteRef.current.kind === "stats"
+                        ? (lastBrowseRouteRef.current.projectId ?? null)
                         : null,
                   }
             }
@@ -178,7 +182,8 @@ function TasksAppShellContent({ subPath: requestedSubPath }: PluginNavPanelProps
             ) : noProjects &&
               !hasBrowseSelection &&
               route.kind !== "task" &&
-              route.kind !== "manage" ? (
+              route.kind !== "manage" &&
+              route.kind !== "stats" ? (
               <EmptyState
                 icon="ListTodo"
                 title="No projects yet"

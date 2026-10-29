@@ -1,0 +1,16 @@
+@import "./preview.css";
+@source "../shell";
+@source "../views/stats";
+@theme inline {
+  --color-border-hairline: var(--border);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+}
+:root {
+  --success: #286b4c;
+  --warning: #765312;
+}
+:root[data-theme="dark"] {
+  --success: #8bc3a6;
+  --warning: #e4bd77;
+}
