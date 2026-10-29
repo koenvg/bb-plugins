@@ -19,10 +19,12 @@ import {
   type ProjectsChangedEvent,
   type SidebarProjectSummary,
   type Task,
+  type SingleTask,
   type TaskPullRequest,
   type TasksChangedEvent,
   type TasksDomainError,
 } from "../shared/contract";
+import { calculateTaskDuration } from "../shared/task-duration.js";
 import type { Webhooks } from "../webhooks";
 
 import { createWorkStatusReader } from "./work-status.js";
@@ -199,8 +201,14 @@ export function publishProjectsChanged(bb: BbPluginApi, projectId: string | null
   bb.realtime.publish("projects:changed", payload);
 }
 
-function apiTask(store: TasksApiStore, task: StoredTask): Task {
-  return apiTasks(store, [task])[0]!;
+function apiTask(store: TasksApiStore, task: StoredTask): SingleTask {
+  return {
+    ...apiTasks(store, [task])[0]!,
+    duration: calculateTaskDuration({
+      status: task.status,
+      transitions: store.tasks.listTaskStatusTransitions(task.id),
+    }),
+  };
 }
 
 function apiTasks(store: TasksApiStore, tasks: StoredTask[]): Task[] {

@@ -8,7 +8,7 @@ import {
 } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import SmilePlusIcon from "@hugeicons/core-free-icons/SmilePlusIcon";
-import type { Task } from "../../shared/contract.js";
+import type { SingleTask, Task } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
 import { useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
@@ -25,6 +25,7 @@ import { TasksEditor } from "../../editor/tasks-editor.js";
 import { AttachmentsGrid, uploadAttachment } from "./attachments.js";
 import { useAttachmentPreview } from "./attachment-preview.js";
 import { createTaskEditSession } from "./edit-session.js";
+import { TaskDurationStrip } from "./duration.js";
 import { TasksSessionProvider, useTasksSession, useSafeTaskTarget } from "./task-session.js";
 import { Button } from "@/components/ui/button";
 import { StatusIcon } from "./meta.js";
@@ -211,7 +212,13 @@ function DetailSkeleton() {
   );
 }
 
-function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChanged: () => void }) {
+function TaskDetail({
+  task: savedTask,
+  onTaskChanged,
+}: {
+  task: SingleTask;
+  onTaskChanged: () => void;
+}) {
   const rpc = useTasksRpc();
   const previews = useTaskPreviews();
   const previewsRef = useRef(previews);
@@ -228,7 +235,11 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
   rpcRef.current = rpc;
   const savedTaskRef = useRef(savedTask);
   savedTaskRef.current = savedTask;
-  const confirmedTask = useRef<{ task: Task; querySnapshot: Task; changeId?: string } | null>(null);
+  const confirmedTask = useRef<{
+    task: SingleTask;
+    querySnapshot: SingleTask;
+    changeId?: string;
+  } | null>(null);
   const [edits] = useState(() =>
     createTaskEditSession(savedTask.id, {
       save: async (taskId, patch) => {
@@ -504,6 +515,11 @@ function TaskDetail({ task: savedTask, onTaskChanged }: { task: Task; onTaskChan
             {...menuControl("inline")}
           />
 
+          <TaskDurationStrip
+            duration={baseTask.duration}
+            pendingStatus={"status" in editState.draft}
+          />
+
           <TasksEditor
             value={descriptionValue}
             onChange={onDescriptionChange}
@@ -650,7 +666,7 @@ function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
   });
   // A confirmed deletion still crosses the save barrier. Keep this keyed query's
   // originating editor mounted until the workspace accepts clearing its identity.
-  const previousTask = useRef<Task | null>(null);
+  const previousTask = useRef<SingleTask | null>(null);
   useLayoutEffect(() => {
     if (query.data) previousTask.current = query.data;
   }, [query.data]);

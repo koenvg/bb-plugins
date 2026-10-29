@@ -103,6 +103,53 @@ const taskDependencyRefSchema = z
   })
   .strict();
 
+export const taskDurationSchema = z.union([
+  z
+    .object({
+      kind: z.literal("completed"),
+      startedAt: z.string(),
+      completedAt: z.string(),
+      milliseconds: z.number().finite().nonnegative(),
+      interrupted: z.literal(false),
+      statisticsEligible: z.literal(true),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("completed"),
+      startedAt: z.string(),
+      completedAt: z.string(),
+      milliseconds: z.number().finite().nonnegative(),
+      interrupted: z.literal(true),
+      statisticsEligible: z.literal(false),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("unfinished"),
+      startedAt: z.string(),
+      interrupted: z.boolean(),
+      statisticsEligible: z.literal(false),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("excluded"),
+      reason: z.literal("canceled"),
+      interrupted: z.boolean(),
+      statisticsEligible: z.literal(false),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("unavailable"),
+      reason: z.enum(["missing-start", "missing-completion", "invalid-timestamp"]),
+      interrupted: z.boolean(),
+      statisticsEligible: z.literal(false),
+    })
+    .strict(),
+]) satisfies z.ZodType<import("./task-duration.js").TaskDurationResult>;
+
 const taskSchema = z
   .object({
     id: idSchema,
@@ -126,8 +173,11 @@ const taskSchema = z
     openBlockerCount: z.number().int().nonnegative().optional(),
     openBlockedCount: z.number().int().nonnegative().optional(),
     blocked: z.boolean().optional(),
+    duration: taskDurationSchema.optional(),
   })
   .strict();
+
+const singleTaskSchema = taskSchema.extend({ duration: taskDurationSchema });
 
 const labelSchema = z
   .object({
@@ -330,7 +380,7 @@ const taskMutationResultSchema = z.discriminatedUnion("ok", [
   z
     .object({
       ok: z.literal(true),
-      task: taskSchema,
+      task: singleTaskSchema,
       warnings: z.array(z.string()).optional(),
       changeId: z.string().optional(),
     })
@@ -560,11 +610,11 @@ export const tasksRpcContract = defineRpcContract({
   },
   getTask: {
     input: z.object({ taskId: idSchema }).strict(),
-    output: z.object({ task: taskSchema.nullable() }).strict(),
+    output: z.object({ task: singleTaskSchema.nullable() }).strict(),
   },
   getTaskByKey: {
     input: z.object({ taskKey: nonBlankStringSchema }).strict(),
-    output: z.object({ task: taskSchema.nullable() }).strict(),
+    output: z.object({ task: singleTaskSchema.nullable() }).strict(),
   },
   getTasksForThread: {
     input: z.object({ threadId: z.string().startsWith("thr_") }).strict(),
@@ -800,6 +850,7 @@ export type TasksRpcContract = typeof tasksRpcContract;
 export type Folder = z.infer<typeof folderSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type Task = z.infer<typeof taskSchema>;
+export type SingleTask = z.infer<typeof singleTaskSchema>;
 export type TaskDependencyRef = z.infer<typeof taskDependencyRefSchema>;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
