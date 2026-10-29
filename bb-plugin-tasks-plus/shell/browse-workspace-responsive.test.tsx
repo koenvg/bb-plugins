@@ -179,11 +179,11 @@ describe("host-controlled Ticket presentation", () => {
     const outside = document.createElement("button");
     document.body.append(outside);
     outside.focus();
-    const opens = slot.inspection.experimental_fixedTabOpenCalls.length;
+    const opens = slot.inspection.experimental_tabOpenCalls.length;
     await hostTab(slot, "all?task=TSK-1", false);
     await resize(600);
     await slot.behavior.emitRealtime("tasks:changed", {});
-    expect(slot.inspection.experimental_fixedTabOpenCalls).toHaveLength(opens);
+    expect(slot.inspection.experimental_tabOpenCalls).toHaveLength(opens);
     expect(document.activeElement).toBe(outside);
     fireEvent.keyDown(outside, { key: "j" });
     expect(slot.inspection.navigateCalls).toEqual([]);

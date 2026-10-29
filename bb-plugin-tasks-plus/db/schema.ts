@@ -444,6 +444,25 @@ const MIGRATIONS = [
       UPDATE task_list_revision SET revision = revision + 1 WHERE id = 1;
     END;
   `,
+  `
+    CREATE TABLE task_status_transitions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      from_status TEXT NOT NULL,
+      to_status TEXT NOT NULL,
+      changed_at TEXT NOT NULL,
+      CHECK (from_status <> to_status)
+    );
+    CREATE INDEX idx_task_status_transitions_task_order
+      ON task_status_transitions(task_id, id);
+    CREATE TRIGGER task_status_transitions_tasks_update
+    AFTER UPDATE OF status ON tasks
+    WHEN OLD.status <> NEW.status
+    BEGIN
+      INSERT INTO task_status_transitions(task_id, from_status, to_status, changed_at)
+      VALUES (NEW.id, OLD.status, NEW.status, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+    END;
+  `,
 ] as const;
 
 export function initializeTasksSchema(db: PluginDatabase): CreatorBackfillReport | undefined {

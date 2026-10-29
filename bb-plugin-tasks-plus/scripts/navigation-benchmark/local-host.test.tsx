@@ -17,6 +17,13 @@ import { createSafeTaskTransition } from "../../views/detail/safe-transition.js"
 import { createTaskEditSession } from "../../views/detail/edit-session.js";
 const app = collectPluginAppRegistrations(tasksApp);
 const panel = app.navPanels[0]!;
+const ticketRegistration = app.tabs.find(
+  (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
+    tab.id === "ticket" &&
+    tab.availability === "fixed" &&
+    tab.context.kind === "nav-panel" &&
+    tab.context.panelId === "tasks",
+)!;
 const hosts: ReturnType<typeof createLocalHost>[] = [];
 const containers: HTMLElement[] = [];
 afterEach(() => {
@@ -26,8 +33,9 @@ afterEach(() => {
 });
 function setup(
   rpc: LocalHostOptions["rpc"] = async (_method: string, input: unknown) => ({ input }),
+  tabs: LocalHostOptions["tabs"] = app.tabs,
 ) {
-  const host = createLocalHost({ panel, rpc });
+  const host = createLocalHost({ panel, tabs, rpc });
   hosts.push(host);
   const container = document.createElement("div");
   document.body.append(container);
@@ -37,7 +45,11 @@ function setup(
 describe("production-mounting host boundary without test renderer", () => {
   it("collects actual registrations and preserves component/context/controller identity across route and fixed-tab changes", async () => {
     expect(panel.path).toBe("tasks");
-    expect(panel.fixedTabs?.[0]?.id).toBe("ticket");
+    expect(ticketRegistration).toMatchObject({
+      id: "ticket",
+      context: { kind: "nav-panel", panelId: "tasks" },
+      availability: "fixed",
+    });
     const { host, container } = setup();
     let created = 0;
     let destroyed = 0;
@@ -64,27 +76,78 @@ describe("production-mounting host boundary without test renderer", () => {
     host.lifecycle.rerender("all?task=BENCH-2");
     host.behavior.setTicketVisible(false);
     await waitFor(() => expect(snapshot.ticketVisible).toBe(false));
-    snapshot.controller.openFixedTab({ surface: { kind: "current" }, tab: panel.fixedTabs![0]! });
+    snapshot.controller.experimental_openTab({
+      surface: { kind: "current" },
+      tab: ticketRegistration,
+    });
     await waitFor(() => expect(snapshot.ticketVisible).toBe(true));
     for (const key of ["rpc", "context", "navigate", "controller", "mount"])
       expect(snapshot[key]).toBe(initial[key]);
     expect(snapshot.context).toEqual({ projectId: null, threadId: null });
     expect(created).toBe(1);
     expect(destroyed).toBe(0);
-    expect(host.inspection.experimental_fixedTabOpenCalls).toHaveLength(1);
+    expect(host.inspection.experimental_tabOpenCalls).toEqual([
+      { surface: { kind: "current" }, tab: ticketRegistration },
+    ]);
     expect(() => host.lifecycle.mount(container, Consumer)).toThrow("already mounted");
     expect(() => snapshot.navigate.toPluginPanel("other")).toThrow("blocks");
     expect(() => snapshot.navigate.toThread("thr_foreign")).toThrow("blocks");
     expect(() =>
-      snapshot.controller.openFixedTab({
+      snapshot.controller.experimental_openTab({
         surface: { kind: "current" },
-        tab: { panelId: "tasks", id: "foreign" },
+        tab: { ...ticketRegistration, id: "foreign" },
       }),
     ).toThrow("blocks");
+    for (const input of [
+      { surface: { kind: "other" }, tab: ticketRegistration },
+      {
+        surface: { kind: "current" },
+        tab: { ...ticketRegistration, context: { kind: "nav-panel", panelId: "other" } },
+      },
+      { surface: { kind: "current" }, tab: ticketRegistration, target: { taskKey: "BENCH-1" } },
+      { surface: { kind: "current" }, tab: { ...ticketRegistration, availability: "action" } },
+    ])
+      expect(() => snapshot.controller.experimental_openTab(input)).toThrow("blocks");
+    expect(host.inspection.experimental_tabOpenCalls).toHaveLength(1);
+    snapshot.controller.openFixedTab({
+      surface: { kind: "current" },
+      tab: { panelId: "tasks", id: "ticket" },
+    });
+    expect(host.inspection.experimental_tabOpenCalls[1]).toEqual({
+      surface: { kind: "current" },
+      tab: {
+        id: "ticket",
+        context: { kind: "nav-panel", panelId: "tasks" },
+        availability: "fixed",
+      },
+    });
     host.dispose();
     expect(destroyed).toBe(1);
+    expect(() =>
+      snapshot.controller.experimental_openTab({
+        surface: { kind: "current" },
+        tab: ticketRegistration,
+      }),
+    ).toThrow("disposed");
     expect(container.textContent).toBe("");
     expect(() => host.lifecycle.rerender("all")).toThrow("disposed");
+  });
+  it("rejects a Ticket reference that has no captured registration", async () => {
+    const { host, container } = setup(undefined, []);
+    let controller: ReturnType<typeof experimental_useAppPanel> | undefined;
+    function Consumer() {
+      controller = experimental_useAppPanel();
+      return null;
+    }
+    host.lifecycle.mount(container, Consumer);
+    await waitFor(() => expect(controller).toBeDefined());
+    expect(() =>
+      controller!.experimental_openTab({
+        surface: { kind: "current" },
+        tab: ticketRegistration,
+      }),
+    ).toThrow("blocks");
+    expect(host.inspection.experimental_tabOpenCalls).toEqual([]);
   });
   it("round-trips RPC, delivers latest realtime handlers and connection state, and revokes response/subscription rights on disposal", async () => {
     let resolve!: (value: unknown) => void;

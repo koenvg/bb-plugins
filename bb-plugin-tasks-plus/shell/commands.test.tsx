@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup } from "@testing-library/react";
+import { act, cleanup, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginCommandContext } from "@get-bb/plugin-sdk/app";
@@ -36,8 +36,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 const tasksPanel = app.navPanels[0]!;
-const sidebarAccessory = {
-  component: tasksPanel.experimental_sidebarAccessory!,
+const sidebarBadge = {
+  component: function Badge() {
+    const badge = tasksPanel.experimental_useBadge!();
+    return badge ? <output aria-label={badge.label}>{badge.count}</output> : null;
+  },
 };
 
 const rpc = {
@@ -85,9 +88,15 @@ describe("tasks palette commands", () => {
     }
   });
 
-  it("are hidden until a tasks surface can navigate", () => {
+  it("are hidden until the badge hook can navigate while Tasks is closed", async () => {
     expect(command("go-all").isAvailable?.(context)).toBe(false);
-    renderSlot(sidebarAccessory, {}, { rpc });
+    const slot = renderSlot(sidebarBadge, {}, { rpc });
+    await waitFor(() =>
+      expect(
+        slot.inspection.rpcCalls.filter(({ method }) => method === "sidebarOpenTaskCount"),
+      ).toHaveLength(1),
+    );
+    expect(slot.queryByRole("status")).toBeNull();
     expect(command("go-all").isAvailable?.(context)).toBe(true);
   });
 
@@ -96,7 +105,7 @@ describe("tasks palette commands", () => {
     ["go-active", "active"],
     ["go-manage", "manage"],
   ])("%s opens the tasks panel on %s", (id, subPath) => {
-    const slot = renderSlot(sidebarAccessory, {}, { rpc });
+    const slot = renderSlot(sidebarBadge, {}, { rpc });
     run(id);
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -106,7 +115,7 @@ describe("tasks palette commands", () => {
   });
 
   it("opens the panel and then the new-task dialog once when the panel was closed", async () => {
-    const sidebar = renderSlot(sidebarAccessory, {}, { rpc });
+    const sidebar = renderSlot(sidebarBadge, {}, { rpc });
     run("new-task");
     expect(sidebar.navigateCalls).toContainEqual(
       expect.objectContaining({ method: "toPluginPanel", path: "tasks" }),
@@ -124,7 +133,7 @@ describe("tasks palette commands", () => {
     expect(panel.navigateCalls).toEqual([]);
   });
   it("opens the panel and delivers one project picker when Tasks was closed", async () => {
-    const sidebar = renderSlot(sidebarAccessory, {}, { rpc });
+    const sidebar = renderSlot(sidebarBadge, {}, { rpc });
     run("switch-project");
     expect(sidebar.inspection.navigateCalls).toContainEqual(
       expect.objectContaining({ method: "toPluginPanel", path: "tasks" }),

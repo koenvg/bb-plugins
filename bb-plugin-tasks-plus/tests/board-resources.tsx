@@ -7,7 +7,9 @@ import "./preview.css";
 
 function Fixture() {
   const root = useRef<HTMLDivElement>(null);
-  const [projectId, setProjectId] = useState("project-1");
+  const [projectId, setProjectId] = useState(
+    () => new URLSearchParams(window.location.search).get("projectId") ?? "project-1",
+  );
   const refresh = useTasksRefresh();
   return (
     <div ref={root} style={{ height: "100vh" }}>

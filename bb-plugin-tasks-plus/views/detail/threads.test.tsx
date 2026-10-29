@@ -18,6 +18,13 @@ if (!window.matchMedia) {
 }
 
 const app = await loadPluginApp(() => import("../../app"));
+const ticketRegistration = app.tabs.find(
+  (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
+    tab.id === "ticket" &&
+    tab.availability === "fixed" &&
+    tab.context.kind === "nav-panel" &&
+    tab.context.panelId === "tasks",
+)!;
 
 afterEach(cleanup);
 
@@ -256,7 +263,7 @@ describe("task status changes retain thread and pull request data", () => {
             app.navPanels[0]!,
             { subPath },
             {
-              experimental_openFixedTab: () => true,
+              experimental_openTab: () => true,
               rpc: detailRpc({
                 getTaskByKey: () => (delayReads ? read.promise : { task: current }),
                 listTasks: (input: unknown) => ({
@@ -281,9 +288,7 @@ describe("task status changes retain thread and pull request data", () => {
             },
           );
           const ticket =
-            surface === "native Ticket"
-              ? renderSlot(app.navPanels[0]!.fixedTabs![0]!, { subPath })
-              : null;
+            surface === "native Ticket" ? renderSlot(ticketRegistration, { subPath }) : null;
           const root = ticket?.container ?? page.container;
           const ui = within(root);
           const title = await ui.findByRole("textbox", { name: "Task title" });
