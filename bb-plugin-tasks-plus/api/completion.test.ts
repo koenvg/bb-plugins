@@ -140,6 +140,130 @@ describe("task completion PR gate", () => {
     });
   }
 
+  describe("when the host cannot look up the PR", () => {
+    it("completes an archived thread whose recorded PR is merged", async () => {
+      const { harness, store, task } = await setup(environmentGone);
+      recordPr(harness, { state: "merged" });
+      expect(
+        await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+      ).toMatchObject({ ok: true, task: { status: "done" } });
+      expect(await harness.behavior.callRpc("listTaskPullRequests", { taskId: task.id })).toEqual({
+        pullRequests: [
+          {
+            url: "https://github.com/acme/bb/pull/321",
+            number: 321,
+            title: "",
+            state: "merged",
+            updatedAt: "2026-10-28T17:12:26.653Z",
+            threadIds: ["thr_work"],
+          },
+        ],
+        unavailableThreadIds: [],
+      });
+      expect(store.tasks.getTask(task.id)?.status).toBe("done");
+    });
+
+    it("completes an archived thread with a merged recorded PR when the lookup throws", async () => {
+      const { harness, task } = await setup();
+      recordPr(harness, { state: "merged" });
+      harness.sdk.stub("plugins.callRpc", async () => {
+        throw new Error("offline");
+      });
+      expect(
+        await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+      ).toMatchObject({ ok: true, task: { status: "done" } });
+    });
+
+    it.each([
+      ["open", { state: "open" }],
+      ["closed", { state: "closed" }],
+      ["merged but failed to refresh", { state: "merged", error: "GitHub offline" }],
+      ["merged in an unknown packet version", { state: "merged", version: 2 }],
+    ])("blocks an archived thread whose recorded PR is %s", async (_name, packet) => {
+      const { harness, task } = await setup(environmentGone);
+      recordPr(harness, packet);
+      expect(
+        await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+    });
+
+    it("blocks an active thread even when its recorded PR is merged", async () => {
+      const { harness, task } = await setup(environmentGone);
+      recordPr(harness, { state: "merged" });
+      harness.sdk.stub("threads.get", async ({ threadId }) =>
+        makeThreadResponse({ id: threadId, environmentId: "env_work", archivedAt: null }),
+      );
+      expect(
+        await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+    });
+
+    it("blocks an active thread that shares the environment of an archived one", async () => {
+      const { harness, task, attach } = await setup(environmentGone);
+      attach("thr_active");
+      recordPr(harness, { state: "merged" });
+      harness.sdk.stub("threads.get", async ({ threadId }) =>
+        makeThreadResponse({
+          id: threadId,
+          environmentId: "env_work",
+          archivedAt: threadId === "thr_active" ? null : 1,
+        }),
+      );
+      expect(await harness.behavior.callRpc("listTaskPullRequests", { taskId: task.id })).toEqual({
+        pullRequests: [expect.objectContaining({ state: "merged", threadIds: ["thr_work"] })],
+        unavailableThreadIds: ["thr_active"],
+      });
+      expect(
+        await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+    });
+
+    it("blocks an archived thread when its recorded PR cannot be read", async () => {
+      const { harness, task } = await setup(environmentGone);
+      harness.sdk.stub("threads.getPluginMetadata", async () => {
+        throw new Error("offline");
+      });
+      expect(
+        await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+    });
+
+    const environmentGone = {
+      outcome: "unavailable",
+      message: "Environment is not ready",
+    } as const;
+
+    function recordPr(
+      harness: Awaited<ReturnType<typeof setup>>["harness"],
+      {
+        state,
+        error = null,
+        version = 1,
+      }: { state: string; error?: string | null; version?: number },
+    ) {
+      harness.sdk.stub("threads.getPluginMetadata", async () => ({
+        prSummary: {
+          version,
+          updatedAt: "2026-10-28T17:12:26.653Z",
+          pr: { number: 321, url: "https://github.com/acme/bb/pull/321", state },
+          checks: {
+            failed: 0,
+            waiting: 0,
+            running: 0,
+            cancelled: 0,
+            passed: 1,
+            skipped: 0,
+            failedNames: [],
+          },
+          reviewers: { pending: 0, approved: 1, changesRequested: 0, pendingNames: [] },
+          blockers: [],
+          mergeQueue: null,
+          error,
+        },
+      }));
+    }
+  });
+
   it("rejects CLI done in text and JSON, without saving labels, blockers, or fields", async () => {
     const { harness, store, task, project } = await setup();
     const label = store.tasks.createLabel({ projectId: project.id, name: "Guard", color: "blue" });
