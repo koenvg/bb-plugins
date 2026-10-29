@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -7,6 +8,26 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 const manifest = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 
 describe("standalone packaging", () => {
+  it.each([
+    ["bb", "0.47.1", true],
+    ["bb", "0.48.0", true],
+    ["bb", "0.49.0", false],
+    ["bbPluginSdk", "0.6.79", true],
+    ["bbPluginSdk", "0.6.94", true],
+    ["bbPluginSdk", "0.7.0", false],
+  ] as const)("checks %s %s admission is %s", (engine, version, admitted) => {
+    const output = execFileSync(
+      "bun",
+      [
+        "--no-install",
+        "--eval",
+        `console.log(Bun.semver.satisfies(${JSON.stringify(version)}, ${JSON.stringify(manifest.engines[engine])}));`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(JSON.parse(output)).toBe(admitted);
+  });
+
   it("uses only public packages and package-local imports", () => {
     const result = experimental_scanPublicSdkOnly(root, {
       allow: [

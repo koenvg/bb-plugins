@@ -148,7 +148,7 @@ async function mount(
         selection: { providerId },
       },
       sdk: { threads: { events: { list } } },
-      experimental_openTab: openTab,
+      openThreadPanel: openTab,
     },
   );
   if (providerId === "pi-subagents") await waitFor(() => expect(list).toHaveBeenCalled());
@@ -169,8 +169,7 @@ it.each(["singleton", "aggregate", "narrow"] as const)(
     await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(true));
     fireEvent.click(header);
     expect(openTab).toHaveBeenCalledExactlyOnceWith({
-      surface: { kind: "current" },
-      tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
+      actionId: "subagents",
       params: shape === "singleton" ? { rowId: roots[0]!.id } : { overview: true },
     });
     expect(list.mock.calls[0]![0]).toMatchObject({ limit: "64" });
@@ -210,8 +209,7 @@ describe("native composer navigation", () => {
     await waitFor(() => expect(header.getAttribute("role")).toBe("button"));
     fireEvent.click(header);
     expect(openTab).toHaveBeenCalledWith({
-      surface: { kind: "current" },
-      tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
+      actionId: "subagents",
       params: { rowId: roots[0]!.id },
     });
     expect(view.container.childNodes.length).toBe(0);
@@ -246,8 +244,7 @@ describe("native composer navigation", () => {
       expect(header.getAttribute("aria-expanded")).toBe("true");
       expect(openTab).toHaveBeenCalledTimes(1);
       expect(openTab).toHaveBeenCalledWith({
-        surface: { kind: "current" },
-        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
+        actionId: "subagents",
         params: { overview: true },
       });
     },
@@ -388,8 +385,7 @@ describe("native composer navigation", () => {
     await waitFor(() => expect(next.header.tabIndex).toBe(0));
     fireEvent.click(next.header);
     expect(openTab).toHaveBeenCalledWith({
-      surface: { kind: "current" },
-      tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
+      actionId: "subagents",
       params: { rowId: nextRoots[0]!.id },
     });
   });
@@ -411,7 +407,7 @@ describe("native composer navigation", () => {
           selection: { providerId: "pi-subagents" },
         },
         sdk: { threads: { events: { list: async () => events() as never } } },
-        experimental_openTab: open,
+        openThreadPanel: open,
       },
     );
     await waitFor(() => expect(header.hasAttribute("role")).toBe(false));
@@ -436,8 +432,7 @@ describe("native composer navigation", () => {
       fireEvent.click(header);
       expect(header.getAttribute("aria-expanded")).toBe("true");
       expect(openTab).toHaveBeenCalledExactlyOnceWith({
-        surface: { kind: "current" },
-        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
+        actionId: "subagents",
         params: { overview: true },
       });
       fireEvent.click(header);
