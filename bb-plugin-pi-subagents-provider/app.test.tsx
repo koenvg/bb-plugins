@@ -197,11 +197,12 @@ it("registers a thread action tab that restores the requested captured child", a
   const scrollIntoView = HTMLElement.prototype.scrollIntoView;
   HTMLElement.prototype.scrollIntoView = vi.fn();
   try {
-    const view = renderSlot(
-      tab,
-      { threadId: "owned-thread", params: { rowId: "child-1" } },
-      { sdk: { threads: { events: { list } } } },
-    );
+    const panelProps = {
+      threadId: "owned-thread",
+      params: { rowId: "child-1" },
+      environment: null,
+    };
+    const view = renderSlot(tab, panelProps, { sdk: { threads: { events: { list } } } });
     expect((await view.findByRole("article", { name: "Child detail" })).textContent).toContain(
       "Review accepted",
     );

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { experimental_useAppPanel, useComposer } from "@get-bb/plugin-sdk/app";
 import { bindNativeSubagents } from "./native-composer-navigation.js";
+import { openSubagentsTab } from "./open-subagents-tab.js";
 import { useSubagentsHistory } from "./use-subagents-history.js";
 
 /** Bare SDK receiver only. It adds no DOM or layout to the native composer. */
@@ -20,8 +21,7 @@ export function NativeSubagentsContext() {
           ? current.state.rows
           : [],
       open: (rowId) =>
-        panel.experimental_openTab({
-          surface: { kind: "current" },
+        openSubagentsTab(panel, {
           tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
           params: rowId === null ? { overview: true } : { rowId },
         }),

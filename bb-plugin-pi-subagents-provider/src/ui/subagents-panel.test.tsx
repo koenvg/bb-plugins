@@ -15,6 +15,7 @@ beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn();
 });
 import { SubagentsPanel } from "./subagents-panel.js";
+const panelContext = { environment: null };
 const state = {
   kind: "pi-subagents-view",
   version: 1,
@@ -51,7 +52,7 @@ it("uses the public event list, filters its qualified kind and restores accepted
     event("other/fake", { ...state, rows: [] }),
     event("pi-subagents-provider/pi-subagents-view", state),
   ]);
-  const first = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  const first = render(<SubagentsPanel {...panelContext} threadId="owned-thread" params={{}} />);
   fireEvent.click(await first.findByRole("button", { name: /reviewer.*Entry/ }));
   await waitFor(() => expect(first.getByText("accepted answer")).toBeDefined());
   expect(h.list.mock.calls[0]![0]).toMatchObject({
@@ -74,7 +75,7 @@ it("uses the public event list, filters its qualified kind and restores accepted
     event("pi-subagents-provider/pi-subagents-view", next),
     event("pi-subagents-provider/pi-subagents-view", state),
   ]);
-  const second = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  const second = render(<SubagentsPanel {...panelContext} threadId="owned-thread" params={{}} />);
   fireEvent.click(await second.findByRole("button", { name: /reviewer.*Entry/ }));
   await waitFor(() => expect(second.getByText("accepted answer")).toBeDefined());
   expect(second.getByText(/Capture unavailable: Artifact missing/)).toBeDefined();
@@ -83,7 +84,7 @@ it("keeps a full-window history notice without treating accepted current data as
   h.list.mockResolvedValue(
     Array.from({ length: 64 }, () => event("pi-subagents-provider/pi-subagents-view", state)),
   );
-  const view = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  const view = render(<SubagentsPanel {...panelContext} threadId="owned-thread" params={{}} />);
   fireEvent.click(await view.findByRole("button", { name: /reviewer.*Entry/ }));
   await waitFor(() => expect(view.getByText("accepted answer")).toBeDefined());
   expect(view.getByRole("status").textContent).toContain(
@@ -96,7 +97,7 @@ it("shows unsupported stored state rather than accepting it as an empty success"
   h.list.mockResolvedValue([
     event("pi-subagents-provider/pi-subagents-view", { ...state, version: 2 }),
   ]);
-  const view = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+  const view = render(<SubagentsPanel {...panelContext} threadId="owned-thread" params={{}} />);
   await waitFor(() =>
     expect(view.getByRole("alert").textContent).toContain("unsupported or malformed"),
   );
@@ -120,7 +121,11 @@ it("selects a requested background root after loading and keeps manual selection
       }),
     ]);
     const view = render(
-      <SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />,
+      <SubagentsPanel
+        {...panelContext}
+        threadId="owned-thread"
+        params={{ rowId: background.id }}
+      />,
     );
     await act(async () => {
       await Promise.resolve();
@@ -151,7 +156,9 @@ it.each([{ rowId: "missing" }, { rowId: "x".repeat(1801) }, { rowId: 42 }, { row
         rows: [...state.rows, background],
       }),
     ]);
-    const view = render(<SubagentsPanel threadId="owned-thread" params={params} />);
+    const view = render(
+      <SubagentsPanel {...panelContext} threadId="owned-thread" params={params} />,
+    );
     await waitFor(() => expect(view.getByRole("alert").textContent).toMatch(/unavailable|invalid/));
     expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
     fireEvent.click(view.getByRole("button", { name: /Builder/ }));
@@ -167,10 +174,12 @@ it("applies a changed target without using a stale selection", async () => {
       rows: [...state.rows, background],
     }),
   ]);
-  const view = render(<SubagentsPanel threadId="owned-thread" params={null} />);
+  const view = render(<SubagentsPanel {...panelContext} threadId="owned-thread" params={null} />);
   fireEvent.click(await view.findByRole("button", { name: /reviewer.*Entry/ }));
   expect(view.getByRole("article").textContent).toContain("accepted answer");
-  view.rerender(<SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />);
+  view.rerender(
+    <SubagentsPanel {...panelContext} threadId="owned-thread" params={{ rowId: background.id }} />,
+  );
   expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
     "background answer",
   );
@@ -185,7 +194,9 @@ it("opens an unselected overview and preserves a manual choice on refresh", asyn
         rows: [...state.rows, background],
       }),
     ]);
-    const view = render(<SubagentsPanel threadId="owned-thread" params={{ overview: true }} />);
+    const view = render(
+      <SubagentsPanel {...panelContext} threadId="owned-thread" params={{ overview: true }} />,
+    );
     await act(async () => {
       await Promise.resolve();
     });
@@ -204,8 +215,16 @@ it("opens an unselected overview and preserves a manual choice on refresh", asyn
     expect(view.getByRole("article", { name: "Child detail" }).textContent).toContain(
       "background answer",
     );
-    view.rerender(<SubagentsPanel threadId="owned-thread" params={{ rowId: background.id }} />);
-    view.rerender(<SubagentsPanel threadId="owned-thread" params={{ overview: true }} />);
+    view.rerender(
+      <SubagentsPanel
+        {...panelContext}
+        threadId="owned-thread"
+        params={{ rowId: background.id }}
+      />,
+    );
+    view.rerender(
+      <SubagentsPanel {...panelContext} threadId="owned-thread" params={{ overview: true }} />,
+    );
     expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
     expect(view.getAllByRole("article", { hidden: true })).toHaveLength(1);
     view.unmount();
@@ -240,7 +259,7 @@ it("retains task attribution when its event leaves the window without replacing 
     h.list
       .mockResolvedValueOnce([...Array.from({ length: 63 }, () => latest), older])
       .mockResolvedValue(Array.from({ length: 64 }, () => latest));
-    const view = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+    const view = render(<SubagentsPanel {...panelContext} threadId="owned-thread" params={{}} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -278,7 +297,9 @@ it("retains task attribution when its event leaves the window without replacing 
     expect(view.queryByText("Task attribution not captured.")).toBeNull();
     expect(view.getByRole("status").textContent).toContain("bounded window");
     view.unmount();
-    const reopened = render(<SubagentsPanel threadId="owned-thread" params={{}} />);
+    const reopened = render(
+      <SubagentsPanel {...panelContext} threadId="owned-thread" params={{}} />,
+    );
     await act(async () => {
       await Promise.resolve();
     });
@@ -314,7 +335,7 @@ it("clears retained attribution on thread changes and ignores a late reply from 
           }),
       )
       .mockResolvedValue(payload());
-    const view = render(<SubagentsPanel threadId="thread-a" params={{}} />);
+    const view = render(<SubagentsPanel {...panelContext} threadId="thread-a" params={{}} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -326,7 +347,7 @@ it("clears retained attribution on thread changes and ignores a late reply from 
       await vi.advanceTimersByTimeAsync(4000);
     });
     const oldSignal = h.list.mock.calls[1]![0].signal as AbortSignal;
-    view.rerender(<SubagentsPanel threadId="thread-b" params={{}} />);
+    view.rerender(<SubagentsPanel {...panelContext} threadId="thread-b" params={{}} />);
     await act(async () => {
       await Promise.resolve();
     });
