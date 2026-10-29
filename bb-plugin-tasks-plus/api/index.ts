@@ -27,6 +27,7 @@ import type { Webhooks } from "../webhooks";
 
 import { createWorkStatusReader } from "./work-status.js";
 import { lookupPullRequest, type PullRequestResult } from "./pr-status.js";
+import { normalizeRichMetadata } from "./work-status-rich.js";
 interface TaskLabelIdRow {
   task_id: string;
   label_id: string;
@@ -351,6 +352,28 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+async function recordedMergedPullRequest(
+  bb: BbPluginApi,
+  threadId: string,
+): Promise<Omit<TaskPullRequest, "threadIds"> | null> {
+  try {
+    const { identity, time, rich, reason } = normalizeRichMetadata(
+      await bb.sdk.threads.getPluginMetadata({ threadId, pluginId: "github-insight" }),
+    );
+    if (
+      identity?.state !== "merged" ||
+      time === undefined ||
+      !rich ||
+      reason === "refresh_error" ||
+      reason === "invalid_metadata"
+    )
+      return null;
+    return { ...identity, title: "", updatedAt: new Date(time).toISOString() };
+  } catch {
+    return null;
+  }
+}
+
 async function listTaskPullRequests(
   bb: BbPluginApi,
   store: TasksApiStore,
@@ -359,6 +382,7 @@ async function listTaskPullRequests(
   const taskThreads = store.tasks.listTaskThreads(taskId);
 
   const unavailable = new Set<string>();
+  const archived = new Set<string>();
   const threadIdsByEnvironment = new Map<string, string[]>();
   await Promise.all(
     taskThreads.map(async (taskThread) => {
@@ -366,6 +390,7 @@ async function listTaskPullRequests(
         const thread = await bb.sdk.threads.get({
           threadId: taskThread.threadId,
         });
+        if (thread.archivedAt !== null) archived.add(taskThread.threadId);
         if (!thread.environmentId) return;
         const group = threadIdsByEnvironment.get(thread.environmentId) ?? [];
         group.push(taskThread.threadId);
@@ -377,6 +402,32 @@ async function listTaskPullRequests(
   );
 
   const byUrl = new Map<string, TaskPullRequest>();
+  const addPullRequest = (
+    pullRequest: Omit<TaskPullRequest, "threadIds">,
+    threadIds: readonly string[],
+  ) => {
+    const existing = byUrl.get(pullRequest.url);
+    if (!existing) {
+      byUrl.set(pullRequest.url, { ...pullRequest, threadIds: [...threadIds] });
+      return;
+    }
+    const threadIdUnion = [...existing.threadIds, ...threadIds];
+    if (pullRequest.updatedAt.localeCompare(existing.updatedAt) > 0) {
+      byUrl.set(pullRequest.url, { ...pullRequest, threadIds: threadIdUnion });
+    } else {
+      existing.threadIds = threadIdUnion;
+    }
+  };
+  const resolveLookupFailure = (threadIds: readonly string[]) =>
+    Promise.all(
+      threadIds.map(async (threadId) => {
+        const recorded = archived.has(threadId)
+          ? await recordedMergedPullRequest(bb, threadId)
+          : null;
+        if (recorded) addPullRequest(recorded, [threadId]);
+        else unavailable.add(threadId);
+      }),
+    );
   await mapWithConcurrency(
     [...threadIdsByEnvironment.entries()],
     PULL_REQUEST_LOOKUP_CONCURRENCY,
@@ -385,40 +436,16 @@ async function listTaskPullRequests(
       try {
         result = await lookupPullRequest(bb.sdk.plugins, environmentId);
       } catch {
-        for (const threadId of threadIds) unavailable.add(threadId);
+        await resolveLookupFailure(threadIds);
         return;
       }
       if (result.outcome === "unavailable") {
-        for (const threadId of threadIds) unavailable.add(threadId);
+        await resolveLookupFailure(threadIds);
         return;
       }
       if (result.outcome === "absent") return;
-      const { pullRequest } = result;
-      const existing = byUrl.get(pullRequest.url);
-      if (!existing) {
-        byUrl.set(pullRequest.url, {
-          url: pullRequest.url,
-          number: pullRequest.number,
-          title: pullRequest.title,
-          state: pullRequest.state,
-          updatedAt: pullRequest.updatedAt,
-          threadIds: [...threadIds],
-        });
-        return;
-      }
-      const threadIdUnion = [...existing.threadIds, ...threadIds];
-      if (pullRequest.updatedAt.localeCompare(existing.updatedAt) > 0) {
-        byUrl.set(pullRequest.url, {
-          url: pullRequest.url,
-          number: pullRequest.number,
-          title: pullRequest.title,
-          state: pullRequest.state,
-          updatedAt: pullRequest.updatedAt,
-          threadIds: threadIdUnion,
-        });
-      } else {
-        existing.threadIds = threadIdUnion;
-      }
+      const { url, number, title, state, updatedAt } = result.pullRequest;
+      addPullRequest({ url, number, title, state, updatedAt }, threadIds);
     },
   );
 
