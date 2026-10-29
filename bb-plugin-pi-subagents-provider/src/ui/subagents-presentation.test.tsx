@@ -103,13 +103,12 @@ it("starts with one Agents tab and a truthful observed count, without duplicate 
   expect(count.getAttribute("aria-hidden")).toBe("true");
   expect(view.getAllByRole("tab")).toHaveLength(1);
   const nav = view.getByRole("navigation", { name: "Observed children" });
-  expect(within(nav).getAllByRole("button")).toHaveLength(4);
+  expect(within(nav).getAllByRole("button")).toHaveLength(3);
   expect(
     within(nav)
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label")),
   ).toEqual([
-    "review workflow Foreground workflow · task unavailable Entry 1 complete",
     "delegate Foreground step · task unavailable Entry 2 Child 1 running",
     "delegate Read and follow /workspace/project/AGENTS.md. Task: Inspect the retained tab layout without changing navigation. Entry 3 complete",
     "delegate Read and follow /workspace/project/AGENTS.md. Task: Verify capture warnings without renaming delegate labels. Entry 4 complete",
@@ -235,7 +234,7 @@ it("retains repeated-label readers and disclosures across row and tab actions, a
   expect(document.activeElement).toBe(agents);
   expect(view.getAllByRole("tab")).toHaveLength(2);
   expect(agents.querySelector(".pi-subagents-tab-count")!.textContent).toBe("4");
-  expect(within(view.getByRole("navigation")).getAllByRole("button")).toHaveLength(4);
+  expect(within(view.getByRole("navigation")).getAllByRole("button")).toHaveLength(3);
   expect(within(first).getByLabelText("Execution state: complete").textContent).toBe("complete");
   fireEvent.click(first);
   const reopened = view.getByRole("region", { name: "Captured conversation" });
@@ -247,42 +246,27 @@ it("retains repeated-label readers and disclosures across row and tab actions, a
   expect(view.queryByRole("button", { name: /spawn|stop|retry|resume|steer/i })).toBeNull();
 });
 
-it("keeps an empty workflow root and its child in order and independently selectable", () => {
+it("promotes the empty workflow's child while preserving its capture gap and execution state", () => {
   const view = render(<SubagentsView state={snapshot} />);
   const nav = within(view.getByRole("navigation"));
-  const root = nav.getByRole("button", {
-    name: "review workflow Foreground workflow · task unavailable Entry 1 complete",
-  });
   const child = nav.getByRole("button", {
     name: "delegate Foreground step · task unavailable Entry 2 Child 1 running",
   });
-  expect(nav.getAllByRole("button")[0]).toBe(root);
-  expect(nav.getAllByRole("button")[1]).toBe(child);
-  fireEvent.click(root);
-  let detail = view.getByRole("article", { name: "Child detail" });
-  expect(within(detail).getByRole("heading", { level: 3 }).textContent).toBe("review workflow");
-  expect(within(detail).getByLabelText("Execution state: complete").textContent).toBe("complete");
-  expect(within(detail).getByText("Task attribution not captured.").textContent).toBe(
-    "Task attribution not captured.",
-  );
-  expect(within(detail).getByRole("status").textContent).toBe(
-    "Capture not-captured: No supported inspection reply has been captured.",
-  );
-  fireEvent.click(view.getByRole("tab", { name: "Agents" }));
+  expect(nav.queryByRole("button", { name: /review workflow/ })).toBeNull();
+  expect(nav.getAllByRole("button")[0]).toBe(child);
+  expect(child.closest("li")!.style.paddingInlineStart).toBe("0px");
   expect(within(child).getByText("Incomplete coverage").textContent).toBe("Incomplete coverage");
   expect(within(child).getByLabelText("Execution state: running").textContent).toBe("running");
   fireEvent.click(child);
-  detail = view.getByRole("article", { name: "Child detail" });
+  const detail = view.getByRole("article", { name: "Child detail" });
   expect(within(detail).getByRole("heading", { level: 3 }).textContent).toBe("delegate");
+  expect(detail.querySelector(".pi-subagents-reference")!.textContent).toBe("Entry 2");
   expect(within(detail).getByRole("status").textContent).toBe(
     "Capture timeout: No inspection reply",
   );
   expect(within(detail).getByLabelText("Execution state: running").textContent).toBe("running");
-  expect(view.getAllByRole("tab")).toHaveLength(3);
-  fireEvent.click(view.getByRole("tab", { name: "review workflow" }));
-  expect(view.getByRole("article").querySelector("h3")!.textContent).toBe("review workflow");
+  expect(view.getAllByRole("tab")).toHaveLength(2);
   fireEvent.click(view.getByRole("tab", { name: "Agents" }));
-  expect(nav.getAllByRole("button")).toHaveLength(4);
-  expect(root.querySelector(".pi-subagents-label")!.textContent).toBe("review workflow");
+  expect(nav.getAllByRole("button")).toHaveLength(3);
   expect(child.querySelector(".pi-subagents-label")!.textContent).toBe("delegate");
 });
