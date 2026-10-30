@@ -2,7 +2,7 @@ import { z } from "zod";
 import { reviewDecisionSchema } from "./blockers";
 import { actorSchema, isOtherPerson } from "./actor";
 import { othersPrComments, othersReviewTexts, postedAt } from "./new-comments";
-import { reviewStateSchema, viewerReviewSchema, type ViewerReview } from "./pr-head";
+import { githubReviewStateSchema, viewerReviewSchema, type ViewerReview } from "./pr-head";
 import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
@@ -35,10 +35,13 @@ const prNodeSchema = z.object({
   headRefName: z.string(),
   headRefOid: z.string(),
   reviewDecision: reviewDecisionSchema,
-  viewerLatestReview: z.object({ state: reviewStateSchema }).nullish(),
+  viewerLatestReview: z.object({ state: githubReviewStateSchema }).nullish(),
   latestOpinionatedReviews: z.object({
     nodes: z.array(
-      z.object({ state: reviewStateSchema, author: z.object({ login: z.string() }).nullable() }),
+      z.object({
+        state: githubReviewStateSchema,
+        author: z.object({ login: z.string() }).nullable(),
+      }),
     ),
   }),
   commits: z.object({
