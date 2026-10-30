@@ -28,6 +28,8 @@
   "packageManager": "bun@1.4.4",
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
+    "preview": "bun --no-install tests/preview-server.mjs",
+    "test:browser": "bun --no-install ../scripts/browser-fixture-runner.mjs tests/preview-server.mjs 30000",
     "typecheck": "bun --bun tsc --noEmit --allowImportingTsExtensions",
     "check:upstream": "bun src/upstream/cli.ts",
     "build": "bb plugin build .",
@@ -43,6 +45,7 @@
     "@earendil-works/pi-coding-agent": "1.1.0",
     "@get-bb/plugin-sdk": "0.6.79",
     "@koenvg/pi-openai-codex-speed": "file:vendor/koenvg-pi-openai-codex-speed-0.1.0.tgz",
+    "@playwright/test": "1.64.0",
     "@testing-library/dom": "10.4.1",
     "@testing-library/react": "16.3.2",
     "@types/better-sqlite3": "7.6.13",

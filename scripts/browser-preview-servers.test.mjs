@@ -38,6 +38,13 @@ const previews = [
     path: "/tests/preview.html",
     marker: "./preview.tsx",
   },
+  {
+    name: "pi-subagents-provider",
+    entry: "tests/preview-server.mjs",
+    key: "PI_SUBAGENTS_PREVIEW_PORT",
+    path: "/",
+    marker: "/app.js",
+  },
 ];
 function start(preview, parent, port, args = [], preload, runtime) {
   const env = { ...process.env, TMPDIR: parent, TMP: parent, TEMP: parent };
