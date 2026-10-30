@@ -51,10 +51,12 @@ Write a comment and its editor-focus tasks are removed under the comment-free Ta
 
 ## 6. Navigate between open tasks through BB commands
 
-- [ ] 6.1 Connect Previous task and Next task to existing TaskPager handlers without another sibling query; verify pager order/scope, absent or loading destinations, binding no-ops at boundaries, narrow-layout navigation and fresh targeting of the newly opened task.
-- [ ] 6.2 Connect Back to the shell's existing backFromTask handler in the loaded task session; verify the existing project list/board destination and All tasks direct-link fallback, with no task update or delegation call.
-- [ ] 6.3 Document navigation alongside existing pager shortcuts; verify the README promises current pager semantics rather than a new filtered-list ordering.
-- [ ] 6.4 Run npm test, npm run typecheck and npm run lint in bb-plugin-tasks-plus; verify all pass, including shell, list/board keyboard, rail, dispatch and editor regressions.
-- [ ] 6.5 Run bb plugin build in bb-plugin-tasks-plus; verify the bundle contains all registrations using the existing SDK contract with no new dependency or backend change.
+BBP-49's [local verification](../../../verification/BBP-49/report.md) covers navigation, the nine-command registrations, package checks and the plugin build. Independent review approved the code for a PR. Installed-BB preview, palette timing, both real layouts and temporary personal-binding acceptance remain blocked by exact-source activation approval, so tasks 6.6 and 6.7 stay open.
+
+- [x] 6.1 Connect Previous task and Next task to existing TaskPager handlers without another sibling query; verify pager order/scope, absent or loading destinations, binding no-ops at boundaries, narrow-layout navigation and fresh targeting of the newly opened task.
+- [x] 6.2 Connect Back to the shell's existing backFromTask handler in the loaded task session; verify the existing project list/board destination and All tasks direct-link fallback, with no task update or delegation call.
+- [x] 6.3 Document navigation alongside existing pager shortcuts; verify the README promises current pager semantics rather than a new filtered-list ordering.
+- [x] 6.4 Run npm test, npm run typecheck and npm run lint in bb-plugin-tasks-plus; verify all pass, including shell, list/board keyboard, rail, dispatch and editor regressions.
+- [x] 6.5 Run bb plugin build in bb-plugin-tasks-plus; verify the bundle contains all registrations using the existing SDK contract with no new dependency or backend change.
 - [ ] 6.6 Verify the assembled nine-command workflow keyboard-only in running BB in wide and narrow layouts, including palette-close focus, Escape, property updates, linked-project scope, safe dispatch, pager boundaries and Back; verify switching away disables commands even if the task stays mounted, using disposable records for mutations.
 - [ ] 6.7 Assign a temporary free modifier binding in Settings > Keyboard; verify the same action works only on the open task, not lists, boards, hidden retained panels or other BB pages, then remove it and confirm all nine commands have no plugin defaults.

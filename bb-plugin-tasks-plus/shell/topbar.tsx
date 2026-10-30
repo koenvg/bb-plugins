@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useTasksRefresh } from "./refresh.js";
 import { useShortcuts } from "./shortcut-provider.js";
 import { ProjectPicker, TasksNavigationMenu } from "./browse-navigation.js";
+import { useTaskCommandActions } from "./task-detail-commands.js";
 
 const REFRESH_TASKS_LABEL = "Refresh tasks";
 
@@ -57,14 +58,11 @@ function TaskPager({
   );
   const stepTo = (key: string | null | undefined) =>
     key == null ? null : () => onNavigate({ kind: "task", taskKey: key });
-  useShortcuts({
-    "detail.previous": stepTo(position?.prevKey),
-    "detail.next": stepTo(position?.nextKey),
-  });
+  const previous = stepTo(position?.prevKey);
+  const next = stepTo(position?.nextKey);
+  useShortcuts({ "detail.previous": previous, "detail.next": next });
+  useTaskCommandActions(taskKey, { previous, next });
   if (!position) return null;
-  const step = (key: string | null) => {
-    if (key !== null) onNavigate({ kind: "task", taskKey: key });
-  };
   return (
     <div className="hidden shrink-0 items-center gap-0.5 text-xs tabular-nums text-muted-foreground @sm:flex">
       <span className="hidden px-1 @md:inline">
@@ -75,8 +73,8 @@ function TaskPager({
         size="icon"
         className="size-6 max-md:pointer-coarse:size-9"
         aria-label="Previous task"
-        disabled={position.prevKey === null}
-        onClick={() => step(position.prevKey)}
+        disabled={previous === null}
+        onClick={previous ?? undefined}
       >
         <Icon name="ChevronUp" className="size-3.5" />
       </Button>
@@ -85,8 +83,8 @@ function TaskPager({
         size="icon"
         className="size-6 max-md:pointer-coarse:size-9"
         aria-label="Next task"
-        disabled={position.nextKey === null}
-        onClick={() => step(position.nextKey)}
+        disabled={next === null}
+        onClick={next ?? undefined}
       >
         <Icon name="ChevronDown" className="size-3.5" />
       </Button>
@@ -174,6 +172,9 @@ export function TasksTopbar({
   onNewProject,
   onBack,
 }: TasksTopbarProps) {
+  useTaskCommandActions(route.kind === "task" ? route.taskKey : "", {
+    back: route.kind === "task" ? onBack : null,
+  });
   const projects = projectInventory.data;
   const project = useMemo(() => {
     if (route.kind === "project") {
