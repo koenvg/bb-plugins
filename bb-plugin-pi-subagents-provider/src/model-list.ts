@@ -51,12 +51,13 @@ function buildPiAvailableModel(model: PiCatalogModel): AvailableModel {
       ?.reasoningEffort ??
     supportedReasoningEfforts[0]?.reasoningEffort ??
     "none";
-  return {
+  const availableModel = {
     id: canonicalId,
     model: canonicalId,
     displayName: model.name,
     routeProviderId: model.provider,
     description: describePiModel(model),
+    reasoningDiscovery: "known" as const,
     supportedReasoningEfforts,
     defaultReasoningEffort,
     supportedServiceTiers:
@@ -65,6 +66,7 @@ function buildPiAvailableModel(model: PiCatalogModel): AvailableModel {
         : [],
     isDefault: false,
   };
+  return availableModel;
 }
 
 export function buildPiAvailableModels(
