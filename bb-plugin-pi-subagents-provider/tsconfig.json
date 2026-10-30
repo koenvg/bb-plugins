@@ -11,5 +11,15 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["server.ts", "*.test.ts", "src", "app.tsx", "app.test.tsx", "vitest.config.ts"]
+  "include": [
+    "server.ts",
+    "*.test.ts",
+    "src",
+    "app.tsx",
+    "app.test.tsx",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
+  ]
 }

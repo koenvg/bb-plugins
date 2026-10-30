@@ -7,7 +7,7 @@ description: Verify this repository's BB plugins with package checks, owned brow
 
 Invoke `/skill:verify-bb-plugins` with a plugin directory, commit, or OpenSpec change. Read [the feature index](features/README.md), then every affected plugin map. Resolve target packages from changed manifests/source; ask if the request cannot establish scope. This verifies and reports. Plugin repairs, SDK migrations, publishing and delegation require separate instructions.
 
-BB is the real application. This checkout contains 13 plugin packages, not BB's server. Most user interactions need an installed desktop/web BB instance. Four packages have independently owned ephemeral-port browser runners; Code Cleanup has an isolated Settings preview. Unit and SDK-harness tests are not user-path or installed acceptance.
+BB is the real application. This checkout contains 13 plugin packages, not BB's server. Most user interactions need an installed desktop/web BB instance. Five packages have independently owned ephemeral-port browser runners; Code Cleanup has an isolated Settings preview. Unit and SDK-harness tests are not user-path or installed acceptance.
 
 ## Launch
 
@@ -52,7 +52,7 @@ Both `check` and `check:review` run the same ordered root checks, including lint
 
 Inspect every result. Nonzero exits, unavailable exits, signals and evidence errors block review readiness and dependent installed activation. Do not suppress failures or upgrade dependencies to make checks pass. A local check pass is not installed acceptance. Setup, SDK synchronization, browser suites and installed activation each require separate permission; this command grants none.
 
-With separate permission for browser setup and execution, install the package's pinned Chromium for Compose Chat, Codex Quota or Markdown Reader, then run the existing browser suite through the evidence wrapper:
+With separate permission for browser setup and execution, install the package's pinned Chromium for Compose Chat, Codex Quota, Markdown Reader or Pi Subagents, then run the existing browser suite through the evidence wrapper:
 
 ```sh
 (cd "$PACKAGE" && bun --bun run playwright install chromium)
@@ -81,7 +81,7 @@ Use the mapped user entry points and stable accessible names. Perform actions be
 
 That executable owns launch → Doctor → keyboard Preview/Raw activation → screenshot/ARIA/trace capture → cleanup. See [its exact recipe](references/markdown-reader-local.md). It is not the default proof for unrelated plugins.
 
-For the three owned browser runners, `browser.sh` accepts existing spec names or Playwright filters after the evidence directory. Read the plugin map before selecting a subset. The maps identify real Settings, page, sidebar, file opener, CLI, HTTP/MCP and provider entry paths for installed checks. A convenient fixture path does not cover another listed native entry. Do not inject passing internal state or call private setters to replace the interaction being tested.
+For the four browser suites supported by the wrapper, `browser.sh` accepts existing spec names or Playwright filters after the evidence directory. Read the plugin map before selecting a subset. The maps identify real Settings, page, sidebar, file opener, CLI, HTTP/MCP and provider entry paths for installed checks. A convenient fixture path does not cover another listed native entry. Do not inject passing internal state or call private setters to replace the interaction being tested.
 
 ## Evidence
 
@@ -103,7 +103,7 @@ Proof artifacts survive cleanup. Confirm the owned PID/listener/cache is gone wh
 
 All shipped scripts are executable; run from the root as shown above:
 
-- `scripts/browser.sh PLUGIN NEW_EVIDENCE_DIRECTORY [PLAYWRIGHT_FILTERS]` runs existing owned suites for Compose Chat, Codex Quota or Markdown Reader. It does not install dependencies or activate plugins.
+- `scripts/browser.sh PLUGIN NEW_EVIDENCE_DIRECTORY [PLAYWRIGHT_FILTERS]` runs existing owned suites for Compose Chat, Codex Quota, Markdown Reader or Pi Subagents. It does not install dependencies or activate plugins.
 - `scripts/verify.sh NEW_EVIDENCE_DIRECTORY` runs the Markdown Reader smoke proof only.
 - `scripts/doctor.sh PREVIEW_PID ORIGIN` checks that live smoke preview read-only.
 - `node "$SKILL/scripts/prove.mjs" "$ORIGIN" "$EVIDENCE"` drives a smoke preview already owned and checked by this run. `verify.sh` calls it automatically. It closes its browser in a finally block.
