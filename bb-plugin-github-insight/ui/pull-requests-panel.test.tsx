@@ -245,6 +245,20 @@ describe("Pull Requests lists", () => {
     expect(within(card).getByTestId("queue-review-decision").textContent).toBe(text);
   });
 
+  it.each([
+    ["APPROVED", "You approved"],
+    ["DISMISSED", "Your review was dismissed"],
+    ["CHANGES_REQUESTED", "You requested changes"],
+    ["COMMENTED", "You commented"],
+    [null, "Not reviewed by you"],
+  ] as const)("shows your review %s in the meta row", async (yourReview, text) => {
+    const slot = renderPanel("", () => ok(view([queuePr({ yourReview })])));
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    const meta = within(card).getByTestId("queue-meta");
+    expect(within(meta).getByTestId("queue-your-review").textContent).toBe(text);
+  });
+
   it.each([null, "REVIEW_REQUIRED"] as const)(
     "shows no review decision when GitHub reports %s",
     async (reviewDecision) => {

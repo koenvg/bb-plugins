@@ -4,7 +4,7 @@ import { relativeTime } from "../core/relative-time";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
-const VERDICTS: Record<
+export const VERDICTS: Record<
   ViewerReview["state"],
   { text: string; icon: IconName; iconClass: string; pillClass: string }
 > = {

@@ -55,6 +55,7 @@ describe("parseReviewQueue", () => {
       draft: false,
       ci: "passed",
       reviewDecision: "REVIEW_REQUIRED",
+      yourReview: "APPROVED",
       headRefName: "alice/retries",
       headOid: "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
       url: "https://github.com/acme/api/pull/12",
@@ -82,6 +83,15 @@ describe("parseReviewQueue", () => {
     [15, "APPROVED"],
   ] as const)("keeps the review decision of #%i", (number, decision) => {
     expect(byNumber(queue, number).reviewDecision).toBe(decision);
+  });
+
+  it.each([
+    [12, "APPROVED"],
+    [7, "DISMISSED"],
+    [15, "CHANGES_REQUESTED"],
+    [3, null],
+  ] as const)("reads your review of #%i as %s", (number, yourReview) => {
+    expect(byNumber(queue, number).yourReview).toBe(yourReview);
   });
 
   it("keeps a missing review decision as null", () => {
@@ -148,6 +158,14 @@ describe("parseReviewQueue with tracked PRs", () => {
       ["acme/api", 15, "e15e15e15e15e15e15e15e15e15e15e15e15e15e", "open", null],
       ["acme/web", 8, "f08f08f08f08f08f08f08f08f08f08f08f08f08f", "merged", "2026-10-01T12:00:00Z"],
       ["acme/api", 12, "a12a12a12a12a12a12a12a12a12a12a12a12a12a", "open", null],
+    ]);
+  });
+
+  it("reads your review of tracked PRs, a comment only or none", () => {
+    expect(fetched.tracked.map((pr) => [pr.number, pr.yourReview])).toEqual([
+      [15, "COMMENTED"],
+      [8, null],
+      [12, null],
     ]);
   });
 
