@@ -20,6 +20,7 @@ export function queuePr(overrides: Partial<LinkedQueuePr> = {}): LinkedQueuePr {
     draft: false,
     ci: "passed",
     reviewDecision: "REVIEW_REQUIRED",
+    yourReview: null,
     headRefName: "rate-limits",
     headOid: "head-15",
     url: "https://github.com/acme/api/pull/15",

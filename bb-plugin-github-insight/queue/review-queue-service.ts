@@ -145,7 +145,7 @@ function threadStatus(thread: QueueThread): ReviewThreadStatus {
   return "running";
 }
 
-const storedReviewQueueSchema = z.object({ v: z.literal(5), result: loadedReviewQueueSchema });
+const storedReviewQueueSchema = z.object({ v: z.literal(6), result: loadedReviewQueueSchema });
 
 function viewOf(result: LoadedReviewQueue): ReviewQueueView | null {
   if (result.kind === "error") return result.lastGood;
@@ -251,7 +251,7 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
   }
 
   async function store(result: LoadedReviewQueue): Promise<void> {
-    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 5, result });
+    await deps.kv.set(REVIEW_QUEUE_STORAGE_KEY, { v: 6, result });
     deps.publish(result);
   }
 

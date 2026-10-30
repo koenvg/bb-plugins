@@ -21,6 +21,7 @@ import { usePullRequestsNavigation } from "./pull-requests-routes";
 import { ACTION_CLASS, COUNT_CLASS, ICON_ACTION_CLASS, LABEL_CLASS } from "./queue-styles";
 import type { ReviewQueueState } from "./use-review-queue";
 import { SUCCESS_TEXT } from "./text-tones";
+import { VERDICTS } from "./viewer-review-badge";
 import "./thread-status.css";
 
 const CI_MARK: Record<CiState, { text: string; icon: IconName; className: string }> = {
@@ -564,7 +565,8 @@ function QueueRow({
               </span>
             </>
           )}
-          {(draft || state !== null || attention.length > 0) && <span className="w-1" />}
+          <span className="w-1" />
+          <YourReviewChip review={pr.yourReview} />
           {state !== null && (
             <span className={cn(LABEL_CLASS, "flex items-center gap-1", state.className)}>
               <Icon name={state.icon} className="size-3" />
@@ -588,6 +590,29 @@ function QueueRow({
       </div>
       <RowActions pr={pr} actions={actions} />
     </li>
+  );
+}
+
+function YourReviewChip({ review }: { review: QueuePr["yourReview"] }) {
+  if (review === null)
+    return (
+      <span data-testid="queue-your-review" className={cn(LABEL_CLASS, "border-dashed")}>
+        Not reviewed by you
+      </span>
+    );
+  const verdict = VERDICTS[review];
+  return (
+    <span
+      data-testid="queue-your-review"
+      className={cn(
+        LABEL_CLASS,
+        "flex items-center gap-1 border-transparent text-foreground",
+        verdict.pillClass,
+      )}
+    >
+      <Icon name={verdict.icon} className={cn("size-3", verdict.iconClass)} />
+      {verdict.text}
+    </span>
   );
 }
 
