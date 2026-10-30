@@ -33,6 +33,11 @@ describe("pi model list", () => {
       ],
     });
 
+    expect(models).toMatchObject([
+      { reasoningDiscovery: "known" },
+      { reasoningDiscovery: "known" },
+      { reasoningDiscovery: "known" },
+    ]);
     expect(
       models[0]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort),
     ).toEqual(["none", "low", "medium", "high"]);
@@ -74,6 +79,7 @@ describe("pi model list", () => {
     expect(selectedOnlyModels[0]).toEqual(
       expect.objectContaining({
         displayName: "Claude Opus 4.6 (2024-06-20)",
+        reasoningDiscovery: "known",
         isDefault: false,
       }),
     );
