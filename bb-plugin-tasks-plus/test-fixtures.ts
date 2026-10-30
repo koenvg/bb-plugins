@@ -1,4 +1,4 @@
-import type { Task } from "./shared/contract.js";
+import type { SingleTask } from "./shared/contract.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ export function mockPrStatusRpc(
   };
 }
 
-export function makeTask(overrides: Partial<Task> = {}): Task {
+export function makeTask(overrides: Partial<SingleTask> = {}): SingleTask {
   return {
     id: "01HZZZZZZZZZZZZZZZZZZZZZT1",
     projectId: "01HZZZZZZZZZZZZZZZZZZZZZP1",
@@ -34,6 +34,12 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     createdAt: "2026-07-15T00:00:00.000Z",
     updatedAt: "2026-07-15T00:00:00.000Z",
     labelIds: [],
+    duration: {
+      kind: "unavailable",
+      reason: "missing-start",
+      interrupted: false,
+      statisticsEligible: false,
+    },
     ...overrides,
   };
 }

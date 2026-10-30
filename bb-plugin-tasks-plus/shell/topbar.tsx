@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useTasksRefresh } from "./refresh.js";
 import { useShortcuts } from "./shortcut-provider.js";
 import { ProjectPicker, TasksNavigationMenu } from "./browse-navigation.js";
+import { useTaskCommandActions } from "./task-detail-commands.js";
 
 const REFRESH_TASKS_LABEL = "Refresh tasks";
 
@@ -57,14 +58,11 @@ function TaskPager({
   );
   const stepTo = (key: string | null | undefined) =>
     key == null ? null : () => onNavigate({ kind: "task", taskKey: key });
-  useShortcuts({
-    "detail.previous": stepTo(position?.prevKey),
-    "detail.next": stepTo(position?.nextKey),
-  });
+  const previous = stepTo(position?.prevKey);
+  const next = stepTo(position?.nextKey);
+  useShortcuts({ "detail.previous": previous, "detail.next": next });
+  useTaskCommandActions(taskKey, { previous, next });
   if (!position) return null;
-  const step = (key: string | null) => {
-    if (key !== null) onNavigate({ kind: "task", taskKey: key });
-  };
   return (
     <div className="hidden shrink-0 items-center gap-0.5 text-xs tabular-nums text-muted-foreground @sm:flex">
       <span className="hidden px-1 @md:inline">
@@ -75,8 +73,8 @@ function TaskPager({
         size="icon"
         className="size-6 max-md:pointer-coarse:size-9"
         aria-label="Previous task"
-        disabled={position.prevKey === null}
-        onClick={() => step(position.prevKey)}
+        disabled={previous === null}
+        onClick={previous ?? undefined}
       >
         <Icon name="ChevronUp" className="size-3.5" />
       </Button>
@@ -85,8 +83,8 @@ function TaskPager({
         size="icon"
         className="size-6 max-md:pointer-coarse:size-9"
         aria-label="Next task"
-        disabled={position.nextKey === null}
-        onClick={() => step(position.nextKey)}
+        disabled={next === null}
+        onClick={next ?? undefined}
       >
         <Icon name="ChevronDown" className="size-3.5" />
       </Button>
@@ -174,6 +172,9 @@ export function TasksTopbar({
   onNewProject,
   onBack,
 }: TasksTopbarProps) {
+  useTaskCommandActions(route.kind === "task" ? route.taskKey : "", {
+    back: route.kind === "task" ? onBack : null,
+  });
   const projects = projectInventory.data;
   const project = useMemo(() => {
     if (route.kind === "project") {
@@ -207,6 +208,13 @@ export function TasksTopbar({
               />
             </div>
           </div>
+        );
+      case "stats":
+        return (
+          <span className="block truncate font-semibold">
+            {projects?.find((item) => item.id === route.projectId)?.name ??
+              (route.projectId ? "Project" : "All projects")}
+          </span>
         );
       case "manage":
         return (
@@ -278,11 +286,60 @@ export function TasksTopbar({
           <ViewToggle view={route.view} onChange={(view) => onNavigate({ ...route, view })} />
         </span>
       ) : null}
+      {route.kind === "all" ||
+      route.kind === "active" ||
+      route.kind === "project" ||
+      route.kind === "stats" ? (
+        <nav aria-label="Tasks views" className="flex shrink-0 items-center gap-1 text-xs">
+          <button
+            type="button"
+            aria-current={route.kind !== "stats" ? "page" : undefined}
+            className={cn(
+              "h-12 border-b-2 px-2 hover:bg-state-hover focus-visible:outline-ring",
+              route.kind === "stats"
+                ? "border-transparent text-muted-foreground"
+                : "border-ring text-foreground",
+            )}
+            onClick={() =>
+              onNavigate(
+                route.kind === "stats"
+                  ? route.projectId
+                    ? { kind: "project", projectId: route.projectId, view: null }
+                    : { kind: "all" }
+                  : route,
+              )
+            }
+          >
+            Tasks
+          </button>
+          <button
+            type="button"
+            aria-current={route.kind === "stats" ? "page" : undefined}
+            className={cn(
+              "h-12 border-b-2 px-2 hover:bg-state-hover focus-visible:outline-ring",
+              route.kind === "stats"
+                ? "border-ring text-foreground"
+                : "border-transparent text-muted-foreground",
+            )}
+            onClick={() =>
+              onNavigate({
+                kind: "stats",
+                ...((route.kind === "project" || route.kind === "stats") && route.projectId
+                  ? { projectId: route.projectId }
+                  : {}),
+              })
+            }
+          >
+            Stats
+          </button>
+        </nav>
+      ) : null}
       <RefreshTasksButton />
       {projects?.length !== 0 &&
       route.kind !== "entry" &&
       route.kind !== "task" &&
-      route.kind !== "manage" ? (
+      route.kind !== "manage" &&
+      route.kind !== "stats" ? (
         <Button size="sm" className="h-9 shrink-0 gap-2" aria-label="New task" onClick={onNewTask}>
           <Icon name="Plus" className="size-3.5" />
           <span className="hidden @lg:inline">New task</span>

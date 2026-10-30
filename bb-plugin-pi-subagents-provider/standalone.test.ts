@@ -28,7 +28,7 @@ describe("standalone packaging", () => {
     expect(JSON.parse(output)).toBe(admitted);
   });
 
-  it("uses only public packages and package-local imports", () => {
+  it("uses public packages and keeps cross-package imports fixture-only", () => {
     const result = experimental_scanPublicSdkOnly(root, {
       allow: [
         /^@earendil-works\/pi-(ai|coding-agent)(?:\/providers\/all)?$/,
@@ -40,17 +40,22 @@ describe("standalone packaging", () => {
         /^@get-bb\/plugin-sdk-runtime\/(?:host|provider-bridge)$/,
         /^typebox$/,
         /^@testing-library\/react$/,
+        /^@playwright\/test$/,
         /^vitest(?:\/config)?$/,
         /^react(?:\/jsx-runtime)?$/,
         /^esbuild$/,
       ],
     });
-    // Only these fixtures load runtime-generated modules or use the development archive's types.
     // Production imports remain subject to the public-package allowlist.
     expect(
       result.violations.filter(
         (violation) =>
           !(
+            (violation.reason === "outside-package" &&
+              ((violation.file === "playwright.config.ts" &&
+                violation.specifier === "../scripts/browser-fixture-runner.mjs") ||
+                (violation.file === "tests/preview-server.mjs" &&
+                  violation.specifier === "../../scripts/browser-fixture-runner.mjs"))) ||
             (violation.file === "src/bridge/fake-pi-rpc.mjs" &&
               violation.reason === "dynamic-specifier" &&
               violation.specifier === "pathToFileURL(loadPath).href") ||

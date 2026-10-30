@@ -1,4 +1,4 @@
-import type { Task } from "../shared/contract.js";
+import type { SingleTask } from "../shared/contract.js";
 import { errorMessage } from "../shared/errors.js";
 
 export const TASK_PREVIEW_ENTRIES = 32;
@@ -7,7 +7,7 @@ export const TASK_PREVIEW_SPECULATION = 2;
 export const normalizeTaskKey = (key: string) => key.trim().toUpperCase();
 
 export interface TaskPreviewSnapshot {
-  data: Task | null | undefined;
+  data: SingleTask | null | undefined;
   error: string | null;
   isLoading: boolean;
   /** Only a response from the current invalidation generation can prove absence. */
@@ -30,7 +30,7 @@ interface Request {
 
 /** One RPC binding and mounted session. Editors and drafts never enter this store. */
 export function createTaskPreviews(
-  fetchTask: (key: string) => Promise<Task | null>,
+  fetchTask: (key: string) => Promise<SingleTask | null>,
   readEpoch: () => number = () => 0,
 ) {
   const retained = new Map<string, Entry>();

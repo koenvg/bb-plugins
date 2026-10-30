@@ -25,6 +25,7 @@ function queuePr(repo: string, number: number, overrides: Partial<QueuePr> = {})
     draft: false,
     ci: "passed",
     reviewDecision: "REVIEW_REQUIRED",
+    yourReview: null,
     headRefName: `feature-${number}`,
     headOid: `head-${number}`,
     url: `https://github.com/${repo}/pull/${number}`,
@@ -1027,7 +1028,7 @@ describe("new activity after the mark", () => {
     const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
     delete prs[0]!.newActivity;
     delete prs[0]!.activity;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 5, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 6, result: stored });
 
     expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
       { activity: null, newActivity: [] },
@@ -1524,7 +1525,7 @@ describe("unseen PRs", () => {
   it("reads a stored view from before unseen tracking as all seen", async () => {
     const { service, kv } = serviceWith();
     kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, {
-      v: 5,
+      v: 6,
       result: { kind: "ok", needsReview: [], reviewed: [], truncated: false, loadedAt: 1 },
     });
 
@@ -1609,7 +1610,7 @@ describe("returned review threads", () => {
     delete stored.hasReturned;
     const prs = (stored.needsReview as { prs: { thread: Record<string, unknown> }[] }[])[0]!.prs;
     delete prs[0]!.thread.returned;
-    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 5, result: stored });
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 6, result: stored });
 
     expect(returnedOf((await service.getReviewQueue()) as LoadedReviewQueue)).toEqual({
       row: null,

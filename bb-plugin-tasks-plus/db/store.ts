@@ -9,6 +9,7 @@ import {
   type TaskSort,
 } from "../shared/pagination.js";
 import type { Attachment as AttachmentMetadata } from "../shared/contract.js";
+import type { StatsProject, StatsTaskInput } from "../shared/task-stats.js";
 import {
   ISO_DATE_PATTERN,
   PROJECT_PREFIX_PATTERN,
@@ -687,6 +688,64 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   function listTaskStatusTransitions(taskId: string): TaskStatusTransition[] {
     return taskStatusTransitions.all(taskId);
   }
+
+  const readTaskStatsInputs = db.transaction(
+    (
+      projectId?: string,
+    ): {
+      tasks: StatsTaskInput[];
+      projects: StatsProject[];
+    } => {
+      const parameters = projectId === undefined ? [] : [projectId];
+      const projects = db
+        .prepare<string[], StatsProject>(`
+        SELECT id, name, color FROM projects ${projectId === undefined ? "" : "WHERE id = ?"}
+        ORDER BY name COLLATE NOCASE, id
+      `)
+        .all(...parameters);
+      type StatsHistoryRow = Omit<StatsTaskInput, "transitions"> &
+        (
+          | { transitionId: null; fromStatus: null; toStatus: null; changedAt: null }
+          | {
+              transitionId: number;
+              fromStatus: TaskStatusTransition["fromStatus"];
+              toStatus: TaskStatusTransition["toStatus"];
+              changedAt: string;
+            }
+        );
+      const rows = db
+        .prepare<string[], StatsHistoryRow>(`
+        SELECT t.id, p.prefix || '-' || t.number AS key, t.title,
+          t.project_id AS projectId, t.priority, t.status,
+          h.id AS transitionId, h.from_status AS fromStatus,
+          h.to_status AS toStatus, h.changed_at AS changedAt
+        FROM tasks t JOIN projects p ON p.id = t.project_id
+        LEFT JOIN task_status_transitions h ON h.task_id = t.id
+        ${projectId === undefined ? "" : "WHERE t.project_id = ?"}
+        ORDER BY t.id, h.id ASC
+      `)
+        .all(...parameters);
+      const tasks = new Map<string, StatsTaskInput & { transitions: TaskStatusTransition[] }>();
+      for (const row of rows) {
+        let task = tasks.get(row.id);
+        if (!task) {
+          const { id, key, title, projectId, priority, status } = row;
+          task = { id, key, title, projectId, priority, status, transitions: [] };
+          tasks.set(id, task);
+        }
+        if (row.transitionId !== null) {
+          task.transitions.push({
+            id: row.transitionId,
+            taskId: row.id,
+            fromStatus: row.fromStatus,
+            toStatus: row.toStatus,
+            changedAt: row.changedAt,
+          });
+        }
+      }
+      return { tasks: [...tasks.values()], projects };
+    },
+  );
 
   const getTaskByKeyRow = db.prepare<[string, number], TaskRow>(
     `${taskSelect} WHERE p.prefix = ? COLLATE NOCASE AND t.number = ?`,
@@ -1861,6 +1920,7 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     createTask,
     getTask,
     listTaskStatusTransitions,
+    readTaskStatsInputs,
     getTaskByKey,
     listTasksPage,
     listTasks,

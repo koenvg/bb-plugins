@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { prStateSchema } from "./review-submit";
 
-const viewerReviewStateSchema = z.enum([
+export const githubReviewStateSchema = z.enum([
   "APPROVED",
   "CHANGES_REQUESTED",
   "COMMENTED",
@@ -11,7 +11,7 @@ const viewerReviewStateSchema = z.enum([
 
 const latestReviewSchema = z
   .object({
-    state: viewerReviewStateSchema,
+    state: githubReviewStateSchema,
     submittedAt: z.string().nullable(),
     commit: z.object({ oid: z.string() }).nullable(),
   })
@@ -31,8 +31,11 @@ const prHeadResponseSchema = z.object({
   }),
 });
 
+export const reviewVerdictSchema = githubReviewStateSchema.exclude(["PENDING"]);
+export type ReviewVerdict = z.infer<typeof reviewVerdictSchema>;
+
 export const viewerReviewSchema = z.object({
-  state: viewerReviewStateSchema.exclude(["PENDING"]),
+  state: reviewVerdictSchema,
   submittedAt: z.string(),
   commitOid: z.string().nullable(),
 });

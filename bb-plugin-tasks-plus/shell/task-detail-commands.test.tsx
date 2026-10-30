@@ -51,7 +51,8 @@ const propertyIds = [
   "task-set-due-date",
   linkedProjectCommand,
 ];
-const deferredIds = ["task-previous", "task-next", "task-back"];
+const navigationIds = ["task-previous", "task-next", "task-back"];
+const taskCommandIds = [...propertyIds, ...navigationIds];
 
 function command(id: string) {
   const entry = TASKS_COMMANDS.find((item) => item.id === id);
@@ -69,11 +70,15 @@ function run(id: string) {
 function fixture({
   lookup,
   projectLookup,
+  siblingLookup,
+  taskRecords = tasks,
 }: {
   lookup?: (key: unknown) => unknown;
   projectLookup?: () => unknown;
+  siblingLookup?: (input: Record<string, unknown>) => unknown;
+  taskRecords?: typeof tasks;
 } = {}) {
-  const records = tasks.map((task) => ({ ...task }));
+  const records = taskRecords.map((task) => ({ ...task }));
   const tracker = { ...project, linkedBbProjectId: "proj_first" as string | null };
   const projectUpdates: Record<string, unknown>[] = [];
   const updates: Record<string, unknown>[] = [];
@@ -83,9 +88,10 @@ function fixture({
     listLabels: () => ({ labels: [label] }),
     listPresets: () => ({ presets: [] }),
     sidebarSummary: () => ({ projects: [] }),
-    listTasks: (raw: unknown) => ({
-      tasks: rpcInput(raw).parentTaskId ? [] : records,
-      nextCursor: null,
+    listTasks: vi.fn((raw: unknown) => {
+      const input = rpcInput(raw);
+      if (input.parentTaskId === null && siblingLookup) return siblingLookup(input);
+      return { tasks: input.parentTaskId ? [] : records, nextCursor: null };
     }),
     getTaskByKey: async (raw: unknown) => {
       const key = rpcInput(raw).taskKey;
@@ -178,7 +184,7 @@ describe("task-detail command registration and targeting", () => {
       ["task-back", "Tasks: Back"],
     ]);
     expect(TASKS_COMMANDS.every((entry) => entry.defaultShortcut === undefined)).toBe(true);
-    for (const id of propertyIds) expect(available(id)).toBe(false);
+    for (const id of taskCommandIds) expect(available(id)).toBe(false);
   });
   it.each(["all", "active", "manage", `${project.id}?view=board`])(
     "rejects the %s route and never queues task navigation",
@@ -191,7 +197,7 @@ describe("task-detail command registration and targeting", () => {
         row.focus();
         expect(document.activeElement).toBe(row);
       }
-      for (const id of propertyIds) {
+      for (const id of taskCommandIds) {
         expect(available(id)).toBe(false);
         run(id);
       }
@@ -202,16 +208,6 @@ describe("task-detail command registration and targeting", () => {
       expect(slot.navigateCalls).toEqual([]);
     },
   );
-  it("does not make follow-up delivery handlers available", async () => {
-    const slot = fixture().render();
-    await ready(slot);
-    for (const id of deferredIds) {
-      expect(available(id)).toBe(false);
-      run(id);
-    }
-    expect(slot.navigateCalls).toEqual([]);
-    expect(slot.queryByRole("menu")).toBeNull();
-  });
   it.each(["pending", "missing", "error", "mismatch"])("rejects a %s task", async (state) => {
     const { render, updates } = fixture({
       lookup: () => {
@@ -222,7 +218,7 @@ describe("task-detail command registration and targeting", () => {
     });
     const slot = render();
     await act(async () => {});
-    for (const id of propertyIds) {
+    for (const id of taskCommandIds) {
       expect(available(id)).toBe(false);
       run(id);
     }
@@ -243,7 +239,7 @@ describe("task-detail command registration and targeting", () => {
       { rpc },
     );
     await slot.findByRole("textbox", { name: "Task title" });
-    for (const id of propertyIds) {
+    for (const id of taskCommandIds) {
       expect(available(id)).toBe(false);
       run(id);
     }
@@ -263,7 +259,7 @@ describe("task-detail command registration and targeting", () => {
         vi.mocked(HTMLElement.prototype.getClientRects).mockReturnValue(
           [] as unknown as DOMRectList,
         );
-      for (const id of propertyIds) {
+      for (const id of taskCommandIds) {
         expect(available(id)).toBe(false);
         run(id);
       }
@@ -278,16 +274,24 @@ describe("task-detail command registration and targeting", () => {
     first.container.setAttribute("inert", "");
     first.container.setAttribute("aria-hidden", "true");
     first.getByRole("textbox", { name: "Task title", hidden: true }).focus();
-    expect(available("task-change-status")).toBe(true);
+    for (const id of ["task-change-status", "task-next", "task-back"]) {
+      expect(available(id)).toBe(true);
+    }
     const second = render("task/TSK-2");
     await waitFor(() =>
       expect(second.container.querySelector('[aria-label="Task title"]')).not.toBeNull(),
     );
-    expect(available("task-change-status")).toBe(false);
-    run("task-change-status");
+    for (const id of ["task-change-status", ...navigationIds]) {
+      expect(available(id)).toBe(false);
+      run(id);
+    }
     expect(document.querySelector('[role="menu"]')).toBeNull();
+    expect(first.navigateCalls).toEqual([]);
+    expect(second.navigateCalls).toEqual([]);
     second.unmount();
-    expect(available("task-change-status")).toBe(true);
+    for (const id of ["task-change-status", "task-next", "task-back"]) {
+      expect(available(id)).toBe(true);
+    }
   });
   it("targets the fresh task and persists its chosen due date", async () => {
     const { render, updates } = fixture();
@@ -336,6 +340,348 @@ describe("task-detail command registration and targeting", () => {
     run("task-change-status");
     expect(await reloaded.findByRole("menu")).toBeDefined();
   });
+});
+
+describe("task navigation commands", () => {
+  let frames: FrameRequestCallback[];
+  beforeEach(() => {
+    frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+  });
+  const flush = () =>
+    act(() => {
+      while (frames.length) frames.shift()!(0);
+    });
+  const expectNoWrites = ({ updates, projectUpdates, rpc }: ReturnType<typeof fixture>) => {
+    expect(updates).toEqual([]);
+    expect(projectUpdates).toEqual([]);
+    expect(rpc.delegate).not.toHaveBeenCalled();
+  };
+
+  it("shares status-grouped pager order and retargets after the panel actually changes task", async () => {
+    const taskRecords = [
+      makeTask({ ...tasks[0]!, id: "task-4", key: "TSK-4", number: 4, status: "done" }),
+      { ...tasks[1]!, dueDate: "2026-08-02" },
+      makeTask({ ...tasks[0]!, id: "task-3", key: "TSK-3", number: 3, status: "backlog" }),
+      { ...tasks[0]!, dueDate: "2026-08-01" },
+    ];
+    const f = fixture({ taskRecords });
+    const slot = f.render("task/TSK-2");
+    await ready(slot, "TSK-2");
+    await waitFor(() => expect(available("task-next")).toBe(true));
+    expect(available("task-previous")).toBe(true);
+    run("task-previous");
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls).toEqual([
+        { method: "toPluginPanel", path: "tasks", options: { subPath: "task/TSK-3" } },
+      ]),
+    );
+    const listedNext = command("task-next");
+    run("task-next");
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls.at(-1)).toEqual({
+        method: "toPluginPanel",
+        path: "tasks",
+        options: { subPath: "task/TSK-1" },
+      }),
+    );
+    slot.rerender(<Panel subPath="task/TSK-1" />);
+    await ready(slot);
+    act(() => void listedNext.run(context));
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls.at(-1)).toEqual({
+        method: "toPluginPanel",
+        path: "tasks",
+        options: { subPath: "task/TSK-4" },
+      }),
+    );
+    run("task-previous");
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls.at(-1)).toEqual({
+        method: "toPluginPanel",
+        path: "tasks",
+        options: { subPath: "task/TSK-2" },
+      }),
+    );
+    run("task-set-due-date");
+    flush();
+    const dueDate = await slot.findByLabelText("Due date");
+    expect((dueDate as HTMLInputElement).value).toBe("2026-08-01");
+    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Task 1");
+    expect(
+      f.rpc.listTasks.mock.calls
+        .map(([raw]) => rpcInput(raw))
+        .filter((input) => input.parentTaskId === null),
+    ).toEqual([{ projectId: project.id, parentTaskId: null, limit: 500 }]);
+    expectNoWrites(f);
+  });
+
+  it.each([
+    ["all", "all", false],
+    ["active", "active", false],
+    [`${project.id}?view=list&task=TSK-2`, `${project.id}?view=list&task=TSK-2`, true],
+    [`${project.id}?view=board`, `${project.id}?view=board`, true],
+  ] as const)(
+    "keeps %s pager scope and Back destination after paging",
+    async (origin, destination, scoped) => {
+      const f = fixture();
+      const slot = f.render(origin);
+      if (origin.includes("&task=")) await slot.findByRole("textbox", { name: "Task title" });
+      else await slot.findByRole("button", { name: "Open TSK-1: Task 1" });
+      f.rpc.listTasks.mockClear();
+      slot.rerender(<Panel subPath="task/TSK-1" />);
+      await ready(slot);
+      await waitFor(() => expect(available("task-next")).toBe(true));
+      expect(
+        f.rpc.listTasks.mock.calls
+          .map(([raw]) => rpcInput(raw))
+          .filter((input) => input.parentTaskId === null),
+      ).toEqual([
+        scoped
+          ? { projectId: project.id, parentTaskId: null, limit: 500 }
+          : { parentTaskId: null, limit: 500 },
+      ]);
+      run("task-next");
+      flush();
+      await waitFor(() =>
+        expect(slot.navigateCalls.at(-1)).toEqual({
+          method: "toPluginPanel",
+          path: "tasks",
+          options: { subPath: "task/TSK-2" },
+        }),
+      );
+      slot.rerender(<Panel subPath="task/TSK-2" />);
+      await ready(slot, "TSK-2");
+      run("task-back");
+      flush();
+      await waitFor(() =>
+        expect(slot.navigateCalls.at(-1)).toEqual({
+          method: "toPluginPanel",
+          path: "tasks",
+          options: { subPath: destination },
+        }),
+      );
+      fireEvent.click(slot.getByRole("button", { name: "Back (Esc)" }));
+      await waitFor(() => expect(slot.navigateCalls).toHaveLength(3));
+      fireEvent.keyDown(slot.getByRole("main", { name: "Tasks" }), { key: "Escape" });
+      await waitFor(() =>
+        expect(slot.navigateCalls.slice(1)).toEqual([
+          { method: "toPluginPanel", path: "tasks", options: { subPath: destination } },
+          { method: "toPluginPanel", path: "tasks", options: { subPath: destination } },
+          { method: "toPluginPanel", path: "tasks", options: { subPath: destination } },
+        ]),
+      );
+      expectNoWrites(f);
+    },
+  );
+
+  it("keeps commands usable with hidden narrow pager controls and uses All for direct-link Back", async () => {
+    const f = fixture();
+    const slot = f.render();
+    await ready(slot);
+    await waitFor(() => expect(available("task-next")).toBe(true));
+    const pager = slot.getByRole("button", { name: "Next task" }).parentElement!;
+    pager.style.display = "none";
+    vi.mocked(HTMLElement.prototype.getClientRects).mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return (this.closest(".tabular-nums, [data-properties-layout='rail']")
+        ? []
+        : [{ width: 900, height: 600 }]) as unknown as DOMRectList;
+    });
+    expect(pager.getClientRects()).toHaveLength(0);
+    expect(slot.getByRole("main", { name: "Tasks" }).getClientRects()).toHaveLength(1);
+    expect(available("task-next")).toBe(true);
+    run("task-next");
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls).toEqual([
+        { method: "toPluginPanel", path: "tasks", options: { subPath: "task/TSK-2" } },
+      ]),
+    );
+    slot.rerender(<Panel subPath="task/TSK-2" />);
+    await ready(slot, "TSK-2");
+    expect(available("task-previous")).toBe(true);
+    expect(available("task-back")).toBe(true);
+    run("task-back");
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls.at(-1)).toEqual({
+        method: "toPluginPanel",
+        path: "tasks",
+        options: { subPath: "all" },
+      }),
+    );
+    expectNoWrites(f);
+  });
+
+  it.each([
+    ["TSK-1", "task-previous", "task-next", "task/TSK-2"],
+    ["TSK-2", "task-next", "task-previous", "task/TSK-1"],
+  ])("makes the %s boundary a no-op without replay", async (key, absent, present, destination) => {
+    const f = fixture();
+    const slot = f.render(`task/${key}`);
+    await ready(slot, key);
+    await waitFor(() => expect(available(present)).toBe(true));
+    expect(available(absent)).toBe(false);
+    run(absent);
+    flush();
+    expect(slot.navigateCalls).toEqual([]);
+    slot.rerender(<Panel subPath={destination} />);
+    await ready(slot, destination.slice(5));
+    flush();
+    expect(slot.navigateCalls).toEqual([]);
+    run(absent);
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls).toEqual([
+        { method: "toPluginPanel", path: "tasks", options: { subPath: `task/${key}` } },
+      ]),
+    );
+    expectNoWrites(f);
+  });
+
+  it.each(["single", "empty", "absent", "error"])(
+    "rejects unknown or absent destinations for %s siblings",
+    async (state) => {
+      const f = fixture({
+        siblingLookup: () => {
+          if (state === "error") throw new Error("Sibling fixture unavailable");
+          return {
+            tasks: state === "single" ? [tasks[0]] : state === "absent" ? [tasks[1]] : [],
+            nextCursor: null,
+          };
+        },
+      });
+      const slot = f.render();
+      await ready(slot);
+      expect(available("task-back")).toBe(true);
+      for (const id of ["task-previous", "task-next"]) {
+        expect(available(id)).toBe(false);
+        run(id);
+        flush();
+      }
+      expect(slot.navigateCalls).toEqual([]);
+      run("task-back");
+      flush();
+      await waitFor(() =>
+        expect(slot.navigateCalls).toEqual([
+          { method: "toPluginPanel", path: "tasks", options: { subPath: "all" } },
+        ]),
+      );
+      expectNoWrites(f);
+    },
+  );
+
+  it("keeps retained sibling destinations usable during refresh", async () => {
+    let resolveSiblings!: (value: unknown) => void;
+    const pending = new Promise((resolve) => {
+      resolveSiblings = resolve;
+    });
+    const siblingLookup = vi.fn((): unknown => ({ tasks, nextCursor: null }));
+    const f = fixture({ siblingLookup });
+    const slot = f.render();
+    await ready(slot);
+    await waitFor(() => expect(available("task-next")).toBe(true));
+    siblingLookup.mockImplementation(() => pending);
+    await act(async () => slot.behavior.emitRealtime("tasks:changed", {}));
+    await ready(slot);
+    expect(siblingLookup).toHaveBeenCalledTimes(2);
+    expect((slot.getByRole("button", { name: "Next task" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    expect(available("task-next")).toBe(true);
+    run("task-next");
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls).toEqual([
+        { method: "toPluginPanel", path: "tasks", options: { subPath: "task/TSK-2" } },
+      ]),
+    );
+    await act(async () => resolveSiblings({ tasks: [tasks[1], tasks[0]], nextCursor: null }));
+    await waitFor(() => expect(available("task-next")).toBe(false));
+    expect(available("task-previous")).toBe(true);
+    expectNoWrites(f);
+  });
+
+  it("never queues navigation while inventory or initial siblings are pending", async () => {
+    let resolveProjects!: (value: unknown) => void;
+    let resolveSiblings!: (value: unknown) => void;
+    const projects = new Promise((resolve) => {
+      resolveProjects = resolve;
+    });
+    const siblings = new Promise((resolve) => {
+      resolveSiblings = resolve;
+    });
+    const f = fixture({ projectLookup: () => projects, siblingLookup: () => siblings });
+    const slot = f.render();
+    await ready(slot);
+    const invokeUnavailable = () => {
+      for (const id of ["task-previous", "task-next"]) {
+        expect(available(id)).toBe(false);
+        run(id);
+      }
+      flush();
+    };
+    invokeUnavailable();
+    await act(async () => resolveProjects({ projects: [project] }));
+    invokeUnavailable();
+    await act(async () => resolveSiblings({ tasks, nextCursor: null }));
+    await waitFor(() => expect(available("task-next")).toBe(true));
+    flush();
+    expect(slot.navigateCalls).toEqual([]);
+    run("task-next");
+    flush();
+    await waitFor(() =>
+      expect(slot.navigateCalls).toEqual([
+        { method: "toPluginPanel", path: "tasks", options: { subPath: "task/TSK-2" } },
+      ]),
+    );
+    expectNoWrites(f);
+  });
+
+  it.each(["route", "task", "unmount", "hidden", "loading", "ambiguous"])(
+    "rejects deferred navigation after %s changes",
+    async (change) => {
+      const f = fixture({
+        lookup: (key) =>
+          key === "TSK-2" && change === "loading"
+            ? new Promise(() => {})
+            : tasks.find((task) => task.key === key),
+      });
+      const slot = f.render();
+      await ready(slot);
+      await waitFor(() => expect(available("task-next")).toBe(true));
+      run(change === "unmount" ? "task-back" : "task-next");
+      expect(frames).toHaveLength(1);
+      act(() => frames.shift()!(0));
+      let second: ReturnType<typeof f.render> | undefined;
+      if (change === "route") slot.rerender(<Panel subPath="all" />);
+      if (change === "unmount") slot.unmount();
+      if (change === "hidden") slot.container.hidden = true;
+      if (change === "loading") slot.rerender(<Panel subPath="task/TSK-2" />);
+      if (change === "task") {
+        slot.rerender(<Panel subPath="task/TSK-2" />);
+        await ready(slot, "TSK-2");
+      }
+      if (change === "ambiguous") {
+        second = f.render();
+        await second.findByRole("textbox", { name: "Task title" });
+      }
+      flush();
+      expect(slot.navigateCalls).toEqual([]);
+      if (second) expect(second.navigateCalls).toEqual([]);
+      second?.unmount();
+      expectNoWrites(f);
+    },
+  );
 });
 
 describe("linked BB project command", () => {

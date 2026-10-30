@@ -11,6 +11,7 @@ export type TasksRoute =
   | { kind: "all"; taskKey?: string }
   | { kind: "active"; taskKey?: string }
   | { kind: "manage" }
+  | { kind: "stats"; projectId?: string }
   | {
       kind: "project";
       projectId: string;
@@ -50,6 +51,10 @@ export function parseTasksRoute(rawSubPath: string): TasksRoute {
   if (head === "all") return { kind: "all", ...selection };
   if (head === "active") return { kind: "active", ...selection };
   if (head === "manage") return { kind: "manage" };
+  if (head === "stats") {
+    const projectId = params.get("project")?.trim();
+    return { kind: "stats", ...(projectId ? { projectId } : {}) };
+  }
   if (head === "task") {
     const taskKey = segments[1];
     if (taskKey !== undefined) return { kind: "task", taskKey };
@@ -68,6 +73,11 @@ export function tasksRouteToSubPath(route: TasksRoute): string {
   if (route.kind === "entry") return "";
   if (route.kind === "manage") return "manage";
   if (route.kind === "task") return `task/${route.taskKey}`;
+  if (route.kind === "stats") {
+    const query = new URLSearchParams();
+    if (route.projectId) query.set("project", route.projectId);
+    return query.size ? `stats?${query}` : "stats";
+  }
   const query = new URLSearchParams();
   if (route.kind === "project" && route.view !== null) query.set("view", route.view);
   if (route.taskKey && !(route.kind === "project" && route.view === "board")) {

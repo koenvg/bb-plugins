@@ -24,6 +24,18 @@ Preconditions:
 
 Run package tests/typecheck and read its compatibility limits. Doctor distinguishes plugin pi-subagents-provider from provider pi-subagents and confirms both exact installed source and actual selected thread provider. The current BB 0.46 / SDK 0.6.49 package uses the normal passing SDK gate. The preserved exception is historical, limited to BB 0.44.0 / SDK 0.5.29; it does not apply to this revision or another plugin. Installed lifecycle proof requires approval to create/start/resume an owned thread and any child work. First observe ordinary Pi tools/dialogs and existing Subagents history read-only; capture panel opening, task structure and bounded output. Then, only within an approved run, observe background task completion, manual compaction and reopening persisted history. Verify native speed admission and any refusal without dispatching a billed turn as a diagnostic. Use captured history evidence and public bridge observations, not a fabricated viewer state.
 
+For the isolated viewer regression, reuse prepared dependencies and cached Chromium. From the repository root, run the existing evidence wrapper with a new private directory:
+
+```sh
+.pi/skills/verify-bb-plugins/scripts/browser.sh pi-subagents-provider "$EVIDENCE/subagents-browser"
+```
+
+This mounts production `SubagentsView` and CSS with one schema-validated, byte-bounded synthetic capture through the public SDK testing runtime. It opens repeated long-label rows, checks painted Entry 3/4 references, native clicks and browser keys, distinct captured tasks/transcripts/outputs/run IDs, close-only behavior and reopening. It covers a wide view, a 360px panel inside a 1280px viewport and a 375px viewport. Narrow labels, purposes and opened tabs must actually overflow with ellipsis while references remain visible. Omission and bounded-history notices describe the seed, not retention or budget algorithm acceptance.
+
+The runner owns a fresh loopback listener, temporary assets and browser contexts. The suite blocks service workers, fails on browser errors or attempted external traffic, and keeps narrow screenshots and traces in the wrapper's private evidence directory. No provider, paid turn, installed BB, response replacement or browser-callable state/selection API is involved.
+
+The SDK testing Markdown renderer is a plain-text stand-in. This proves internal native browser interactions and attribution text, not installed Markdown fidelity, native composer interception, provider lifecycle or persistence. Keep fixture and installed acceptance results separate.
+
 ## Gotchas
 
 - Source regression passes do not establish installed lifecycle/persistence safety; the package README explicitly leaves that acceptance open.

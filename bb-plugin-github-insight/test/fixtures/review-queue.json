@@ -25,6 +25,19 @@
           "headRefName": "alice/retries",
           "headRefOid": "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
           "reviewDecision": "REVIEW_REQUIRED",
+          "viewerLatestReview": {
+            "state": "COMMENTED"
+          },
+          "latestOpinionatedReviews": {
+            "nodes": [
+              {
+                "state": "APPROVED",
+                "author": {
+                  "login": "Me"
+                }
+              }
+            ]
+          },
           "commits": {
             "nodes": [
               {
@@ -56,6 +69,17 @@
           "headRefName": "bob/dark-mode",
           "headRefOid": "b07b07b07b07b07b07b07b07b07b07b07b07b07b",
           "reviewDecision": "CHANGES_REQUESTED",
+          "viewerLatestReview": {
+            "state": "DISMISSED"
+          },
+          "latestOpinionatedReviews": {
+            "nodes": [
+              {
+                "state": "APPROVED",
+                "author": null
+              }
+            ]
+          },
           "commits": {
             "nodes": [
               {
@@ -85,6 +109,25 @@
           "headRefName": "rate-limits",
           "headRefOid": "c15c15c15c15c15c15c15c15c15c15c15c15c15c",
           "reviewDecision": "APPROVED",
+          "viewerLatestReview": {
+            "state": "CHANGES_REQUESTED"
+          },
+          "latestOpinionatedReviews": {
+            "nodes": [
+              {
+                "state": "CHANGES_REQUESTED",
+                "author": {
+                  "login": "carol"
+                }
+              },
+              {
+                "state": "CHANGES_REQUESTED",
+                "author": {
+                  "login": "me"
+                }
+              }
+            ]
+          },
           "commits": {
             "nodes": [
               {
@@ -116,6 +159,19 @@
           "headRefName": "me/typo",
           "headRefOid": "d03d03d03d03d03d03d03d03d03d03d03d03d03d",
           "reviewDecision": null,
+          "viewerLatestReview": {
+            "state": "PENDING"
+          },
+          "latestOpinionatedReviews": {
+            "nodes": [
+              {
+                "state": "APPROVED",
+                "author": {
+                  "login": "carol"
+                }
+              }
+            ]
+          },
           "commits": {
             "nodes": [
               {

@@ -5,7 +5,22 @@ import type { PluginCommandContext } from "@get-bb/plugin-sdk/app";
 import { TasksAppShell } from "../shell/app-shell";
 import { TASKS_COMMANDS } from "../shell/commands";
 import { makeTask, rpcInput } from "../test-fixtures";
+import { tasksRpcContract } from "../shared/contract";
 import "./preview.css";
+
+const durationTransport = new URLSearchParams(window.location.search).has("durationTransport");
+if (durationTransport)
+  document.documentElement.dataset.theme =
+    new URLSearchParams(window.location.search).get("theme") ?? "light";
+async function durationRequest(method: string, input: unknown) {
+  const response = await fetch(`/__task_duration_rpc/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input ?? null),
+  });
+  if (!response.ok) throw new Error(`Fixture RPC ${method}: ${response.status}`);
+  return response.json();
+}
 
 const context: PluginCommandContext = { threadId: null, projectId: null, openPanel: () => false };
 const project = {
@@ -104,11 +119,17 @@ function Fixture() {
       }
     };
     const updated = () => refresh((value) => value + 1);
+    const accepted = () => {
+      const call = slot.inspection.navigateCalls.at(-1);
+      if (call?.method === "toPluginPanel") setSubPath(call.options?.subPath ?? "");
+    };
+    window.addEventListener("fixture-accept-navigation", accepted);
     window.addEventListener("keydown", handler);
     window.addEventListener("fixture-update", updated);
     return () => {
       window.removeEventListener("keydown", handler);
       window.removeEventListener("fixture-update", updated);
+      window.removeEventListener("fixture-accept-navigation", accepted);
     };
   }, []);
   const matches = TASKS_COMMANDS.filter(
@@ -260,6 +281,15 @@ const slot = renderSlot(
         }
         return { ok: true, task: { ...task } };
       },
+      ...(durationTransport
+        ? Object.fromEntries(
+            Object.keys(tasksRpcContract).map((method) => [
+              method,
+              (input: unknown) => durationRequest(method, input),
+            ]),
+          )
+        : {}),
     },
   },
 );
+if (durationTransport) Object.assign(window, { taskDurationFixture: slot.behavior });

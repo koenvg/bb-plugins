@@ -30,5 +30,20 @@ Escape closes the menu and returns focus to its trigger. Only selecting a preset
 Blocked-work confirmation and delegation errors still apply. The command is unavailable while presets load, fail to load,
 are missing, or the shown control awaits confirmation or delegation. The mouse primary button still uses the last preset.
 
-Nine detail commands are registered. Previous task, Next task and Back are currently unavailable.
-There is no Write a comment command under the comment-free Tasks contract.
+## Navigate the open task
+
+On a loaded standalone task, choose **Tasks: Previous task**, **Tasks: Next task**, or **Tasks: Back** in Cmd+Shift+P.
+Assign personal bindings in **Settings > Keyboard** if needed. The plugin supplies no defaults.
+Previous and Next share the existing `[` and `]` pager actions, including when narrow layouts hide the buttons.
+
+The standalone pager uses top-level tasks in its project scope, or across projects.
+It groups tasks by status and keeps their existing order within each status.
+Browse filters, browse sort, expanded subtasks, and Active-only filtering do not define this order.
+A direction is unavailable at an end or before its destination is known. Invoking it does nothing and queues no navigation.
+
+Back restores the remembered browse route, including the original project list or board after paging.
+Without a remembered route, a direct task link falls back to All tasks, like the Back button and Escape.
+Navigation does not update tasks or projects, or start an agent.
+The commands target only the loaded, shown standalone task, not list previews, boards, embedded tasks, or hidden panels.
+
+Nine detail commands are registered. There is no Write a comment command under the comment-free Tasks contract.

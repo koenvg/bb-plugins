@@ -2,6 +2,7 @@ import { z } from "zod";
 import { reviewDecisionSchema } from "./blockers";
 import { actorSchema, isOtherPerson } from "./actor";
 import { othersPrComments, othersReviewTexts, postedAt } from "./new-comments";
+import { githubReviewStateSchema, reviewVerdictSchema, type ReviewVerdict } from "./pr-head";
 import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
@@ -34,6 +35,15 @@ const prNodeSchema = z.object({
   headRefName: z.string(),
   headRefOid: z.string(),
   reviewDecision: reviewDecisionSchema,
+  viewerLatestReview: z.object({ state: githubReviewStateSchema }).nullish(),
+  latestOpinionatedReviews: z.object({
+    nodes: z.array(
+      z.object({
+        state: githubReviewStateSchema,
+        author: z.object({ login: z.string() }).nullable(),
+      }),
+    ),
+  }),
   commits: z.object({
     nodes: z.array(
       z.object({
@@ -125,6 +135,7 @@ export const queuePrSchema = z.object({
   draft: z.boolean(),
   ci: ciStateSchema,
   reviewDecision: reviewDecisionSchema,
+  yourReview: reviewVerdictSchema.nullable(),
   headRefName: z.string(),
   headOid: z.string(),
   url: z.string(),
@@ -166,13 +177,27 @@ export function parseReviewQueue(
     const node = trackedNodeSchema.parse(data[trackedAlias(index)])?.pullRequest ?? null;
     if (node === null || closedBefore(node, now - TEAM_PR_WINDOW_MS) || isAuthor(node, viewer))
       gone.push(ref);
-    else tracked.push({ ...toQueuePr(node), activity: activityOf(node, viewer) });
+    else tracked.push({ ...toQueuePr(node, viewer), activity: activityOf(node, viewer) });
   });
-  return { requests: toQueueList(data.reviewRequests), tracked, gone };
+  return { requests: toQueueList(data.reviewRequests, viewer), tracked, gone };
+}
+
+function isViewer(login: string | undefined, viewer: string): boolean {
+  return login?.toLowerCase() === viewer.toLowerCase();
 }
 
 function isAuthor(node: PrNode, viewer: string): boolean {
-  return node.author?.login.toLowerCase() === viewer.toLowerCase();
+  return isViewer(node.author?.login, viewer);
+}
+
+function yourReviewOf(node: PrNode, viewer: string): ReviewVerdict | null {
+  // A later comment does not cancel an approval, so the opinionated review wins over the latest one.
+  const opinion = node.latestOpinionatedReviews.nodes.find((review) =>
+    isViewer(review.author?.login, viewer),
+  )?.state;
+  if (opinion === "APPROVED" || opinion === "CHANGES_REQUESTED") return opinion;
+  const latestState = node.viewerLatestReview?.state;
+  return latestState === "DISMISSED" || latestState === "COMMENTED" ? latestState : null;
 }
 
 function closedBefore(node: PrNode, at: number): boolean {
@@ -211,7 +236,7 @@ function activityOf(node: ActivityNode, viewer: string): PrActivity {
   };
 }
 
-function toQueuePr(node: PrNode): QueuePr {
+function toQueuePr(node: PrNode, viewer: string): QueuePr {
   const rollup = node.commits.nodes[0]?.commit.statusCheckRollup ?? null;
   return {
     repo: node.repository.nameWithOwner,
@@ -223,6 +248,7 @@ function toQueuePr(node: PrNode): QueuePr {
     draft: node.isDraft,
     ci: rollup === null ? "none" : CI_STATE[rollup.state],
     reviewDecision: node.reviewDecision,
+    yourReview: yourReviewOf(node, viewer),
     headRefName: node.headRefName,
     headOid: node.headRefOid,
     url: node.url,
@@ -232,9 +258,9 @@ function toQueuePr(node: PrNode): QueuePr {
   };
 }
 
-function toQueueList(search: Search): QueueList {
+function toQueueList(search: Search, viewer: string): QueueList {
   const byRepo = new Map<string, QueuePr[]>();
-  for (const pr of search.nodes.map(toQueuePr)) {
+  for (const pr of search.nodes.map((node) => toQueuePr(node, viewer))) {
     byRepo.set(pr.repo, [...(byRepo.get(pr.repo) ?? []), pr]);
   }
   const groups = [...byRepo]

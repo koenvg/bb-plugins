@@ -1197,7 +1197,7 @@ describe("queue CLI", () => {
       threads: [],
       kv: {
         "review-queue": {
-          v: 5,
+          v: 6,
           result: okQueue(
             view([
               queuePr({

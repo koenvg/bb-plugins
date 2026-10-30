@@ -65,9 +65,24 @@ it("settles a large catalog over bounded RPC batches without management, account
       };
     },
   });
+  const discovery = (await openHistoryDatabase(":memory:"))!;
+  bb.onDispose(() => {
+    discovery.close();
+  });
   const clock = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
   try {
-    plugin(bb);
+    plugin({
+      ...bb,
+      storage: {
+        ...bb.storage,
+        database: () =>
+          ({
+            exec: discovery.exec,
+            prepare: discovery.prepare,
+            transaction: (work: () => unknown) => () => discovery.transaction(work),
+          }) as ReturnType<typeof bb.storage.database>,
+      },
+    });
     const selection = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
       generation: number;
     };
