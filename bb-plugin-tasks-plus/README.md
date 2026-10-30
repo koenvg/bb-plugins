@@ -750,8 +750,22 @@ Only selecting a preset starts an agent for the open task. Blocked-work confirma
 The command is unavailable while presets load, fail to load, are missing, or the shown control awaits confirmation or delegation.
 The mouse primary button still dispatches with the last preset.
 
-Nine detail commands are registered. Previous, Next and Back are currently unavailable.
-Write a comment is not registered because task comments were removed.
+### Navigate the open task
+
+On a loaded standalone task, press Cmd+Shift+P and choose **Tasks: Previous task**, **Tasks: Next task**, or **Tasks: Back**.
+Personal bindings are available in **Settings > Keyboard**, with no plugin defaults.
+Previous and Next share the existing `[` and `]` pager actions, even when a narrow layout hides the pager buttons.
+
+The standalone pager includes top-level tasks in its project scope, or across projects.
+It groups tasks by status and keeps their existing order within each status.
+It does not use browse filters, browse sort, expanded subtasks, or Active-only filtering.
+A direction is unavailable at an end or before its destination is known. Invoking it does nothing and queues no navigation.
+
+Back returns to the remembered browse route, including the original project list or board after paging.
+A direct task link without a remembered route falls back to All tasks, just like the Back button and Escape.
+Navigation does not update tasks or projects, or start an agent. These commands target only the loaded, shown standalone task.
+
+Nine detail commands are registered. Write a comment is not registered because task comments were removed.
 
 ### Switch Tasks projects
 
