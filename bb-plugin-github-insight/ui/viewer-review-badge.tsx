@@ -1,11 +1,11 @@
 import { useRef } from "react";
-import type { ViewerReview } from "../core/pr-head";
+import type { ReviewVerdict, ViewerReview } from "../core/pr-head";
 import { relativeTime } from "../core/relative-time";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
 export const VERDICTS: Record<
-  ViewerReview["state"],
+  ReviewVerdict,
   { text: string; icon: IconName; iconClass: string; pillClass: string }
 > = {
   APPROVED: {

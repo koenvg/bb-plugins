@@ -18,7 +18,7 @@ fragment QueuePr on PullRequest {
   headRefOid
   reviewDecision
   viewerLatestReview { state }
-  latestOpinionatedReviews(first: 50) { nodes { state author { login } } }
+  latestOpinionatedReviews(first: 20) { nodes { state author { login } } }
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
 }
 `;

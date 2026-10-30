@@ -31,8 +31,11 @@ const prHeadResponseSchema = z.object({
   }),
 });
 
+export const reviewVerdictSchema = githubReviewStateSchema.exclude(["PENDING"]);
+export type ReviewVerdict = z.infer<typeof reviewVerdictSchema>;
+
 export const viewerReviewSchema = z.object({
-  state: githubReviewStateSchema.exclude(["PENDING"]),
+  state: reviewVerdictSchema,
   submittedAt: z.string(),
   commitOid: z.string().nullable(),
 });

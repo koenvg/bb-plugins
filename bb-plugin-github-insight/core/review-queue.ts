@@ -2,7 +2,7 @@ import { z } from "zod";
 import { reviewDecisionSchema } from "./blockers";
 import { actorSchema, isOtherPerson } from "./actor";
 import { othersPrComments, othersReviewTexts, postedAt } from "./new-comments";
-import { githubReviewStateSchema, viewerReviewSchema, type ViewerReview } from "./pr-head";
+import { githubReviewStateSchema, reviewVerdictSchema, type ReviewVerdict } from "./pr-head";
 import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
@@ -135,7 +135,7 @@ export const queuePrSchema = z.object({
   draft: z.boolean(),
   ci: ciStateSchema,
   reviewDecision: reviewDecisionSchema,
-  yourReview: viewerReviewSchema.shape.state.nullable(),
+  yourReview: reviewVerdictSchema.nullable(),
   headRefName: z.string(),
   headOid: z.string(),
   url: z.string(),
@@ -190,7 +190,7 @@ function isAuthor(node: PrNode, viewer: string): boolean {
   return isViewer(node.author?.login, viewer);
 }
 
-function yourReviewOf(node: PrNode, viewer: string): ViewerReview["state"] | null {
+function yourReviewOf(node: PrNode, viewer: string): ReviewVerdict | null {
   // A later comment does not cancel an approval, so the opinionated review wins over the latest one.
   const opinion = node.latestOpinionatedReviews.nodes.find((review) =>
     isViewer(review.author?.login, viewer),
