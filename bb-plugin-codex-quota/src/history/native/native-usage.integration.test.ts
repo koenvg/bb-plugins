@@ -282,6 +282,38 @@ it("child-before-parent replay rejects inherited identities and conflicting head
   expect((await f.report()).summary.totalTokens).toBe(240);
   expect((await f.report()).days[14].coverage.state).toBe("incomplete");
 });
+it("retains native gpt-6.1-terra tokens without inventing captured money", async () => {
+  const context = turn();
+  context.payload.model = "gpt-6.1-terra";
+  const f = await fixture([header(), context, usage("terra")]);
+  await f.prepare();
+  const view = await f.report();
+  expect(view.summary.totalTokens).toBe(120);
+  expect(view.days[14].models).toEqual({
+    named: [{ model: "gpt-6.1-terra", totalTokens: 120 }],
+    otherTokens: 0,
+  });
+  expect(view.days[14].money).toEqual({
+    state: "unavailable",
+    capturedCost: null,
+    records: 1,
+    pricedRecords: 0,
+    pricedEntities: 0,
+    reason: "missing-prices",
+  });
+  expect(view.days[14].modelCosts?.named).toEqual([
+    {
+      model: "gpt-6.1-terra",
+      money: {
+        state: "unavailable",
+        capturedCost: null,
+        records: 1,
+        pricedRecords: 0,
+        reason: "missing-prices",
+      },
+    },
+  ]);
+});
 it("ignores obsolete legacy tier fields and attributes models only to matching turns", async () => {
   const f = await fixture([
     header(),

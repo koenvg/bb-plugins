@@ -73,6 +73,24 @@ async function fixture() {
     log: join(root, "history/events-v1-2009-02-13.jsonl"),
   };
 }
+it("preserves gpt-6.1-terra usage with captured or missing money", async () => {
+  const f = await fixture();
+  for (const cost of [0.125, undefined]) {
+    const message = { ...f.message(cost), model: "gpt-6.1-terra" };
+    await f.handlers.get("message_end")!({ message }, f.ctx);
+  }
+  await f.handlers.get("session_shutdown")!({}, f.ctx);
+  const records = (await readFile(f.log, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => usageRecordSchema.parse(JSON.parse(line)));
+  expect(
+    records.map(({ model, totalTokens, capturedCost }) => ({ model, totalTokens, capturedCost })),
+  ).toEqual([
+    { model: "gpt-6.1-terra", totalTokens: 10, capturedCost: 0.125 },
+    { model: "gpt-6.1-terra", totalTokens: 10, capturedCost: null },
+  ]);
+});
 it("serializes actual compact writes, validates metadata, preserves original price/time, confirms only object identity and drains on shutdown", async () => {
   const f = await fixture(),
     messages = [f.message(0.125), f.message(0), f.message()];
