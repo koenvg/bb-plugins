@@ -11,6 +11,7 @@ import { hostContract } from "../../quota/contract.js";
 import { openHistoryDatabase } from "../storage/history-storage.js";
 import { execFileSync } from "node:child_process";
 import { unlink } from "node:fs/promises";
+import { chartData } from "../calendar/calendar-chart-data.js";
 const roots: string[] = [];
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((p) => rm(p, { recursive: true, force: true })));
@@ -117,6 +118,65 @@ async function fixture() {
     reads: () => reads,
   };
 }
+it("imports gpt-6.1-terra separately from sol and preserves captured chart costs", async () => {
+  const f = await fixture();
+  try {
+    const path = join(f.source, "provider-a.jsonl");
+    const [header, entry] = (await readFile(path, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    entry.message.model = "gpt-6.1-terra";
+    entry.message.usage.cost.total = 0.125;
+    const sol = {
+      ...entry,
+      id: "e-sol",
+      parentId: "e-a",
+      message: {
+        ...entry.message,
+        model: "gpt-6.1-sol",
+        usage: { ...entry.message.usage, input: 6, totalTokens: 7, cost: { total: 0.25 } },
+      },
+    };
+    await writeFile(path, [header, entry, sol].map((row) => JSON.stringify(row)).join("\n") + "\n");
+    await f.configure();
+    await f.harness.experimental_call("historyReadiness", { identities: f.identities });
+    let view = await f.harness.experimental_call("historicalImport", f.input({ action: "start" }));
+    for (let i = 0; i < 10 && view.generation?.state === "stopped"; i++)
+      view = await f.harness.experimental_call("historicalImport", f.input({ action: "resume" }));
+    expect(view.generation).toMatchObject({ state: "completed", records: 2 });
+    const report = await f.harness.experimental_call("calendarReport", {
+      startDate: "2026-09-04",
+      timezone: "UTC",
+      group: "workspace",
+      scope: { kind: "host" },
+    });
+    if (report.state === "unavailable") throw Error(report.reason);
+    const day = report.days[27];
+    expect(day.models).toEqual({
+      named: [
+        { model: "gpt-6.1-sol", totalTokens: 7 },
+        { model: "gpt-6.1-terra", totalTokens: 2 },
+      ],
+      otherTokens: 0,
+    });
+    const tokens = chartData([day], "tokens");
+    expect(tokens.models.map((series) => series.label)).toEqual(["gpt-6.1-sol", "gpt-6.1-terra"]);
+    expect(tokens.rows[0].modelFacts).toEqual({ m0: 7, m1: 2 });
+    const costs = chartData([day], "cost");
+    expect(costs.models.map((series) => series.label)).toEqual(["gpt-6.1-sol", "gpt-6.1-terra"]);
+    expect(costs.rows[0].modelFacts).toEqual({ c0: 0.25, c1: 0.125 });
+    expect(costs.rows[0].costFacts.c1).toEqual({
+      state: "available",
+      capturedCost: 0.125,
+      records: 1,
+      pricedRecords: 1,
+      reason: "ok",
+    });
+  } finally {
+    await f.harness.experimental_dispose();
+  }
+});
 it("opens status without setup, supports import-only storage, persists reload and releases every lease", async () => {
   const f = await fixture();
   try {
