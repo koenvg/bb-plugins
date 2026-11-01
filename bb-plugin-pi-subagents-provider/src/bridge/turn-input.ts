@@ -1,3 +1,4 @@
+import { experimental_selectedSkillMentions as selectedSkillMentions } from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import { readFileSync } from "node:fs";
 import {
   mimeTypeFromExtension,
@@ -37,23 +38,13 @@ export function extractPiPromptInput(input: PromptInput[]): ExtractedPiPromptInp
   for (const item of input) {
     if (item.type === "text") {
       const chunkIndex = chunks.push(item.text) - 1;
-      for (const mention of item.mentions) {
-        const resource = mention.resource;
-        if (
-          resource.kind === "command" &&
-          resource.source === "skill" &&
-          (resource.trigger === "/" || resource.trigger === "$") &&
-          mention.start < mention.end &&
-          mention.end <= item.text.length &&
-          item.text.slice(mention.start, mention.end) === `${resource.trigger}${resource.name}`
-        ) {
-          skills.push({
-            chunkIndex,
-            end: mention.end,
-            name: resource.name,
-            start: mention.start,
-          });
-        }
+      for (const mention of selectedSkillMentions(item)) {
+        skills.push({
+          chunkIndex,
+          end: mention.end,
+          name: mention.resource.name,
+          start: mention.start,
+        });
       }
     } else if (item.type === "localImage") {
       try {
@@ -65,7 +56,11 @@ export function extractPiPromptInput(input: PromptInput[]): ExtractedPiPromptInp
         });
       } catch {}
     } else if (item.type === "localFile") {
-      chunks.push(`[Attached file: ${item.path}]`);
+      chunks.push(
+        item.name
+          ? `[Attached file "${item.name}": ${item.path}]`
+          : `[Attached file: ${item.path}]`,
+      );
     }
   }
   const [skill] = skills;

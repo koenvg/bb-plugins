@@ -33,6 +33,37 @@ function render(
 }
 
 describe("pi extension ui interaction", () => {
+  it("keeps the full question and successful submission locked", async () => {
+    const submit = vi.fn(async () => undefined);
+    const title = "Long question ".repeat(30);
+    const view = render(
+      { requestId: "ui-long", method: "input", fullTitle: title, placeholder: "answer" },
+      { submit },
+    );
+    expect(view.getByText(title.trim())).toBeDefined();
+    fireEvent.change(view.getByPlaceholderText("answer"), { target: { value: "yes" } });
+    fireEvent.click(view.getByText("Submit"));
+    await vi.waitFor(() => expect(submit).toHaveBeenCalledWith("yes"));
+    expect((view.getByText("Submit") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(view.getByText("Submit"));
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows retry after a failed submission", async () => {
+    const submit = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("try again"))
+      .mockResolvedValue(undefined);
+    const view = render({ requestId: "ui-retry", method: "input", prefill: "answer" }, { submit });
+    fireEvent.click(view.getByText("Submit"));
+    await vi.waitFor(() =>
+      expect((view.getByText("Submit") as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(view.getByText("Submit"));
+    await vi.waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect((view.getByText("Submit") as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("submits the chosen option label for a select dialog", async () => {
     const submit = vi.fn(async () => undefined);
     const view = render(

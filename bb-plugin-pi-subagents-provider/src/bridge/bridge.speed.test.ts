@@ -43,12 +43,19 @@ const turn = (serviceTier = "fast", text = "hello", reasoningLevel = "high") =>
   });
 
 beforeEach(async () => {
-  harness = await startFakePiBridge({ prefix: "bb-pi-speed-", initialize: true, processLog: true });
+  harness = await startFakePiBridge({
+    prefix: "bb-pi-speed-",
+    initialize: true,
+    processLog: false,
+  });
   stateFile = join(harness.workspaceDir, "speed-state.json");
   commandLog = join(harness.workspaceDir, "commands.log");
   setState({ tiers: ["priority"] });
   vi.stubEnv("FAKE_PI_SPEED_STATE", stateFile);
   vi.stubEnv("FAKE_PI_COMMAND_LOG", commandLog);
+  const catalog = await harness.request(++id, "model/list", { cwd: harness.workspaceDir });
+  expect(catalog.error).toBeUndefined();
+  vi.stubEnv("FAKE_PI_PROCESS_LOG", join(harness.workspaceDir, "process.log"));
 });
 afterEach(async () => {
   await harness.teardown();

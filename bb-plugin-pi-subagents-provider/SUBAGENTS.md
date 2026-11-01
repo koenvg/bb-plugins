@@ -14,7 +14,7 @@ Click the existing native background-agent bar above the composer, or focus it w
 
 No second bar, button, or replacement indicator is added. Native text, timing, activity counts, and aggregate expansion remain intact. The transcript indicator is unchanged. Navigation leaves the parent chat and draft intact and sends no agent request or execution command.
 
-This shortcut uses a trusted content script to match private BB composer DOM. Its fixtures are based on BB 0.45.0 and SDK 0.6.15. Panel navigation and history reads use the public SDK, but DOM matching is not an SDK compatibility promise. A BB upgrade can disable the shortcut. Unrecognized shapes, another selected provider, missing observations, or multiple ambiguous composer contexts leave the bar unchanged. Open Subagents from the thread panel actions when the shortcut is unavailable.
+This shortcut uses a trusted content script to match private BB composer DOM. Its fixtures retain BB 0.45.0 shapes and cover the total-count badge from upstream BB revision 916d684a. Current package SDK pins remain unchanged. Panel navigation and history reads use the public SDK, but DOM matching is not an SDK compatibility promise. A BB upgrade can disable the shortcut. Unrecognized shapes, another selected provider, missing observations, or multiple ambiguous composer contexts leave the bar unchanged. Open Subagents from the thread panel actions when the shortcut is unavailable.
 
 Disabling or replacing the plugin removes its added listeners, observer, focus styling, and owned accessibility hints. Local tests cover these behaviors; installed layout and reload acceptance remain required.
 

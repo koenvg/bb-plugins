@@ -12,17 +12,23 @@ The imported provider was version 0.1.0, with SDK 0.5.24 and Pi types/fixtures 0
 - Extension dialogs use `pi-subagents-provider/extension-ui`. Inherited fixture expectations use the new provider identity.
 - Session files default to `~/.bb/pi-subagents-bridge-sessions`. The fork uses `BB_PI_SUBAGENTS_BRIDGE_SESSION_DIR`, never the bundled provider's session override. Scratch files already use the bridge's process-private or plugin-scoped temporary directory.
 - Workspace dependencies and sibling path aliases are removed. The canonical SDK is a development dependency. Its exact production npm alias, `@get-bb/plugin-sdk-runtime`, provides the public host and provider-bridge exports for BB's bundles. Both SDK pins must match. Zod stays in production dependencies. Published `bb-app` supplies standalone build tooling in development dependencies.
-- Dialog answer shortcuts use the public `experimental_useQuestionFormHost` hook. A small package-owned button replaces the private BB button. Other inherited dialog behavior remains unchanged.
-- A settings section states that subagent observation is unavailable. There are no child controls, polling, lifecycle translation, inspection commands, or timers in this baseline. Missing or disabled subagents do not block ordinary prompts.
+- Dialog answer shortcuts use the public `experimental_useQuestionFormHost` hook. A package-owned button replaces the private BB button. Long titles retain their full text in the payload while the card title respects BB's 160-character limit. Successful answers remain locked until the host removes the card; failed answers can be retried.
+- Read-only subagent observation, native background-task translation, bounded capture and history recovery live behind package-owned modules. The settings section describes these limits. Missing or disabled subagents do not block ordinary prompts. See [SUBAGENTS.md](SUBAGENTS.md).
 - The inherited `skills/` source is retained for comparison but `bb.skills: []` prevents this fork from injecting duplicate bundled-provider instructions into all threads. Native Pi skill discovery is unchanged.
 - Inherited tests remain in the package. New registration/storage/package tests cover separation and production dependencies. The public-import scanner permits one exact computed import in the inherited fake child, which loads the bridge-supplied extension file. No production import is exempt.
 - `README.md`, compatibility guidance, overview, repository catalog entry, and CI matrix entry describe the standalone fork. Internal `prepare:bundled` tooling is removed.
 
-## Integration points for later tickets
+## Current integration boundaries
 
-Keep subagent observation behind its own module. The existing `ExtensionUiCoordinator.handle` receives structured widgets and dialogs; `PiRpcSession` owns the correlated `PiRpcChild`; `bb-pi-extension.ts` supplies the existing process-local tool channel; `bridge.ts` owns session construction/disposal; `PiDeltaTranslator` emits native deltas. These are attachment points, not completed subagent behavior. Keep unrelated dialogs and ordinary turn boundaries unchanged.
+`ExtensionUiCoordinator.handle` receives widgets and dialogs. `PiRpcSession` owns the child and run settlement. `PiSessionChannel` owns correlated extension reports; `PiSessionInputs` owns input acknowledgement. `bridge.ts` owns construction, disposal and native-turn accounting. Observation and capture stay in `src/bridge/subagents`. Pure command, edit and image shapes live in `pi-tool-shapes.ts`; the translator retains bounded event bookkeeping.
 
-Later observation/capture work can replace the unavailable settings section and declare schema-validated extension state. This baseline creates no native background tasks and offers no retention or completion-wake guarantee. Later monitoring work can consume the recorded branch, revision, and watched paths. It must not advance the import revision merely after checking upstream.
+## Draft package-level synchronization
+
+The draft compares upstream `plugins/provider-pi` at incorporated revision `fdd3de3b19b97e6cd1ef7300cbb54711431249d3`, this fork at `a1a44e4e626b391b4bb4b3d7085791f3ee82d0fa`, and [upstream main at `916d684a`](https://github.com/get-bb/bb/commit/916d684ac23d0b0de82c09cfc7553a50287d2188). `UPSTREAM.json` keeps the incorporated baseline unchanged until the draft is accepted.
+
+Ports cover authoritative settlement and checkpoints, compaction queuing, exact model selection and catalog refresh, cwd relocation, assistant-message completion, edit batches, image results, cache-TTL metadata, recursive skill roots, local-only installation probes and static provider identity. The native composer matcher accepts both the older extra-count label and the current total-count badge. Compatibility tests retain the fork's speed and capture safeguards.
+
+The draft retains SDK/runtime alias 0.6.79, BB tooling 0.47.1, Pi contracts 1.1.0 and all other dependency pins and engine ranges. Upstream's newer host-toolchain/process API migration and Windows npm-shim changes remain deferred. Its private shared QuestionForm, workspace aliases, bundled preparation, compiler change and blanket test removals are not copied. The fork keeps its public question-host hook, select interaction model and package-owned controls. Required source checks and independent review must be reported separately from installed acceptance. No installed retention, delivery, parent wake or reload guarantee follows from these ports.
 
 ## Deliberate upstream updates
 

@@ -1,4 +1,7 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { ChildProcess } from "node:child_process";
+import { channel } from "node:diagnostics_channel";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,6 +66,7 @@ export interface FakePiBridgeHarness {
     what: string,
   ): Promise<BridgeJsonRpcOutputMessage>;
   readProcessLog(): { spawned: number[]; exited: number[] };
+  runningChildPids(): number[];
   teardown(): Promise<void>;
 }
 
@@ -83,6 +87,18 @@ export async function startFakePiBridge(
   }
   const harness = createBridgeJsonRpcTestHarness(handleLine);
   const pendingRequests = new Set<Promise<BridgeJsonRpcOutputMessage>>();
+  const children: ChildProcess[] = [];
+  const childProcessChannel = channel("child_process");
+  const onChildProcess = (message: unknown): void => {
+    if (
+      typeof message === "object" &&
+      message !== null &&
+      "process" in message &&
+      message.process instanceof ChildProcess
+    ) {
+      children.push(message.process);
+    }
+  };
   let nextHarnessRequestId = FIRST_HARNESS_REQUEST_ID;
   const bridge: FakePiBridgeHarness = {
     workspaceDir,
@@ -163,14 +179,38 @@ export async function startFakePiBridge(
       }
       return { spawned, exited };
     },
+    runningChildPids() {
+      return children.flatMap((child) =>
+        child.spawnargs.includes(fakePiPath) &&
+        child.pid !== undefined &&
+        child.exitCode === null &&
+        child.signalCode === null
+          ? [child.pid]
+          : [],
+      );
+    },
     async teardown() {
-      await experimental_closeAllForTests();
-      await Promise.allSettled(pendingRequests);
-      harness.restore();
-      vi.unstubAllEnvs();
-      rmSync(workspaceDir, { recursive: true, force: true });
+      try {
+        await experimental_closeAllForTests();
+        await Promise.allSettled(pendingRequests);
+        await bridge.waitFor(
+          () => bridge.runningChildPids().length === 0,
+          "fake Pi processes to exit",
+        );
+      } finally {
+        childProcessChannel.unsubscribe(onChildProcess);
+        harness.restore();
+        vi.unstubAllEnvs();
+        await rm(workspaceDir, {
+          recursive: true,
+          force: true,
+          maxRetries: 10,
+          retryDelay: 100,
+        });
+      }
     },
   };
+  childProcessChannel.subscribe(onChildProcess);
   if (options.initialize) {
     try {
       await bridge.request(INITIALIZE_ID, "initialize", {

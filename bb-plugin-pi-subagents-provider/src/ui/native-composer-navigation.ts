@@ -89,10 +89,11 @@ function matchHeader(header: HTMLElement, context: Context): string | null | und
     )
       return;
     if (!matchRoot(headerDescriptions[0]!, context.rows)) return;
-    const more = Array.from(header.querySelectorAll("span")).find((span) =>
-      /^\+[1-9]\d* more$/.test(span.textContent ?? ""),
-    );
-    if (!more) return;
+    const countIndicator = Array.from(header.querySelectorAll("span")).find((span) => {
+      const text = span.textContent ?? "";
+      return /^\+[1-9]\d* more$/.test(text) || (/^[1-9]\d*$/.test(text) && Number(text) >= 2);
+    });
+    if (!countIndicator) return;
   }
   // A collapsed disclosure has no run IDs. Never select a run from its count.
   return null;

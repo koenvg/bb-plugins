@@ -3,7 +3,7 @@
 | Component    | Declared/tested boundary                                                                                                                 |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Node         | 26.0.0 or newer within Node 26                                                                                                           |
-| BB           | 0.47.1 through 0.47.x; build tooling pinned to 0.47.1                                                                                    |
+| BB           | Manifest accepts >=0.47.1 <0.49.0; build tooling pinned to 0.47.1. Installed acceptance remains separate.                                |
 | Public SDK   | 0.6.79; manifest accepts 0.6.79 through 0.6.x; development and runtime alias pins match                                                  |
 | Pi           | Inherited Default install gate: 0.84.0 or newer. Shared speed integration and development type contracts: 1.1.0.                         |
 | pi-subagents | Not installed/enabled by this provider. Public RPC v1 and inspection contracts were statically checked at 0.75.0; no live certification. |

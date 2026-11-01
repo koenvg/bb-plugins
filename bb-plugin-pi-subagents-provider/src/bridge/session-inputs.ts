@@ -10,6 +10,7 @@ interface PendingInput {
 export interface TrackedSessionInput {
   consumed: Promise<void>;
   readonly wasQueued: boolean;
+  acceptLocally: () => void;
   acknowledge: (error?: Error) => void;
 }
 
@@ -42,16 +43,17 @@ export class PiSessionInputs {
       get wasQueued() {
         return pending.queuedText !== null;
       },
+      acceptLocally: () => pending.resolve(),
       acknowledge: (error) => this.acknowledge(pending, error),
     };
   }
 
-  observe(event: Record<string, unknown>): void {
+  observe(event: Record<string, unknown>, authoritativeSettlement = false): void {
     if (event.type === "queue_update") {
       this.observeQueue("steering", toStringArray(event.steering));
       this.observeQueue("followUp", toStringArray(event.followUp));
     } else if (event.type === "agent_end") {
-      if (event.willRetry !== true) this.scheduleTerminalSteerSettlement();
+      if (!authoritativeSettlement && event.willRetry !== true) this.settleTerminalSteer();
     } else if (event.type === "auto_retry_start") {
       this.autoRetryInProgress = true;
       this.terminalSteerSettlement = null;
@@ -95,7 +97,7 @@ export class PiSessionInputs {
     }
   }
 
-  private scheduleTerminalSteerSettlement(): void {
+  settleTerminalSteer(): void {
     if (
       !this.pending.some((entry) => entry.queue === "steering") ||
       this.terminalSteerSettlement !== null

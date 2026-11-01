@@ -35,6 +35,9 @@ export function fakeSpeedRuntime(models, emit) {
   };
   return {
     registry: {
+      async refresh() {
+        return { aborted: false, errors: new Map() };
+      },
       find: (provider, id) => models.find((m) => m.provider === provider && m.id === id),
       getRegisteredNativeProvider: () => registered,
       getRegisteredProviderConfig: () => undefined,
@@ -88,6 +91,7 @@ export function fakeSpeedRuntime(models, emit) {
       if (!state().realSessionManager) return;
       const { SessionManager } = await import("@earendil-works/pi-coding-agent");
       const file = context.sessionManager.getSessionFile();
+      if (!file) return;
       const existing = SessionManager.open(file);
       if (
         state().unflushedSessionManager &&

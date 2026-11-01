@@ -87,6 +87,8 @@ async function spawnCatalog(
   interface CatalogChildGeneration {
     child: PiRpcChild;
     channel: PiSessionChannel;
+    served: boolean;
+    refreshing: Promise<void> | null;
     ready: Promise<Record<string, unknown>>;
     getModelScope(): { scopedModelIds: string[]; defaultModelId?: string } | undefined;
   }
@@ -148,7 +150,14 @@ async function spawnCatalog(
       });
       return typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
     })();
-    return { child, channel, ready, getModelScope: () => modelScope };
+    return {
+      child,
+      channel,
+      ready,
+      served: false,
+      refreshing: null,
+      getModelScope: () => modelScope,
+    };
   };
   const activeGeneration = (): CatalogChildGeneration => {
     if (generation === null || generation.child.exited) {
@@ -156,11 +165,36 @@ async function spawnCatalog(
     }
     return generation;
   };
+  const refreshModels = async (active: CatalogChildGeneration): Promise<void> => {
+    let reason: string;
+    try {
+      const reply = (await active.channel.request({ method: "refresh-models" }, 5_000)) as {
+        refreshed?: unknown;
+        reason?: unknown;
+      } | null;
+      if (reply?.refreshed === true) return;
+      reason = typeof reply?.reason === "string" ? reply.reason : "not refreshed";
+    } catch (error) {
+      reason = error instanceof Error ? error.message : String(error);
+    }
+    process.stderr.write(`pi bridge: restarting the model catalog child: ${reason}\n`);
+    active.child.kill();
+    throw new PiRpcChildExitedError(await active.child.waitForExit());
+  };
+  const ensureFreshModels = (active: CatalogChildGeneration): Promise<void> => {
+    if (!active.served) return Promise.resolve();
+    active.refreshing ??= refreshModels(active).finally(() => {
+      active.refreshing = null;
+    });
+    return active.refreshing;
+  };
   const fetchRawFrom = async (active: CatalogChildGeneration): Promise<PiRpcModel[]> => {
     await active.ready;
+    await ensureFreshModels(active);
     const data = (await active.child.requestOk({
       type: "get_available_models",
     })) as { models?: unknown[] } | undefined;
+    active.served = true;
     touch();
     return (data?.models ?? []).filter(
       (entry): entry is PiRpcModel => typeof entry === "object" && entry !== null,

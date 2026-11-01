@@ -42,29 +42,21 @@ function providerThreadIdFor(threadId: string): string {
   return resultProviderThreadId(identity?.params);
 }
 
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function expectEveryChildGone(expectedSpawns: number): Promise<void> {
   const deadline = Date.now() + 30_000;
   for (;;) {
     const log = harness.readProcessLog();
     const allExited =
       log.spawned.length >= expectedSpawns &&
-      log.spawned.every((pid) => log.exited.includes(pid) && !isAlive(pid));
+      log.spawned.every((pid) => log.exited.includes(pid)) &&
+      harness.runningChildPids().length === 0;
     if (allExited) {
       expect(log.spawned.length).toBe(expectedSpawns);
       return;
     }
     if (Date.now() > deadline) {
       throw new Error(
-        `pi children still running: spawned ${JSON.stringify(log.spawned)}, exited ${JSON.stringify(log.exited)}, alive ${JSON.stringify(log.spawned.filter(isAlive))}`,
+        `pi children still running: spawned ${JSON.stringify(log.spawned)}, exited ${JSON.stringify(log.exited)}, alive ${JSON.stringify(harness.runningChildPids())}`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -117,7 +109,7 @@ it("stop{release} ends the child after a local-file-only turn", async () => {
       .some(
         (delta) =>
           delta.kind === "item.textDelta" &&
-          String(delta.text).includes(`[Attached file: ${filePath}]`),
+          String(delta.text).includes(`[Attached file "notes.md": ${filePath}]`),
       ),
   ).toBe(true);
   const stop = await harness.request((nextId += 1), "thread/stop", {
@@ -491,7 +483,9 @@ it("resume_legacy_pi_session", async () => {
     instructionMode: "append",
     options: FULL_PERMISSION_OPTIONS,
   });
-  expect(resumed.result).toMatchObject({ providerThreadId: legacyProviderThreadId });
+  expect(resumed.result).toMatchObject({
+    providerThreadId: legacyProviderThreadId,
+  });
   const after = readFileSync(legacyFile, "utf8");
   expect(after).toBe(before);
   expect(JSON.parse(after.split("\n", 1)[0]!)).toEqual(JSON.parse(before.split("\n", 1)[0]!));
@@ -503,7 +497,10 @@ it("resume_legacy_pi_session", async () => {
       message.method === "thread/identity" &&
       (message.params as { threadId?: unknown }).threadId === threadId,
   );
-  expect(identity?.params).toMatchObject({ threadId, providerThreadId: legacyProviderThreadId });
+  expect(identity?.params).toMatchObject({
+    threadId,
+    providerThreadId: legacyProviderThreadId,
+  });
   await harness.request((nextId += 1), "thread/stop", {
     threadId,
     providerThreadId: legacyProviderThreadId,
@@ -544,7 +541,9 @@ it("a child's tool and prompt files go with the child after release and failed c
     instructionMode: "append",
     options: { ...FULL_PERMISSION_OPTIONS, instructions: "be brief" },
   });
-  expect(failed.error).toBeDefined();
+  expect(failed.error).toMatchObject({
+    message: expect.stringContaining("pi exited"),
+  });
   const log = harness.readProcessLog();
   expect(log.spawned).toHaveLength(2);
   await expectEveryChildGone(2);
@@ -560,7 +559,7 @@ it("closing the catalog waits for its child to exit", async () => {
   const log = harness.readProcessLog();
   expect(log.spawned).toHaveLength(1);
   expect(log.exited).toContain(log.spawned[0]);
-  expect(log.spawned.some(isAlive)).toBe(false);
+  expect(harness.runningChildPids()).toEqual([]);
 }, 90_000);
 
 it("a child that ignores EOF and SIGTERM is SIGKILLed", async () => {
@@ -568,17 +567,27 @@ it("a child that ignores EOF and SIGTERM is SIGKILLed", async () => {
   await startThread("thr_lc_kill");
   const { spawned } = harness.readProcessLog();
   const pid = spawned[0]!;
-  const stop = await harness.request((nextId += 1), "thread/stop", {
-    threadId: "thr_lc_kill",
-    providerThreadId: providerThreadIdFor("thr_lc_kill"),
-    intent: "release",
-    activeTurnId: null,
-  });
-  expect(stop.result).toMatchObject({ ok: true });
-  expect(isAlive(pid)).toBe(true);
-  const deadline = Date.now() + 15_000;
-  while (isAlive(pid) && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 25));
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const stopId = (nextId += 1);
+    const stopping = harness.request(stopId, "thread/stop", {
+      threadId: "thr_lc_kill",
+      providerThreadId: providerThreadIdFor("thr_lc_kill"),
+      intent: "release",
+      activeTurnId: null,
+    });
+    await expect
+      .poll(() => harness.messages.find((message) => message.id === stopId), {
+        timeout: 60_000,
+      })
+      .toMatchObject({ result: { ok: true } });
+    await vi.advanceTimersByTimeAsync(10);
+    expect((await stopping).result).toMatchObject({ ok: true });
+    expect(harness.runningChildPids()).toContain(pid);
+    await vi.advanceTimersByTimeAsync(8_000);
+    await expect.poll(() => harness.runningChildPids(), { timeout: 15_000 }).not.toContain(pid);
+  } finally {
+    await vi.advanceTimersByTimeAsync(8_000);
+    vi.useRealTimers();
   }
-  expect(isAlive(pid)).toBe(false);
 }, 90_000);

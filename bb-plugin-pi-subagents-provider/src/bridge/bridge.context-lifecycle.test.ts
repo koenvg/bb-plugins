@@ -213,6 +213,7 @@ it("ignores late tool results from a replaced session", async () => {
     Socket: BridgeSocket,
     StringDecoder: (await import("node:string_decoder")).StringDecoder,
     Type,
+    PiRuntime: { VERSION: "1.1.0" },
     Buffer,
     Symbol,
     randomUUID,

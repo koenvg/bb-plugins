@@ -60,10 +60,19 @@ function ExtensionUiInteraction({ interaction, submit, cancel }: PluginPendingIn
       try {
         await submit(value as never);
       } catch {
-      } finally {
         setBusy(false);
       }
     })();
+  };
+
+  const dismiss = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await cancel();
+    } catch {
+      setBusy(false);
+    }
   };
 
   const onSubmit = (event: FormEvent) => {
@@ -78,6 +87,7 @@ function ExtensionUiInteraction({ interaction, submit, cancel }: PluginPendingIn
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3 text-xs text-muted-foreground">
+      {request.fullTitle ? <p className="text-sm text-foreground">{request.fullTitle}</p> : null}
       {request.message ? <p className="text-sm text-foreground">{request.message}</p> : null}
       {request.method === "select" ? (
         <fieldset className="flex flex-col gap-1.5" disabled={busy}>
@@ -152,7 +162,7 @@ function ExtensionUiInteraction({ interaction, submit, cancel }: PluginPendingIn
             size="sm"
             variant="ghost"
             disabled={busy}
-            onClick={() => void cancel()}
+            onClick={() => void dismiss()}
           >
             Cancel
           </Button>
