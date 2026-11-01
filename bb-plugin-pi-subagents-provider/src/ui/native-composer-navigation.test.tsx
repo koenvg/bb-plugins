@@ -179,6 +179,18 @@ async function mount(
   if (providerId === "pi-subagents") await waitFor(() => expect(list).toHaveBeenCalled());
   return { view, openTab, list, handlers };
 }
+it("opens the overview for a current BB total-count aggregate badge", async () => {
+  const { header } = fixture("aggregate");
+  header.lastElementChild!.textContent = String(roots.length);
+  const { openTab } = await mount();
+  await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(true));
+  fireEvent.click(header);
+  expect(openTab).toHaveBeenCalledExactlyOnceWith({
+    tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
+    params: { overview: true },
+  });
+});
+
 it("routes through the effective SDK panel handler only", async () => {
   const { header } = fixture();
   const { view, handlers, openTab } = await mount();

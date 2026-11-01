@@ -85,10 +85,11 @@ export function resolvePiLaunch(env: NodeJS.ProcessEnv): {
 }
 
 export function buildPiChildEnv(overrides: Record<string, string>): NodeJS.ProcessEnv {
-  return {
-    ...withoutBridgeRuntimeEnv(sanitizeInheritedChildProcessEnv({ env: process.env })),
-    ...overrides,
-  };
+  const inheritedEnv = withoutBridgeRuntimeEnv(
+    sanitizeInheritedChildProcessEnv({ env: process.env }),
+  );
+  delete inheritedEnv.PI_BB_TOOLS_FILE;
+  return { ...inheritedEnv, ...overrides };
 }
 
 const liveChildren = new Set<PiRpcChild>();

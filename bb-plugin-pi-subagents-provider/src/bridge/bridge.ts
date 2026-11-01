@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,6 +46,7 @@ import {
   buildPiTurnOptions,
   type PiSessionParams,
 } from "../session-params.js";
+import { piSessionNeedsRelocation } from "./session-cwd.js";
 import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
 import { createExtensionUiCoordinator, type ExtensionUiCoordinator } from "./extension-ui.js";
 import { type InteractionUiRequest } from "../extension-ui-contract.js";
@@ -56,12 +57,7 @@ import {
   piHealthResult,
   resetPiInstallGateForTests,
 } from "./provider-maintenance.js";
-import {
-  closeAllPiCatalogs,
-  createLiveContextWindowResolver,
-  getPiCatalog,
-  peekPiCatalog,
-} from "./catalog.js";
+import { closeAllPiCatalogs, createLiveContextWindowResolver, getPiCatalog } from "./catalog.js";
 import { experimental_closeAllPiRpcChildrenForTests } from "./rpc-child.js";
 import { PiRpcSession, type PiRpcSessionOptions, type ToolCallForwarder } from "./rpc-session.js";
 import { resolvePiBridgeSessionDir, resolvePiSessionFilePath } from "./session-paths.js";
@@ -523,7 +519,7 @@ async function handleRequest(request: PiCommand & { id: string | number }): Prom
       sendResult(request.id, { supported: false });
       break;
     case "provider/installation/status":
-      sendResult(request.id, await getPiProviderInstallationStatus());
+      sendResult(request.id, await getPiProviderInstallationStatus(request.params.checkUpdates));
       break;
     case "provider/installation/run":
       sendResult(request.id, await getPiProviderInstallationRun(request.params.action));
@@ -537,16 +533,6 @@ async function handleRequest(request: PiCommand & { id: string | number }): Prom
       );
       break;
     case "thread/resume": {
-      const missingCwd = resumedSessionMissingCwd(request.params.providerThreadId);
-      const requestedCwd = request.params.cwd;
-      if (missingCwd !== null && !existsSync(requestedCwd ?? "")) {
-        sendError(
-          request.id,
-          -32000,
-          `Cannot resume: the pi session's working directory "${missingCwd}" no longer exists.`,
-        );
-        break;
-      }
       await handleThreadConstruction(
         request.id,
         request.params.threadId,
@@ -650,26 +636,13 @@ async function resolvePiModel(
   modelStr: string,
   cwd: string,
 ): Promise<{ provider: string; id: string }> {
-  const slashIdx = modelStr.indexOf("/");
-  if (slashIdx > 0) {
-    const provider = modelStr.slice(0, slashIdx);
-    const id = modelStr.slice(slashIdx + 1);
-    const warm = peekPiCatalog(cwd);
-    if (warm !== null) {
-      const models = await (await warm).rawModels();
-      if (
-        models.some((m) => m.provider === provider) &&
-        !models.some((m) => m.provider === provider && m.id === id)
-      ) {
-        throw new Error(
-          `Pi model "${modelStr}" is not served by provider "${provider}" on this host.`,
-        );
-      }
-    }
-    return { provider, id };
-  }
   const catalog = await getPiCatalog(cwd, requireExtensionPath());
-  const served = (await catalog.rawModels()).filter((m) => m.id === modelStr);
+  const models = await catalog.rawModels();
+  const canonical = models.find((model) => `${model.provider}/${model.id}` === modelStr);
+  if (canonical) {
+    return { provider: canonical.provider, id: canonical.id };
+  }
+  const served = models.filter((model) => model.id === modelStr);
   if (served.length > 1) {
     throw new Error(
       `Ambiguous Pi model "${modelStr}": served by ${served
@@ -781,7 +754,7 @@ async function constructPiThreadSession(
     nativeTurnActive: false,
     closing: false,
     providerThreadId,
-    cwd: usablePersistedSessionCwd(providerThreadId) ?? params.cwd,
+    cwd: params.cwd,
     construction: params,
     constructionModel: sessionOptions.model,
   };
@@ -869,37 +842,34 @@ async function handleThreadConstruction(
       threadId,
     });
   }
-  await constructPiThreadSession(threadId, providerThreadId, params);
-  sendThreadSessionResult(id, threadId, providerThreadId);
-}
-
-function resumedSessionMissingCwd(providerThreadId: string): string | null {
-  const cwd = persistedSessionCwd(providerThreadId);
-  return cwd !== null && !existsSync(cwd) ? cwd : null;
-}
-
-function usablePersistedSessionCwd(providerThreadId: string): string | null {
-  const cwd = persistedSessionCwd(providerThreadId);
-  return cwd !== null && existsSync(cwd) ? cwd : null;
-}
-
-function persistedSessionCwd(providerThreadId: string): string | null {
-  const sessionFile = resolvePiSessionFilePath({
+  const sourceFile = resolvePiSessionFilePath({
     env: process.env,
     threadId: providerThreadId,
   });
-  let firstLine: string;
+  const relocate = piSessionNeedsRelocation(sourceFile, params.cwd);
+  const nextProviderThreadId = relocate ? `pi_${randomUUID()}` : providerThreadId;
+  const targetFile = resolvePiSessionFilePath({
+    env: process.env,
+    threadId: nextProviderThreadId,
+  });
   try {
-    firstLine = readFileSync(sessionFile, "utf8").split("\n", 1)[0] ?? "";
-  } catch {
-    return null;
+    if (relocate) {
+      await PiRpcSession.forkSessionFile({
+        sourceFile,
+        targetFile,
+        cwd: params.cwd,
+        sessionDir: resolvePiBridgeSessionDir({ env: process.env }),
+        extensionPath: requireExtensionPath(),
+        scratchDir: requireScratchDir(),
+        recordThreadId: threadId,
+      });
+    }
+    await constructPiThreadSession(threadId, nextProviderThreadId, params);
+  } catch (error) {
+    if (relocate) rmSync(targetFile, { force: true });
+    throw error;
   }
-  try {
-    const header = JSON.parse(firstLine) as { type?: unknown; cwd?: unknown };
-    return header.type === "session" && typeof header.cwd === "string" ? header.cwd : null;
-  } catch {
-    return null;
-  }
+  sendThreadSessionResult(id, threadId, nextProviderThreadId);
 }
 
 async function handleThreadFork(id: string | number, params: ThreadForkParams): Promise<void> {
@@ -949,7 +919,7 @@ function settlePiInput(
   dispatch: ReturnType<PiRpcSession["prompt"]>,
 ): Promise<void> {
   void dispatch.settled.then((outcome) => {
-    if (outcome === null || outcome.canSettle?.() === false) {
+    if (outcome === null || outcome.boundaryDelivered || outcome.canSettle?.() === false) {
       return;
     }
     reportPromptSettled({

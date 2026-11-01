@@ -20,7 +20,14 @@
     "server": "./server.ts",
     "host": "./src/host.ts",
     "app": "./app.tsx",
-    "skills": []
+    "skills": [],
+    "experimental_providers": [
+      {
+        "kind": "agent",
+        "id": "pi-subagents",
+        "displayName": "Pi with subagents"
+      }
+    ]
   },
   "keywords": [
     "bb-plugin"

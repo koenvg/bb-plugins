@@ -44,7 +44,7 @@ export function spawnPiSessionChild(
       args.push(flag, file);
     }
     for (const skillPath of options.additionalSkillPaths ?? []) args.push("--skill", skillPath);
-    if (options.model) args.push("--model", `${options.model.provider}/${options.model.id}`);
+    if (options.model) args.push("--provider", options.model.provider, "--model", options.model.id);
     if (options.thinkingLevel) args.push("--thinking", options.thinkingLevel);
 
     return new PiRpcChild({

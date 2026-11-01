@@ -37,6 +37,22 @@ it("consumes duplicate text one input at a time without mixing queues", async ()
   expect(first.wasQueued).toBe(true);
 });
 
+it("retains native queue correlation after accepting an input locally", async () => {
+  const inputs = new PiSessionInputs(() => null);
+  const first = inputs.track("followUp");
+  const second = inputs.track("followUp");
+  first.acceptLocally();
+  second.acceptLocally();
+  await Promise.all([first.consumed, second.consumed]);
+  first.acknowledge();
+  inputs.observe({ type: "queue_update", followUp: ["second"], steering: [] });
+  expect(first.wasQueued).toBe(false);
+  expect(second.wasQueued).toBe(true);
+  inputs.observe({ type: "queue_update", followUp: [], steering: [] });
+  expect(second.wasQueued).toBe(true);
+  expect(await second.consumed).toBeUndefined();
+});
+
 it("acknowledges only the tracked input and ignores repeated acknowledgements", async () => {
   const inputs = new PiSessionInputs(() => null);
   const failed = inputs.track("followUp");

@@ -1,3 +1,38 @@
+export interface SettlementReport {
+  runId: number;
+  leafId: string | null;
+  event: Record<string, unknown>;
+}
+
+interface StartReport {
+  runId: number;
+  previousSettlement: SettlementReport | null;
+}
+
+function parseSettlementReport(value: unknown): SettlementReport | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("runId" in value) ||
+    typeof value.runId !== "number" ||
+    !Number.isSafeInteger(value.runId) ||
+    value.runId < 1 ||
+    !("leafId" in value) ||
+    (value.leafId !== null && typeof value.leafId !== "string") ||
+    !("event" in value) ||
+    !value.event ||
+    typeof value.event !== "object" ||
+    Array.isArray(value.event) ||
+    "error" in value
+  )
+    return null;
+  return {
+    runId: value.runId,
+    leafId: value.leafId,
+    event: { ...value.event },
+  };
+}
+
 const CHANNEL_REQUEST_TIMEOUT_MS = 30_000;
 const AGENT_END_LEAF_TIMEOUT_MS = 5_000;
 
@@ -15,6 +50,11 @@ export class PiSessionChannel {
   private readonly ready = createDeferred();
   private disposedError: Error | null = null;
   private speedControl = false;
+  supportsSettlement = false;
+  private readonly agentSettledLeafReports: (SettlementReport | null)[] = [];
+  private agentSettledLeafWaiter: ((report: SettlementReport | null) => void) | null = null;
+  private readonly agentStartReports: (StartReport | null)[] = [];
+  private agentStartWaiter: ((report: StartReport | null) => void) | null = null;
 
   get supportsSpeed(): boolean {
     return this.speedControl;
@@ -24,8 +64,40 @@ export class PiSessionChannel {
 
   handle(message: Record<string, unknown>): void {
     if (this.disposedError) return;
+    if (message.kind === "agent-start") {
+      if (!this.supportsSettlement) return;
+      const previousSettlement = parseSettlementReport(message.previousSettlement);
+      const report =
+        typeof message.runId === "number" &&
+        Number.isSafeInteger(message.runId) &&
+        message.runId > 0 &&
+        (message.previousSettlement === null ||
+          (previousSettlement && previousSettlement.runId < message.runId))
+          ? { runId: message.runId, previousSettlement }
+          : null;
+      const waiter = this.agentStartWaiter;
+      if (waiter) {
+        this.agentStartWaiter = null;
+        waiter(report);
+      } else {
+        this.agentStartReports.push(report);
+      }
+      return;
+    }
+    if (message.kind === "agent-settled-leaf") {
+      const report = parseSettlementReport(message);
+      const waiter = this.agentSettledLeafWaiter;
+      if (waiter) {
+        this.agentSettledLeafWaiter = null;
+        waiter(report);
+      } else {
+        this.agentSettledLeafReports.push(report);
+      }
+      return;
+    }
     if (message.kind === "ready") {
       this.speedControl = message.speedControl === true;
+      this.supportsSettlement = message.agentSettled === true;
       this.ready.resolve();
     } else if (message.kind === "agent-end-leaf") {
       const leafId = typeof message.leafId === "string" ? message.leafId : null;
@@ -120,6 +192,42 @@ export class PiSessionChannel {
     });
   }
 
+  takeAgentStart(): Promise<StartReport | null> {
+    if (this.disposedError) return Promise.resolve(null);
+    const queued = this.agentStartReports.shift();
+    if (queued !== undefined) return Promise.resolve(queued);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        if (this.agentStartWaiter === settle) this.agentStartWaiter = null;
+        resolve(null);
+      }, AGENT_END_LEAF_TIMEOUT_MS);
+      timer.unref?.();
+      const settle = (report: StartReport | null) => {
+        clearTimeout(timer);
+        resolve(report);
+      };
+      this.agentStartWaiter = settle;
+    });
+  }
+
+  takeAgentSettledLeaf(): Promise<SettlementReport | null> {
+    if (this.disposedError) return Promise.resolve(null);
+    const queued = this.agentSettledLeafReports.shift();
+    if (queued !== undefined) return Promise.resolve(queued);
+    return new Promise<SettlementReport | null>((resolve) => {
+      const timer = setTimeout(() => {
+        if (this.agentSettledLeafWaiter === settle) this.agentSettledLeafWaiter = null;
+        resolve(null);
+      }, AGENT_END_LEAF_TIMEOUT_MS);
+      timer.unref?.();
+      const settle = (report: SettlementReport | null) => {
+        clearTimeout(timer);
+        resolve(report);
+      };
+      this.agentSettledLeafWaiter = settle;
+    });
+  }
+
   dispose(error: Error): void {
     if (this.disposedError) return;
     this.disposedError = error;
@@ -129,6 +237,10 @@ export class PiSessionChannel {
     const waiter = this.leafWaiter;
     this.leafWaiter = null;
     waiter?.(null);
+    this.agentStartWaiter?.(null);
+    this.agentStartWaiter = null;
+    this.agentSettledLeafWaiter?.(null);
+    this.agentSettledLeafWaiter = null;
   }
 }
 
