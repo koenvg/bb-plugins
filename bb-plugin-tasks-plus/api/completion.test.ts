@@ -117,20 +117,22 @@ describe("task completion PR gate", () => {
       },
     );
 
-    it(`blocks unavailable lookup through ${method} and permits in_review`, async () => {
+    it(`allows unavailable lookup through ${method} and permits in_review`, async () => {
       const { harness, store, task } = await setup({
         outcome: "unavailable",
         message: "GitHub offline",
       });
-      expect(await harness.behavior.callRpc(method, { taskId: task.id, status: "done" })).toEqual({
-        ok: false,
-        error: {
-          code: "task_pr_unavailable",
-          message:
-            "Cannot verify pull requests for CMP-1. Retry the lookup or use in_review; done requires a successful lookup for every attached thread.",
-        },
+      expect(await harness.behavior.callRpc("listTaskPullRequests", { taskId: task.id })).toEqual({
+        pullRequests: [],
+        unavailableThreadIds: ["thr_work"],
       });
-      expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
+      expect(
+        await harness.behavior.callRpc(method, { taskId: task.id, status: "done" }),
+      ).toMatchObject({
+        ok: true,
+        task: { id: task.id, status: "done" },
+      });
+      expect(store.tasks.getTask(task.id)?.status).toBe("done");
       expect(
         await harness.behavior.callRpc(method, { taskId: task.id, status: "in_review" }),
       ).toMatchObject({
@@ -179,27 +181,29 @@ describe("task completion PR gate", () => {
       ["closed", { state: "closed" }],
       ["merged but failed to refresh", { state: "merged", error: "GitHub offline" }],
       ["merged in an unknown packet version", { state: "merged", version: 2 }],
-    ])("blocks an archived thread whose recorded PR is %s", async (_name, packet) => {
-      const { harness, task } = await setup(environmentGone);
+    ])("completes an archived thread whose recorded PR is %s", async (_name, packet) => {
+      const { harness, store, task } = await setup(environmentGone);
       recordPr(harness, packet);
       expect(
         await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
-      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+      ).toMatchObject({ ok: true, task: { status: "done" } });
+      expect(store.tasks.getTask(task.id)?.status).toBe("done");
     });
 
-    it("blocks an active thread even when its recorded PR is merged", async () => {
-      const { harness, task } = await setup(environmentGone);
+    it("completes an active thread even when its recorded PR is merged", async () => {
+      const { harness, store, task } = await setup(environmentGone);
       recordPr(harness, { state: "merged" });
       harness.sdk.stub("threads.get", async ({ threadId }) =>
         makeThreadResponse({ id: threadId, environmentId: "env_work", archivedAt: null }),
       );
       expect(
         await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
-      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+      ).toMatchObject({ ok: true, task: { status: "done" } });
+      expect(store.tasks.getTask(task.id)?.status).toBe("done");
     });
 
-    it("blocks an active thread that shares the environment of an archived one", async () => {
-      const { harness, task, attach } = await setup(environmentGone);
+    it("completes an active thread that shares the environment of an archived one", async () => {
+      const { harness, store, task, attach } = await setup(environmentGone);
       attach("thr_active");
       recordPr(harness, { state: "merged" });
       harness.sdk.stub("threads.get", async ({ threadId }) =>
@@ -215,17 +219,19 @@ describe("task completion PR gate", () => {
       });
       expect(
         await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
-      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+      ).toMatchObject({ ok: true, task: { status: "done" } });
+      expect(store.tasks.getTask(task.id)?.status).toBe("done");
     });
 
-    it("blocks an archived thread when its recorded PR cannot be read", async () => {
-      const { harness, task } = await setup(environmentGone);
+    it("completes an archived thread when its recorded PR cannot be read", async () => {
+      const { harness, store, task } = await setup(environmentGone);
       harness.sdk.stub("threads.getPluginMetadata", async () => {
         throw new Error("offline");
       });
       expect(
         await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
-      ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
+      ).toMatchObject({ ok: true, task: { status: "done" } });
+      expect(store.tasks.getTask(task.id)?.status).toBe("done");
     });
 
     const environmentGone = {
@@ -296,6 +302,50 @@ describe("task completion PR gate", () => {
     ).toMatchObject({ exitCode: 0 });
   });
 
+  it.each([false, true])(
+    "allows CLI done with unavailable lookup and persists changes with JSON=%s",
+    async (json) => {
+      const { harness, store, task, project } = await setup({
+        outcome: "unavailable",
+        message: "GitHub offline",
+      });
+      const label = store.tasks.createLabel({
+        projectId: project.id,
+        name: "Guard",
+        color: "blue",
+      });
+      const blocker = store.tasks.createTask({ projectId: project.id, title: "Blocker" });
+      store.tasks.addTaskDependency(blocker.id, task.id);
+      const result = await harness.behavior.runCli([
+        "update",
+        task.key,
+        "--status",
+        "done",
+        "--title",
+        "Saved",
+        "--add-label",
+        label.name,
+        "--unblocked-by",
+        blocker.key,
+        ...(json ? ["--json"] : []),
+      ]);
+      expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+      if (json) {
+        expect(JSON.parse(result.stdout).task).toMatchObject({
+          id: task.id,
+          status: "done",
+          title: "Saved",
+        });
+      } else {
+        expect(result.stdout).toContain(task.key);
+        expect(result.stdout).toContain("Saved");
+      }
+      expect(store.tasks.getTask(task.id)).toMatchObject({ status: "done", title: "Saved" });
+      expect(store.tasks.listBlockers(task.id)).toEqual([]);
+      expect(store.taskLabelIds([task.id]).get(task.id)).toEqual([label.id]);
+    },
+  );
+
   it("does not let a merged PR or failed second lookup hide another open PR", async () => {
     const { harness, task, attach } = await setup(pullRequest("merged"));
     attach("thr_open");
@@ -348,31 +398,39 @@ describe("task completion PR gate", () => {
     expect(store.tasks.getTask(task.id)?.status).toBe("done");
   });
 
-  it.each(["thread", "environment"] as const)("blocks a thrown %s lookup", async (boundary) => {
-    const { harness, task } = await setup();
-    harness.sdk.stub(boundary === "thread" ? "threads.get" : "plugins.callRpc", async () => {
-      throw new Error("offline");
-    });
-    expect(
-      await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
-    ).toMatchObject({
-      ok: false,
-      error: { code: "task_pr_unavailable" },
-    });
-  });
+  it.each(["thread", "environment", "missing thread"] as const)(
+    "allows completion after a failed %s lookup",
+    async (boundary) => {
+      const { harness, store, task } = await setup();
+      harness.sdk.stub(boundary === "environment" ? "plugins.callRpc" : "threads.get", async () => {
+        throw new Error(boundary === "missing thread" ? "Thread not found: thr_work" : "offline");
+      });
+      expect(await harness.behavior.callRpc("listTaskPullRequests", { taskId: task.id })).toEqual({
+        pullRequests: [],
+        unavailableThreadIds: ["thr_work"],
+      });
+      expect(
+        await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
+      ).toMatchObject({
+        ok: true,
+        task: { id: task.id, status: "done" },
+      });
+      expect(store.tasks.getTask(task.id)?.status).toBe("done");
+    },
+  );
 
   it.each([
     ["missing environment key", {}],
     ["malformed PR", { env_work: { outcome: "available", pullRequest: { state: "unexpected" } } }],
-  ])("blocks completion for a %s in the PR status RPC", async (_name, response) => {
+  ])("allows completion for a %s in the PR status RPC", async (_name, response) => {
     const { harness, store, task } = await setup();
     harness.sdk.stub("plugins.callRpc", async ({ outputSchema }: { outputSchema: ZodType }) =>
       outputSchema.parse(response),
     );
     expect(
       await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
-    ).toMatchObject({ ok: false, error: { code: "task_pr_unavailable" } });
-    expect(store.tasks.getTask(task.id)?.status).toBe(task.status);
+    ).toMatchObject({ ok: true, task: { status: "done" } });
+    expect(store.tasks.getTask(task.id)?.status).toBe("done");
   });
 
   it("allows unattached tasks and confirmed threads without environments", async () => {
