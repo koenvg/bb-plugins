@@ -62,20 +62,10 @@ for (const width of [375, 1280])
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await expect(date).toHaveAttribute("datetime", daily[index][0]);
         await expect(tip.locator("dl dd").first()).toHaveText(index === 15 ? "4" : "1");
-        if (index === 15) {
-          for (const label of [
-            "Input (uncached) tokens",
-            "Output tokens",
-            "Cache read tokens",
-            "Cache write tokens",
-          ])
-            await expect(
-              tip
-                .locator("dl > div")
-                .filter({ has: page.getByText(label, { exact: true }) })
-                .locator("dd"),
-            ).toHaveText("1");
-        } else {
+        await expect(tip.locator("dl dt")).toHaveText(
+          index === 15 ? ["Recorded tokens"] : ["Recorded tokens", "Unclassified tokens"],
+        );
+        if (index === 16) {
           await expect(
             tip
               .locator("dl > div")

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { CalendarValues, UsageTooltip } from "./calendar-view.js";
 import { chartData } from "./calendar-chart-data.js";
@@ -54,24 +54,19 @@ it.each([15, 16])("keeps exact tooltip facts for small day %s", (index) => {
   render(<UsageTooltip day={day} metric="tokens" />);
   const tip = screen.getByRole("tooltip");
   expect(tip.querySelector("dl dd")?.textContent).toBe(index === 15 ? "4" : "1");
-  if (index === 15) {
-    for (const label of [
-      "Input (uncached) tokens",
-      "Output tokens",
-      "Cache read tokens",
-      "Cache write tokens",
-    ])
-      expect(within(tip).getByText(label).parentElement?.querySelector("dd")?.textContent).toBe(
-        "1",
-      );
-  } else {
-    expect(
-      within(tip).getByText("Unclassified tokens").parentElement?.querySelector("dd")?.textContent,
-    ).toBe("1");
-    expect(
-      within(tip).getByText("Token breakdown").parentElement?.querySelector("dd")?.textContent,
-    ).toBe("Unavailable");
-  }
+  expect(
+    Array.from(tip.querySelectorAll("dl > div"), (row) => [
+      row.querySelector("dt")?.textContent,
+      row.querySelector("dd")?.textContent,
+    ]),
+  ).toEqual(
+    index === 15
+      ? [["Recorded tokens", "4"]]
+      : [
+          ["Recorded tokens", "1"],
+          ["Unclassified tokens", "1"],
+        ],
+  );
 });
 
 it("marks an original positive cost even when its drawing ratio underflows", () => {

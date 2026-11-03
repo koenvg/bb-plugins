@@ -93,17 +93,6 @@ export function tooltipDefinitions(row: string[], metric: Metric) {
     ],
   ];
   if (metric === "tokens") {
-    if (row[2] === "Unavailable") definitions.push(["Token breakdown", "Unavailable"]);
-    else {
-      [
-        "Input (uncached) tokens",
-        "Output tokens",
-        "Cache read tokens",
-        "Cache write tokens",
-      ].forEach((label, index) => definitions.push([label, readableTokens(row[index + 2])]));
-      if (row[6] !== "0")
-        definitions.push(["Reasoning tokens (in output)", readableTokens(row[6])]);
-    }
     if (row[7] !== "0" && row[7] !== "Unavailable")
       definitions.push(["Unclassified tokens", readableTokens(row[7])]);
     if (row[8] !== "0")
