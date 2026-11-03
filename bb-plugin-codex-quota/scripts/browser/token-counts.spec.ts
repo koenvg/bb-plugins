@@ -57,16 +57,9 @@ for (const width of [375, 1280]) {
     }
     await expect(date).toHaveAttribute("datetime", "2026-09-26");
     const tip = page.getByRole("tooltip");
-    await expect(tip.locator("dd")).toHaveText([
-      "1.04 billion",
-      "33.28 million",
-      "8.32 million",
-      "997.88 million",
-      "520 thousand",
-      "3.33 million",
-    ]);
+    await expect(tip.locator("dt")).toHaveText(["Recorded tokens"]);
+    await expect(tip.locator("dd")).toHaveText(["1.04 billion"]);
     await expect(tip.locator("dd").first()).toHaveAttribute("title", "1,040,000,000 tokens");
-    await expect(tip.locator("dd").last()).toHaveAttribute("title", "3,328,000 tokens");
     const dailyRows = await rows(page);
     expect(dailyRows[24].slice(1, 9)).toEqual([
       "1,040,000,000",
