@@ -487,12 +487,6 @@ async function prepareTaskCompletion(bb: BbPluginApi, store: TasksApiStore, task
       `${task.key} has an open or draft pull request: ${open.map((pr) => pr.url).join(", ")}. Use in_review until it is merged or closed.`,
     );
   }
-  if (result.unavailableThreadIds.length) {
-    fail(
-      "task_pr_unavailable",
-      `Cannot verify pull requests for ${task.key}. Retry the lookup or use in_review; done requires a successful lookup for every attached thread.`,
-    );
-  }
   return () => {
     const currentThreads = store.tasks.listTaskThreads(task.id);
     if (
