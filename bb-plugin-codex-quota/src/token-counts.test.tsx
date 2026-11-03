@@ -208,11 +208,6 @@ it("uses full token units for each tooltip row and keeps the daily facts exact",
   );
   expect(definitions).toEqual([
     ["Recorded tokens", "5.88 billion", "5,880,000,001 tokens"],
-    ["Input (uncached) tokens", "301.55 million", "301,550,001 tokens"],
-    ["Output tokens", "745.92 million", "745,920,001 tokens"],
-    ["Cache read tokens", "1.2 billion", "1,200,000,000 tokens"],
-    ["Cache write tokens", "1.2 thousand", "1,200 tokens"],
-    ["Reasoning tokens (in output)", "301.55 million", "301,550,001 tokens"],
     ["Unclassified tokens", "3.63 billion", "3,632,528,799 tokens"],
     ["Uncertain estimate", "745.92 million tokens", "745,920,001 tokens"],
     ["Excluded tokens", "301.55 million", "301,550,001 tokens"],

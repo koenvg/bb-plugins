@@ -63,14 +63,16 @@ for (const theme of ["light", "dark"] as const)
             await expect(card.locator("dd").first()).toHaveAttribute("title", expected);
           else await expect(card.locator("dd").first()).toHaveText(expected);
           if (metric === "tokens") {
-            await expect(card.locator("dl > div")).toContainText([
-              "Recorded tokens",
-              "Input (uncached) tokens40",
-              "Output tokens360",
-              "Cache read tokens200",
-              "Cache write tokens0",
-              "Reasoning tokens (in output)100",
-            ]);
+            await expect(card.locator("dl dt")).toHaveText(
+              state === "tooltip-max"
+                ? [
+                    "Recorded tokens",
+                    "Unclassified tokens",
+                    "Uncertain estimate",
+                    "Excluded tokens",
+                  ]
+                : ["Recorded tokens", "Excluded tokens"],
+            );
             const detail = card.getByLabel("Tokens by model").locator("li");
             if (state === "model-totals")
               await expect(detail).toHaveText(["gpt-6.1100", "gpt-6.1-sol500"]);

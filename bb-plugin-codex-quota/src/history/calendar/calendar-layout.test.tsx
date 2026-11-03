@@ -159,15 +159,6 @@ it.each([
     );
     expect(definitions).toEqual([
       ["Recorded tokens", String(total)],
-      ...(available
-        ? [
-            ["Input (uncached) tokens", "40"],
-            ["Output tokens", "360"],
-            ["Cache read tokens", "200"],
-            ["Cache write tokens", "0"],
-            ["Reasoning tokens (in output)", "100"],
-          ]
-        : [["Token breakdown", "Unavailable"]]),
       ...(remainder ? [["Unclassified tokens", String(remainder)]] : []),
       ["Excluded tokens", "2"],
     ]);
@@ -185,7 +176,7 @@ it.each([
     ]);
   },
 );
-it("shows exact category counts and reasoning's output relationship in the tooltip", () => {
+it("shows only the recorded total and caveats in the tooltip", () => {
   const day = calendarSnapshot(query).days[14];
   render(<UsageTooltip day={day} metric="tokens" />);
   const definitions = Array.from(
@@ -194,20 +185,22 @@ it("shows exact category counts and reasoning's output relationship in the toolt
   );
   expect(definitions).toEqual([
     ["Recorded tokens", "600"],
-    ["Input (uncached) tokens", "40"],
-    ["Output tokens", "360"],
-    ["Cache read tokens", "200"],
-    ["Cache write tokens", "0"],
-    ["Reasoning tokens (in output)", "100"],
     ["Excluded tokens", "2"],
   ]);
 });
-it("labels unavailable category detail rather than inventing zero counts", () => {
+it("keeps the total and unclassified caveat without unavailable category detail", () => {
   const day = calendarSnapshot(query).days[14];
   day.classes = { state: "unavailable" };
   render(<UsageTooltip day={day} metric="tokens" />);
-  expect(screen.getByRole("tooltip").textContent).toContain("Token breakdownUnavailable");
-  expect(screen.queryByText("Input (uncached) tokens")).toBeNull();
+  const definitions = Array.from(
+    screen.getByRole("tooltip").querySelectorAll("dl > div"),
+    (row) => [row.querySelector("dt")?.textContent, row.querySelector("dd")?.textContent],
+  );
+  expect(definitions).toEqual([
+    ["Recorded tokens", "600"],
+    ["Unclassified tokens", "600"],
+    ["Excluded tokens", "2"],
+  ]);
 });
 it("rounds captured prices and keeps model pricing details in the title", () => {
   const view = calendarSnapshot(query),

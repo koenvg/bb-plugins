@@ -111,11 +111,6 @@ for (const metric of ["tokens", "cost"] as const) {
           ]
         : [
             ["Recorded tokens", "600"],
-            ["Input (uncached) tokens", "40"],
-            ["Output tokens", "340"],
-            ["Cache read tokens", "200"],
-            ["Cache write tokens", "20"],
-            ["Reasoning tokens (in output)", "100"],
             ["Uncertain estimate", "350 tokens"],
             ["Excluded tokens", "2"],
           ];
@@ -195,11 +190,6 @@ test("readable tooltip facts stay separate from exact daily facts", () => {
   ];
   const expected = [
     ["Recorded tokens", "5.88 billion"],
-    ["Input (uncached) tokens", "301.55 million"],
-    ["Output tokens", "745.92 million"],
-    ["Cache read tokens", "1.2 thousand"],
-    ["Cache write tokens", "0"],
-    ["Reasoning tokens (in output)", "100"],
     ["Uncertain estimate", "745.92 million tokens"],
     ["Excluded tokens", "301.55 million"],
   ];

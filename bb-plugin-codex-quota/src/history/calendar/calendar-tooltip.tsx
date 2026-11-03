@@ -8,7 +8,6 @@ import {
   dateLabel,
   metricName,
   recordedValue,
-  tokenCategories,
   tokenBreakdown,
   type CalendarDay,
   type TokenMetric,
@@ -60,7 +59,6 @@ export function UsageTooltip({
   const tokens = metric === "tokens" && recorded !== null ? tokenCountText(recorded) : null;
   const value = tokens?.readable ?? displayValue(day, metric);
   const classes = tokenBreakdown(day);
-  const reasoning = tokenCountText(classes.state === "available" ? classes.reasoning : 0);
   const unclassified = tokenCountText(classes.unclassified);
   const uncertain = tokenCountText(day.uncertain?.totalTokens ?? 0);
   const excluded = tokenCountText(day.excludedTokens);
@@ -95,42 +93,6 @@ export function UsageTooltip({
             {value}
           </dd>
         </div>
-        {metric === "tokens" &&
-          (classes.state === "available" ? (
-            <>
-              {tokenCategories.map((series) => {
-                const text = tokenCountText(classes[series.key]);
-                return (
-                  <div className={row} key={series.key}>
-                    <dt className="inline-flex items-center gap-2 text-muted-foreground">
-                      <span
-                        aria-hidden="true"
-                        className="size-2.5 shrink-0 rounded-sm"
-                        style={{ backgroundColor: series.color }}
-                      />
-                      {series.label} tokens
-                    </dt>
-                    <dd className="tabular-nums" title={`${text.exact} tokens`}>
-                      {text.readable}
-                    </dd>
-                  </div>
-                );
-              })}
-              {classes.reasoning > 0 && (
-                <div className={row}>
-                  <dt className="text-muted-foreground">Reasoning tokens (in output)</dt>
-                  <dd className="tabular-nums" title={`${reasoning.exact} tokens`}>
-                    {reasoning.readable}
-                  </dd>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className={row}>
-              <dt className="text-muted-foreground">Token breakdown</dt>
-              <dd>Unavailable</dd>
-            </div>
-          ))}
         {metric === "tokens" && classes.unclassified > 0 && (
           <div className={row}>
             <dt className="text-muted-foreground">Unclassified tokens</dt>
