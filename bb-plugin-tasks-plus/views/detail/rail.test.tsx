@@ -20,14 +20,18 @@ if (!window.matchMedia) {
 }
 
 installTestPluginRuntime();
-const { PropertiesRail } = await import("./rail");
+const { PropertiesRail, InlineProperties } = await import("./rail");
 const { TasksRefreshProvider } = await import("../../shell/refresh");
 
-function RailHarness(props: ComponentProps<typeof PropertiesRail>) {
+function RailHarness({
+  layout = "rail",
+  ...props
+}: ComponentProps<typeof PropertiesRail> & { layout?: "rail" | "inline" }) {
   const [openMenu, setOpenMenu] = useState<ComponentProps<typeof PropertiesRail>["openMenu"]>(null);
+  const Properties = layout === "rail" ? PropertiesRail : InlineProperties;
   return (
     <TasksRefreshProvider>
-      <PropertiesRail {...props} openMenu={openMenu} onOpenMenuChange={setOpenMenu} />
+      <Properties {...props} openMenu={openMenu} onOpenMenuChange={setOpenMenu} />
     </TasksRefreshProvider>
   );
 }
@@ -135,34 +139,22 @@ describe("dispatch target rail control", () => {
       linkedBbProjectId: null,
     });
   });
-  it("shows creator metadata only for tasks with a creator", async () => {
-    const props = railProps(null);
-    const slot = renderSlot(
-      { component: RailHarness },
-      {
-        ...props,
-        task: makeTask({ createdByThreadId: "thr_creator", creatorThreadBlocked: true }),
-      },
-      { rpc: { listBbProjects: () => ({ bbProjects: [] }) } },
-    );
-    const info = slot.getByRole("button", { name: "Creator thread information" });
-    expect(slot.queryByRole("tooltip")).toBeNull();
-    fireEvent.keyDown(document, { key: "Tab" });
-    fireEvent.focus(info);
-    const tooltip = await slot.findByRole("tooltip");
-    expect(tooltip.textContent).toContain("thr_creator");
-    expect(tooltip.textContent).toContain("Blocked until this thread is archived.");
-    slot.lifecycle.rerender(
-      <RailHarness
-        {...props}
-        task={makeTask({ createdByThreadId: "thr_creator", creatorThreadBlocked: false })}
-      />,
-    );
-    await waitFor(() =>
-      expect(slot.getByRole("tooltip").textContent).not.toContain("Blocked until"),
-    );
-    slot.lifecycle.rerender(<RailHarness {...props} />);
-    expect(slot.queryByRole("button", { name: "Creator thread information" })).toBeNull();
-    expect(slot.queryByRole("tooltip")).toBeNull();
-  });
+  it.each(["rail", "inline"] as const)(
+    "keeps creator attribution out of the %s properties",
+    (layout) => {
+      const props = railProps(null);
+      const slot = renderSlot(
+        { component: RailHarness },
+        {
+          ...props,
+          layout,
+          task: makeTask({ createdByThreadId: "thr_creator", creatorThreadBlocked: true }),
+        },
+        { rpc: { listBbProjects: () => ({ bbProjects: [] }) } },
+      );
+      expect(slot.getByRole("button", { name: "Todo" }).textContent).toContain("Todo");
+      expect(slot.queryByRole("button", { name: "Creator thread information" })).toBeNull();
+      expect(slot.queryByRole("tooltip")).toBeNull();
+    },
+  );
 });

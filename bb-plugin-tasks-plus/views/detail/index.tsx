@@ -155,13 +155,13 @@ function SubTasksSection({
         <button
           key={subtask.id}
           type="button"
-          className="flex h-8 w-full items-center gap-2 border-b border-border-hairline px-0.5 text-left text-sm hover:bg-state-hover"
+          className="flex min-h-8 w-full flex-wrap items-center gap-x-2 gap-y-1 border-b border-border-hairline px-0.5 py-1.5 text-left text-sm hover:bg-state-hover"
           title={STATUS_LABELS[subtask.status]}
           onClick={() => navigation.go({ kind: "task", taskKey: subtask.key })}
         >
           <StatusIcon status={subtask.status} />
           <span className="shrink-0 text-xs text-muted-foreground">{subtask.key}</span>
-          <span className="min-w-0 flex-1 truncate">{subtask.title}</span>
+          <span className="min-w-0 flex-1 basis-1/2 break-words">{subtask.title}</span>
           <DependencyBadges task={subtask} className="py-px text-xs" />
         </button>
       ))}

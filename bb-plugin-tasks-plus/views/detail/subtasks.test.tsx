@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Task, TaskDependencyRef } from "../../shared/contract.js";
@@ -109,11 +109,39 @@ const blockingSubtask = task(3, {
 const plainSubtask = task(4, { parentTaskId: task(1).id });
 
 describe("sub-task rows in the parent detail view", () => {
+  it("shares mixed blocker labels and keeps subtask host navigation", async () => {
+    const slot = renderParent(() => [
+      {
+        ...blockedSubtask,
+        createdByThreadId: "thr_creator",
+        creatorThreadBlocked: true,
+        openBlockerCount: 2,
+        blocks: [ref(8, "todo")],
+        openBlockedCount: 1,
+      },
+    ]);
+    const row = await subtaskRow(slot, "ABC-2");
+    expect(row.getByText("Blocked by 1 task + 1 thread").textContent).toBe(
+      "Blocked by 1 task + 1 thread",
+    );
+    expect(row.getByText("Blocks 1 task").textContent).toBe("Blocks 1 task");
+    expect(row.getByText("Task 2").textContent).toBe("Task 2");
+    expect(slot.getByText("ABC-2").closest("button")?.getAttribute("title")).toBe("Todo");
+    fireEvent.click(row.getByText("Task 2"));
+    await waitFor(() =>
+      expect(slot.inspection.navigateCalls).toContainEqual({
+        method: "toPluginPanel",
+        path: "tasks",
+        options: { subPath: "task/ABC-2" },
+      }),
+    );
+    expect(slot.inspection.sdkCalls.filter((call) => call.method === "threads.get")).toEqual([]);
+  });
   it("show dependency badges per sub-task", async () => {
     const slot = renderParent(() => [blockedSubtask, blockingSubtask, plainSubtask]);
 
-    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1")).toBeTruthy();
-    expect((await subtaskRow(slot, "ABC-3")).getByText("Blocks 2")).toBeTruthy();
+    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1 task")).toBeTruthy();
+    expect((await subtaskRow(slot, "ABC-3")).getByText("Blocks 2 tasks")).toBeTruthy();
     const plain = await subtaskRow(slot, "ABC-4");
     expect(plain.queryByText(/Blocked by|Blocks/)).toBeNull();
   });
@@ -121,7 +149,7 @@ describe("sub-task rows in the parent detail view", () => {
   it("drop the blocked badge when the blocker is done", async () => {
     let current = blockedSubtask;
     const slot = renderParent(() => [current]);
-    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1")).toBeTruthy();
+    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1 task")).toBeTruthy();
 
     current = {
       ...blockedSubtask,
@@ -135,7 +163,7 @@ describe("sub-task rows in the parent detail view", () => {
     });
 
     await waitFor(async () =>
-      expect((await subtaskRow(slot, "ABC-2")).queryByText("Blocked by 1")).toBeNull(),
+      expect((await subtaskRow(slot, "ABC-2")).queryByText("Blocked by 1 task")).toBeNull(),
     );
   });
 });

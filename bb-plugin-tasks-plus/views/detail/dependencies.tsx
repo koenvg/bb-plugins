@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { useBbNavigate, useSdk } from "@get-bb/plugin-sdk/app";
+import { isOpenRef } from "../dependencies.js";
 import type { Task, TaskDependencyRef } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { listAllTasks, useTasksQuery, useTasksRpc } from "../../shell/data.js";
@@ -35,6 +37,93 @@ const ADD_LABELS: Record<Side, string> = {
   blocks: "Add blocked task",
 };
 
+type CreatorMetadata =
+  | { kind: "absent" }
+  | { kind: "loading"; threadId: string }
+  | { kind: "unavailable"; threadId: string }
+  | {
+      kind: "available";
+      threadId: string;
+      title: string | null;
+      lifecycle: "not-archived" | "archived" | "deleted";
+    };
+
+function useCreatorThreadMetadata(threadId: Task["createdByThreadId"]): CreatorMetadata {
+  const sdk = useSdk();
+  const query = useTasksQuery<CreatorMetadata>(
+    async () => {
+      if (!threadId) return { kind: "absent" };
+      const thread = await sdk.threads.get({ threadId });
+      if (!thread || thread.id !== threadId) return { kind: "unavailable", threadId };
+      return {
+        kind: "available",
+        threadId,
+        title: [thread.title, thread.titleFallback].find((title) => title?.trim()) ?? null,
+        lifecycle: thread.deletedAt ? "deleted" : thread.archivedAt ? "archived" : "not-archived",
+      };
+    },
+    ["tasks:changed", "threads:changed"],
+    [threadId],
+  );
+  if (!threadId) return { kind: "absent" };
+  if (query.isLoading) return { kind: "loading", threadId };
+  if (query.error || query.data?.kind !== "available" || query.data.threadId !== threadId) {
+    return { kind: "unavailable", threadId };
+  }
+  return query.data;
+}
+
+function CreatorThreadRelation({
+  threadId,
+  blocked,
+  metadata,
+}: {
+  threadId: string;
+  blocked: boolean;
+  metadata: CreatorMetadata;
+}) {
+  const navigate = useBbNavigate();
+  const title = metadata.kind === "available" ? metadata.title : null;
+  const lifecycle = metadata.kind === "available" ? metadata.lifecycle : null;
+  const state =
+    metadata.kind === "loading"
+      ? "Loading thread details"
+      : lifecycle === "not-archived"
+        ? "Not archived"
+        : lifecycle === "archived"
+          ? "Archived"
+          : lifecycle === "deleted"
+            ? "Deleted"
+            : "Unavailable. Archive state unknown.";
+  return (
+    <button
+      type="button"
+      aria-label={`Open creator thread ${threadId}${title ? `: ${title}` : ""}`}
+      className="flex w-full min-w-0 items-start gap-2 rounded-sm border-b border-border-hairline px-0.5 py-3 text-left text-sm hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={() => navigate.toThread(threadId)}
+    >
+      <Icon name="MessageSquare" className="mt-0.5 size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span className="font-medium">Thread</span>
+          <span className="break-all">{threadId}</span>
+        </span>
+        <span className="mt-1 block min-h-5 break-words font-medium [overflow-wrap:anywhere]">
+          {title}
+        </span>
+        <span className="mt-1 block min-h-4 text-xs text-muted-foreground">{state}</span>
+        <span className="mt-1 block text-xs text-muted-foreground">
+          {blocked
+            ? lifecycle === "archived" || lifecycle === "deleted"
+              ? "Task still reports this creator as blocking."
+              : "Waiting for the creator thread to be archived."
+            : "Not an open blocker"}
+        </span>
+      </span>
+      <Icon name="ArrowUpRight" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
 function TaskPicker({
   side,
   candidates,
@@ -118,6 +207,7 @@ function DependencyList({
   catalog,
   onAdd,
   onRemove,
+  children,
 }: {
   side: Side;
   refs: readonly TaskDependencyRef[];
@@ -125,36 +215,64 @@ function DependencyList({
   catalog: CandidateCatalog;
   onAdd: (task: Task) => void;
   onRemove: (ref: TaskDependencyRef) => void;
+  children?: ReactNode;
 }) {
   const navigation = useTasksNavigation();
+  const open = side === "blockedBy" ? refs.filter(isOpenRef) : refs;
+  const resolved = side === "blockedBy" ? refs.filter((ref) => !isOpenRef(ref)) : [];
+  const row = (ref: TaskDependencyRef) => (
+    <div
+      key={ref.id}
+      className="flex items-start gap-2 border-b border-border-hairline px-0.5 py-3 text-sm hover:bg-state-hover"
+    >
+      <button
+        type="button"
+        aria-label={`Open task ${ref.key}: ${ref.title}`}
+        className="flex min-w-0 flex-1 items-start gap-2 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => navigation.go({ kind: "task", taskKey: ref.key })}
+      >
+        <StatusIcon status={ref.status} className="mt-0.5 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span className="font-medium">Task</span>
+            <span className="break-all">{ref.key}</span>
+            <span>{STATUS_LABELS[ref.status]}</span>
+          </span>
+          <span className="mt-1 block break-words [overflow-wrap:anywhere]">{ref.title}</span>
+          {side === "blockedBy" ? (
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {isOpenRef(ref) ? "Waiting for this task to be completed." : "Not an open blocker"}
+            </span>
+          ) : null}
+        </span>
+        <Icon name="ArrowUpRight" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+      </button>
+      <button
+        type="button"
+        aria-label={`Remove ${ref.key} from ${SIDE_TITLES[side]}`}
+        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => onRemove(ref)}
+      >
+        <Icon name="X" className="size-3.5" />
+      </button>
+    </div>
+  );
   return (
     <section aria-label={SIDE_TITLES[side]} className="mt-5">
       <h2 className="mb-1 text-xs font-semibold text-muted-foreground">{SIDE_TITLES[side]}</h2>
-      {refs.map((ref) => (
-        <div
-          key={ref.id}
-          className="flex h-8 items-center gap-2 border-b border-border-hairline px-0.5 text-sm hover:bg-state-hover"
-        >
-          <button
-            type="button"
-            title={STATUS_LABELS[ref.status]}
-            className="flex min-w-0 flex-1 items-center gap-2 text-left"
-            onClick={() => navigation.go({ kind: "task", taskKey: ref.key })}
-          >
-            <StatusIcon status={ref.status} />
-            <span className="shrink-0 text-xs text-muted-foreground">{ref.key}</span>
-            <span className="min-w-0 truncate">{ref.title}</span>
-          </button>
-          <button
-            type="button"
-            aria-label={`Remove ${ref.key} from ${SIDE_TITLES[side]}`}
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
-            onClick={() => onRemove(ref)}
-          >
-            <Icon name="X" className="size-3.5" />
-          </button>
+      {open.map(row)}
+      {children}
+      {side === "blockedBy" && open.length === 0 && !children ? (
+        <p className="py-3 text-xs text-muted-foreground">No open blockers.</p>
+      ) : null}
+      {resolved.length > 0 ? (
+        <div className="mt-4">
+          <h3 className="mb-1 text-xs font-medium text-muted-foreground">
+            Resolved · {resolved.length} · not included in open blockers
+          </h3>
+          {resolved.map(row)}
         </div>
-      ))}
+      ) : null}
       <TaskPicker side={side} candidates={candidates} catalog={catalog} onPick={onAdd} />
     </section>
   );
@@ -170,6 +288,7 @@ export function DependencySections({
   onError: (message: string) => void;
 }) {
   const rpc = useTasksRpc();
+  const creator = useCreatorThreadMetadata(task.createdByThreadId);
   // TaskDetail is task-id keyed. Demand and candidates end with that detail session.
   const [requested, setRequested] = useState(false);
   const allTasks = useTasksQuery(
@@ -226,7 +345,11 @@ export function DependencySections({
         catalog={catalog}
         onAdd={(picked) => void link(picked.id, task.id)}
         onRemove={(ref) => void unlink(ref.id, task.id)}
-      />
+      >
+        {task.createdByThreadId && task.creatorThreadBlocked === true ? (
+          <CreatorThreadRelation threadId={task.createdByThreadId} blocked metadata={creator} />
+        ) : null}
+      </DependencyList>
       <DependencyList
         side="blocks"
         refs={blocks}
@@ -235,6 +358,22 @@ export function DependencySections({
         onAdd={(picked) => void link(task.id, picked.id)}
         onRemove={(ref) => void unlink(task.id, ref.id)}
       />
+      {task.createdByThreadId ? (
+        <section
+          aria-label="Creation attribution"
+          className="mt-6 border-t border-border-hairline pt-5"
+        >
+          <h2 className="mb-1 text-xs font-semibold text-muted-foreground">Created in thread</h2>
+          <CreatorThreadRelation
+            threadId={task.createdByThreadId}
+            blocked={task.creatorThreadBlocked === true}
+            metadata={creator}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Creation attribution is separate from the blocking relations above.
+          </p>
+        </section>
+      ) : null}
     </>
   );
 }

@@ -3,6 +3,7 @@ import { fireEvent, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { TaskDependencyRef } from "../shared/contract.js";
 import { rpcInput } from "../test-fixtures.js";
 import {
   panelSize,
@@ -32,12 +33,23 @@ describe("responsive browse markup", () => {
     "retains long titles, nested identity and important metadata at %ipx",
     async (width) => {
       panelSize.width = width;
+      const otherTasks = Array.from({ length: 14 }, (_, n) => ({
+        ...tasks[1]!,
+        id: `sample-${n}`,
+        key: `TSK-${n + 4}`,
+        number: n + 4,
+        title: "Check compact browsing, independent scrolling, and safe editor transitions",
+      }));
+      const blockers: TaskDependencyRef[] = otherTasks
+        .slice(0, 2)
+        .map(({ id, key, title, status }) => ({ id, key, title, status }));
       const parent = {
         ...tasks[0]!,
         title:
           "Preserve a long ticket title and important browsing context without losing task-owned drafts",
         priority: "high" as const,
         dueDate: "2026-10-15",
+        blockedBy: blockers,
         openBlockerCount: 2,
         openBlockedCount: 1,
         blocked: true,
@@ -49,20 +61,13 @@ describe("responsive browse markup", () => {
         ...tasks[2]!,
         parentTaskId: parent.id,
         title: "Nested task with a long title that still needs readable identity and metadata",
+        blockedBy: [
+          { id: parent.id, key: parent.key, title: parent.title, status: parent.status },
+        ] satisfies TaskDependencyRef[],
         openBlockerCount: 1,
         blocked: true,
       };
-      const sample = [
-        parent,
-        child,
-        ...Array.from({ length: 14 }, (_, n) => ({
-          ...tasks[1]!,
-          id: `sample-${n}`,
-          key: `TSK-${n + 4}`,
-          number: n + 4,
-          title: "Check compact browsing, independent scrolling, and safe editor transitions",
-        })),
-      ];
+      const sample = [parent, child, ...otherTasks];
       const slot = setup("all?task=TSK-1", {
         listTasks: (raw) => ({
           tasks: rpcInput(raw).parentTaskId ? [child] : sample,
@@ -95,7 +100,9 @@ describe("responsive browse markup", () => {
           name: `Open TSK-3: ${child.title}`,
         }),
       ).toBeTruthy();
-      expect(within(list).getAllByText(/Blocked/).length).toBeGreaterThan(0);
+      expect(within(list).getByText("Blocked by 2 tasks").textContent).toBe("Blocked by 2 tasks");
+      expect(within(list).getByText("Blocks 1 task").textContent).toBe("Blocks 1 task");
+      expect(within(list).getByText("Blocked by 1 task").textContent).toBe("Blocked by 1 task");
       expect(within(list).queryByText("ready-for-agent")).toBeNull();
       capture(slot, width, "list");
     },

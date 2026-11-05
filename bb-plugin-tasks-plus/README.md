@@ -488,8 +488,17 @@ bb tasks list --blocked                        # tasks with an open blocker
 
 Each task records a nullable `createdByThreadId`. The CLI copies the invoking
 thread context supplied by BB from `BB_THREAD_ID`. Human UI creation leaves it
-null. Both JSON task reads include the field. In task details, an info icon reveals
-the creator ID and blocker status in a tooltip on hover, keyboard focus, or tap.
+null. Both JSON task reads include the field. Task details show a creator thread
+in **Blocked by** while the task reports it as blocking. **Created in thread**
+keeps the attribution visible after blocking ends. Both rows open the saved
+thread in BB and show its full ID. Titles use the first nonblank thread title,
+title fallback, or saved ID. Loading and unavailable lookups keep that ID and
+do not claim an archive state or change the task's blocker status.
+
+List, board, and subtask badges distinguish task and thread counts, such as
+**Blocked by 2 tasks + 1 thread**. Resolved task dependencies stay linked in a
+separate group and do not enter open blocker counts. Creator attribution has
+no unlink or detach control and is separate from attached execution threads.
 
 An unarchived creator contributes one open blocker, separate from task-to-task
 dependencies. `--blocked`, `--ready`, `openBlockerCount`, and `blocked` include it.
