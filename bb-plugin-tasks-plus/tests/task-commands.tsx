@@ -22,7 +22,11 @@ async function durationRequest(method: string, input: unknown) {
   return response.json();
 }
 
-const context: PluginCommandContext = { threadId: null, projectId: null, openPanel: () => false };
+const context: PluginCommandContext = {
+  threadId: null,
+  projectId: null,
+  experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+};
 const project = {
   id: "project-1",
   name: "Command fixture",

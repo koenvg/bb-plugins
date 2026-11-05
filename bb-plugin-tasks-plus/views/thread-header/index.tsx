@@ -1,47 +1,75 @@
-import type { PluginThreadHeaderActionProps } from "@get-bb/plugin-sdk";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useEffect, useRef } from "react";
+import type {
+  PluginThreadAction,
+  PluginThreadActionDataInput,
+  PluginThreadActionItemInput,
+  PluginThreadActionRegistration,
+} from "@get-bb/plugin-sdk/app";
 import type { Task } from "../../shared/contract.js";
-import { useTasksQuery } from "../../shell/data.js";
-import { TasksRefreshProvider } from "../../shell/refresh.js";
+import { useTasksQueryWithRefresh } from "../../shell/data.js";
+import { useTasksRefreshSource } from "../../shell/refresh.js";
 import { openTaskInSidePanel } from "../../shell/routes.js";
 import { STATUS_LABELS } from "../list/lib.js";
-import { StatusIcon } from "../list/icons.js";
 
-function useThreadTasks(threadId: string): Task[] {
-  const { data } = useTasksQuery(
-    async (rpc) => (await rpc.call("getTasksForThread", { threadId })).tasks,
+export type ThreadTaskData = ReadonlyMap<string, readonly Task[]>;
+
+function useThreadTaskData({ threadIds }: PluginThreadActionDataInput): ThreadTaskData {
+  const refresh = useTasksRefreshSource();
+  const published = useRef<ThreadTaskData>(new Map());
+  const { data } = useTasksQueryWithRefresh(
+    refresh,
+    async (rpc): Promise<ThreadTaskData> => {
+      const results = await Promise.allSettled(
+        threadIds.map(
+          async (threadId) => (await rpc.call("getTasksForThread", { threadId })).tasks,
+        ),
+      );
+      const next = new Map<string, readonly Task[]>();
+      threadIds.forEach((id, index) => {
+        const result = results[index]!;
+        const tasks = result.status === "fulfilled" ? result.value : published.current.get(id);
+        if (tasks !== undefined) next.set(id, tasks);
+      });
+      return next;
+    },
     ["tasks:changed", "threads:changed"],
-    [threadId],
+    threadIds,
   );
-  return data ?? [];
+  useEffect(() => {
+    if (data !== undefined) published.current = data;
+  }, [data]);
+  const visible = new Map<string, readonly Task[]>();
+  for (const id of threadIds) {
+    const tasks = data?.get(id);
+    if (tasks !== undefined) visible.set(id, tasks);
+  }
+  return visible;
 }
 
-function ThreadHeaderTaskChip({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
-  const navigate = useBbNavigate();
-  const [task, ...others] = useThreadTasks(threadId);
+function threadTaskItem({
+  thread,
+  data,
+  navigate,
+  experimental_panel,
+}: PluginThreadActionItemInput<ThreadTaskData>): PluginThreadAction | null {
+  const tasks = data.get(thread.id);
+  const task = tasks?.[0];
   if (!task) return null;
-
-  const statusLabel = STATUS_LABELS[task.status];
-  return (
-    <button
-      type="button"
-      aria-label={`${task.key} ${statusLabel}, open task`}
-      title={task.title}
-      onClick={() => openTaskInSidePanel(navigate, task.key)}
-      className="inline-flex h-7 max-w-64 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-    >
-      <StatusIcon status={task.status} />
-      <span className="font-mono text-foreground">{task.key}</span>
-      {isCompactViewport ? null : <span className="truncate">{statusLabel}</span>}
-      {others.length > 0 ? <span className="tabular-nums">+{others.length}</span> : null}
-    </button>
-  );
+  const additional = tasks.length - 1;
+  return {
+    label: `${task.key} ${STATUS_LABELS[task.status]}${additional > 0 ? ` +${additional}` : ""}`,
+    detail: task.title,
+    icon: "ListTodo",
+    run: () => openTaskInSidePanel(navigate, experimental_panel, task.key),
+  };
 }
 
-export function ThreadHeaderTask(props: PluginThreadHeaderActionProps) {
-  return (
-    <TasksRefreshProvider>
-      <ThreadHeaderTaskChip key={props.threadId} {...props} />
-    </TasksRefreshProvider>
-  );
-}
+export const threadTaskAction: PluginThreadActionRegistration<ThreadTaskData> = {
+  id: "task",
+  title: "Task",
+  icon: "ListTodo",
+  group: "open",
+  placement: "header",
+  useData: useThreadTaskData,
+  item: threadTaskItem,
+};

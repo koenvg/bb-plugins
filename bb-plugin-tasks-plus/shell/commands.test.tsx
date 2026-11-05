@@ -55,7 +55,7 @@ const rpc = {
 const context: PluginCommandContext = {
   threadId: null,
   projectId: null,
-  openPanel: () => false,
+  experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
 };
 
 function command(id: string) {

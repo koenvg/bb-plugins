@@ -4,7 +4,7 @@ import { useTasksBadge } from "./shell/sidebar-accessory.js";
 import { ticketTab } from "./shell/ticket-panel.js";
 import { TaskDirectiveCard, TaskEmbedPanel } from "./views/embed/index.js";
 import { TASKS_COMMANDS } from "./shell/commands.js";
-import { ThreadHeaderTask } from "./views/thread-header/index.js";
+import { threadTaskAction } from "./views/thread-header/index.js";
 
 export default definePluginApp((app) => {
   app.slots.navPanel({
@@ -24,11 +24,7 @@ export default definePluginApp((app) => {
     icon: "ListTodo",
     component: TaskEmbedPanel,
   });
-  app.slots.experimental_threadHeaderAction({
-    id: "task",
-    title: "Task",
-    component: ThreadHeaderTask,
-  });
+  app.slots.experimental_threadAction(threadTaskAction);
   app.slots.messageDirective({ id: "task", component: TaskDirectiveCard });
   for (const command of TASKS_COMMANDS) app.commands.register(command);
 });

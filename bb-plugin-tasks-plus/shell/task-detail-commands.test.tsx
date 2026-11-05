@@ -10,7 +10,11 @@ import { TasksRefreshProvider } from "./refresh.js";
 
 const app = await loadPluginApp(() => import("../app"));
 const Panel = app.navPanels[0]!.component;
-const context: PluginCommandContext = { threadId: null, projectId: null, openPanel: () => false };
+const context: PluginCommandContext = {
+  threadId: null,
+  projectId: null,
+  experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+};
 const project = {
   id: "01HZZZZZZZZZZZZZZZZZZZZZP1",
   name: "Command fixture",

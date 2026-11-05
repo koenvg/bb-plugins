@@ -332,7 +332,7 @@ describe("remembered Tasks entry", () => {
       void TASKS_COMMANDS.find((command) => command.id === id)!.run({
         projectId: "unrelated-bb-project",
         threadId: null,
-        openPanel: () => false,
+        experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
       });
     });
     expect(slot.navigateCalls).toEqual([destination(subPath)]);

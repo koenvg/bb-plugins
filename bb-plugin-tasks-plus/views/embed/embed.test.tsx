@@ -108,19 +108,30 @@ describe("Task directive card", () => {
   });
 
   it("opens the side panel on primary click and the Tasks app from the arrow", async () => {
-    const openThreadPanel = vi.fn(() => true);
+    const openTab = vi.fn(() => true);
     const slot = renderSlot(app.messageDirectives[0]!, directiveProps({ key: "TSK-4" }), {
-      openThreadPanel,
+      experimental_panel: { openTab },
       rpc: { getTaskByKey: () => ({ task }) },
     });
 
     fireEvent.click(await slot.findByText("Ship task embeds"));
-    expect(openThreadPanel).toHaveBeenCalledWith({
-      actionId: "task",
+    expect(openTab).toHaveBeenCalledWith({
+      tab: { id: "task", context: { kind: "thread" }, availability: "action" },
       title: "TSK-4",
       params: { taskKey: "TSK-4" },
     });
 
+    expect(slot.inspection.navigateCalls).toEqual([]);
+    expect(slot.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: {
+          tab: { id: "task", context: { kind: "thread" }, availability: "action" },
+          title: "TSK-4",
+          params: { taskKey: "TSK-4" },
+        },
+      },
+    ]);
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-4 in Tasks" }));
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -246,7 +257,7 @@ describe("Task embed panel", () => {
   it("renders the task detail for the panel params and links to the app", async () => {
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+      { threadId: "thr_1", environment: null, params: { taskKey: "TSK-4" } },
       {
         rpc: taskDetailRpc(() => ({ task })),
       },
@@ -279,7 +290,7 @@ describe("Task embed panel", () => {
       .mockResolvedValue({ ok: true, task: { ...task, title: "Edited A" } });
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+      { threadId: "thr_1", environment: null, params: { taskKey: "TSK-4" } },
       {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
@@ -299,7 +310,9 @@ describe("Task embed panel", () => {
     });
     title.textContent = "Edited A";
     fireEvent.input(title);
-    slot.lifecycle.rerender(<Panel threadId="thr_1" params={{ taskKey: "TSK-5" }} />);
+    slot.lifecycle.rerender(
+      <Panel threadId="thr_1" environment={null} params={{ taskKey: "TSK-5" }} />,
+    );
     await waitFor(() => expect(updateTask).toHaveBeenCalledOnce());
     expect(slot.queryByText("TSK-5")).toBeNull();
     expect(slot.getByText("TSK-4")).toBeTruthy();
@@ -324,7 +337,7 @@ describe("Task embed panel", () => {
     let finishSave!: (result: unknown) => void;
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+      { threadId: "thr_1", environment: null, params: { taskKey: "TSK-4" } },
       {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
@@ -356,7 +369,7 @@ describe("Task embed panel", () => {
     let title = "Stale embedded detail";
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+      { threadId: "thr_1", environment: null, params: { taskKey: "TSK-4" } },
       {
         realtimeConnectionState: "connected",
         rpc: taskDetailRpc(() => ({ task: { ...task, title } })),
@@ -374,7 +387,7 @@ describe("Task embed panel", () => {
   it("opens the first linked task when the launcher supplies no key", async () => {
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: null },
+      { threadId: "thr_1", environment: null, params: null },
       {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
@@ -400,7 +413,7 @@ describe("Task embed panel", () => {
       const restore = () =>
         renderSlot(
           taskRegistration,
-          { threadId: "thr_1", params: null },
+          { threadId: "thr_1", environment: null, params: null },
           {
             rpc: {
               ...taskDetailRpc(() => ({ task: linkedTask })),
@@ -425,7 +438,7 @@ describe("Task embed panel", () => {
       const other = makeTask({ key: "TSK-5", title: "Explicit task" });
       const slot = renderSlot(
         taskRegistration,
-        { threadId: "thr_1", params: { taskKey } },
+        { threadId: "thr_1", environment: null, params: { taskKey } },
         {
           rpc: {
             ...taskDetailRpc(() => ({ task })),
@@ -446,7 +459,7 @@ describe("Task embed panel", () => {
     let resolve!: (result: { tasks: (typeof task)[] }) => void;
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: null },
+      { threadId: "thr_1", environment: null, params: null },
       {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
@@ -467,7 +480,7 @@ describe("Task embed panel", () => {
     let fail = true;
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: null },
+      { threadId: "thr_1", environment: null, params: null },
       {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
@@ -494,7 +507,7 @@ describe("Task embed panel", () => {
     const other = makeTask({ id: "01HZZZZZZZZZZZZZZZZZZZZZT2", key: "TSK-5", title: "Next task" });
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: null },
+      { threadId: "thr_1", environment: null, params: null },
       {
         realtimeConnectionState: "connected",
         rpc: {
@@ -538,7 +551,7 @@ describe("Task embed panel", () => {
     );
     const slot = renderSlot(
       taskRegistration,
-      { threadId: "thr_1", params: null },
+      { threadId: "thr_1", environment: null, params: null },
       {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
@@ -585,7 +598,7 @@ describe("Task embed panel", () => {
       const updateTask = vi.fn().mockResolvedValue({ ok: true, task });
       const slot = renderSlot(
         taskRegistration,
-        { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+        { threadId: "thr_1", environment: null, params: { taskKey: "TSK-4" } },
         {
           rpc: {
             ...taskDetailRpc(() => ({ task })),
@@ -603,7 +616,9 @@ describe("Task embed panel", () => {
       try {
         title.textContent = "Unsaved explicit edit";
         fireEvent.input(title);
-        await act(async () => slot.lifecycle.rerender(<Panel threadId="thr_1" params={null} />));
+        await act(async () =>
+          slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
+        );
         slot.getByRole("status", { name: "Loading linked task" });
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
         expect(title.textContent).toBe("Unsaved explicit edit");
@@ -647,7 +662,7 @@ describe("Task embed panel", () => {
       });
       const slot = renderSlot(
         taskRegistration,
-        { threadId: "thr_1", params: { taskKey: "TSK-4" } },
+        { threadId: "thr_1", environment: null, params: { taskKey: "TSK-4" } },
         {
           rpc: {
             ...taskDetailRpc(() => ({ task: savedTask })),
@@ -665,7 +680,9 @@ describe("Task embed panel", () => {
       try {
         title.textContent = "Autosaved explicit edit";
         fireEvent.input(title);
-        await act(async () => slot.lifecycle.rerender(<Panel threadId="thr_1" params={null} />));
+        await act(async () =>
+          slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
+        );
         slot.getByRole("status", { name: "Loading linked task" });
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
         expect(title.textContent).toBe("Autosaved explicit edit");

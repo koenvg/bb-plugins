@@ -81,7 +81,7 @@ export function setup(
     { ...panel, component: nativeTab ? Panel : TasksPage },
     { subPath },
     {
-      experimental_openTab: openTab,
+      experimental_panel: { openTab },
       rpc: {
         listProjects: () => ({ projects: [project] }),
         listFolders: () => ({ folders: [] }),

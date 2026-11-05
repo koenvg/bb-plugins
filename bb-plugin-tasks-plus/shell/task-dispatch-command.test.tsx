@@ -9,7 +9,11 @@ import { TASKS_COMMANDS } from "./commands.js";
 
 const app = await loadPluginApp(() => import("../app"));
 const Panel = app.navPanels[0]!.component;
-const context: PluginCommandContext = { threadId: null, projectId: null, openPanel: () => false };
+const context: PluginCommandContext = {
+  threadId: null,
+  projectId: null,
+  experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+};
 const command = TASKS_COMMANDS.find(({ id }) => id === "task-dispatch")!;
 const available = () => command.isAvailable?.(context);
 const run = () => act(() => void command.run(context));

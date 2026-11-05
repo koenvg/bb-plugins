@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { Task } from "../shared/contract.js";
 import { makeTask, rpcInput } from "../test-fixtures.js";
-import { useTasksQuery } from "./data.js";
-import { TasksRefreshProvider, useTasksRefresh } from "./refresh.js";
+import { useTasksQuery, useTasksQueryWithRefresh } from "./data.js";
+import { TasksRefreshProvider, useTasksRefresh, useTasksRefreshSource } from "./refresh.js";
 
 interface Frame {
   taskKey: string;
@@ -208,5 +208,64 @@ describe("Tasks query identity", () => {
       isLoading: false,
       error: null,
     });
+  });
+});
+
+function StandaloneProbe() {
+  const refresh = useTasksRefreshSource();
+  const query = useTasksQueryWithRefresh(
+    refresh,
+    async (rpc) => (await rpc.call("getTaskByKey", { taskKey: first.key })).task,
+    ["tasks:changed"],
+  );
+  return (
+    <>
+      <output aria-label="Standalone query">
+        {JSON.stringify({
+          key: query.data?.key ?? null,
+          error: query.error,
+          loading: query.isLoading,
+        })}
+      </output>
+      <button onClick={refresh.refresh} disabled={refresh.isRefreshing}>
+        Refresh standalone
+      </button>
+    </>
+  );
+}
+
+describe("Tasks query without a context provider", () => {
+  it("shares generation accounting and retains accepted data on read failure", async () => {
+    let response: Response | Promise<Response> = { task: first };
+    const slot = renderSlot(
+      { component: StandaloneProbe },
+      {},
+      { rpc: { getTaskByKey: () => response } },
+    );
+    const current = () => JSON.parse(slot.getByLabelText("Standalone query").textContent!);
+    await waitFor(() => expect(current()).toEqual({ key: first.key, error: null, loading: false }));
+    const pending = deferred<Response>();
+    response = pending.promise;
+    fireEvent.click(slot.getByRole("button", { name: "Refresh standalone" }));
+    expect(current()).toEqual({ key: first.key, error: null, loading: true });
+    expect(slot.getByRole("button").hasAttribute("disabled")).toBe(true);
+    await act(async () => pending.reject(new Error("offline")));
+    expect(current()).toEqual({ key: first.key, error: "offline", loading: false });
+    expect(slot.getByRole("button").hasAttribute("disabled")).toBe(false);
+    response = { task: second };
+    await slot.behavior.emitRealtime("tasks:changed", {});
+    await waitFor(() =>
+      expect(current()).toEqual({ key: second.key, error: null, loading: false }),
+    );
+  });
+
+  it("keeps the strict provider guard on the context adapter", () => {
+    function MissingProvider() {
+      useTasksRefresh();
+      return null;
+    }
+    expect(() => renderSlot({ component: MissingProvider }, {})).toThrow(
+      "useTasksRefresh must be used within TasksRefreshProvider",
+    );
   });
 });

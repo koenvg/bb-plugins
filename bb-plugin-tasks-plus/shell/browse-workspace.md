@@ -102,7 +102,7 @@ resize do not. A declined host open shows the same retained editor in a temporar
 main-page recovery view, without first requiring its failing save to succeed.
 Native placement can be retried; returning to the list remains guarded.
 
-Selection skips `openFixedTab` only when the mounted outlet owner has the same
+Selection skips `openTab` only when the mounted outlet owner has the same
 surface controller as the caller and its ancestor chain is connected and visible.
 Hidden, inert, aria-hidden, CSS-hidden, closed, or differently owned outlets still
 need a host reveal. If controller identity cannot prove the match, call the host.
