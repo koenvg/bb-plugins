@@ -1,206 +1,308 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { useLayoutEffect } from "react";
+import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { experimental_useAppPanel, useBbNavigate, useSdk } from "@get-bb/plugin-sdk/app";
+import type { PluginThreadActionTarget } from "@get-bb/plugin-sdk/app";
 import type { Task } from "../../shared/contract.js";
-import { makeTask } from "../../test-fixtures.js";
+import { makeTask, rpcInput } from "../../test-fixtures.js";
+import { TasksRefreshProvider, useTasksRefresh } from "../../shell/refresh.js";
+import { threadTaskAction, type ThreadTaskData } from "./index.js";
 
 const app = await loadPluginApp(() => import("../../app"));
-
 afterEach(cleanup);
-
-const PROJECT_ID = "01HZZZZZZZZZZZZZZZZZZZZZP1";
-
 const reviewTask = makeTask({
-  id: "01HZZZZZZZZZZZZZZZZZZZZZT1",
-  projectId: PROJECT_ID,
-  number: 12,
   key: "ABC-12",
+  number: 12,
   title: "Show the task chip",
   status: "in_review",
 });
+const laterTask = makeTask({ key: "ABC-15", number: 15, title: "Linked later", status: "todo" });
 
-const laterTask = makeTask({
-  id: "01HZZZZZZZZZZZZZZZZZZZZZT2",
-  projectId: PROJECT_ID,
-  number: 15,
-  key: "ABC-15",
-  title: "Linked later",
-  status: "todo",
-});
-
-function headerProps(isCompactViewport = false) {
-  return { threadId: "thr_header", projectId: "prj_1", isCompactViewport };
+function target(id: string): PluginThreadActionTarget {
+  return {
+    id,
+    projectId: "prj_1",
+    parentThreadId: null,
+    archivedAt: null,
+    pinnedAt: null,
+    sectionId: null,
+    isUnread: false,
+    status: "idle",
+    environment: null,
+  };
 }
-
-function renderHeader(
-  getTasks: () => Task[],
-  {
-    isCompactViewport = false,
-    openThreadPanel = () => true,
-  }: { isCompactViewport?: boolean; openThreadPanel?: () => boolean } = {},
-) {
-  return renderSlot(app.threadHeaderActions[0]!, headerProps(isCompactViewport), {
-    rpc: { getTasksForThread: () => ({ tasks: getTasks() }) },
-    openThreadPanel,
+interface ProbeProps {
+  threadIds: readonly string[];
+  onData?: (data: ThreadTaskData) => void;
+}
+function Probe({ threadIds, onData }: ProbeProps) {
+  const data = threadTaskAction.useData!({ threadIds });
+  const sdk = useSdk();
+  const navigate = useBbNavigate();
+  const experimental_panel = experimental_useAppPanel();
+  useLayoutEffect(() => {
+    onData?.(data);
+  }, [data, onData]);
+  return (
+    <>
+      {threadIds.map((id) => {
+        const item = threadTaskAction.item({
+          thread: target(id),
+          data,
+          sdk,
+          navigate,
+          experimental_panel,
+        });
+        return item ? (
+          <button
+            key={id}
+            data-thread={id}
+            data-icon={item.icon}
+            title={item.detail}
+            onClick={() => void item.run({ requestRename: () => {} })}
+          >
+            {item.label}
+          </button>
+        ) : null;
+      })}
+    </>
+  );
+}
+function RefreshButton() {
+  const refresh = useTasksRefresh();
+  return (
+    <button onClick={refresh.refresh} disabled={refresh.isRefreshing}>
+      Refresh tasks
+    </button>
+  );
+}
+function RefreshRoot() {
+  return (
+    <TasksRefreshProvider>
+      <RefreshButton />
+    </TasksRefreshProvider>
+  );
+}
+type Response = { tasks: Task[] };
+function deferred() {
+  let resolve!: (value: Response) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<Response>((done, fail) => {
+    resolve = done;
+    reject = fail;
   });
+  return { promise, resolve, reject };
+}
+function setup(load: (id: string) => Response | Promise<Response>, ids = ["A"], accepted = true) {
+  const frames: ThreadTaskData[] = [];
+  const onData = (data: ThreadTaskData) => frames.push(data);
+  const openTab = vi.fn(() => accepted);
+  const slot = renderSlot(
+    { component: Probe },
+    { threadIds: ids, onData },
+    {
+      rpc: { getTasksForThread: (raw) => load(String(rpcInput(raw).threadId)) },
+      experimental_panel: { openTab },
+    },
+  );
+  return {
+    slot,
+    frames,
+    openTab,
+    current: () => frames.at(-1)!,
+    change: (threadIds: string[]) =>
+      slot.lifecycle.rerender(<Probe threadIds={threadIds} onData={onData} />),
+  };
+}
+async function invalidate(slot: ReturnType<typeof setup>["slot"], channel = "tasks:changed") {
+  await slot.behavior.emitRealtime(channel, {});
 }
 
-describe("Thread header task chip", () => {
-  it.each([false, true])(
-    "opens an initially Done task with compact=%s without writing",
-    async (isCompactViewport) => {
-      const doneTask = { ...reviewTask, status: "done" as const };
-      const openThreadPanel = vi.fn(() => true);
-      const slot = renderHeader(() => [doneTask], { isCompactViewport, openThreadPanel });
-      const chip = await slot.findByRole("button", { name: "ABC-12 Done, open task" });
-      expect(chip.querySelector("svg")).not.toBeNull();
-      expect(chip.textContent).toContain("ABC-12");
-      if (isCompactViewport) {
-        expect(chip.textContent).not.toContain("Done");
-      } else {
-        expect(chip.textContent).toContain("Done");
-      }
-      fireEvent.click(chip);
-      expect(openThreadPanel).toHaveBeenCalledWith({
-        actionId: "task",
+describe("Thread header task action", () => {
+  it("registers the production semantic header action", () => {
+    expect(app.threadActions).toHaveLength(1);
+    expect(app.threadActions[0]).toMatchObject({
+      id: "task",
+      title: "Task",
+      icon: "ListTodo",
+      group: "open",
+      placement: "header",
+      useData: threadTaskAction.useData,
+      item: threadTaskAction.item,
+    });
+  });
+
+  it.each([true, false])(
+    "opens the first linked Done task read-only, accepted=%s",
+    async (accepted) => {
+      const done = { ...reviewTask, status: "done" as const };
+      const probe = setup(() => ({ tasks: [done, laterTask] }), ["A"], accepted);
+      const button = await probe.slot.findByRole("button", { name: "ABC-12 Done +1" });
+      expect(button.getAttribute("title")).toBe("Show the task chip");
+      expect(button.getAttribute("data-icon")).toBe("ListTodo");
+      expect(probe.slot.queryByText(/ABC-15/)).toBeNull();
+      fireEvent.click(button);
+      const options = {
+        tab: { id: "task", context: { kind: "thread" }, availability: "action" },
         title: "ABC-12",
         params: { taskKey: "ABC-12" },
-      });
-      expect(slot.inspection.rpcCalls.map(({ method }) => method)).toEqual(["getTasksForThread"]);
+      };
+      expect(probe.openTab).toHaveBeenCalledExactlyOnceWith(options);
+      expect(probe.slot.inspection.experimental_panelCalls).toEqual([
+        { method: "openTab", options },
+      ]);
+      expect(probe.slot.inspection.navigateCalls).toEqual(
+        accepted
+          ? []
+          : [{ method: "toPluginPanel", path: "tasks", options: { subPath: "task/ABC-12" } }],
+      );
+      expect(probe.slot.inspection.rpcCalls).toEqual([
+        { method: "getTasksForThread", input: { threadId: "A" } },
+      ]);
     },
   );
 
-  it("keeps a Done chip until its only link is removed through realtime refresh", async () => {
-    const doneTask = { ...reviewTask, status: "done" as const };
-    let tasks: Task[] = [doneTask];
-    const slot = renderHeader(() => tasks);
-    await slot.findByRole("button", { name: "ABC-12 Done, open task" });
-    await slot.behavior.emitRealtime("tasks:changed", {
-      taskId: doneTask.id,
-      projectId: PROJECT_ID,
-    });
-    await waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
-    expect(slot.getByRole("button", { name: "ABC-12 Done, open task" })).toBeDefined();
-
+  it("adds links, updates status, and clears a successful empty unlink", async () => {
+    let tasks: Task[] = [];
+    const { slot, current } = setup(() => ({ tasks }));
+    await waitFor(() => expect(current().get("A")).toEqual([]));
+    expect(slot.queryByRole("button")).toBeNull();
+    tasks = [reviewTask, laterTask];
+    await invalidate(slot, "threads:changed");
+    await slot.findByRole("button", { name: "ABC-12 In Review +1" });
+    tasks = [{ ...reviewTask, status: "done" }];
+    await invalidate(slot);
+    await slot.findByRole("button", { name: "ABC-12 Done" });
     tasks = [];
-    await slot.behavior.emitRealtime("threads:changed", { taskId: doneTask.id });
-    await waitFor(() => {
-      expect(slot.inspection.rpcCalls).toHaveLength(3);
-      expect(slot.queryByRole("button")).toBeNull();
-      expect(slot.container.textContent).toBe("");
-    });
-    expect(doneTask.status).toBe("done");
-    expect(slot.inspection.rpcCalls.every(({ method }) => method === "getTasksForThread")).toBe(
-      true,
+    await invalidate(slot, "threads:changed");
+    await waitFor(() => expect(slot.queryByRole("button")).toBeNull());
+    expect(current().get("A")).toEqual([]);
+    expect(slot.inspection.rpcCalls.map(({ method }) => method)).toEqual(
+      Array(4).fill("getTasksForThread"),
     );
   });
 
-  it("shows the status icon, key and status label of the linked task", async () => {
-    const slot = renderHeader(() => [reviewTask]);
-
-    const chip = await slot.findByRole("button", {
-      name: "ABC-12 In Review, open task",
-    });
-    expect(chip.querySelector("svg")).not.toBeNull();
-    expect(chip.textContent).toContain("ABC-12");
-    expect(chip.textContent).toContain("In Review");
-    expect(slot.inspection.rpcCalls).toContainEqual(
-      expect.objectContaining({
-        method: "getTasksForThread",
-        input: { threadId: "thr_header" },
-      }),
+  it("isolates partial failures and retains each published array on total failure", async () => {
+    let phase = 0;
+    const probe = setup(
+      (id) => {
+        if (phase === 2 || (phase === 1 && id === "A")) throw new Error("offline");
+        return { tasks: id === "A" ? [reviewTask] : phase === 1 ? [] : [laterTask] };
+      },
+      ["A", "B"],
     );
+    await waitFor(() => expect(probe.current().size).toBe(2));
+    const published = probe.current().get("A");
+    phase = 1;
+    await invalidate(probe.slot);
+    await waitFor(() => expect(probe.current().get("B")).toEqual([]));
+    expect(probe.current().get("A")).toBe(published);
+    phase = 2;
+    await invalidate(probe.slot);
+    await waitFor(() => expect(probe.slot.inspection.rpcCalls).toHaveLength(6));
+    expect(probe.current().get("A")).toBe(published);
+    expect(probe.current().get("B")).toEqual([]);
   });
 
-  it("shows the earliest linked task and a count of the others", async () => {
-    const slot = renderHeader(() => [reviewTask, laterTask]);
-
-    const chip = await slot.findByRole("button", { name: /ABC-12/ });
-    expect(chip.textContent).toContain("+1");
-    expect(chip.textContent).not.toContain("ABC-15");
+  it("leaves first failures absent without hiding another thread's successful read", async () => {
+    const probe = setup(
+      (id) => {
+        if (id === "A") throw new Error("offline");
+        return { tasks: [laterTask] };
+      },
+      ["A", "B"],
+    );
+    await probe.slot.findByRole("button", { name: "ABC-15 Todo" });
+    expect([...probe.current().keys()]).toEqual(["B"]);
   });
 
-  it("renders nothing when no task is linked", async () => {
-    const slot = renderHeader(() => []);
+  it("projects overlapping visible IDs while pending and never assigns A's data to C", async () => {
+    const pendingB = deferred();
+    const pendingC = deferred();
+    let phase = 0;
+    const probe = setup(
+      (id) =>
+        phase === 0
+          ? { tasks: id === "A" ? [reviewTask] : [laterTask] }
+          : id === "B"
+            ? pendingB.promise
+            : pendingC.promise,
+      ["A", "B"],
+    );
+    await waitFor(() => expect(probe.current().size).toBe(2));
+    const publishedB = probe.current().get("B");
+    phase = 1;
+    const start = probe.frames.length;
+    probe.change(["B", "C"]);
+    expect([...probe.current().keys()]).toEqual(["B"]);
+    expect(probe.current().get("B")).toBe(publishedB);
+    await act(async () => {
+      pendingB.reject(new Error("offline"));
+      pendingC.reject(new Error("offline"));
+    });
+    expect([...probe.current().keys()]).toEqual(["B"]);
+    expect(probe.frames.slice(start).every((data) => !data.has("A") && !data.has("C"))).toBe(true);
+  });
 
+  it("does not retain individual results from an obsolete aggregate", async () => {
+    const oldA = deferred();
+    const oldB = deferred();
+    let phase = 0;
+    const probe = setup(
+      (id) => {
+        if (phase === 0) return { tasks: id === "A" ? [reviewTask] : [laterTask] };
+        if (phase === 1) return id === "A" ? oldA.promise : oldB.promise;
+        throw new Error("offline");
+      },
+      ["A", "B"],
+    );
+    await waitFor(() => expect(probe.current().size).toBe(2));
+    const published = probe.current().get("B");
+    phase = 1;
+    await invalidate(probe.slot);
+    await act(async () => oldB.resolve({ tasks: [reviewTask] }));
+    expect(probe.current().get("B")).toBe(published);
+    phase = 2;
+    probe.change(["B", "C"]);
+    await waitFor(() => expect(probe.slot.inspection.rpcCalls).toHaveLength(6));
+    await act(async () => oldA.resolve({ tasks: [] }));
+    expect([...probe.current().keys()]).toEqual(["B"]);
+    expect(probe.current().get("B")).toBe(published);
+    await invalidate(probe.slot);
+    await waitFor(() => expect(probe.slot.inspection.rpcCalls).toHaveLength(8));
+    expect([...probe.current().keys()]).toEqual(["B"]);
+    expect(probe.current().get("B")).toBe(published);
+  });
+
+  it("shares separate-provider manual refresh, reconnect, and unmount cleanup", async () => {
+    let tasks = [reviewTask];
+    const probe = setup(() => ({ tasks }));
+    await probe.slot.findByRole("button", { name: "ABC-12 In Review" });
+    const refresh = renderSlot({ component: RefreshRoot }, {});
+    tasks = [laterTask];
+    fireEvent.click(refresh.getByRole("button", { name: "Refresh tasks" }));
+    await probe.slot.findByRole("button", { name: "ABC-15 Todo" });
     await waitFor(() =>
-      expect(slot.inspection.rpcCalls.some(({ method }) => method === "getTasksForThread")).toBe(
-        true,
+      expect(refresh.getByRole("button", { name: "Refresh tasks" }).hasAttribute("disabled")).toBe(
+        false,
       ),
     );
-    expect(slot.container.textContent).toBe("");
-    expect(slot.queryByRole("button")).toBeNull();
-  });
-
-  it("opens the shown task in the side panel without writing", async () => {
-    const openThreadPanel = vi.fn(() => true);
-    const slot = renderHeader(() => [reviewTask, laterTask], {
-      openThreadPanel,
-    });
-
-    fireEvent.click(await slot.findByRole("button", { name: /ABC-12/ }));
-    expect(openThreadPanel).toHaveBeenCalledWith({
-      actionId: "task",
-      title: "ABC-12",
-      params: { taskKey: "ABC-12" },
-    });
-    expect(slot.inspection.rpcCalls.map(({ method }) => method)).toEqual(["getTasksForThread"]);
-  });
-
-  it("updates the status when the task changes", async () => {
-    let tasks = [reviewTask];
-    const slot = renderHeader(() => tasks);
-    await slot.findByRole("button", { name: /In Review/ });
-
-    tasks = [{ ...reviewTask, status: "done" }];
-    await slot.behavior.emitRealtime("tasks:changed", {
-      taskId: reviewTask.id,
-      projectId: PROJECT_ID,
-    });
-
-    expect(await slot.findByRole("button", { name: "ABC-12 Done, open task" })).toBeDefined();
-  });
-
-  it("keeps the chip when a refresh fails", async () => {
-    let fail = false;
-    const slot = renderHeader(() => {
-      if (fail) throw new Error("offline");
-      return [reviewTask];
-    });
-    await slot.findByRole("button", { name: /ABC-12/ });
-
-    fail = true;
-    await slot.behavior.emitRealtime("tasks:changed", {
-      taskId: reviewTask.id,
-      projectId: PROJECT_ID,
-    });
-
-    await waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(2));
-    expect(slot.getByRole("button", { name: /ABC-12/ })).toBeDefined();
-  });
-
-  it("appears when a task is linked to the open thread", async () => {
-    let tasks: Task[] = [];
-    const slot = renderHeader(() => tasks);
-    await waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
-    expect(slot.queryByRole("button")).toBeNull();
-
     tasks = [reviewTask];
-    await slot.behavior.emitRealtime("threads:changed", {
-      taskId: reviewTask.id,
-    });
-
-    expect(await slot.findByRole("button", { name: /ABC-12/ })).toBeDefined();
-  });
-
-  it("hides the status label on a compact viewport but keeps it in the name", async () => {
-    const slot = renderHeader(() => [reviewTask], { isCompactViewport: true });
-
-    const chip = await slot.findByRole("button", {
-      name: "ABC-12 In Review, open task",
-    });
-    expect(chip.textContent).toContain("ABC-12");
-    expect(chip.textContent).not.toContain("In Review");
+    await probe.slot.behavior.setRealtimeConnectionState("reconnecting");
+    await probe.slot.behavior.setRealtimeConnectionState("connected");
+    await probe.slot.findByRole("button", { name: "ABC-12 In Review" });
+    probe.slot.lifecycle.unmount();
+    const reads = probe.slot.inspection.rpcCalls.length;
+    fireEvent.click(refresh.getByRole("button", { name: "Refresh tasks" }));
+    await refresh.behavior.setRealtimeConnectionState("reconnecting");
+    await refresh.behavior.setRealtimeConnectionState("connected");
+    await waitFor(() =>
+      expect(refresh.getByRole("button", { name: "Refresh tasks" }).hasAttribute("disabled")).toBe(
+        false,
+      ),
+    );
+    expect(probe.slot.inspection.rpcCalls).toHaveLength(reads);
   });
 });

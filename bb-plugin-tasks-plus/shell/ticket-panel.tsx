@@ -105,8 +105,7 @@ export function useOpenTicketPanel() {
   }, [panel]);
   return useCallback(() => {
     if (owner && outletPanels.get(owner) === latest.current && outletIsVisible(owner)) return true;
-    return latest.current.experimental_openTab({
-      surface: { kind: "current" },
+    return latest.current.openTab({
       tab: ticketTab,
     });
   }, []);

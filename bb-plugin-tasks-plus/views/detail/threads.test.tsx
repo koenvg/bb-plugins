@@ -263,7 +263,7 @@ describe("task status changes retain thread and pull request data", () => {
             app.navPanels[0]!,
             { subPath },
             {
-              experimental_openTab: () => true,
+              experimental_panel: { openTab: () => true },
               rpc: detailRpc({
                 getTaskByKey: () => (delayReads ? read.promise : { task: current }),
                 listTasks: (input: unknown) => ({

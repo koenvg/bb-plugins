@@ -30,9 +30,9 @@ describe("native Ticket tab", () => {
     expect(page.container.contains(title)).toBe(false);
     expect(page.getByRole("region", { name: "Ticket list" }).style.width).toBe("");
     expect(row(page, 1).getAttribute("aria-current")).toBe("true");
-    expect(page.inspection.experimental_tabOpenCalls[0]).toEqual({
-      surface: { kind: "current" },
-      tab: ticketRegistration,
+    expect(page.inspection.experimental_panelCalls[0]).toEqual({
+      method: "openTab",
+      options: { tab: ticketRegistration },
     });
   });
   it("navigates from the native editor without claiming another BB pane's keys", async () => {
@@ -102,9 +102,9 @@ describe("native Ticket tab", () => {
     title.textContent = "Unsent title";
     fireEvent.input(title);
     ticket.lifecycle.unmount();
-    const opens = page.inspection.experimental_tabOpenCalls.length;
+    const opens = page.inspection.experimental_panelCalls.length;
     fireEvent.click(row(page, 2));
-    expect(page.inspection.experimental_tabOpenCalls.length).toBeGreaterThan(opens);
+    expect(page.inspection.experimental_panelCalls.length).toBeGreaterThan(opens);
     const restored = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
@@ -129,10 +129,10 @@ describe("native Ticket tab", () => {
     const outside = document.createElement("input");
     document.body.append(outside);
     outside.focus();
-    const opens = page.inspection.experimental_tabOpenCalls.length;
+    const opens = page.inspection.experimental_panelCalls.length;
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
     await acceptNavigation(page);
-    expect(page.inspection.experimental_tabOpenCalls).toHaveLength(opens);
+    expect(page.inspection.experimental_panelCalls).toHaveLength(opens);
     expect(page.queryByRole("textbox", { name: "Task title" })).toBeNull();
     expect(document.activeElement).toBe(outside);
     outside.remove();
@@ -238,10 +238,10 @@ describe("native Ticket tab", () => {
     await within(ticket.container).findByRole("alert");
     fireEvent.click(within(ticket.container).getByRole("button", { name: "Retry save" }));
     ticket.lifecycle.unmount();
-    const opens = page.inspection.experimental_tabOpenCalls.length;
+    const opens = page.inspection.experimental_panelCalls.length;
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
     await acceptNavigation(page);
-    expect(page.inspection.experimental_tabOpenCalls).toHaveLength(opens);
+    expect(page.inspection.experimental_panelCalls).toHaveLength(opens);
   });
   it("makes the same failed origin editable when the host declines reopening", async () => {
     let canOpen = true;

@@ -3,7 +3,7 @@ import type {
   PluginMessageDirectiveProps,
   ExperimentalThreadActionTabProps,
 } from "@get-bb/plugin-sdk";
-import { useBbNavigate, useRealtime } from "@get-bb/plugin-sdk/app";
+import { experimental_useAppPanel, useBbNavigate, useRealtime } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -130,6 +130,7 @@ function embedAriaLabel(task: Task): string {
 
 export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
   const navigate = useBbNavigate();
+  const panel = experimental_useAppPanel();
   const taskKey = attributes.key?.trim() ?? "";
   const fallbackTitle = attributes.title?.trim() || null;
   const validKey = TASK_KEY_PATTERN.test(taskKey);
@@ -207,7 +208,7 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
         type="button"
         className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         aria-label={embedAriaLabel(task)}
-        onClick={() => openTaskInSidePanel(navigate, task.key)}
+        onClick={() => openTaskInSidePanel(navigate, panel, task.key)}
       >
         <span aria-hidden>
           <StatusIcon status={task.status} />

@@ -11,7 +11,7 @@ import {
   readQuerySnapshot,
   writeQuerySnapshot,
 } from "./query-snapshot.js";
-import { useTasksRefresh } from "./refresh.js";
+import { useTasksRefresh, type TasksRefreshState } from "./refresh.js";
 import { useSessionProjects, useSessionPresets } from "./task-data.js";
 
 export function useTasksRpc() {
@@ -76,7 +76,8 @@ interface TasksQuerySnapshot<T> {
   schema: z.ZodType<T>;
 }
 
-export function useTasksQuery<T>(
+export function useTasksQueryWithRefresh<T>(
+  refreshState: Pick<TasksRefreshState, "generation" | "beginGenerationWork" | "endGenerationWork">,
   fetcher: (rpc: TasksRpc) => Promise<T>,
   channels: readonly InvalidationChannel[],
   deps: readonly unknown[] = [],
@@ -85,7 +86,7 @@ export function useTasksQuery<T>(
   } = {},
 ): TasksQuery<T> {
   const rpc = useTasksRpc();
-  const { generation, beginGenerationWork, endGenerationWork } = useTasksRefresh();
+  const { generation, beginGenerationWork, endGenerationWork } = refreshState;
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
   const snapshotRef = useRef(options.snapshot);
@@ -158,6 +159,17 @@ export function useTasksQuery<T>(
       state.isLoading || state.depsKey !== depsKey || previousGenerationRef.current !== generation,
     refresh,
   };
+}
+
+export function useTasksQuery<T>(
+  fetcher: (rpc: TasksRpc) => Promise<T>,
+  channels: readonly InvalidationChannel[],
+  deps: readonly unknown[] = [],
+  options: {
+    snapshot?: TasksQuerySnapshot<T>;
+  } = {},
+): TasksQuery<T> {
+  return useTasksQueryWithRefresh(useTasksRefresh(), fetcher, channels, deps, options);
 }
 
 const foldersSnapshot = {

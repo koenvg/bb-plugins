@@ -122,7 +122,7 @@ describe.each([
 
     const item = await itemFor(slot, "ABC-5");
 
-    expect(within(item).getByText("Blocked by 2")).toBeTruthy();
+    expect(within(item).getByText("Blocked by 2 tasks")).toBeTruthy();
     expect(within(item).queryByText(/^Blocks/)).toBeNull();
   });
 
@@ -131,7 +131,7 @@ describe.each([
 
     const item = await itemFor(slot, "ABC-3");
 
-    expect(within(item).getByText("Blocks 3")).toBeTruthy();
+    expect(within(item).getByText("Blocks 3 tasks")).toBeTruthy();
     expect(within(item).queryByText(/^Blocked by/)).toBeNull();
   });
 
@@ -142,6 +142,21 @@ describe.each([
 
     expect(within(item).queryByText(/^Blocked by|^Blocks/)).toBeNull();
   });
+
+  it.each([
+    [true, [ref(3)], "Blocked by 1 task + 1 thread"],
+    [true, [], "Blocked by 1 thread"],
+    [false, [ref(3), ref(4, "canceled")], "Blocked by 1 task"],
+  ] as const)(
+    "distinguishes task and creator blockers with flag %s",
+    async (blocked, refs, label) => {
+      const entry = { ...task(5, { blockedBy: [...refs] }), creatorThreadBlocked: blocked };
+      const slot = render([entry], subPath);
+      const item = await itemFor(slot, "ABC-5");
+      expect(within(item).getByText(label).textContent).toBe(label);
+      expect(slot.inspection.sdkCalls).toEqual([]);
+    },
+  );
 });
 
 describe("dependency filter", () => {

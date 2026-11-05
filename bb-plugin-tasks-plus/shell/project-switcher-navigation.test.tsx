@@ -29,7 +29,7 @@ function openPicker() {
       void TASKS_COMMANDS.find((command) => command.id === "switch-project")!.run({
         threadId: null,
         projectId: null,
-        openPanel: () => false,
+        experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
       }),
   );
 }

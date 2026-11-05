@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
 
-interface TasksRefreshState {
+export interface TasksRefreshState {
   generation: number;
   isRefreshing: boolean;
   refresh: () => void;
@@ -116,7 +116,7 @@ function removeConnectionState(registrationId: symbol) {
   }
 }
 
-export function TasksRefreshProvider({ children }: { children: ReactNode }) {
+export function useTasksRefreshSource(): TasksRefreshState {
   const connectionState = useRealtimeConnectionState();
   const registrationId = useMemo(() => Symbol("tasks-refresh-provider"), []);
   const snapshot = useSyncExternalStore(
@@ -133,7 +133,7 @@ export function TasksRefreshProvider({ children }: { children: ReactNode }) {
   }, [connectionState, registrationId]);
   useEffect(() => () => removeConnectionState(registrationId), [registrationId]);
 
-  const value = useMemo(
+  return useMemo(
     () => ({
       generation: snapshot.generation,
       isRefreshing: snapshot.isRefreshing,
@@ -143,6 +143,10 @@ export function TasksRefreshProvider({ children }: { children: ReactNode }) {
     }),
     [snapshot],
   );
+}
+
+export function TasksRefreshProvider({ children }: { children: ReactNode }) {
+  const value = useTasksRefreshSource();
   return <TasksRefreshContext.Provider value={value}>{children}</TasksRefreshContext.Provider>;
 }
 

@@ -5,8 +5,8 @@ import { createRoot, type Root } from "react-dom/client";
 import type {
   BbContext,
   BbNavigate,
-  ExperimentalAppPanel,
-  ExperimentalTabOpenOptions,
+  ExperimentalPanelController,
+  ExperimentalOpenTabOptions,
   ExperimentalTabRegistration,
   PluginNavPanelRegistration,
   PluginRealtimeConnectionState,
@@ -38,7 +38,9 @@ export function createLocalHost(options: LocalHostOptions) {
     path: string;
     options: { subPath: string; replace: boolean };
   }> = [];
-  const tabOpenCalls: ExperimentalTabOpenOptions[] = [];
+  const panelCalls: Array<
+    { method: "openTab" | "toggleTab"; options: ExperimentalOpenTabOptions } | { method: "close" }
+  > = [];
   const context = Object.freeze({ projectId: null, threadId: null, ...options.context });
   const settings = Object.freeze({ values: undefined, isLoading: false });
   const live = () => {
@@ -129,39 +131,42 @@ export function createLocalHost(options: LocalHostOptions) {
       },
     },
   ) as BbNavigate;
-  const panel: ExperimentalAppPanel = {
-    experimental_openTab(input) {
+  function supportsTab(input: ExperimentalOpenTabOptions) {
+    const requested = input.tab;
+    return (
+      input.target === undefined &&
+      requested.availability === "fixed" &&
+      requested.context.kind === "nav-panel" &&
+      requested.context.panelId === options.panel.id &&
+      options.tabs.some(
+        (tab) =>
+          tab.id === requested.id &&
+          tab.availability === "fixed" &&
+          tab.context.kind === "nav-panel" &&
+          tab.context.panelId === options.panel.id,
+      )
+    );
+  }
+  const panel: ExperimentalPanelController = {
+    openTab(input) {
       live();
-      const requested = input.tab;
-      const eligible =
-        requested.availability === "fixed" &&
-        requested.context.kind === "nav-panel" &&
-        requested.context.panelId === options.panel.id &&
-        options.tabs.some(
-          (tab) =>
-            tab.id === requested.id &&
-            tab.availability === "fixed" &&
-            tab.context.kind === "nav-panel" &&
-            tab.context.panelId === options.panel.id,
-        );
-      if (input.surface.kind !== "current" || !eligible || input.target !== undefined)
-        throw new Error("Owned host blocks unsupported tab");
-      tabOpenCalls.push(input);
+      panelCalls.push({ method: "openTab", options: input });
+      if (!supportsTab(input)) return false;
       ticket.set(true);
       return true;
     },
-    openFixedTab(input) {
+    toggleTab(input) {
       live();
-      if (input.tab.panelId !== options.panel.id || input.target !== undefined)
-        throw new Error("Owned host blocks unsupported fixed tab");
-      return panel.experimental_openTab({
-        surface: input.surface,
-        tab: {
-          id: input.tab.id,
-          context: { kind: "nav-panel", panelId: input.tab.panelId },
-          availability: "fixed",
-        },
-      });
+      panelCalls.push({ method: "toggleTab", options: input });
+      if (!supportsTab(input)) return false;
+      ticket.set(!ticket.get());
+      return true;
+    },
+    close() {
+      live();
+      panelCalls.push({ method: "close" });
+      ticket.set(false);
+      return true;
     },
   };
   function useOwner() {
@@ -248,7 +253,7 @@ export function createLocalHost(options: LocalHostOptions) {
       routePublications,
       rpcCalls,
       navigateCalls,
-      experimental_tabOpenCalls: tabOpenCalls,
+      experimental_panelCalls: panelCalls,
     },
     behavior: {
       async emitRealtime(channel: string, payload: unknown) {

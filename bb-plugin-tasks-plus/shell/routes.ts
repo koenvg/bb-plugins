@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo } from "react";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, type ExperimentalPanelController } from "@get-bb/plugin-sdk/app";
 import { useTasksSession } from "../views/detail/task-session.js";
 
 export const PANEL_PATH = "tasks";
@@ -120,14 +120,15 @@ export function useTasksNavigation(): TasksNavigation {
 
 export function openTaskInSidePanel(
   navigate: ReturnType<typeof useBbNavigate>,
+  panel: ExperimentalPanelController,
   taskKey: string,
 ): void {
-  const opened = navigate.openThreadPanel({
-    actionId: "task",
+  const opened = panel.openTab({
+    tab: { id: "task", context: { kind: "thread" }, availability: "action" },
     title: taskKey,
     params: { taskKey },
   });
-  if (!opened) {
+  if (opened === false) {
     navigate.toPluginPanel(PANEL_PATH, {
       subPath: tasksRouteToSubPath({ kind: "task", taskKey }),
     });
