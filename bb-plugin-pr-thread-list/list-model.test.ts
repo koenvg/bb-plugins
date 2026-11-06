@@ -389,7 +389,6 @@ describe("visibleItems", () => {
             backgroundAgents: 0,
             backgroundCommands: 1,
             planMode: 0,
-            goals: 0,
           },
         }),
         thread({

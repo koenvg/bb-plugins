@@ -1,10 +1,8 @@
 // @vitest-environment jsdom
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, renderHook } from "@testing-library/react";
-import type {
-  PluginCommandContext,
-  PluginTargetedPanelActionOpenOptions,
-} from "@get-bb/plugin-sdk/app";
+import type { PluginCommandContext, ExperimentalOpenTabOptions } from "@get-bb/plugin-sdk/app";
 import { useCommandIntent, type CommandTab } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
 import { rememberInsight, forgetInsights } from "./pr-availability";
@@ -23,14 +21,16 @@ function command(id: string) {
 }
 
 function context(threadId: string | null, accepted = true) {
-  const opened: PluginTargetedPanelActionOpenOptions[] = [];
+  const opened: ExperimentalOpenTabOptions[] = [];
   const ctx: PluginCommandContext = {
     threadId,
     projectId: null,
-    openPanel: (options) => {
-      opened.push(options);
-      return accepted;
-    },
+    experimental_panel: experimental_makePanelController({
+      openTab: (options) => {
+        opened.push(options);
+        return accepted;
+      },
+    }),
   };
   return { ctx, opened };
 }
@@ -165,7 +165,9 @@ describe("GitHub palette commands", () => {
 
       void command(id).run(ctx);
 
-      expect(opened).toEqual([{ actionId: "pr" }]);
+      expect(opened).toEqual([
+        { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      ]);
       expect(subTabs).toEqual(subTab === null ? [] : [subTab]);
       expect(followUps).toEqual({
         overview: followUp?.[0] === "overview" ? [followUp[1]] : [],

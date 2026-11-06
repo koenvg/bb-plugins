@@ -3,8 +3,8 @@
 | Component    | Declared/tested boundary                                                                                                                 |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Node         | 26.0.0 or newer within Node 26                                                                                                           |
-| BB           | Manifest accepts >=0.47.1 <0.49.0; build tooling pinned to 0.47.1. Installed acceptance remains separate.                                |
-| Public SDK   | 0.6.79; manifest accepts 0.6.79 through 0.6.x; development and runtime alias pins match                                                  |
+| BB           | Manifest accepts >=0.49.0 <0.50.0; build tooling pinned to 0.49.0. Installed acceptance remains separate.                                |
+| Public SDK   | 0.6.132; manifest accepts 0.6.132 through 0.6.x; development and runtime alias pins match                                                |
 | Pi           | Inherited Default install gate: 0.84.0 or newer. Shared speed integration and development type contracts: 1.1.0.                         |
 | pi-subagents | Not installed/enabled by this provider. Public RPC v1 and inspection contracts were statically checked at 0.75.0; no live certification. |
 
@@ -32,15 +32,15 @@ Earlier native-selector live acceptance is historical evidence, not acceptance o
 
 The expiry fix has bounded installed acceptance. A fresh `openai-codex/gpt-6.1-sol` Fast turn completed after a 310-second foreground tool wait without refresh or a speed change. See the [speed expiry verification](../verification/pi-subagents/speed-expiry.md) for the artifact identity, event evidence, and remaining limits.
 
-## SDK packaging on BB 0.47.1
+## SDK packaging on BB 0.49.0
 
-The normal `bb plugin types . --check` gate must pass at SDK 0.6.79 before building. No diagnostic exception applies to this target.
+The normal `bb plugin types . --check` gate must pass at SDK 0.6.132 before building. No diagnostic exception applies to this target.
 
 On 2026-10-06, the read-only checker exited 0 at published source `2952bf97d84160d515afc88bdc101c58425c3e7f`, with BB 0.45.0 and both source SDK pins at 0.6.15. [BBP-156](bbtask://BBP-156) resolved this source gate. This result does not change the old checker evidence or certify an installed build.
 
-The canonical `@get-bb/plugin-sdk` pin is a development dependency for public types and test harnesses. Runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of the same published SDK 0.6.79 package. Only its public `/host` and `/provider-bridge` exports are used. This is not a separate SDK fork. BB bundles those exports into the host and server artifacts. Production installs retain the alias and Zod without development packages.
+The canonical `@get-bb/plugin-sdk` pin is a development dependency for public types and test harnesses. Runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of the same published SDK 0.6.132 package. Only its public `/host` and `/provider-bridge` exports are used. This is not a separate SDK fork. BB bundles those exports into the host and server artifacts. Production installs retain the alias and Zod without development packages.
 
-`production.test.ts` creates a package-local copy, runs `bun install --frozen-lockfile --production --omit=optional --ignore-scripts`, checks the normal gate, builds with BB 0.47.1, and loads the server and host artifacts in Node. It checks all three artifact version records, provider registration, native-roots RPC and an unknown bridge request. The child cannot resolve the canonical SDK. The SDK test harnesses stay outside the production copy. Pi settings and model sessions are not used.
+`production.test.ts` creates a package-local copy, runs `bun install --frozen-lockfile --production --omit=optional --ignore-scripts`, checks the normal gate, builds with BB 0.49.0, and loads the server and host artifacts in Node. It checks all three artifact version records, provider registration, native-roots RPC and an unknown bridge request. The child cannot resolve the canonical SDK. The SDK test harnesses stay outside the production copy. Pi settings and model sessions are not used.
 
 Moving only the canonical SDK to development dependencies is insufficient. BB 0.45.0 cannot build this provider's public host contract without an installed runtime SDK. The production regression keeps that failure covered.
 

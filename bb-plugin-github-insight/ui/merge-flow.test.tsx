@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -69,7 +70,7 @@ function fixture(initial: InsightResult = ok()) {
     return slot;
   };
   const mountTab = () => {
-    const slot = renderSlot(tab, { threadId: "flow", params: null }, options);
+    const slot = renderSlot(tab, { threadId: "flow", params: null, environment: null }, options);
     mounted.push(slot);
     return slot;
   };
@@ -89,7 +90,11 @@ const command = GITHUB_COMMANDS.find((c) => c.id === "merge-pr")!;
 const openPanel = vi.fn(() => true);
 async function merge(threadId = "flow") {
   await act(async () => {
-    await command.run({ threadId, projectId: null, openPanel });
+    await command.run({
+      threadId,
+      projectId: null,
+      experimental_panel: experimental_makePanelController({ openTab: openPanel }),
+    });
   });
 }
 async function confirm() {
@@ -355,7 +360,11 @@ describe("palette merge without side-panel navigation", () => {
         return true;
       });
       await act(async () => {
-        await command.run({ threadId: "flow", projectId: null, openPanel: open });
+        await command.run({
+          threadId: "flow",
+          projectId: null,
+          experimental_panel: experimental_makePanelController({ openTab: open }),
+        });
       });
       await confirm();
       expect(panel).toBe(selected);

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, renderHook, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, ReturnedReason, rpcContract } from "./contract";
 import type { Check } from "./core/checks";
 import type { PrInsight } from "./core/overview";
@@ -152,9 +153,9 @@ function renderTab(
   refresh: () => InsightResult | Promise<InsightResult> = () => ({ kind: "no_pr" }),
 ) {
   const getInsight = typeof result === "function" ? result : () => result;
-  return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+  return renderSlot<ExperimentalThreadActionTabProps, typeof rpcContract>(
     prTab,
-    { threadId: "thr_1", params: null },
+    { threadId: "thr_1", params: null, environment: null },
     { rpc: { getInsight, refresh, ...unusedReviewRpc } },
   );
 }
@@ -417,7 +418,7 @@ describe("PR tab", () => {
     await slot.findByRole("button", { name: "Refreshing…" });
 
     const Tab = prTab.component;
-    slot.lifecycle.rerender(<Tab threadId="thr_2" params={null} />);
+    slot.lifecycle.rerender(<Tab threadId="thr_2" params={null} environment={null} />);
 
     expect(await slot.findByRole("button", { name: "Refresh" })).toHaveProperty("disabled", false);
   });
@@ -485,9 +486,9 @@ function renderMergeTab({
   runPrAction?: () => ActionResult | Promise<ActionResult>;
   result?: () => InsightResult;
 } = {}) {
-  return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+  return renderSlot<ExperimentalThreadActionTabProps, typeof rpcContract>(
     prTab,
-    { threadId: "thr_1", params: null },
+    { threadId: "thr_1", params: null, environment: null },
     {
       rpc: {
         getInsight: result,
@@ -730,7 +731,7 @@ function renderBanner(
     {
       rpc: { getInsight, refresh: getInsight, ...unusedReviewRpc, runPrAction },
       composer: { scope: { kind: "thread", threadId: "thr_1" } },
-      openThreadPanel: () => true,
+      experimental_panel: { openTab: () => true },
     },
   );
 }
@@ -825,8 +826,11 @@ describe("Composer banner", () => {
 
     fireEvent.click(await slot.findByRole("button"));
 
-    expect(slot.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(slot.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]);
   });
 
@@ -872,8 +876,11 @@ describe("Composer banner", () => {
     expect(slot.getAllByRole("button")).toHaveLength(1);
     expect(button.querySelector('[data-icon="GitMerge"]')).toBeTruthy();
     fireEvent.click(button);
-    expect(slot.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(slot.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]);
     expect(slot.inspection.rpcCalls.some(({ method }) => method === "runPrAction")).toBe(false);
   });
@@ -933,8 +940,11 @@ describe("Composer banner merge action", () => {
 
     fireEvent.click(await slot.findByRole("button", { name: /Ready to merge/ }));
 
-    expect(slot.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(slot.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]);
     expect(bannerMergeCalls(slot)).toEqual([]);
   });
@@ -1031,7 +1041,11 @@ const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20))
 describe("palette command availability", () => {
   const listed = (threadId: string) =>
     GITHUB_COMMANDS.filter((entry) =>
-      entry.isAvailable?.({ threadId, projectId: null, openPanel: () => true }),
+      entry.isAvailable?.({
+        threadId,
+        projectId: null,
+        experimental_panel: experimental_makePanelController({ openTab: () => true }),
+      }),
     ).map(({ id }) => id);
 
   it("lists the commands once the composer banner has loaded a ready PR", async () => {

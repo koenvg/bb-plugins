@@ -19,7 +19,22 @@ import {
   type ImageWireResult,
 } from "./core/image-content";
 import type { ChangesBasis, ChangedFile } from "./core/changes";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import {
+  experimental_joinHostPath,
+  experimental_getHostPathComparisonKey,
+  type BbPluginApi,
+} from "@get-bb/plugin-sdk";
+import {
+  gitStatusSchema,
+  gitBranchesSchema,
+  gitFilesSchema,
+  gitFileSideSchema,
+  gitPatchesSchema,
+  type GitStatus,
+  type GitFiles,
+  type GitFileSide,
+  type GitPatches,
+} from "./git-rpc";
 import { rpcContract, hostContract } from "./contract";
 import {
   diffQuery,
@@ -62,11 +77,21 @@ async function environmentIdOf(sdk: Sdk, threadId: string): Promise<string> {
 }
 
 async function baseBranchOf(sdk: Sdk, environmentId: string): Promise<string> {
-  const status = await sdk.environments.status({ environmentId });
+  const status = await sdk.plugins.callRpc<GitStatus>({
+    pluginId: "bb--git",
+    method: "workspaceStatus",
+    input: { environmentId },
+    outputSchema: gitStatusSchema,
+  });
   if (status.outcome === "not_applicable") throw new ChangesUnavailableError(status.message, true);
   if (status.outcome === "unavailable") throw new ChangesUnavailableError(status.failure.message);
   const defaultBranch = status.workspace.branch.defaultBranch;
-  const { remoteBranches } = await sdk.environments.diffBranches({ environmentId });
+  const { remoteBranches } = await sdk.plugins.callRpc<{ remoteBranches: string[] }>({
+    pluginId: "bb--git",
+    method: "branches",
+    input: { environmentId },
+    outputSchema: gitBranchesSchema,
+  });
   // A local default branch is often behind the remote, which would pull merged work into the diff.
   const remoteDefault = `origin/${defaultBranch}`;
   return remoteBranches.includes(remoteDefault) ? remoteDefault : defaultBranch;
@@ -79,7 +104,12 @@ async function branchCommits(
   warn: (message: string) => void,
 ): Promise<BranchCommit[]> {
   try {
-    const status = await sdk.environments.status({ environmentId, mergeBaseBranch: baseBranch });
+    const status = await sdk.plugins.callRpc<GitStatus>({
+      pluginId: "bb--git",
+      method: "workspaceStatus",
+      input: { environmentId, mergeBaseBranch: baseBranch },
+      outputSchema: gitStatusSchema,
+    });
     const commits =
       status.outcome === "available" ? (status.workspace.mergeBase?.commits ?? []) : [];
     return commits.map(({ sha, shortSha, subject }) => ({ sha, shortSha, subject }));
@@ -97,7 +127,12 @@ function failure(error: unknown): { kind: "no_git" } | { kind: "error"; message:
 
 async function checkoutHead(sdk: Sdk, environmentId: string): Promise<string | null> {
   try {
-    const status = await sdk.environments.status({ environmentId });
+    const status = await sdk.plugins.callRpc<GitStatus>({
+      pluginId: "bb--git",
+      method: "workspaceStatus",
+      input: { environmentId },
+      outputSchema: gitStatusSchema,
+    });
     return status.outcome === "available" && "headSha" in status.workspace.checkout
       ? status.workspace.checkout.headSha
       : null;
@@ -121,16 +156,36 @@ async function getTextContext(
     };
     await ownsEnvironment();
     const revisions = textRevisions(basis, file);
+    const { path: rootPath } = await sdk.environments.get({ environmentId: basis.environmentId });
+    if (rootPath === null) throw new ContextError("stale", "Environment changed. Refresh changes.");
     const read = async (revision: TextRevision): Promise<TextSide> => {
       if (revision.kind === "absent") return revision;
-      const result = await sdk.environments.diffFile({
-        environmentId: basis.environmentId,
-        path: revision.path,
-        ...(revision.kind === "working_tree"
-          ? { target: "uncommitted" as const, side: "new" as const }
-          : { target: "commit" as const, sha: revision.sha, side: revision.side }),
+      const response = await sdk.plugins.callRpc<GitFileSide>({
+        pluginId: "bb--git",
+        method: "fileSide",
+        outputSchema: gitFileSideSchema,
+        input: {
+          environmentId: basis.environmentId,
+          query: {
+            path: revision.path,
+            ...(revision.kind === "working_tree"
+              ? { target: "uncommitted" as const, side: "new" as const }
+              : { target: "commit" as const, sha: revision.sha, side: revision.side }),
+          },
+        },
       });
-      if (result.path !== revision.path)
+      if (response.outcome === "unavailable")
+        throw new ContextError(
+          response.code === "file_too_large" ? "too_large" : "read",
+          response.message,
+        );
+      const result = response.file;
+      const expectedPath = experimental_joinHostPath({ rootPath, relativePath: revision.path });
+      if (
+        expectedPath === null ||
+        experimental_getHostPathComparisonKey(result.path) !==
+          experimental_getHostPathComparisonKey(expectedPath)
+      )
         throw new ContextError("stale", "Context path changed. Refresh changes.");
       if (
         result.sizeBytes > MAX_CONTEXT_BYTES ||
@@ -184,19 +239,29 @@ async function getImage(
           : basis.headSha;
     if (!live && !imageShaSchema.safeParse(sha).success)
       return imageError("stale", "Image revision unavailable. Refresh changes.");
-    const result = await sdk.environments.diffFile({
-      environmentId: basis.environmentId,
-      path,
-      ...(live
-        ? { target: "uncommitted" as const, side: "new" as const }
-        : {
-            target: "commit" as const,
-            sha: sha!,
-            side:
-              target.kind === "commit" && side === "before" ? ("old" as const) : ("new" as const),
-          }),
+    const response = await sdk.plugins.callRpc<GitFileSide>({
+      pluginId: "bb--git",
+      method: "fileSide",
+      outputSchema: gitFileSideSchema,
+      input: {
+        environmentId: basis.environmentId,
+        query: {
+          path,
+          ...(live
+            ? { target: "uncommitted" as const, side: "new" as const }
+            : {
+                target: "commit" as const,
+                sha: sha!,
+                side:
+                  target.kind === "commit" && side === "before"
+                    ? ("old" as const)
+                    : ("new" as const),
+              }),
+        },
+      },
     });
-    return imageWire(result);
+    if (response.outcome === "unavailable") return imageError("read", response.message);
+    return imageWire(response.file);
   } catch {
     return imageError("read", "Could not read image at this revision");
   }
@@ -216,11 +281,21 @@ async function getChanges(
       branchCommits(sdk, environmentId, baseBranch, warn),
       (async () => {
         let headSha = await checkoutHead(sdk, environmentId);
-        let diff = await sdk.environments.diffFiles({ environmentId, ...query });
+        let diff = await sdk.plugins.callRpc<GitFiles>({
+          pluginId: "bb--git",
+          method: "files",
+          input: { environmentId, target: patchTarget(query), ignoreWhitespace: false },
+          outputSchema: gitFilesSchema,
+        });
         let endHead = await checkoutHead(sdk, environmentId);
         if (headSha !== endHead) {
           headSha = endHead;
-          diff = await sdk.environments.diffFiles({ environmentId, ...query });
+          diff = await sdk.plugins.callRpc<GitFiles>({
+            pluginId: "bb--git",
+            method: "files",
+            input: { environmentId, target: patchTarget(query), ignoreWhitespace: false },
+            outputSchema: gitFilesSchema,
+          });
           endHead = await checkoutHead(sdk, environmentId);
         }
         return { diff, headSha, stable: headSha !== null && headSha === endHead };
@@ -262,17 +337,38 @@ async function getPatches(
 ): Promise<PatchesResult> {
   try {
     const environmentId = await environmentIdOf(sdk, threadId);
-    const result = await sdk.environments.diffPatch({
-      environmentId,
-      paths,
-      target: patchTarget(query),
+    const target = patchTarget(query);
+    const files = await sdk.plugins.callRpc<GitFiles>({
+      pluginId: "bb--git",
+      method: "files",
+      input: { environmentId, target, ignoreWhitespace: false },
+      outputSchema: gitFilesSchema,
     });
-    if (result.outcome === "not_applicable") return { kind: "error", message: result.message };
-    if (result.outcome === "unavailable") return { kind: "error", message: result.failure.message };
-    return {
-      kind: "ok",
-      patches: Object.fromEntries(result.patches.map(({ path, patch }) => [path, patch])),
-    };
+    if (files.outcome === "not_applicable") return { kind: "error", message: files.message };
+    if (files.outcome === "unavailable") return { kind: "error", message: files.failure.message };
+    const keys = paths.map((path) => {
+      const file = files.files.find((entry) => entry.path === path);
+      if (!file) throw new Error(`File is no longer in this diff: ${path}. Refresh changes.`);
+      return JSON.stringify([environmentId, target, false, path, file.revision]);
+    });
+    const patches: Record<string, string> = {};
+    for (let offset = 0; offset < keys.length; offset += 50) {
+      const batch = keys.slice(offset, offset + 50);
+      const result = await sdk.plugins.callRpc<GitPatches>({
+        pluginId: "bb--git",
+        method: "patches",
+        input: { keys: batch },
+        outputSchema: gitPatchesSchema,
+      });
+      for (const key of batch) {
+        const row = result[key];
+        if (!row) throw new Error("Git did not return the requested patch. Retry.");
+        if (row.outcome === "not_applicable") return { kind: "error", message: row.message };
+        if (row.outcome === "unavailable") return { kind: "error", message: row.failure.message };
+        patches[row.patch.path] = row.patch.patch;
+      }
+    }
+    return { kind: "ok", patches };
   } catch (error) {
     return { kind: "error", message: messageOf(error) };
   }

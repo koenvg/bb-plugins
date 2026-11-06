@@ -9,11 +9,11 @@ const manifest = JSON.parse(readFileSync(new URL("./package.json", import.meta.u
 
 describe("standalone packaging", () => {
   it.each([
-    ["bb", "0.47.1", true],
-    ["bb", "0.48.0", true],
-    ["bb", "0.49.0", false],
-    ["bbPluginSdk", "0.6.79", true],
-    ["bbPluginSdk", "0.6.94", true],
+    ["bb", "0.48.1", false],
+    ["bb", "0.49.0", true],
+    ["bb", "0.50.0", false],
+    ["bbPluginSdk", "0.6.131", false],
+    ["bbPluginSdk", "0.6.132", true],
     ["bbPluginSdk", "0.7.0", false],
   ] as const)("checks %s %s admission is %s", (engine, version, admitted) => {
     const output = execFileSync(

@@ -1,4 +1,4 @@
-import { useBbNavigate, useComposer } from "@get-bb/plugin-sdk/app";
+import { experimental_useAppPanel, useComposer } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { MergeActionButton, MergeConfirmation } from "./merge-action-button";
@@ -24,7 +24,7 @@ function ThreadBanner({ threadId }: { threadId: string }) {
   useReportThreadOpened(threadId);
   const insight = useInsight(threadId);
   const palette = usePaletteMerge(threadId, insight);
-  const navigate = useBbNavigate();
+  const panel = experimental_useAppPanel();
   const { result, refreshing, refresh } = insight;
   const { state, operation } = palette;
   const running = operation.kind === "running";
@@ -36,7 +36,7 @@ function ThreadBanner({ threadId }: { threadId: string }) {
       : operation.kind === "error"
         ? operation.message
         : null;
-  const openPrTab = () => openPrOverview(navigate, threadId);
+  const openPrTab = () => openPrOverview(panel, threadId);
 
   function normalBanner() {
     if (result?.kind !== "ok") {

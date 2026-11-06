@@ -38,7 +38,6 @@ const activity = (changes: Partial<PluginSidebarThread["activity"]>) => ({
   backgroundAgents: 0,
   backgroundCommands: 0,
   planMode: 0,
-  goals: 0,
   ...changes,
 });
 const work: [string, Partial<PluginSidebarThread>][] = [
@@ -49,7 +48,6 @@ const work: [string, Partial<PluginSidebarThread>][] = [
   ["a background agent", { activity: activity({ backgroundAgents: 1 }) }],
   ["a background command", { activity: activity({ backgroundCommands: 1 }) }],
   ["plan mode", { activity: activity({ planMode: 1 }) }],
-  ["a goal", { activity: activity({ goals: 1 }) }],
   ["a queued message", { queuedWork: "waiting" }],
 ];
 const directAttention: [string, Partial<PluginSidebarThread>][] = [

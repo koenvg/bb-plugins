@@ -92,7 +92,6 @@ describe.each(modes)("%s project access", (mode) => {
           activity: {
             activeBackgroundAgentCount: 0,
             activeBackgroundCommandCount: 0,
-            activeGoalCount: 0,
             activePlanModeCount: 0,
             activeWorkflowCount: 0,
           },

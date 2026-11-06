@@ -264,6 +264,15 @@ function SidebarQuotaBadge({ descriptionId }: { descriptionId?: string }) {
     </>
   );
 }
+function useQuotaNavigationBadge() {
+  const state = useAccounts();
+  const summary = footerAllowance(state.data, state.now, state.owners > 0);
+  const detail = accountDetails(state.data, state.now).join(". ");
+  return {
+    text: `${summary.label}${summary.known ? "*" : ""}`,
+    label: `${summary.known ? "Lowest known" : "Lowest"} Codex account allowance; ${summary.label}${summary.known ? "; some accounts unavailable or unverified" : ""}. ${detail}`,
+  };
+}
 function QuotaBatteryIcon({ className }: { className?: string }) {
   const state = useAccounts();
   const summary = footerAllowance(state.data, state.now, state.owners > 0);
@@ -388,6 +397,6 @@ export default definePluginApp((app) => {
     icon: QUOTA_ICON,
     path: "quota",
     component: QuotaPage,
-    experimental_sidebarAccessory: SidebarQuotaBadge,
+    experimental_useBadge: useQuotaNavigationBadge,
   });
 });

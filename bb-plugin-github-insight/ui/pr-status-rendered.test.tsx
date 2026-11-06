@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
@@ -70,14 +70,14 @@ function renderBanner(result: InsightResult) {
     {
       rpc: rpc(result),
       composer: { scope: { kind: "thread", threadId: "thr_1" } },
-      openThreadPanel: () => true,
+      experimental_panel: { openTab: () => true },
     },
   );
 }
 function renderTab(result: InsightResult) {
-  return renderSlot<PluginThreadPanelProps, StatusMethods>(
+  return renderSlot<ExperimentalThreadActionTabProps, StatusMethods>(
     tab,
-    { threadId: "thr_1", params: null },
+    { threadId: "thr_1", params: null, environment: null },
     { rpc: rpc(result) },
   );
 }
@@ -96,8 +96,11 @@ describe("PR state parity", () => {
     await within(panel.container).findByText(label);
     expect(chat.container.querySelector("button button")).toBeNull();
     fireEvent.click(status);
-    expect(chat.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(chat.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]);
     expect(chat.inspection.rpcCalls.some(({ method }) => method === "runPrAction")).toBe(false);
   });

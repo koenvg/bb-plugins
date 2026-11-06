@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, LocalCommitsAhead, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
@@ -59,9 +59,9 @@ function renderTab({
 } = {}) {
   const run = vi.fn(runPrAction);
   const localCommitsAhead = vi.fn(async () => localCommits);
-  const slot = renderSlot<PluginThreadPanelProps, Methods>(
+  const slot = renderSlot<ExperimentalThreadActionTabProps, Methods>(
     tab,
-    { threadId: "thr_update", params: null },
+    { threadId: "thr_update", params: null, environment: null },
     {
       rpc: {
         getInsight: async () => ok(insight),

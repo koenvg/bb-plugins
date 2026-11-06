@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, ReviewResult, rpcContract, TimelineResult } from "../contract";
 import type { ImageWireResult } from "../core/image-content";
 import type { ReviewThread } from "../core/review-threads";
@@ -70,9 +71,9 @@ interface Handlers {
 
 function renderPanel(threadId = "thr_1", handlers: Handlers = {}) {
   const fail = () => ({ kind: "error" as const, message: "unused" });
-  return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+  return renderSlot<ExperimentalThreadActionTabProps, typeof rpcContract>(
     prTab,
-    { threadId, params: null },
+    { threadId, params: null, environment: null },
     {
       rpc: {
         getPrVideo: () => ({ kind: "error", code: "read", message: "unavailable" }),
@@ -268,7 +269,11 @@ describe("PR panel", () => {
 
 function runCommand(id: string, threadId = "thr_1") {
   const found = GITHUB_COMMANDS.find((entry) => entry.id === id)!;
-  void found.run({ threadId, projectId: null, openPanel: () => true });
+  void found.run({
+    threadId,
+    projectId: null,
+    experimental_panel: experimental_makePanelController({ openTab: () => true }),
+  });
 }
 
 describe("PR panel palette commands", () => {

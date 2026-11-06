@@ -4,11 +4,7 @@ export const isBusy = (thread: PluginSidebarThread) =>
   thread.status === "starting" || thread.status === "active" || thread.status === "stopping";
 
 export const hasActivity = ({ activity }: PluginSidebarThread) =>
-  activity.workflows +
-    activity.backgroundAgents +
-    activity.backgroundCommands +
-    activity.planMode +
-    activity.goals >
+  activity.workflows + activity.backgroundAgents + activity.backgroundCommands + activity.planMode >
   0;
 
 export function needsAttention(thread: PluginSidebarThread): boolean {
@@ -60,8 +56,6 @@ export function describeIndicator(thread: PluginSidebarThread): string | null {
       return "Background command running";
     case "workflow":
       return "Workflow running";
-    case "goal":
-      return "Goal running";
     case "plan-mode":
       return "Plan mode";
     case "working-draft":
@@ -101,7 +95,7 @@ export function workItems(thread: PluginSidebarThread): WorkItem[] {
       title: "Queued message waiting",
       error: false,
     });
-  const { workflows, backgroundAgents, backgroundCommands, planMode, goals } = thread.activity;
+  const { workflows, backgroundAgents, backgroundCommands, planMode } = thread.activity;
   const counts: [string, string, number, string][] = [
     ["workflows", "Workflow", workflows, "workflow"],
     ["agents", "Bot", backgroundAgents, "background agent"],
@@ -112,14 +106,6 @@ export function workItems(thread: PluginSidebarThread): WorkItem[] {
       items.push({ key, icon, text: String(count), title: plural(count, noun), error: false });
   if (planMode > 0)
     items.push({ key: "plan", icon: "ListTodo", text: "Plan", title: "Plan mode", error: false });
-  if (goals > 0)
-    items.push({
-      key: "goals",
-      icon: "Target",
-      text: String(goals),
-      title: plural(goals, "goal"),
-      error: false,
-    });
   return items;
 }
 
@@ -151,7 +137,6 @@ const LIVE_INDICATORS: Partial<Record<PluginSidebarThread["indicator"], string>>
   "background-agent": "Agent",
   "background-command": "Command",
   "plan-mode": "Planning",
-  goal: "Goal",
 };
 
 function baseState(thread: PluginSidebarThread, hasDraft: boolean): RowState | null {
