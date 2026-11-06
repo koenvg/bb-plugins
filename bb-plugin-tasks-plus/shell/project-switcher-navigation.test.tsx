@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, fireEvent, waitFor } from "@testing-library/react";
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import { TASKS_COMMANDS } from "./commands.js";
 import { browsePreference } from "./browse-preference.js";
@@ -29,7 +30,7 @@ function openPicker() {
       void TASKS_COMMANDS.find((command) => command.id === "switch-project")!.run({
         threadId: null,
         projectId: null,
-        experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+        experimental_panel: experimental_makePanelController(),
       }),
   );
 }

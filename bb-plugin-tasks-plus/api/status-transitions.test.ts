@@ -91,27 +91,22 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
       ]);
     });
 
-    it(`${method} records nothing for creator refusal and records a successful retry after archive`, async () => {
+    it(`${method} records todo immediately and excludes same-status writes and creator events`, async () => {
       const f = await setup();
       const task = f.task("backlog", "thr_creator");
-      const before = f.store.tasks.getTask(task.id);
-      expect(
-        await f.harness.behavior.callRpc(method, { taskId: task.id, status: "todo" }),
-      ).toMatchObject({
-        ok: false,
-        error: { code: "creator_thread_open" },
-      });
-      expect(f.store.tasks.getTask(task.id)).toEqual(before);
-      expectRows(f, []);
-      f.harness.sdk.stub("threads.get", async ({ threadId }) =>
-        makeThreadResponse({ id: threadId, archivedAt: 1 }),
-      );
-      expect(
-        await f.harness.behavior.callRpc(method, { taskId: task.id, status: "todo" }),
-      ).toMatchObject({
-        ok: true,
-        task: { status: "todo", createdByThreadId: "thr_creator" },
-      });
+      for (let retry = 0; retry < 2; retry++) {
+        expect(
+          await f.harness.behavior.callRpc(method, { taskId: task.id, status: "todo" }),
+        ).toMatchObject({
+          ok: true,
+          task: { status: "todo", createdByThreadId: "thr_creator" },
+        });
+      }
+      for (const event of ["thread.archived", "thread.unarchived", "thread.deleted"] as const) {
+        await f.harness.behavior.emitThreadEvent(event, {
+          thread: makeThreadResponse({ id: "thr_creator" }),
+        });
+      }
       expectRows(f, [[task.id, "backlog", "todo"]]);
     });
 
@@ -240,23 +235,10 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
       createdByThreadId: "thr_creator",
     });
     expectRows(f, []);
-    for (const args of [
-      ["--status", "todo"],
-      ["--state", "todo"],
-      ["--status", "invalid"],
-    ]) {
-      expect(
-        await f.harness.behavior.runCli(["update", task.key, ...args, "--json"]),
-      ).toMatchObject({ exitCode: 1 });
-      expect(f.store.tasks.getTask(task.id)).toMatchObject({
-        title: "CLI task",
-        status: "backlog",
-      });
-      expectRows(f, []);
-    }
-    f.harness.sdk.stub("threads.get", async ({ threadId }) =>
-      makeThreadResponse({ id: threadId, archivedAt: 1 }),
-    );
+    expect(
+      await f.harness.behavior.runCli(["update", task.key, "--status", "invalid", "--json"]),
+    ).toMatchObject({ exitCode: 1 });
+    expectRows(f, []);
     for (const [option, status] of [
       ["--status", "todo"],
       ["--status", "todo"],

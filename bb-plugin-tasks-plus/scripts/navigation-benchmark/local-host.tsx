@@ -168,6 +168,9 @@ export function createLocalHost(options: LocalHostOptions) {
       ticket.set(false);
       return true;
     },
+    getTabs: () => ({ open: false, selectedKey: null, tabs: [] }),
+    selectTab: () => false,
+    closeTab: () => false,
   };
   function useOwner() {
     const owner = React.useContext(Scope);

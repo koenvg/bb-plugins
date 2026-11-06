@@ -22,13 +22,8 @@ export function openBlockers(task: Task): TaskDependencyRef[] {
 
 export function DependencyBadges({ task, className }: { task: Task; className?: string }) {
   const blockers = openBlockers(task);
-  const threadBlocked = task.creatorThreadBlocked === true;
-  const blockedBy = [
-    blockers.length > 0 ? `${blockers.length} task${blockers.length === 1 ? "" : "s"}` : null,
-    threadBlocked ? "1 thread" : null,
-  ]
-    .filter(Boolean)
-    .join(" + ");
+  const blockedBy =
+    blockers.length > 0 ? `${blockers.length} task${blockers.length === 1 ? "" : "s"}` : null;
   const blocks = task.openBlockedCount ?? 0;
   if (!blockedBy && blocks === 0) return null;
   const chip = cn(
@@ -39,10 +34,7 @@ export function DependencyBadges({ task, className }: { task: Task; className?: 
     <>
       {blockedBy ? (
         <span
-          title={[
-            ...blockers.map((ref) => `${ref.key} (${ref.status})`),
-            ...(threadBlocked ? [`Creator thread ${task.createdByThreadId ?? "unavailable"}`] : []),
-          ].join(", ")}
+          title={blockers.map((ref) => `${ref.key} (${ref.status})`).join(", ")}
           className={cn(chip, "border-warning/40 text-warning")}
         >
           <Icon name="Lock" className="size-3 shrink-0" />

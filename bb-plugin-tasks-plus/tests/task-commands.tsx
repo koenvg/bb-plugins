@@ -25,7 +25,14 @@ async function durationRequest(method: string, input: unknown) {
 const context: PluginCommandContext = {
   threadId: null,
   projectId: null,
-  experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+  experimental_panel: {
+    openTab: () => false,
+    toggleTab: () => false,
+    close: () => false,
+    getTabs: () => ({ open: false, selectedKey: null, tabs: [] }),
+    selectTab: () => false,
+    closeTab: () => false,
+  },
 };
 const project = {
   id: "project-1",

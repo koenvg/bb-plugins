@@ -27,6 +27,8 @@ Preconditions:
 
 Before setup read the package README's Development checks and COMMENT-REMOVAL-UPGRADE.md. From the root install/build packages/markdown-document with frozen Bun dependencies, then install bb-plugin-codex-quota dependencies and this package. Require SQLite on PATH. Use this package's explicit pinned TypeScript 7 command, not another tsc.
 
+Follow the [existing-binary selection policy](../references/browser-contract.md#reuse-existing-binaries-for-owned-playwright-fixtures) before browser setup. Tasks Plus supports `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. Set it to a verified existing full Chrome or Chromium executable for this run when the default cached build is absent. Record the path and actual version; no download is required when that run passes. Keep the required full-browser mode, not a headless-shell substitute.
+
 Require a fresh, absent `$EVIDENCE/tasks-browser` output directory, then run:
 
 ```sh

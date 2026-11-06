@@ -72,14 +72,12 @@ function renderDetail(
       ...current,
       blockedBy,
       blocks,
-      openBlockerCount:
-        blockedBy.filter((ref) => ref.status !== "done" && ref.status !== "canceled").length +
-        Number(current.creatorThreadBlocked === true),
+      openBlockerCount: blockedBy.filter(
+        (ref) => ref.status !== "done" && ref.status !== "canceled",
+      ).length,
       openBlockedCount: blocks.filter((ref) => ref.status !== "done" && ref.status !== "canceled")
         .length,
-      blocked:
-        blockedBy.some((ref) => ref.status !== "done" && ref.status !== "canceled") ||
-        current.creatorThreadBlocked === true,
+      blocked: blockedBy.some((ref) => ref.status !== "done" && ref.status !== "canceled"),
     };
   };
   const cycle = options.cycleOn?.map((n) => base.find((t) => t.number === n)!.id);
@@ -211,12 +209,11 @@ describe("task detail dependency sections", () => {
   });
 
   it("refreshes lifecycle without deriving blocking from metadata", async () => {
-    let blocked = true;
     let archivedAt: number | null = null;
     let deletedAt: number | null = null;
     let fail = false;
     const slot = renderDetail([], {
-      taskOverrides: () => ({ createdByThreadId: "thr_lifecycle", creatorThreadBlocked: blocked }),
+      taskOverrides: () => ({ createdByThreadId: "thr_lifecycle" }),
       creator: () => {
         if (fail) throw new Error("Unavailable now");
         return { id: "thr_lifecycle", title: " ", titleFallback: " ", archivedAt, deletedAt };
@@ -227,18 +224,12 @@ describe("task detail dependency sections", () => {
     archivedAt = 1;
     await slot.behavior.emitRealtime("threads:changed", {});
     expect((await attribution.findByText("Archived")).textContent).toBe("Archived");
-    expect(
-      (await section(slot, "Blocked by")).getByText("Task still reports this creator as blocking.")
-        .textContent,
-    ).toBe("Task still reports this creator as blocking.");
-    blocked = false;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await waitFor(() =>
       expect(slot.getByRole("region", { name: "Blocked by" }).textContent).toContain(
         "No open blockers.",
       ),
     );
-    expect(attribution.getByText("Not an open blocker").textContent).toBe("Not an open blocker");
     deletedAt = 2;
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
     expect((await attribution.findByText("Deleted")).textContent).toBe("Deleted");
@@ -258,7 +249,7 @@ describe("task detail dependency sections", () => {
     const pending = deferred<Partial<ReturnType<typeof makeThreadResponse>>>();
     let reads = 0;
     const slot = renderDetail([], {
-      taskOverrides: () => ({ createdByThreadId: threadId, creatorThreadBlocked: true }),
+      taskOverrides: () => ({ createdByThreadId: threadId }),
       creator: (id) => {
         if (id === "thr_first")
           return { id, title: "First title", archivedAt: null, deletedAt: null };
@@ -289,12 +280,11 @@ describe("task detail dependency sections", () => {
     expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thr_second" }]);
   });
 
-  it("shows one creator lookup in blockers and attribution with exact host navigation", async () => {
+  it("shows one creator lookup only in attribution with exact host navigation", async () => {
     const reads: string[] = [];
     const slot = renderDetail([[3, 5]], {
       taskOverrides: () => ({
         createdByThreadId: "thr_creator_full_id",
-        creatorThreadBlocked: true,
       }),
       creator: (threadId) => {
         reads.push(threadId);
@@ -303,7 +293,10 @@ describe("task detail dependency sections", () => {
     });
     const blocked = await section(slot, "Blocked by");
     const attribution = await section(slot, "Creation attribution");
-    expect((await blocked.findByText("Release readiness")).textContent).toBe("Release readiness");
+    expect((await attribution.findByText("Release readiness")).textContent).toBe(
+      "Release readiness",
+    );
+    expect(blocked.queryByText("thr_creator_full_id")).toBeNull();
     expect(attribution.getByText("thr_creator_full_id").textContent).toBe("thr_creator_full_id");
     expect(reads).toEqual(["thr_creator_full_id"]);
     fireEvent.click(
@@ -317,29 +310,34 @@ describe("task detail dependency sections", () => {
     expect(catalogReads(slot)).toHaveLength(0);
   });
 
-  it("keeps creator identity and blocking truthful during loading and unavailable metadata", async () => {
+  it("keeps creator identity and navigation during loading and unavailable metadata", async () => {
     const response = deferred<Partial<ReturnType<typeof makeThreadResponse>>>();
     const slot = renderDetail([], {
       taskOverrides: () => ({
         createdByThreadId: "thr_unavailable_full_id",
-        creatorThreadBlocked: true,
       }),
       creator: () => response.promise,
     });
-    const blocked = await section(slot, "Blocked by");
-    expect(blocked.getByText("Loading thread details").textContent).toBe("Loading thread details");
-    expect(blocked.getByText("thr_unavailable_full_id").textContent).toBe(
+    const attribution = await section(slot, "Creation attribution");
+    expect(attribution.getByText("Loading thread details").textContent).toBe(
+      "Loading thread details",
+    );
+    expect(attribution.getByText("thr_unavailable_full_id").textContent).toBe(
       "thr_unavailable_full_id",
     );
+    expect((await section(slot, "Blocked by")).getByText("No open blockers.")).toBeTruthy();
     await act(async () => response.reject(new Error("Denied")));
-    expect((await blocked.findByText("Unavailable. Archive state unknown.")).textContent).toBe(
+    expect((await attribution.findByText("Unavailable. Archive state unknown.")).textContent).toBe(
       "Unavailable. Archive state unknown.",
     );
-    expect(
-      blocked.getByRole("button", { name: "Open creator thread thr_unavailable_full_id" })
-        .textContent,
-    ).toContain("Waiting for the creator thread to be archived.");
-    expect(blocked.queryByText("Not archived")).toBeNull();
+    fireEvent.click(
+      attribution.getByRole("button", { name: "Open creator thread thr_unavailable_full_id" }),
+    );
+    expect(slot.inspection.navigateCalls).toContainEqual({
+      method: "toThread",
+      threadId: "thr_unavailable_full_id",
+    });
+    expect(attribution.queryByText("Not archived")).toBeNull();
   });
 
   it("retains archived attribution and groups resolved tasks outside open blockers", async () => {
@@ -351,7 +349,7 @@ describe("task detail dependency sections", () => {
       {
         taskOverrides: (task) =>
           task.number === 5
-            ? { createdByThreadId: "thr_archived", creatorThreadBlocked: false }
+            ? { createdByThreadId: "thr_archived" }
             : { status: task.number === 3 ? "done" : "canceled" },
         creator: () => ({
           id: "thr_archived",
@@ -372,7 +370,6 @@ describe("task detail dependency sections", () => {
     const attribution = await section(slot, "Creation attribution");
     expect((await attribution.findByText("Fallback title")).textContent).toBe("Fallback title");
     expect(attribution.getByText("Archived").textContent).toBe("Archived");
-    expect(attribution.getByText("Not an open blocker").textContent).toBe("Not an open blocker");
     expect(blocked.queryByText("thr_archived")).toBeNull();
     fireEvent.click(blocked.getByRole("button", { name: /Open task ABC-3/ }));
     await waitFor(() =>

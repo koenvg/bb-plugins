@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createStore, registerTasksApi } from "../../api";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -8,6 +10,54 @@ import { app, createdTask, PROJECT_ID, project } from "./manage.test-support.js"
 afterEach(cleanup);
 
 describe("NewTaskDialog", () => {
+  it("creates todo through the actual dialog with null attribution", async () => {
+    const host = createFakePluginHost({ pluginId: "new-task-attribution" });
+    try {
+      const store = createStore(host.bb);
+      const savedProject = store.tasks.createProject({
+        id: PROJECT_ID,
+        name: project.name,
+        prefix: project.prefix,
+        color: project.color,
+      });
+      registerTasksApi(host.bb, store);
+      const calls: Record<string, unknown>[] = [];
+      const slot = renderSlot(
+        app.navPanels[0]!,
+        { subPath: PROJECT_ID },
+        {
+          rpc: {
+            listProjects: () => ({ projects: [savedProject] }),
+            listFolders: () => ({ folders: [] }),
+            listPresets: () => ({ presets: [] }),
+            sidebarSummary: () => ({ projects: [] }),
+            listTasks: () => ({ tasks: [], nextCursor: null }),
+            listLabels: () => ({ labels: [] }),
+            createTask: async (raw) => {
+              calls.push(rpcInput(raw));
+              return host.harness.callRpc("createTask", rpcInput(raw));
+            },
+          },
+        },
+      );
+      fireEvent.click(await slot.findByRole("button", { name: /New task/ }));
+      fireEvent.change(await slot.findByLabelText("Task title"), {
+        target: { value: "Ready from dialog" },
+      });
+      fireEvent.click(slot.getByRole("button", { name: "Create task" }));
+      await waitFor(() =>
+        expect(store.tasks.listTasks()).toMatchObject([
+          { title: "Ready from dialog", status: "todo", createdByThreadId: null },
+        ]),
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.createdByThreadId ?? null).toBeNull();
+      await waitFor(() => expect(slot.navigateCalls).toHaveLength(1));
+      expect(host.harness.sdk.callsTo("threads.get")).toEqual([]);
+    } finally {
+      await host.harness.dispose();
+    }
+  });
   it.each([
     {
       name: "Ctrl+Enter in title",
