@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { prTabOf } from "../test/app-fixtures";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, rpcContract } from "../contract";
 import type { Check } from "../core/checks";
 import type { PrInsight } from "../core/overview";
@@ -10,7 +11,7 @@ import { forgetInsights } from "./pr-availability";
 
 type ReadMethods = Pick<typeof rpcContract, "getInsight">;
 const app = await loadPluginApp(() => import("../app"));
-const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const tab = prTabOf(app);
 
 const insight: PrInsight = {
   pr: {
@@ -43,9 +44,9 @@ function check(name: string, status: Check["status"], required = false): Check {
 
 function renderTab(data: PrInsight) {
   const result: InsightResult = { kind: "ok", insight: data, refreshedAt: Date.now(), error: null };
-  const panel = renderSlot<PluginThreadPanelProps, ReadMethods>(
+  const panel = renderSlot<ExperimentalThreadActionTabProps, ReadMethods>(
     tab,
-    { threadId: "thr_layout", params: null },
+    { threadId: "thr_layout", environment: null, params: null },
     { rpc: { getInsight: async () => result } },
   );
   return within(panel.container);

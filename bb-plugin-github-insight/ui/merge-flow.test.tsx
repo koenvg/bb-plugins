@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { prTabOf, commandContext } from "../test/app-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -10,7 +11,7 @@ import { forgetSubTabs } from "./pr-sub-tab";
 
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
-const tab = app.threadPanelActions.find((t) => t.id === "pr")!;
+const tab = prTabOf(app);
 const pr = {
   number: 7,
   title: "Shared progress",
@@ -69,7 +70,7 @@ function fixture(initial: InsightResult = ok()) {
     return slot;
   };
   const mountTab = () => {
-    const slot = renderSlot(tab, { threadId: "flow", params: null }, options);
+    const slot = renderSlot(tab, { threadId: "flow", environment: null, params: null }, options);
     mounted.push(slot);
     return slot;
   };
@@ -89,7 +90,7 @@ const command = GITHUB_COMMANDS.find((c) => c.id === "merge-pr")!;
 const openPanel = vi.fn(() => true);
 async function merge(threadId = "flow") {
   await act(async () => {
-    await command.run({ threadId, projectId: null, openPanel });
+    await command.run(commandContext(threadId, openPanel));
   });
 }
 async function confirm() {
@@ -355,7 +356,7 @@ describe("palette merge without side-panel navigation", () => {
         return true;
       });
       await act(async () => {
-        await command.run({ threadId: "flow", projectId: null, openPanel: open });
+        await command.run(commandContext("flow", open));
       });
       await confirm();
       expect(panel).toBe(selected);

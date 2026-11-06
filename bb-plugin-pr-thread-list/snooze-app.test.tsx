@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useLayoutEffect, useRef, type ComponentType } from "react";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
@@ -14,7 +15,7 @@ import definition from "./app";
 import { project, thread, snoozeSnapshot, archivedReady } from "./fixtures";
 import type { rpcContract } from "./contract";
 
-type Options = Omit<RenderSlotOptions, "rpc"> & {
+type Options = Omit<RenderSlotOptions<typeof rpcContract>, "rpc"> & {
   rpc?: Partial<NonNullable<RenderSlotOptions<typeof rpcContract>["rpc"]>>;
 };
 
@@ -38,7 +39,7 @@ const List = app.threadLists[0]!.component;
 const context = (threadId: string | null = "t1"): PluginCommandContext => ({
   threadId,
   projectId: "p1",
-  openPanel: () => false,
+  experimental_panel: experimental_makePanelController(),
 });
 const available = (ctx = context()) =>
   commands.filter((command) => command.isAvailable!(ctx)).map(({ id }) => id);

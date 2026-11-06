@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+function NavBadge() {
+  const badge = installed.navPanels[0]!.experimental_useBadge!();
+  return badge ? (
+    <output title={badge.label} aria-label={badge.label}>
+      {badge.text}
+    </output>
+  ) : null;
+}
 import { act, cleanup, configure, render, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -92,7 +100,7 @@ describe("app-wide quota ownership", () => {
     );
     const panel = installed.navPanels[0]!;
     const page = renderSlot(panel, { subPath: "" }, config);
-    const badge = renderSlot({ component: panel.experimental_sidebarAccessory! }, {}, config);
+    const badge = renderSlot({ component: NavBadge }, {}, config);
     const Battery = installed.icons[0]!.component;
     const battery = render(<Battery />);
     await act(async () => {

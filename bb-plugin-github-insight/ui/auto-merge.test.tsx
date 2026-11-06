@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
+import { prTabOf } from "../test/app-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
 
 type Methods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runPrAction" | "getTimeline">;
 const app = await loadPluginApp(() => import("../app"));
-const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const tab = prTabOf(app);
 
 const HEAD = "head-a";
 const waiting: PrInsight = {
@@ -49,9 +50,9 @@ function renderTab(
 ) {
   const result: InsightResult = { kind: "ok", insight, refreshedAt: Date.now(), error: null };
   const run = vi.fn(runPrAction);
-  const slot = renderSlot<PluginThreadPanelProps, Methods>(
+  const slot = renderSlot<ExperimentalThreadActionTabProps, Methods>(
     tab,
-    { threadId: "thr_auto", params: null },
+    { threadId: "thr_auto", environment: null, params: null },
     {
       rpc: {
         getInsight: async () => result,

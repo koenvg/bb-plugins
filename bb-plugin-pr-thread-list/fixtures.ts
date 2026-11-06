@@ -17,6 +17,7 @@ export function thread(overrides: Partial<PluginSidebarThread> = {}): PluginSide
     displayTitle: "Prepare release",
     parentThreadId: null,
     lifecycleOwnerThreadId: null,
+    parentNotifications: "auto",
     sourceThreadId: null,
     sectionId: null,
     originKind: null,

@@ -4,10 +4,7 @@ import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/tes
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import plugin from "./server";
 
-type Environments = BbPluginApi["sdk"]["environments"];
-type StatusResult = Awaited<ReturnType<Environments["status"]>>;
-type DiffFilesResult = Awaited<ReturnType<Environments["diffFiles"]>>;
-type DiffPatchResult = Awaited<ReturnType<Environments["diffPatch"]>>;
+import type { StatusResult, FilesResult as DiffFilesResult, PatchResults } from "./git";
 type SendResult = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["send"]>>;
 
 function deferred<T>() {
@@ -24,15 +21,11 @@ function status(
   return {
     outcome: "available",
     workspace: {
-      branch: { currentBranch: "feature", defaultBranch: "main" },
-      mergeBase:
-        mergeBase === null
-          ? null
-          : {
-              commits: mergeBase.map((commit) => ({ ...commit, authorName: "Ann", authoredAt: 0 })),
-            },
+      branch: { defaultBranch: "main" },
+      checkout: { kind: "unknown" },
+      mergeBase: mergeBase === null ? null : { commits: mergeBase },
     },
-  } as unknown as StatusResult;
+  };
 }
 
 const COMMIT = { sha: "abc1234def", shortSha: "abc1234", subject: "feat: add a" };
@@ -49,6 +42,7 @@ const AVAILABLE_FILES = {
       loadMode: "auto",
       changeKind: "modified",
       origin: "tracked",
+      revision: "revision-1",
     },
     {
       path: "logo.png",
@@ -59,6 +53,7 @@ const AVAILABLE_FILES = {
       loadMode: "auto",
       changeKind: "added",
       origin: "untracked",
+      revision: "revision-1",
     },
     {
       path: "big.json",
@@ -69,6 +64,7 @@ const AVAILABLE_FILES = {
       loadMode: "too_large",
       changeKind: "added",
       origin: "tracked",
+      revision: "revision-1",
     },
     {
       path: "src/new.ts",
@@ -79,16 +75,18 @@ const AVAILABLE_FILES = {
       loadMode: "on_demand",
       changeKind: "renamed",
       origin: "tracked",
+      revision: "revision-1",
     },
   ],
   initialPatches: [{ path: "src/a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n", truncated: false }],
   mergeBaseRef: "main",
   shortstat: "4 files changed",
   truncated: false,
-} as DiffFilesResult;
+} satisfies Extract<DiffFilesResult, { outcome: "available" }>;
 
 interface Calls {
   status: unknown[];
+  branches: unknown[];
   diffFiles: unknown[];
   diffPatch: unknown[];
   send: unknown[];
@@ -104,9 +102,11 @@ afterEach(async () => {
 async function setup(
   options: {
     environmentId?: string | null;
+    workspacePath?: string;
+    selectedBranch?: { name: string; kind: "local" | "remote" | "missing" };
     status?: (args: { mergeBaseBranch?: string }) => StatusResult | Promise<StatusResult>;
     diffFiles?: DiffFilesResult | Error | (() => Promise<DiffFilesResult>);
-    diffPatch?: DiffPatchResult;
+    patches?: (keys: string[]) => PatchResults;
     diffFile?: (args: unknown) => Promise<{
       content: string;
       contentEncoding: "base64" | "utf8";
@@ -118,10 +118,35 @@ async function setup(
     kv?: Record<string, unknown>;
   } = {},
 ) {
-  const calls: Calls = { status: [], diffFiles: [], diffPatch: [], send: [] };
+  const calls: Calls = { status: [], branches: [], diffFiles: [], diffPatch: [], send: [] };
   const { bb, harness } = createFakePluginHost({
     pluginId: "changes",
     sdk: {
+      environments: {
+        get: async ({ environmentId }) => ({
+          id: environmentId,
+          hostId: "test-host",
+          projectId: "p1",
+          name: null,
+          path: options.workspacePath ?? "/workspace",
+          isGitRepo: true,
+          isWorktree: false,
+          branchName: "feature",
+          baseBranch: "main",
+          defaultBranch: "main",
+          mergeBaseBranch: null,
+          environmentProviderId: null,
+          environmentProviderInstanceKey: null,
+          environmentProviderSelection: null,
+          hostLifecycle: "active",
+          lifecycle: { phase: "active", retireAt: null, teardown: null },
+          managed: false,
+          status: "ready",
+          createdAt: 0,
+          updatedAt: 0,
+          workspaceProvisionType: "unmanaged",
+        }),
+      },
       threads: {
         get: async ({ threadId }) =>
           makeThreadResponse({
@@ -134,42 +159,69 @@ async function setup(
           return options.send ?? { ok: true as const, delivery: "sent" as const };
         },
       },
-      environments: {
-        diffFile:
-          options.diffFile ??
-          (async () => ({
-            content: "iVBORw0KGgoAAAAA",
-            contentEncoding: "base64" as const,
-            sizeBytes: 12,
-          })),
-        status: async (args) => {
-          calls.status.push(args);
-          return (
-            options.status ??
-            ((query) => status(query.mergeBaseBranch === undefined ? null : [COMMIT]))
-          )(args);
-        },
-        diffBranches: async () => ({
-          branches: ["main"],
-          branchesTruncated: false,
-          remoteBranches: options.remoteBranches ?? ["origin/main"],
-          remoteBranchesTruncated: false,
-          selectedBranch: null,
-        }),
-        diffFiles: async (args) => {
-          calls.diffFiles.push(args);
-          if (options.diffFiles instanceof Error) throw options.diffFiles;
-          if (typeof options.diffFiles === "function") return options.diffFiles();
-          return options.diffFiles ?? AVAILABLE_FILES;
-        },
-        diffPatch: async (args) => {
-          calls.diffPatch.push(args);
-          return (
-            options.diffPatch ?? {
-              outcome: "available",
-              patches: [{ path: "src/new.ts", patch: "@@ -1 +1 @@\n-x\n+y\n", truncated: false }],
-            }
-          );
+      plugins: {
+        callRpc: async ({ pluginId, method, input, outputSchema }) => {
+          expect(pluginId).toBe("bb--git");
+          let result: unknown;
+          if (method === "workspaceStatus") {
+            const args = input as { environmentId: string; mergeBaseBranch?: string };
+            calls.status.push(args);
+            result = await (
+              options.status ??
+              ((query) => status(query.mergeBaseBranch === undefined ? null : [COMMIT]))
+            )(args);
+          } else if (method === "branches") {
+            calls.branches.push(input);
+            const args = input as { selectedBranch: string };
+            const remoteBranches = options.remoteBranches ?? ["origin/main"];
+            result = {
+              remoteBranches,
+              selectedBranch: options.selectedBranch ?? {
+                name: args.selectedBranch,
+                kind: remoteBranches.includes(args.selectedBranch) ? "remote" : "missing",
+              },
+            };
+          } else if (method === "files") {
+            calls.diffFiles.push(input);
+            if (options.diffFiles instanceof Error) throw options.diffFiles;
+            result =
+              typeof options.diffFiles === "function"
+                ? await options.diffFiles()
+                : (options.diffFiles ?? AVAILABLE_FILES);
+          } else if (method === "patches") {
+            const { keys } = input as { keys: string[] };
+            calls.diffPatch.push(input);
+            result =
+              options.patches?.(keys) ??
+              Object.fromEntries(
+                keys.map((key) => [
+                  key,
+                  {
+                    outcome: "available",
+                    patch: {
+                      path: JSON.parse(key)[3],
+                      patch: "@@ -1 +1 @@\n-x\n+y\n",
+                      truncated: false,
+                    },
+                  },
+                ]),
+              );
+          } else if (method === "fileSide") {
+            const args = input as { environmentId: string; query: Record<string, unknown> };
+            const file = await (
+              options.diffFile ??
+              (async () => ({
+                path: String(args.query.path),
+                content: "iVBORw0KGgoAAAAA",
+                contentEncoding: "base64",
+                sizeBytes: 12,
+              }))
+            )({ environmentId: args.environmentId, ...args.query });
+            result = { outcome: "available", file: { path: String(args.query.path), ...file } };
+          } else {
+            throw new Error(`Unexpected Git RPC ${method}`);
+          }
+          return outputSchema.parse(result);
         },
       },
     },
@@ -261,6 +313,30 @@ describe("getTextContext", () => {
       ]);
     },
   );
+  it.each([
+    ["/workspace", "/workspace/a.txt"],
+    ["C:\\workspace", "C:\\workspace\\a.txt"],
+  ])("normalizes the Git file-side path from workspace %s", async (workspacePath, path) => {
+    const { harness } = await setup({
+      workspacePath,
+      diffFile: async (args) => ({ ...(await read(args)), path }),
+    });
+    expect(
+      textContextResultSchema.parse(await harness.callRpc("getTextContext", request)).kind,
+    ).toBe("ready");
+  });
+
+  it("rejects a Git file-side path outside the current workspace", async () => {
+    const { harness } = await setup({
+      diffFile: async (args) => ({ ...(await read(args)), path: "/outside/a.txt" }),
+    });
+    expect(await harness.callRpc("getTextContext", request)).toMatchObject({
+      kind: "error",
+      code: "stale",
+      message: "Context path changed. Refresh changes.",
+    });
+  });
+
   it("reads the previous rename path", async () => {
     const { harness } = await setup({ diffFile: read });
     const result = await harness.callRpc("getTextContext", {
@@ -508,10 +584,9 @@ describe("getChanges", () => {
         return {
           ...status(null),
           workspace: {
-            branch: { currentBranch: "feature", defaultBranch: "main" },
+            branch: { defaultBranch: "main" },
             checkout: {
               kind: "branch",
-              branchName: "feature",
               headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             },
             mergeBase: null,
@@ -594,8 +669,8 @@ describe("getChanges", () => {
         return {
           ...base,
           workspace: {
-            branch: { currentBranch: "feature", defaultBranch: "main" },
-            checkout: { kind: "branch", branchName: "feature", headSha: sha },
+            branch: { defaultBranch: "main" },
+            checkout: { kind: "branch", headSha: sha },
             mergeBase: null,
           },
         } as StatusResult;
@@ -619,8 +694,16 @@ describe("getChanges", () => {
       },
     });
     expect(calls.diffFiles).toEqual([
-      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
-      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
+      {
+        environmentId: "env-1",
+        ignoreWhitespace: false,
+        target: { type: "branch_committed", mergeBaseBranch: "origin/main" },
+      },
+      {
+        environmentId: "env-1",
+        ignoreWhitespace: false,
+        target: { type: "branch_committed", mergeBaseBranch: "origin/main" },
+      },
     ]);
   });
   it("keeps text available but disables images if checkout keeps moving", async () => {
@@ -630,7 +713,7 @@ describe("getChanges", () => {
         ({
           outcome: "available",
           workspace: {
-            branch: { currentBranch: "feature", defaultBranch: "main" },
+            branch: { defaultBranch: "main" },
             checkout: { kind: "detached", headSha: String(++read).padStart(40, "0") },
             mergeBase: null,
           },
@@ -645,15 +728,33 @@ describe("getChanges", () => {
     });
   });
   it.each([
-    [{ kind: "all" }, { environmentId: "env-1", target: "all", mergeBaseBranch: "origin/main" }],
-    [{ kind: "uncommitted" }, { environmentId: "env-1", target: "uncommitted" }],
+    [
+      { kind: "all" },
+      {
+        environmentId: "env-1",
+        ignoreWhitespace: false,
+        target: { type: "all", mergeBaseBranch: "origin/main" },
+      },
+    ],
+    [
+      { kind: "uncommitted" },
+      { environmentId: "env-1", ignoreWhitespace: false, target: { type: "uncommitted" } },
+    ],
     [
       { kind: "branch_committed" },
-      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
+      {
+        environmentId: "env-1",
+        ignoreWhitespace: false,
+        target: { type: "branch_committed", mergeBaseBranch: "origin/main" },
+      },
     ],
     [
       { kind: "commit", sha: "abc1234def" },
-      { environmentId: "env-1", target: "commit", sha: "abc1234def" },
+      {
+        environmentId: "env-1",
+        ignoreWhitespace: false,
+        target: { type: "commit", sha: "abc1234def" },
+      },
     ],
   ])("maps target %j to the environment diff query", async (target, expected) => {
     const { harness, calls } = await setup();
@@ -747,13 +848,33 @@ describe("getChanges", () => {
     ]);
   });
 
+  it("keeps the remote default when the bounded branch list omits it", async () => {
+    const { harness, calls } = await setup({
+      remoteBranches: [],
+      selectedBranch: { name: "origin/main", kind: "remote" },
+    });
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
+    expect(calls.branches).toEqual([{ environmentId: "env-1", selectedBranch: "origin/main" }]);
+    expect(result).toMatchObject({
+      kind: "ok",
+      query: { target: "all", mergeBaseBranch: "origin/main" },
+    });
+  });
+
   it("falls back to the local default branch without a remote one", async () => {
     const { harness, calls } = await setup({ remoteBranches: [] });
 
     await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
 
     expect(calls.diffFiles).toEqual([
-      { environmentId: "env-1", target: "all", mergeBaseBranch: "main" },
+      {
+        environmentId: "env-1",
+        ignoreWhitespace: false,
+        target: { type: "all", mergeBaseBranch: "main" },
+      },
     ]);
   });
 
@@ -815,6 +936,7 @@ describe("getChanges", () => {
             binary: false,
             loadMode: "auto",
             changeKind: "deleted",
+            revision: "revision-deleted",
             origin: "tracked",
           },
         ],
@@ -873,7 +995,10 @@ describe("getPatches", () => {
 
     await harness.callRpc("getPatches", { threadId: "thr_1", query, paths: ["src/new.ts"] });
 
-    expect(calls.diffPatch).toEqual([{ environmentId: "env-1", paths: ["src/new.ts"], target }]);
+    expect(calls.diffPatch).toEqual([
+      { keys: [JSON.stringify(["env-1", target, false, "src/new.ts", "revision-1"])] },
+    ]);
+    expect(calls.diffFiles).toEqual([{ environmentId: "env-1", target, ignoreWhitespace: false }]);
     expect(calls.status).toEqual([]);
   });
 
@@ -888,6 +1013,86 @@ describe("getPatches", () => {
 
     expect(result).toEqual({ kind: "ok", patches: { "src/new.ts": "@@ -1 +1 @@\n-x\n+y\n" } });
   });
+  it("splits revision-keyed patch reads at the Git contract limit", async () => {
+    const paths = Array.from({ length: 51 }, (_, index) => `file-${index}.ts`);
+    const { harness, calls } = await setup({
+      diffFiles: {
+        ...AVAILABLE_FILES,
+        files: paths.map((path, index) => ({
+          ...AVAILABLE_FILES.files[0]!,
+          path,
+          revision: `revision-${index}`,
+        })),
+      },
+    });
+    const result = await harness.callRpc("getPatches", {
+      threadId: "thr_1",
+      query: { target: "uncommitted" },
+      paths,
+    });
+    expect(result).toEqual({
+      kind: "ok",
+      patches: Object.fromEntries(paths.map((path) => [path, "@@ -1 +1 @@\n-x\n+y\n"])),
+    });
+    const batches = calls.diffPatch as { keys: string[] }[];
+    expect(batches.map(({ keys }) => keys.length)).toEqual([50, 1]);
+    expect(JSON.parse(batches[1]!.keys[0]!)).toEqual([
+      "env-1",
+      { type: "uncommitted" },
+      false,
+      "file-50.ts",
+      "revision-50",
+    ]);
+  });
+
+  it("requires a fresh file revision before requesting a missing path", async () => {
+    const { harness, calls } = await setup();
+    const result = await harness.callRpc("getPatches", {
+      threadId: "thr_1",
+      query: { target: "uncommitted" },
+      paths: ["gone.ts"],
+    });
+    expect(result).toEqual({ kind: "error", message: "File changed. Refresh changes: gone.ts" });
+    expect(calls.diffPatch).toEqual([]);
+  });
+
+  it.each(["missing", "unavailable", "not_applicable"] as const)(
+    "reports a %s keyed patch result without a false success",
+    async (outcome) => {
+      const { harness } = await setup({
+        patches: (keys) =>
+          outcome === "missing"
+            ? {}
+            : {
+                [keys[0]!]:
+                  outcome === "not_applicable"
+                    ? { outcome, message: "Not a Git workspace" }
+                    : {
+                        outcome,
+                        failure: {
+                          code: "permission_denied",
+                          workspacePath: "/w",
+                          message: "Permission denied",
+                        },
+                      },
+              },
+      });
+      const result = await harness.callRpc("getPatches", {
+        threadId: "thr_1",
+        query: { target: "uncommitted" },
+        paths: ["src/new.ts"],
+      });
+      expect(result).toEqual({
+        kind: "error",
+        message:
+          outcome === "missing"
+            ? "Patch unavailable. Refresh changes."
+            : outcome === "not_applicable"
+              ? "Not a Git workspace"
+              : "Permission denied",
+      });
+    },
+  );
 });
 
 describe("sendFeedback", () => {

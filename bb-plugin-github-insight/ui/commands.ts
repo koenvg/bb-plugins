@@ -1,4 +1,5 @@
 import type { PluginCommandContext, PluginCommandRegistration } from "@get-bb/plugin-sdk/app";
+import { PR_TAB } from "../pr-panel-navigation";
 import { postIntent, type CommandTab, type IntentOf } from "./command-intents";
 import { canMerge, hasPr } from "./pr-availability";
 
@@ -24,7 +25,7 @@ function prTabCommand(
     isAvailable: availableWhen(hasPr),
     run: (context) => {
       const { threadId } = context;
-      if (threadId === null || !context.openPanel({ actionId: "pr" })) return;
+      if (threadId === null || !context.experimental_panel.openTab({ tab: PR_TAB })) return;
       for (const { tab, intent } of intents) postIntent(threadId, tab, intent);
     },
   };

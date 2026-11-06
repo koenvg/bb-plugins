@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { prTabOf } from "../test/app-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, LocalCommitsAhead, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
@@ -12,7 +13,7 @@ type Methods = Pick<
   "getInsight" | "refresh" | "runPrAction" | "localCommitsAhead" | "getTimeline"
 >;
 const app = await loadPluginApp(() => import("../app"));
-const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const tab = prTabOf(app);
 const banner = app.composerCustomizations.find((entry) => entry.id === "pr-insight")!.banners![0]!;
 
 const HEAD = "head-a";
@@ -59,9 +60,9 @@ function renderTab({
 } = {}) {
   const run = vi.fn(runPrAction);
   const localCommitsAhead = vi.fn(async () => localCommits);
-  const slot = renderSlot<PluginThreadPanelProps, Methods>(
+  const slot = renderSlot<ExperimentalThreadActionTabProps, Methods>(
     tab,
-    { threadId: "thr_update", params: null },
+    { threadId: "thr_update", environment: null, params: null },
     {
       rpc: {
         getInsight: async () => ok(insight),
