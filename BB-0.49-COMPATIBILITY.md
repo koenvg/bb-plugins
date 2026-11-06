@@ -26,6 +26,12 @@ The Markdown preview watcher initially failed inside the filesystem sandbox. The
 
 Independent read-only Codex review approved the corrected source. It caught an absolute-path mismatch in Changes that the original fixtures missed. The new regression failed before the fix. Changes then passed all 363 tests, its typecheck and rebuild, and root lint and formatting. The reviewer independently loaded full context through the candidate backend against the real Git plugin.
 
-Installed acceptance is pending. The running plugins still use the durable checkout, not this worktree. Browser fixture suites and live UI checks have not run for this update. A successful source test or build does not certify installed behavior.
+The durable installed checkout was fast-forwarded to reviewed code commit `d850c4f`. All 13 plugins rebuilt there, and all 29 JavaScript artifact hashes matched the reviewed worktree. All 13 plugins reloaded successfully on their existing paths. Pi with subagents became available.
+
+Live checks opened Changes and its context-expansion controls, opened the PR tab with the expected no-PR state for the owned thread, and observed both native navigation badges. Installed Changes loaded both README text sides, which matched the actual Git revisions. The owned browser space closed, and the thread's original closed-panel state was restored.
+
+Tasks Plus passed all 75 browser checks using its supported cached Chromium override. Its historical captures stayed unchanged, and its owned listener and temporary directory were removed. Four other fixture suites require missing Chromium build 1248 and cannot select the cached browser. The user explicitly approved leaving those suites unverified and using live BB smoke checks instead. No browser was downloaded.
+
+Exactly `continue` was accepted for all 29 approved existing Pi threads. Five messages dispatched immediately. The remaining 24 queued under the existing six-thread concurrency limit. The limit was unchanged. This records delivery and provider recovery, not completion of those tasks.
 
 Pi's [compatibility document](bb-plugin-pi-subagents-provider/COMPATIBILITY.md) retains its previous lifecycle and persistence limits. This update does not certify new paid model behavior, compaction, or subagent retention beyond the checks explicitly recorded for this run.
