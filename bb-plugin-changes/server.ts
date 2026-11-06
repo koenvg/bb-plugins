@@ -1,3 +1,4 @@
+import * as git from "./git";
 import { videoError, isVideoPath, type VideoWireResult } from "./core/video-content";
 import {
   ContextError,
@@ -62,14 +63,13 @@ async function environmentIdOf(sdk: Sdk, threadId: string): Promise<string> {
 }
 
 async function baseBranchOf(sdk: Sdk, environmentId: string): Promise<string> {
-  const status = await sdk.environments.status({ environmentId });
+  const status = await git.workspaceStatus(sdk, { environmentId });
   if (status.outcome === "not_applicable") throw new ChangesUnavailableError(status.message, true);
   if (status.outcome === "unavailable") throw new ChangesUnavailableError(status.failure.message);
   const defaultBranch = status.workspace.branch.defaultBranch;
-  const { remoteBranches } = await sdk.environments.diffBranches({ environmentId });
-  // A local default branch is often behind the remote, which would pull merged work into the diff.
   const remoteDefault = `origin/${defaultBranch}`;
-  return remoteBranches.includes(remoteDefault) ? remoteDefault : defaultBranch;
+  const { selectedBranch } = await git.branches(sdk, environmentId, remoteDefault);
+  return selectedBranch?.kind === "remote" ? remoteDefault : defaultBranch;
 }
 
 async function branchCommits(
@@ -79,7 +79,7 @@ async function branchCommits(
   warn: (message: string) => void,
 ): Promise<BranchCommit[]> {
   try {
-    const status = await sdk.environments.status({ environmentId, mergeBaseBranch: baseBranch });
+    const status = await git.workspaceStatus(sdk, { environmentId, mergeBaseBranch: baseBranch });
     const commits =
       status.outcome === "available" ? (status.workspace.mergeBase?.commits ?? []) : [];
     return commits.map(({ sha, shortSha, subject }) => ({ sha, shortSha, subject }));
@@ -97,7 +97,7 @@ function failure(error: unknown): { kind: "no_git" } | { kind: "error"; message:
 
 async function checkoutHead(sdk: Sdk, environmentId: string): Promise<string | null> {
   try {
-    const status = await sdk.environments.status({ environmentId });
+    const status = await git.workspaceStatus(sdk, { environmentId });
     return status.outcome === "available" && "headSha" in status.workspace.checkout
       ? status.workspace.checkout.headSha
       : null;
@@ -123,8 +123,7 @@ async function getTextContext(
     const revisions = textRevisions(basis, file);
     const read = async (revision: TextRevision): Promise<TextSide> => {
       if (revision.kind === "absent") return revision;
-      const result = await sdk.environments.diffFile({
-        environmentId: basis.environmentId,
+      const result = await git.fileSide(sdk, basis.environmentId, {
         path: revision.path,
         ...(revision.kind === "working_tree"
           ? { target: "uncommitted" as const, side: "new" as const }
@@ -184,8 +183,7 @@ async function getImage(
           : basis.headSha;
     if (!live && !imageShaSchema.safeParse(sha).success)
       return imageError("stale", "Image revision unavailable. Refresh changes.");
-    const result = await sdk.environments.diffFile({
-      environmentId: basis.environmentId,
+    const result = await git.fileSide(sdk, basis.environmentId, {
       path,
       ...(live
         ? { target: "uncommitted" as const, side: "new" as const }
@@ -216,11 +214,11 @@ async function getChanges(
       branchCommits(sdk, environmentId, baseBranch, warn),
       (async () => {
         let headSha = await checkoutHead(sdk, environmentId);
-        let diff = await sdk.environments.diffFiles({ environmentId, ...query });
+        let diff = await git.files(sdk, environmentId, patchTarget(query));
         let endHead = await checkoutHead(sdk, environmentId);
         if (headSha !== endHead) {
           headSha = endHead;
-          diff = await sdk.environments.diffFiles({ environmentId, ...query });
+          diff = await git.files(sdk, environmentId, patchTarget(query));
           endHead = await checkoutHead(sdk, environmentId);
         }
         return { diff, headSha, stable: headSha !== null && headSha === endHead };
@@ -262,17 +260,7 @@ async function getPatches(
 ): Promise<PatchesResult> {
   try {
     const environmentId = await environmentIdOf(sdk, threadId);
-    const result = await sdk.environments.diffPatch({
-      environmentId,
-      paths,
-      target: patchTarget(query),
-    });
-    if (result.outcome === "not_applicable") return { kind: "error", message: result.message };
-    if (result.outcome === "unavailable") return { kind: "error", message: result.failure.message };
-    return {
-      kind: "ok",
-      patches: Object.fromEntries(result.patches.map(({ path, patch }) => [path, patch])),
-    };
+    return { kind: "ok", patches: await git.patches(sdk, environmentId, query, paths) };
   } catch (error) {
     return { kind: "error", message: messageOf(error) };
   }

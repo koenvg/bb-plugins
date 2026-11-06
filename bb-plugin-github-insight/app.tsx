@@ -1,9 +1,9 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { PR_TAB } from "./pr-panel-navigation";
 import { GITHUB_COMMANDS } from "./ui/commands";
 import { ComposerBanner } from "./ui/composer-banner";
 import { hideHostPrStrip } from "./ui/hide-host-pr-strip";
-import { PrRailBadge } from "./ui/pr-rail-badge";
-import { PrSidebarBadge } from "./ui/pr-sidebar-badge";
+import { usePrBadge } from "./ui/pr-sidebar-badge";
 import { PrPanel } from "./ui/pr-panel";
 import { PullRequestsPanel } from "./ui/pull-requests-panel";
 import { PANEL_PATH } from "./ui/pull-requests-routes";
@@ -15,11 +15,11 @@ export default definePluginApp((app) => {
     icon: "GitPullRequest",
     path: PANEL_PATH,
     component: PullRequestsPanel,
-    experimental_sidebarAccessory: PrSidebarBadge,
+    experimental_useBadge: usePrBadge,
   });
-  app.slots.experimental_appOverlay({ id: "pr-rail-badge", component: PrRailBadge });
-  app.slots.threadPanelAction({
-    id: "pr",
+  app.slots.experimental_tab({
+    ...PR_TAB,
+    icon: "GitPullRequest",
     title: "PR",
     layout: "flush",
     component: PrPanel,

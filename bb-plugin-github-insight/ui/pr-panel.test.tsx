@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { prTabOf, commandContext } from "../test/app-fixtures";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, ReviewResult, rpcContract, TimelineResult } from "../contract";
 import type { ImageWireResult } from "../core/image-content";
 import type { ReviewThread } from "../core/review-threads";
@@ -33,7 +34,7 @@ beforeAll(() => {
 });
 
 const app = await loadPluginApp(() => import("../app"));
-const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const prTab = prTabOf(app);
 
 afterEach(() => {
   cleanup();
@@ -70,9 +71,9 @@ interface Handlers {
 
 function renderPanel(threadId = "thr_1", handlers: Handlers = {}) {
   const fail = () => ({ kind: "error" as const, message: "unused" });
-  return renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+  return renderSlot<ExperimentalThreadActionTabProps, typeof rpcContract>(
     prTab,
-    { threadId, params: null },
+    { threadId, environment: null, params: null },
     {
       rpc: {
         getPrVideo: () => ({ kind: "error", code: "read", message: "unavailable" }),
@@ -132,7 +133,7 @@ function reviewCalls(slot: Slot) {
 
 describe("PR panel", () => {
   it("registers one flush PR action and no Review action", () => {
-    expect(app.threadPanelActions.map(({ id }) => id)).toEqual(["pr"]);
+    expect(app.tabs.map(({ id }) => id)).toEqual(["pr"]);
     expect(prTab).toMatchObject({ title: "PR", layout: "flush" });
   });
 
@@ -268,7 +269,7 @@ describe("PR panel", () => {
 
 function runCommand(id: string, threadId = "thr_1") {
   const found = GITHUB_COMMANDS.find((entry) => entry.id === id)!;
-  void found.run({ threadId, projectId: null, openPanel: () => true });
+  void found.run(commandContext(threadId, () => true));
 }
 
 describe("PR panel palette commands", () => {

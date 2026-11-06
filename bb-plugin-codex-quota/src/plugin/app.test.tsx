@@ -1,4 +1,12 @@
 // @vitest-environment jsdom
+function NavBadge() {
+  const badge = installed.navPanels[0]!.experimental_useBadge!();
+  return badge ? (
+    <output title={badge.label} aria-label={badge.label}>
+      {badge.text}
+    </output>
+  ) : null;
+}
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -36,8 +44,7 @@ function fixture(multiple = false) {
     const slot = renderSlot(panel, { subPath: "" }, options);
     return { ...slot, ...within(slot.container) };
   };
-  const accessory = () =>
-    renderSlot({ component: panel.experimental_sidebarAccessory! }, {}, options);
+  const accessory = () => renderSlot({ component: NavBadge }, {}, options);
   return {
     now,
     data,
@@ -140,7 +147,9 @@ describe("all-machine Codex slots", () => {
     f.data.accounts[1]!.activity = emptyActivity("auth-required");
     const page = f.dashboard(),
       badge = f.accessory();
-    await waitFor(() => expect(badge.container.textContent).toBe("63%known"));
+    await waitFor(() => expect(badge.container.textContent).toBe("63%"));
+    expect(badge.getByLabelText(/Lowest known Codex account allowance/)).toBeTruthy();
+    expect(badge.getByTitle(/some accounts unavailable or unverified/)).toBeTruthy();
     expect(badge.queryByText("min")).toBeNull();
     expect(
       page.getByText(

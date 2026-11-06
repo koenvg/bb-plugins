@@ -10,7 +10,7 @@ import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
 import {
   parsePatchFiles,
@@ -131,7 +131,10 @@ beforeAll(() => {
 afterEach(cleanup);
 
 const app = await loadPluginApp(() => import("../app"));
-const changesTab = app.threadPanelActions.find((action) => action.id === "changes")!;
+const changesTab = app.tabs.find(
+  (tab): tab is Extract<typeof tab, { context: { kind: "thread" }; availability: "action" }> =>
+    tab.id === "changes" && tab.context.kind === "thread" && tab.availability === "action",
+)!;
 
 const PATCH_A =
   "diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep\n";
@@ -190,9 +193,9 @@ interface Handlers {
 }
 
 function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
-  const slot = renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+  const slot = renderSlot<ExperimentalThreadActionTabProps, typeof rpcContract>(
     changesTab,
-    { threadId, params: null },
+    { threadId, environment: null, params: null },
     {
       openFilePreview: handlers.openFilePreview ?? (() => true),
       rpc: {

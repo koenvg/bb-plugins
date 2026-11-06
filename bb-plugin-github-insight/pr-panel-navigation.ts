@@ -1,3 +1,9 @@
+export const PR_TAB = {
+  id: "pr",
+  context: { kind: "thread" },
+  availability: "action",
+} as const;
+
 const PENDING = Symbol.for("github-insight.pr-panel-navigation.v1");
 const EVENT = "github-insight.pr-panel-navigation.v1";
 type Request = { threadId: string; token: symbol; expiresAt: number; opening?: boolean };

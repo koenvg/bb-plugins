@@ -26,12 +26,15 @@ it("opens the matching destination even when its blocker banner is hidden", asyn
       composer: { scope: { kind: "thread", threadId: "thread-b" } },
       context: { threadId: "thread-b" },
       rpc: { getInsight: () => ({ kind: "no_pr" }) },
-      openThreadPanel: () => true,
+      experimental_panel: { openTab: () => true },
     },
   );
   await waitFor(() =>
-    expect(slot.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(slot.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]),
   );
   expect(slot.queryByRole("button")).toBeNull();
@@ -79,7 +82,7 @@ function mount(
       composer: { scope: { kind: "thread", threadId } },
       context: { threadId },
       rpc: { getInsight },
-      openThreadPanel,
+      experimental_panel: { openTab: openThreadPanel },
     },
   );
 }
@@ -95,38 +98,44 @@ it("opens from an already-mounted receiver without waiting for insight", async (
   );
   act(() => requestPrPanel("thread-b", () => {}));
   await waitFor(() =>
-    expect(slot.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(slot.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]),
   );
   await act(async () => resolve(readyInsight));
   expect(slot.getByRole("button", { name: "Open" })).toBeTruthy();
-  expect(slot.inspection.navigateCalls).toHaveLength(1);
+  expect(slot.inspection.experimental_panelCalls).toHaveLength(1);
 });
 
 it("uses the new thread scope and removes the old thread's receiver", async () => {
   const slot = mount("thread-a");
   act(() => requestPrPanel("thread-b", () => {}));
-  expect(slot.inspection.navigateCalls).toHaveLength(0);
+  expect(slot.inspection.experimental_panelCalls).toHaveLength(0);
   await slot.behavior.setComposerScope({ kind: "thread", threadId: "thread-b" });
-  expect(slot.inspection.navigateCalls).toEqual([
-    { method: "openThreadPanel", options: { actionId: "pr" } },
+  expect(slot.inspection.experimental_panelCalls).toEqual([
+    {
+      method: "openTab",
+      options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+    },
   ]);
   act(() => requestPrPanel("thread-a", () => {}));
-  expect(slot.inspection.navigateCalls).toHaveLength(1);
+  expect(slot.inspection.experimental_panelCalls).toHaveLength(1);
 });
 
 it("does not reopen a consumed request after remount and cleans up on unmount", async () => {
   requestPrPanel("thread-b", () => {});
   const first = mount();
-  await waitFor(() => expect(first.inspection.navigateCalls).toHaveLength(1));
+  await waitFor(() => expect(first.inspection.experimental_panelCalls).toHaveLength(1));
   first.lifecycle.unmount();
   const second = mount();
-  expect(second.inspection.navigateCalls).toHaveLength(0);
+  expect(second.inspection.experimental_panelCalls).toHaveLength(0);
   second.lifecycle.unmount();
   requestPrPanel("thread-b", () => {});
-  expect(first.inspection.navigateCalls).toHaveLength(1);
-  expect(second.inspection.navigateCalls).toHaveLength(0);
+  expect(first.inspection.experimental_panelCalls).toHaveLength(1);
+  expect(second.inspection.experimental_panelCalls).toHaveLength(0);
 });
 
 it("keeps a declined embedded-surface request for the destination side panel", async () => {
@@ -137,8 +146,11 @@ it("keeps a declined embedded-surface request for the destination side panel", a
   embedded.lifecycle.unmount();
   const main = mount();
   await waitFor(() =>
-    expect(main.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(main.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]),
   );
 });
@@ -173,7 +185,7 @@ it("opens a visible compact PR panel when the destination mounts", async () => {
       composer: { scope: { kind: "thread", threadId: "thread-b" } },
       context: { threadId: "thread-b" },
       rpc: { getInsight: () => readyInsight },
-      openThreadPanel: () => openDrawer(),
+      experimental_panel: { openTab: () => openDrawer() },
     },
   );
   expect(await slot.findByRole("complementary", { name: "PR panel" })).toBeTruthy();
@@ -184,9 +196,9 @@ it("does not open an unmounted destination while registration is pending", async
   const abandoned = mount();
   abandoned.lifecycle.unmount();
   await act(async () => {});
-  expect(abandoned.inspection.navigateCalls).toHaveLength(0);
+  expect(abandoned.inspection.experimental_panelCalls).toHaveLength(0);
   const destination = mount();
-  await waitFor(() => expect(destination.inspection.navigateCalls).toHaveLength(1));
+  await waitFor(() => expect(destination.inspection.experimental_panelCalls).toHaveLength(1));
 });
 
 function listenForSubTab(threadId: string) {
@@ -199,7 +211,7 @@ it("selects Overview in the PR tab that the badge opens", async () => {
   const subTab = listenForSubTab("thread-sub-tab");
   const slot = mount("thread-sub-tab");
   act(() => requestPrPanel("thread-sub-tab", () => {}));
-  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  await waitFor(() => expect(slot.inspection.experimental_panelCalls).toHaveLength(1));
   expect(subTab).toEqual(["show-overview"]);
 });
 
