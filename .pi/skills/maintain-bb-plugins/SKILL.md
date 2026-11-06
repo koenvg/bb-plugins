@@ -32,11 +32,16 @@ automation approved by Koen.
   candidates and verify them.
 
 ## Maintenance
+- After the successful pull, run `bun --no-install run sdk:audit --all-worktrees` from the
+  approved checkout before dependency setup, builds, or installation. Retain its JSON and exit
+  status. Follow [SDK audit guidance](../../../README.md#audit-and-align-the-host-sdk).
+  Interpret each official diagnostic under the exception below, not from its exit code alone.
+  Other thread worktrees are report-only. Do not run SDK alignment in this automation.
 - Host-version policy approved by Koen: a newer BB host or host SDK version alone must not stop
   this maintenance automation. An exact difference between a plugin's committed SDK pin and the
   host SDK is not proof of runtime incompatibility. Do not require bb plugin types --check to
-  pass as a prerequisite to the builds and installations below. If that optional diagnostic is
-  run, treat a diagnostic that only requests SDK pin synchronization as advisory. For this
+  pass as a prerequisite to the builds and installations below. Treat an audit diagnostic
+  that only requests SDK pin synchronization as advisory. For this
   automation only, this rule overrides the exact-pin synchronization gate in the repository's
   verification workflow. It does not waive any other diagnostic or actual incompatibility.
 - Keep the committed dependency pins and declared engines.bb and engines.bbPluginSdk constraints

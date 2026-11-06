@@ -19,6 +19,7 @@ const rootScripts = [
   "test:workspaces",
   "test:browser-lifecycle",
   "test:review",
+  "test:sdk",
   "lint",
   "format:check",
 ];

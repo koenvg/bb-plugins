@@ -30,7 +30,7 @@ Install one plugin at a time from Git with `--subdirectory`, for example:
 bb plugin install git:https://github.com/koenvg/bb-plugins.git@main --subdirectory bb-plugin-github-insight
 ```
 
-For a local checkout, run `bun install --frozen-lockfile`, then `bb plugin build` in the selected directory before `bb plugin install .`. Follow each plugin's README for setup and compatibility details.
+For a local checkout, [audit the SDK declarations](#audit-and-align-the-host-sdk) before dependency setup, builds, or installation. Then run `bun install --frozen-lockfile`, followed by `bb plugin build` in the selected directory before `bb plugin install .`. Follow each plugin's README for setup and compatibility details.
 
 Codex Inspired is an optional theme, independent of Compose Chat. After its package is published on `main`, install and select it with:
 
@@ -44,6 +44,40 @@ Installation alone does not change your active theme. See its [README](bb-plugin
 Tasks Plus replaces BB's bundled Tasks plugin and keeps the `bb tasks` command. Enable only one of these two plugins at a time. Follow the [replacement and data import steps](bb-plugin-tasks-plus/README.md#replace-the-bundled-plugin-with-this-fork) before switching.
 
 Code Cleanup's [default guidance](bb-plugin-code-cleanup/guidance.ts) uses `bb tasks`. It requires one tracker whose `linkedBbProjectId` matches the current BB project. Use the tracker prefix or ID for task commands, never the BB project ID. If the CLI is unavailable or the tracker is missing or ambiguous, report the problem and ask for a linked tracker or the CLI. Do not file cleanup in another tracker. The guidance searches all open-task pages, reuses matches, and records follow-ups without starting cleanup work. Saved custom prompts replace this default.
+
+## Audit and align the host SDK
+
+After a BB upgrade, audit before dependency setup, builds, or plugin installation. Run from the checkout root with the installed BB CLI on `PATH`:
+
+```sh
+bun --no-install run sdk:audit
+bun --no-install run sdk:audit --all-worktrees
+bun --no-install run sdk:audit --package bb-plugin-pi-subagents-provider
+```
+
+Audit writes nothing. Its JSON retains checkout path, HEAD, dirty state, package identity, committed and working SDK/runtime declarations, and official `bb plugin types --check` exit/stdout/stderr. Exit 1 means attention is required, not necessarily harmless pin drift. Review the official diagnostic. Other worktrees are report-only. Missing worktrees remain visible as errors. Strict verification blocks on diagnostics, apart from its existing documented provider exception. Daily maintenance retains its separately approved pin-only advisory exception and never rewrites pins.
+
+To review an alignment without changing the checkout or installing dependencies:
+
+```sh
+bun --no-install run sdk:align --package bb-plugin-pi-subagents-provider
+```
+
+Preview copies complete manifests, tsconfig files, and vendored-type detection inputs outside the checkout, then runs official synchronization there. That command may query npm publication metadata and affect caches. Preview shows SDK/shim declaration changes, reconciles only existing SDK runtime npm aliases, and checks unchanged BB/SDK engine ranges with Bun semver. The root lockfile remains unresolved until apply. Repeat `--package` for exact selected directories.
+
+Only after separate dependency-write approval, apply in the clean checkout you own. Review repository scripts and lifecycle hooks first. Use a new evidence directory outside every worktree:
+
+```sh
+bun --no-install run sdk:align --owned-checkout "$PWD" \
+  --package bb-plugin-pi-subagents-provider --apply \
+  --evidence "$BB_THREAD_STORAGE/sdk-alignment-review"
+```
+
+Apply rejects dirty or foreign checkouts and active Git operations. It projects and admits every selection before real writes. It then synchronizes selected manifests, reconciles existing aliases, runs one root `NODE_ENV=development bun install --ignore-scripts`, official postchecks, required local shared prerequisites, selected `check:review`, and official builds. Ordinary initial pin drift does not block the alignment that fixes it. Tests and builds execute repository-owned commands and can have effects. The CLI directly invokes no BB plugin activation, source-switch, configuration, or task command.
+
+On failure, inspect JSON stages, retained diagnostics, the partial Git diff, and review evidence. Later stages stay skipped. Resolve the failure manually. The command does not reset, stash, retry, or roll back changes. Bring reviewed alignment changes into another thread's checkout only with its owner's approval. Do not align other sources silently.
+
+Run isolated CLI regressions with `bun --no-install run test:sdk`. They stub BB/Bun executable boundaries in disposable Git workspaces and download no dependencies. Fixture passes are not live installed acceptance.
 
 ## BB worktree setup
 
@@ -64,7 +98,7 @@ bash .bb-env-setup.sh
 bun run check
 ```
 
-`bun run check` runs setup tests, installed-workspace checks, browser lifecycle tests, lint, and formatting checks in order. It stops on the first failure. The lifecycle tests exercise local fixture servers and process cleanup without Chromium. Run them separately with `bun run test:browser-lifecycle`.
+`bun run check` runs setup tests, installed-workspace checks, browser lifecycle tests, review-runner tests, isolated SDK CLI tests, lint, and formatting checks in order. It reports every check even after a failure. SDK tests never run live audit in CI. The lifecycle tests exercise local fixture servers and process cleanup without Chromium. Run them separately with `bun run test:browser-lifecycle`.
 
 To format files or apply safe lint fixes:
 
