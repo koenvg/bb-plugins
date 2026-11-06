@@ -23,6 +23,8 @@ mkdir -m 700 "$EVIDENCE"
 
 Choose `PLUGIN` from the index, not an installed catalog name. Follow its additional prerequisites before checks. GitHub Insight needs its sibling PR thread-list dependencies. Tasks Plus needs SQLite, the built local Markdown package, Quota fixture dependencies, and its pinned TypeScript 7 compiler. Do not use generic setup to bypass these requirements.
 
+Before dependency setup, builds, or installation, run `bun --no-install run sdk:audit --package "bb-plugin-$PLUGIN"` and retain its JSON and exit status in `EVIDENCE`. Follow [SDK audit guidance](../../../README.md#audit-and-align-the-host-sdk). A nonzero diagnostic blocks dependent steps, subject only to the installed workflow's existing provider exception. Alignment needs separate permission. Other worktrees remain report-only.
+
 Reuse prepared dependencies. Setup requires separate permission. If authorized and the package-specific prerequisites are available, install workspace dependencies from the root lockfile and build shared Markdown:
 
 ```sh

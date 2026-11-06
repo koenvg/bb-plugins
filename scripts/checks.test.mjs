@@ -22,6 +22,7 @@ const rootScripts = [
   "test:workspaces",
   "test:browser-lifecycle",
   "test:review",
+  "test:sdk",
   "lint",
   "format:check",
 ];
@@ -31,6 +32,10 @@ const entryScripts = {
   check: "bun --no-install scripts/checks.mjs root",
   "check:review": "bun --no-install scripts/checks.mjs review",
   "test:review": "bun test scripts/checks.test.mjs",
+  sdk: "bun --no-install scripts/sdk.mjs",
+  "sdk:audit": "bun --no-install scripts/sdk.mjs audit",
+  "sdk:align": "bun --no-install scripts/sdk.mjs align",
+  "test:sdk": "bun --no-install test scripts/sdk.test.mjs",
 };
 
 function fixture(t, exits = {}, missing = []) {
@@ -65,7 +70,10 @@ process.exit(JSON.parse(process.env.CHECK_EXITS)[id] ?? 0);
       scripts[script] = `bun ${name === "root" ? "" : "../"}leaf.mjs FORBIDDEN:${script}`;
     }
     if (name === "root")
-      Object.assign(scripts, entryScripts, { "test:review": scripts["test:review"] });
+      Object.assign(scripts, entryScripts, {
+        "test:review": scripts["test:review"],
+        "test:sdk": scripts["test:sdk"],
+      });
     writeFileSync(join(cwd, "package.json"), JSON.stringify({ private: true, scripts }));
   }
   const evidence = join(home, "new evidence");
@@ -138,7 +146,7 @@ test("root and root-only review run the same checks, never plugin suites", (t) =
   assert.equal(summary.passed, true);
   assert.deepEqual(
     summary.results.map((result) => result.exitCode),
-    [0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0],
   );
   assert.ok(result.stdout.includes(f.evidence));
 });
@@ -201,7 +209,7 @@ test("multiple exact failures preserve test, typecheck and later package outcome
   ]);
   assert.deepEqual(
     f.json("summary.json").results.map(({ exitCode, signal, error }) => [exitCode, signal, error]),
-    [0, 0, 0, 0, 31, 0, 42, 43, 0, 57].map((code) => [code, null, null]),
+    [0, 0, 0, 0, 0, 31, 0, 42, 43, 0, 57].map((code) => [code, null, null]),
   );
 });
 
@@ -209,7 +217,7 @@ test("missing scripts fail without fabricating an exit or skipping later checks"
   const f = fixture(t, {}, ["root:lint", "bb-plugin-alpha:test"]);
   assert.equal(review(f, [packages[0]]).status, 1);
   const summary = f.json("summary.json");
-  for (const index of [4, 6]) {
+  for (const index of [5, 7]) {
     assert.equal(summary.results[index].exitCode, null);
     assert.match(summary.results[index].error, /Missing script/);
   }
