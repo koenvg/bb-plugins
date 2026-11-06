@@ -95,7 +95,7 @@ async function setup(page: Page) {
         if (state.failMove) {
           result = tasksRpcContract.boardMove.output.parse({
             ok: false,
-            error: { code: "creator_thread_open", message: "Fixture move refused" },
+            error: { code: "task_pr_open", message: "Fixture move refused" },
           });
           break;
         }

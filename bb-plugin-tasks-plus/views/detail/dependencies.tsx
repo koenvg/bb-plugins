@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useBbNavigate, useSdk } from "@get-bb/plugin-sdk/app";
 import { isOpenRef } from "../dependencies.js";
 import type { Task, TaskDependencyRef } from "../../shared/contract.js";
@@ -75,11 +75,9 @@ function useCreatorThreadMetadata(threadId: Task["createdByThreadId"]): CreatorM
 
 function CreatorThreadRelation({
   threadId,
-  blocked,
   metadata,
 }: {
   threadId: string;
-  blocked: boolean;
   metadata: CreatorMetadata;
 }) {
   const navigate = useBbNavigate();
@@ -112,13 +110,6 @@ function CreatorThreadRelation({
           {title}
         </span>
         <span className="mt-1 block min-h-4 text-xs text-muted-foreground">{state}</span>
-        <span className="mt-1 block text-xs text-muted-foreground">
-          {blocked
-            ? lifecycle === "archived" || lifecycle === "deleted"
-              ? "Task still reports this creator as blocking."
-              : "Waiting for the creator thread to be archived."
-            : "Not an open blocker"}
-        </span>
       </span>
       <Icon name="ArrowUpRight" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
     </button>
@@ -207,7 +198,6 @@ function DependencyList({
   catalog,
   onAdd,
   onRemove,
-  children,
 }: {
   side: Side;
   refs: readonly TaskDependencyRef[];
@@ -215,7 +205,6 @@ function DependencyList({
   catalog: CandidateCatalog;
   onAdd: (task: Task) => void;
   onRemove: (ref: TaskDependencyRef) => void;
-  children?: ReactNode;
 }) {
   const navigation = useTasksNavigation();
   const open = side === "blockedBy" ? refs.filter(isOpenRef) : refs;
@@ -261,8 +250,7 @@ function DependencyList({
     <section aria-label={SIDE_TITLES[side]} className="mt-5">
       <h2 className="mb-1 text-xs font-semibold text-muted-foreground">{SIDE_TITLES[side]}</h2>
       {open.map(row)}
-      {children}
-      {side === "blockedBy" && open.length === 0 && !children ? (
+      {side === "blockedBy" && open.length === 0 ? (
         <p className="py-3 text-xs text-muted-foreground">No open blockers.</p>
       ) : null}
       {resolved.length > 0 ? (
@@ -345,11 +333,7 @@ export function DependencySections({
         catalog={catalog}
         onAdd={(picked) => void link(picked.id, task.id)}
         onRemove={(ref) => void unlink(ref.id, task.id)}
-      >
-        {task.createdByThreadId && task.creatorThreadBlocked === true ? (
-          <CreatorThreadRelation threadId={task.createdByThreadId} blocked metadata={creator} />
-        ) : null}
-      </DependencyList>
+      />
       <DependencyList
         side="blocks"
         refs={blocks}
@@ -364,11 +348,7 @@ export function DependencySections({
           className="mt-6 border-t border-border-hairline pt-5"
         >
           <h2 className="mb-1 text-xs font-semibold text-muted-foreground">Created in thread</h2>
-          <CreatorThreadRelation
-            threadId={task.createdByThreadId}
-            blocked={task.creatorThreadBlocked === true}
-            metadata={creator}
-          />
+          <CreatorThreadRelation threadId={task.createdByThreadId} metadata={creator} />
           <p className="mt-2 text-xs text-muted-foreground">
             Creation attribution is separate from the blocking relations above.
           </p>

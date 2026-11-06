@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import type { PluginCommandContext } from "@get-bb/plugin-sdk/app";
 import { makeTask, rpcInput } from "../test-fixtures.js";
 import { DetailView } from "../views/detail/index.js";
@@ -13,7 +14,7 @@ const Panel = app.navPanels[0]!.component;
 const context: PluginCommandContext = {
   threadId: null,
   projectId: null,
-  experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+  experimental_panel: experimental_makePanelController(),
 };
 const project = {
   id: "01HZZZZZZZZZZZZZZZZZZZZZP1",

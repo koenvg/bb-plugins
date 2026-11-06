@@ -54,10 +54,11 @@ Both `check` and `check:review` run the same ordered root checks, including lint
 
 Inspect every result. Nonzero exits, unavailable exits, signals and evidence errors block review readiness and dependent installed activation. Do not suppress failures or upgrade dependencies to make checks pass. A local check pass is not installed acceptance. Setup, SDK synchronization, browser suites and installed activation each require separate permission; this command grants none.
 
-With separate permission for browser setup and execution, install the package's pinned Chromium for Compose Chat, Codex Quota, Markdown Reader or Pi Subagents, then run the existing browser suite through the evidence wrapper:
+Before proposing a browser download, follow [reuse existing binaries for owned Playwright fixtures](references/browser-contract.md#reuse-existing-binaries-for-owned-playwright-fixtures). A compatible existing full Chrome or Chromium binary is valid for local fixture checks when the runner supports selecting it. Browser execution still needs permission; downloads and installation need separate approval.
+
+For Compose Chat, Codex Quota, Markdown Reader or Pi Subagents, run the existing suite through the evidence wrapper:
 
 ```sh
-(cd "$PACKAGE" && bun --bun run playwright install chromium)
 "$SKILL/scripts/browser.sh" "$PLUGIN" "$EVIDENCE/browser"
 ```
 

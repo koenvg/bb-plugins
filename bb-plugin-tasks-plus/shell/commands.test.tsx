@@ -2,6 +2,7 @@
 import { act, cleanup, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import type { PluginCommandContext } from "@get-bb/plugin-sdk/app";
 
 if (!window.matchMedia) {
@@ -55,7 +56,7 @@ const rpc = {
 const context: PluginCommandContext = {
   threadId: null,
   projectId: null,
-  experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+  experimental_panel: experimental_makePanelController(),
 };
 
 function command(id: string) {

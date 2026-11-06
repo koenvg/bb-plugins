@@ -4,6 +4,18 @@ Use this reference for installed BB checks through Browser Use, including connec
 
 Owned Playwright fixtures, including Compose Chat's synthetic runner, use the package's documented prerequisites and `bun run test:browser` command instead. They do not require Browser Use, Browser Harness, or a separately provisioned browser or profile. The runner starts this checkout on an owned loopback port, hands its origin to Playwright, and cleans only its own processes and temporary resources. Follow the package's evidence and cleanup rules. A fixture pass does not establish installed acceptance.
 
+## Reuse existing binaries for owned Playwright fixtures
+
+For an authorized local fixture run, check existing binaries before proposing installation.
+
+1. Use the package's expected cached full Chromium if available. Otherwise prefer an existing full Chrome for Testing, Chrome or Chromium executable from the shared Playwright cache or installed applications. Keep any explicit exact-version requirement.
+2. Select the executable through an option already supported by the runner or configuration. Environment-variable names are package-specific; inspect the configuration before using one. Keep the owned runner, origin handoff and assertions unchanged. If selection is unsupported, report that limit before proposing configuration changes or installation.
+3. Let Playwright launch an isolated test profile. Reuse only the executable, never a user's signed-in profile or running browser session. Leave shared browser caches and application binaries unchanged.
+4. Record the executable path, actual browser version, selection option and results in the evidence. A passing reused-binary run counts as local fixture proof, not proof against the package's default pinned build or installed BB.
+5. Retain failures rather than trying different browsers until one passes. If an exact-build reproduction is needed or no suitable binary exists, ask before downloading the package-pinned Chromium. Installation can prune obsolete Playwright cache versions.
+
+This is executable selection within an owned Playwright fixture, not permission to switch interactive browser tools, attach to user sessions or activate plugins.
+
 The remaining sections apply only to the installed Browser Use route.
 
 ## Browser policy and approval

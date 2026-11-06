@@ -148,7 +148,7 @@ describe("dispatch target rail control", () => {
         {
           ...props,
           layout,
-          task: makeTask({ createdByThreadId: "thr_creator", creatorThreadBlocked: true }),
+          task: makeTask({ createdByThreadId: "thr_creator" }),
         },
         { rpc: { listBbProjects: () => ({ bbProjects: [] }) } },
       );

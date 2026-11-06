@@ -25,6 +25,7 @@ function target(id: string): PluginThreadActionTarget {
     id,
     projectId: "prj_1",
     parentThreadId: null,
+    parentNotifications: "auto",
     archivedAt: null,
     pinnedAt: null,
     sectionId: null,

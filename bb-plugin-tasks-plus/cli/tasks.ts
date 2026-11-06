@@ -60,12 +60,9 @@ function dependencyTable(refs: readonly TaskDependencyRef[]): string {
 }
 
 function openBlockerKeys(task: Task): string[] {
-  return [
-    ...(task.blockedBy ?? [])
-      .filter((ref) => ref.status !== "done" && ref.status !== "canceled")
-      .map((ref) => ref.key),
-    ...(task.creatorThreadBlocked && task.createdByThreadId ? [task.createdByThreadId] : []),
-  ];
+  return (task.blockedBy ?? [])
+    .filter((ref) => ref.status !== "done" && ref.status !== "canceled")
+    .map((ref) => ref.key);
 }
 
 async function listAllTasks(domain: TasksDomain, input: ListTasksInput): Promise<Task[]> {

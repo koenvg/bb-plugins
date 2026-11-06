@@ -39,12 +39,11 @@ let task = makeTask({
   title: "Creator-thread follow-up",
   status: "backlog",
   createdByThreadId: hasCreator ? creatorId : null,
-  creatorThreadBlocked: hasCreator,
   blockedBy: populated ? [dependencyRef(openTask), dependencyRef(resolvedTask)] : [],
-  openBlockerCount: Number(populated) + Number(hasCreator),
-  blocked: populated || hasCreator,
+  openBlockerCount: Number(populated),
+  blocked: populated,
 });
-let child = makeTask({
+const child = makeTask({
   id: "01HZZZZZZZZZZZZZZZZZZZZZT4",
   number: 4,
   key: "CRT-4",
@@ -52,9 +51,8 @@ let child = makeTask({
   parentTaskId: task.id,
   status: "backlog",
   createdByThreadId: creatorId,
-  creatorThreadBlocked: true,
   blockedBy: [dependencyRef(openTask)],
-  openBlockerCount: 2,
+  openBlockerCount: 1,
   blocked: true,
   openBlockedCount: 1,
 });
@@ -84,14 +82,14 @@ const project = {
   linkedBbProjectId: null,
   createdAt: task.createdAt,
 };
+let completionAttempts = 0;
 function updateStatus(status: typeof task.status | undefined) {
-  if (status === "todo" && task.creatorThreadBlocked) {
+  if (status === "done" && params.has("completion-unavailable") && completionAttempts++ === 0) {
     return {
       ok: false,
       error: {
-        code: "creator_thread_open",
-        message:
-          "Cannot move task to todo: creator thread thr_creator is unarchived or unavailable",
+        code: "task_pr_unavailable",
+        message: "Could not inspect attached thread pull requests",
       },
     };
   }
@@ -178,13 +176,6 @@ for (const [id, blocked] of [
 ] as const) {
   document.getElementById(id)!.addEventListener("click", async () => {
     creatorArchived = !blocked;
-    task = {
-      ...task,
-      creatorThreadBlocked: hasCreator && blocked,
-      openBlockerCount: Number(populated) + Number(hasCreator && blocked),
-      blocked: populated || (hasCreator && blocked),
-    };
-    child = { ...child, creatorThreadBlocked: blocked, openBlockerCount: 1 + Number(blocked) };
     await slot.behavior.emitRealtime("tasks:changed", {
       taskId: task.id,
       projectId: task.projectId,

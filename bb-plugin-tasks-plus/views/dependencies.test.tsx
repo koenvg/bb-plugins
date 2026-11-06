@@ -144,19 +144,17 @@ describe.each([
   });
 
   it.each([
-    [true, [ref(3)], "Blocked by 1 task + 1 thread"],
-    [true, [], "Blocked by 1 thread"],
-    [false, [ref(3), ref(4, "canceled")], "Blocked by 1 task"],
-  ] as const)(
-    "distinguishes task and creator blockers with flag %s",
-    async (blocked, refs, label) => {
-      const entry = { ...task(5, { blockedBy: [...refs] }), creatorThreadBlocked: blocked };
-      const slot = render([entry], subPath);
-      const item = await itemFor(slot, "ABC-5");
-      expect(within(item).getByText(label).textContent).toBe(label);
-      expect(slot.inspection.sdkCalls).toEqual([]);
-    },
-  );
+    [[ref(3)], "Blocked by 1 task"],
+    [[], null],
+    [[ref(3), ref(4, "canceled")], "Blocked by 1 task"],
+  ] as const)("uses only task blockers with creator attribution", async (refs, label) => {
+    const entry = { ...task(5, { blockedBy: [...refs] }), createdByThreadId: "thr_creator" };
+    const slot = render([entry], subPath);
+    const item = await itemFor(slot, "ABC-5");
+    if (label) expect(within(item).getByText(label).textContent).toBe(label);
+    else expect(within(item).queryByText(/^Blocked by/)).toBeNull();
+    expect(slot.inspection.sdkCalls).toEqual([]);
+  });
 });
 
 describe("dependency filter", () => {

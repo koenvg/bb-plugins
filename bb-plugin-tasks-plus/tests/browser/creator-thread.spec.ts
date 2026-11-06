@@ -1,5 +1,31 @@
 import { test, expect } from "@playwright/test";
 
+test("a completion lookup error retains the status draft and permits manual retry", async ({
+  page,
+}) => {
+  await page.goto("/tests/creator-thread.html?completion-unavailable");
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText(
+    "Creator-thread follow-up",
+  );
+  await page
+    .getByRole("button", { name: "Backlog", exact: true })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Could not inspect attached thread pull requests",
+  );
+  await expect(page.getByLabel("Stored task status")).toHaveText("backlog");
+  await expect(
+    page.getByRole("button", { name: "Done", exact: true }).filter({ visible: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Retry save", exact: true }).click();
+  await expect(page.getByLabel("Stored task status")).toHaveText("done");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  const attribution = page.getByRole("region", { name: "Creation attribution" });
+  await expect(attribution.getByText("Not archived", { exact: true })).toBeVisible();
+});
+
 test("creator attribution is visible and opens its saved ID on touch", async ({ browser }) => {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -31,7 +57,7 @@ test("creator attribution is visible and opens its saved ID on touch", async ({ 
 });
 
 for (const width of [1280, 390]) {
-  test(`creator relations and todo refusal at ${width}px`, async ({ page }) => {
+  test(`creator attribution and immediate todo save at ${width}px`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
@@ -44,46 +70,23 @@ for (const width of [1280, 390]) {
     const creator = attribution.getByRole("button", {
       name: "Open creator thread thr_creator: Creator review thread",
     });
-    await expect(blocked.getByText("Creator review thread", { exact: true })).toBeVisible();
-    await expect(attribution.getByText("Not archived", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Creator thread information" })).toHaveCount(0);
-    await creator.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.getByLabel("Host navigation")).toHaveText(
-      '[{"method":"toThread","threadId":"thr_creator"}]',
-    );
-    await expect(creator).toBeFocused();
-    await page.screenshot({
-      path: test.info().outputPath("creator-relations.png"),
-      fullPage: true,
-    });
+    await expect(blocked.getByText("No open blockers.", { exact: true })).toBeVisible();
+    await expect(blocked.getByRole("button", { name: /Open creator thread/ })).toHaveCount(0);
+    await expect(creator).toBeVisible();
     await page
       .getByRole("button", { name: "Backlog", exact: true })
       .filter({ visible: true })
       .click();
     await page.getByRole("menuitem", { name: "Todo", exact: true }).click();
-    await expect(
-      page
-        .getByText(
-          "Cannot move task to todo: creator thread thr_creator is unarchived or unavailable",
-        )
-        .first(),
-    ).toBeVisible();
-    await expect(page.getByLabel("Stored task status")).toHaveText("backlog");
-    await expect(page.getByRole("menuitem", { name: "Todo", exact: true })).toBeHidden();
-    await page.screenshot({ path: test.info().outputPath("refusal.png"), fullPage: true });
-    await page.getByRole("button", { name: "Archive creator", exact: true }).click();
-    await expect(blocked.getByText("No open blockers.", { exact: true })).toBeVisible();
-    await expect(blocked.getByRole("button", { name: /Open creator thread/ })).toHaveCount(0);
-    await expect(attribution.getByText("Archived", { exact: true })).toBeVisible();
-    await expect(attribution.getByText("Not an open blocker", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Retry save", exact: true }).click();
     await expect(page.getByLabel("Stored task status")).toHaveText("todo");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath("creator-todo.png"), fullPage: true });
+    await page.getByRole("button", { name: "Archive creator", exact: true }).click();
+    await expect(attribution.getByText("Archived", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Unarchive creator", exact: true }).click();
-    await expect(
-      blocked.getByRole("button", { name: /Open creator thread thr_creator/ }),
-    ).toBeVisible();
     await expect(attribution.getByText("Not archived", { exact: true })).toBeVisible();
+    await expect(blocked.getByText("No open blockers.", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Stored task status")).toHaveText("todo");
     expect(errors).toEqual([]);
   });
 
@@ -95,28 +98,23 @@ for (const width of [1280, 390]) {
       "Release readiness review for the shared workspace permissions migration and rollback checks across existing environments "
         .repeat(3)
         .trim();
-    for (const name of ["Blocked by", "Creation attribution"]) {
-      const region = page.getByRole("region", { name });
-      await expect(region.getByText(id, { exact: true })).toBeVisible();
-      await expect(region.getByText(title, { exact: true })).toBeVisible();
-      const relation = region.getByRole("button", {
-        name: `Open creator thread ${id}: ${title}`,
-        exact: true,
-      });
-      await relation.focus();
-      await page.keyboard.press("Enter");
-      expect(await relation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
-        true,
-      );
-      expect(await region.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
-        true,
-      );
-    }
+    const region = page.getByRole("region", { name: "Creation attribution" });
+    await expect(region.getByText(id, { exact: true })).toBeVisible();
+    await expect(region.getByText(title, { exact: true })).toBeVisible();
+    const relation = region.getByRole("button", {
+      name: `Open creator thread ${id}: ${title}`,
+      exact: true,
+    });
+    await relation.focus();
+    await page.keyboard.press("Enter");
+    expect(await relation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
+    expect(await region.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
     await expect(page.getByLabel("Host navigation")).toHaveText(
-      JSON.stringify([
-        { method: "toThread", threadId: id },
-        { method: "toThread", threadId: id },
-      ]),
+      JSON.stringify([{ method: "toThread", threadId: id }]),
     );
     await page.screenshot({
       path: test.info().outputPath("creator-long-identities.png"),
@@ -132,7 +130,7 @@ test("unavailable creator metadata retains identity without claiming archival", 
   const blocked = page.getByRole("region", { name: "Blocked by" });
   const attribution = page.getByRole("region", { name: "Creation attribution" });
   await expect(
-    blocked.getByText("Unavailable. Archive state unknown.", { exact: true }),
+    attribution.getByText("Unavailable. Archive state unknown.", { exact: true }),
   ).toBeVisible();
   await attribution
     .getByRole("button", { name: "Open creator thread thr_creator", exact: true })
@@ -157,9 +155,7 @@ test("creator uses a nonblank fallback title", async ({ page }) => {
   await expect(attribution.getByText("thr_creator", { exact: true })).toBeVisible();
 });
 
-test("board drag refusal names the creator and a keyboard retry succeeds after archive", async ({
-  page,
-}) => {
+test("board drag and keyboard moves succeed with an open creator", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -172,15 +168,11 @@ test("board drag refusal names the creator and a keyboard retry succeeds after a
   await page.mouse.down();
   await page.mouse.move(to.x + to.width / 2, to.y + 20, { steps: 10 });
   await page.mouse.up();
-  await expect(page.getByRole("alert")).toContainText("thr_creator");
+  await expect(page.getByLabel("Stored task status")).toHaveText("todo");
+  await card.focus();
+  await page.keyboard.press("s");
+  await page.getByRole("menuitem", { name: "Backlog", exact: true }).click();
   await expect(page.getByLabel("Stored task status")).toHaveText("backlog");
-  await expect(
-    page
-      .locator('[data-board-column="backlog"]')
-      .getByRole("button", { name: "Open CRT-1: Creator-thread follow-up" }),
-  ).toBeVisible();
-  await page.screenshot({ path: test.info().outputPath("board-refusal.png"), fullPage: true });
-  await page.getByRole("button", { name: "Archive creator", exact: true }).click();
   await card.focus();
   await page.keyboard.press("s");
   await page.getByRole("menuitem", { name: "Todo", exact: true }).click();
@@ -205,15 +197,10 @@ for (const relations of ["task-only", "mixed"]) {
         width === 1280
           ? page.getByRole("button", { name: "Open CRT-1: Creator-thread follow-up" })
           : page.locator('[data-task-key="CRT-1"]');
-      await expect(
-        card.getByText(
-          relations === "mixed" ? "Blocked by 1 task + 1 thread" : "Blocked by 1 task",
-          { exact: true },
-        ),
-      ).toBeVisible();
+      await expect(card.getByText("Blocked by 1 task", { exact: true })).toBeVisible();
       await page.screenshot({ path: test.info().outputPath("typed-counts.png"), fullPage: true });
       if (relations === "mixed" && width === 1280) {
-        const badge = card.getByText("Blocked by 1 task + 1 thread", { exact: true });
+        const badge = card.getByText("Blocked by 1 task", { exact: true });
         const geometry = await badge.evaluate((element) => {
           const rect = element.getBoundingClientRect();
           const cardRect = element.closest("[data-task-key]")!.getBoundingClientRect();
@@ -273,7 +260,7 @@ for (const relations of ["task-only", "mixed"]) {
       await expect(resolvedTask.getByText("Not an open blocker", { exact: true })).toBeVisible();
       await expect(blocked.getByRole("button", { name: /^Remove / })).toHaveCount(2);
       const attribution = page.getByRole("region", { name: "Creation attribution" });
-      const creator = blocked.getByRole("button", {
+      const creator = attribution.getByRole("button", {
         name: "Open creator thread thr_creator: Creator review thread",
         exact: true,
       });
@@ -308,11 +295,10 @@ for (const relations of ["task-only", "mixed"]) {
           JSON.stringify([...navigation, { method: "toThread", threadId: "thr_creator" }]),
         );
         await page.getByRole("button", { name: "Archive creator", exact: true }).click();
-        await expect(creator).toHaveCount(0);
+        await expect(creator).toBeVisible();
         await expect(openTask).toBeVisible();
         await expect(resolvedTask).toBeVisible();
         await expect(attribution.getByText("Archived", { exact: true })).toBeVisible();
-        await expect(attribution.getByText("Not an open blocker", { exact: true })).toBeVisible();
         const child = page.getByRole("button").filter({
           has: page.getByText("Verify workspace permissions before release", { exact: true }),
         });
@@ -340,7 +326,7 @@ for (const width of [320, 390, 1280]) {
     const row = page.getByRole("button").filter({ has: title });
     await expect(row).toBeVisible();
     await expect(row.getByText("CRT-4", { exact: true })).toBeVisible();
-    await expect(row.getByText("Blocked by 1 task + 1 thread", { exact: true })).toBeVisible();
+    await expect(row.getByText("Blocked by 1 task", { exact: true })).toBeVisible();
     await expect(row.getByText("Blocks 1 task", { exact: true })).toBeVisible();
     await row.scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath("mixed-subtask.png"), fullPage: true });

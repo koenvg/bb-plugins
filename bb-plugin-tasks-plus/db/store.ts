@@ -210,18 +210,6 @@ export class TaskDependencyError extends Error {
   }
 }
 
-export class TaskCreatorThreadError extends Error {
-  readonly code = "creator_thread_open" as const;
-  constructor(readonly threadId: string) {
-    super(`Cannot move task to todo: creator thread ${threadId} is unarchived or unavailable`);
-    this.name = "TaskCreatorThreadError";
-  }
-}
-
-const CREATOR_BLOCKED_SQL = `(t.created_by_thread_id IS NOT NULL AND COALESCE(
-  (SELECT blocked FROM task_creator_threads c WHERE c.thread_id = t.created_by_thread_id), 1
-) = 1)`;
-
 const OPEN_STATUS_SQL = "NOT IN ('done', 'canceled')";
 
 function isOpenStatus(status: Task["status"]): boolean {
@@ -792,56 +780,11 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     }
   }
 
-  function listCreatorThreadIds(): string[] {
-    return db
-      .prepare<[], { thread_id: string }>(
-        "SELECT DISTINCT created_by_thread_id AS thread_id FROM tasks WHERE created_by_thread_id IS NOT NULL",
-      )
-      .all()
-      .map((row) => row.thread_id);
-  }
-
-  function creatorThreadIsBlocked(threadId: string): boolean {
-    return (
-      (db
-        .prepare<[string], { blocked: number }>(
-          "SELECT blocked FROM task_creator_threads WHERE thread_id = ?",
-        )
-        .get(threadId)?.blocked ?? 1) === 1
-    );
-  }
-
-  function creatorThreadBlockerId(task: Task): string | null {
-    return task.createdByThreadId && creatorThreadIsBlocked(task.createdByThreadId)
-      ? task.createdByThreadId
-      : null;
-  }
-
-  function setCreatorThreadBlocked(threadId: string, blocked: boolean): Task[] {
-    const before = creatorThreadIsBlocked(threadId);
-    db.prepare<[string, number]>(
-      "INSERT INTO task_creator_threads (thread_id, blocked) VALUES (?, ?) ON CONFLICT(thread_id) DO UPDATE SET blocked = excluded.blocked WHERE blocked <> excluded.blocked",
-    ).run(validateThreadId(threadId), Number(blocked));
-    return before === blocked
-      ? []
-      : db
-          .prepare<[string], TaskRow>(`${taskSelect} WHERE t.created_by_thread_id = ?`)
-          .all(threadId)
-          .map(taskFromRow);
-  }
-
-  function assertCreatorAllowsTodo(threadId: string | null, status: Task["status"]): void {
-    if (status === "todo" && threadId && creatorThreadIsBlocked(threadId)) {
-      throw new TaskCreatorThreadError(threadId);
-    }
-  }
-
   const createTaskTransaction = db.transaction((input: CreateTaskInput): Task => {
     const project = requireProject(input.projectId);
     const id = createOrValidateUlid(input.id);
     const status = input.status ?? "backlog";
     const creatorThreadId = validateThreadId(input.createdByThreadId ?? null);
-    assertCreatorAllowsTodo(creatorThreadId, status);
     const parentTaskId = input.parentTaskId ?? null;
     validateTaskParent(project.id, parentTaskId, id);
     const position =
@@ -997,11 +940,11 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     }
 
     if (filters.dependency !== undefined) {
-      const openBlocker = `(${CREATOR_BLOCKED_SQL} OR EXISTS (
+      const openBlocker = `EXISTS (
         SELECT 1 FROM task_dependencies d
         JOIN tasks b ON b.id = d.blocker_task_id
         WHERE d.blocked_task_id = t.id AND b.status ${OPEN_STATUS_SQL}
-      ))`;
+      )`;
       clauses.push(filters.dependency === "blocked" ? openBlocker : `NOT ${openBlocker}`);
     }
 
@@ -1183,7 +1126,6 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   const updateTaskTransaction = db.transaction((id: string, input: UpdateTaskInput): Task => {
     const current = requireTask(id);
     const status = input.status ?? current.status;
-    if (input.status !== undefined) assertCreatorAllowsTodo(current.createdByThreadId, status);
     const parentTaskId =
       input.parentTaskId === undefined ? current.parentTaskId : input.parentTaskId;
     validateTaskParent(current.projectId, parentTaskId, id);
@@ -1261,7 +1203,6 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
   const updatePositionTransaction = db.transaction(
     (id: string, input: UpdateTaskPositionInput): Task => {
       const task = requireTask(id);
-      assertCreatorAllowsTodo(task.createdByThreadId, input.status);
       if (input.beforeTaskId === id || input.afterTaskId === id) {
         throw new Error("A task cannot be its own reorder neighbor");
       }
@@ -1914,9 +1855,6 @@ export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions 
     listProjects,
     updateProject,
     deleteProject,
-    listCreatorThreadIds,
-    creatorThreadBlockerId,
-    setCreatorThreadBlocked,
     createTask,
     getTask,
     listTaskStatusTransitions,

@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import type { Project } from "../shared/contract.js";
 import { storeViewMode } from "./view-preference.js";
 import {
@@ -332,7 +333,7 @@ describe("remembered Tasks entry", () => {
       void TASKS_COMMANDS.find((command) => command.id === id)!.run({
         projectId: "unrelated-bb-project",
         threadId: null,
-        experimental_panel: { openTab: () => false, toggleTab: () => false, close: () => false },
+        experimental_panel: experimental_makePanelController(),
       });
     });
     expect(slot.navigateCalls).toEqual([destination(subPath)]);

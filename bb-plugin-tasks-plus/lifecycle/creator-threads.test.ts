@@ -1,10 +1,21 @@
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createStore } from "../api";
-import { registerLifecycle } from ".";
+import {
+  registerLifecycle,
+  THREAD_STATUS_IDLE_INTERVAL_MS,
+  THREAD_STATUS_RECONCILE_INTERVAL_MS,
+} from ".";
 
-function fixture(get: () => Promise<ReturnType<typeof makeThreadResponse>>) {
-  const host = createFakePluginHost({ pluginId: "creator-lifecycle", sdk: { threads: { get } } });
+function fixture() {
+  const host = createFakePluginHost({
+    pluginId: "creator-lifecycle",
+    sdk: {
+      threads: {
+        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
+      },
+    },
+  });
   const store = createStore(host.bb);
   const project = store.tasks.createProject({ name: "Lifecycle", prefix: "LC", color: "blue" });
   const task = store.tasks.createTask({
@@ -12,75 +23,70 @@ function fixture(get: () => Promise<ReturnType<typeof makeThreadResponse>>) {
     title: "Follow-up",
     createdByThreadId: "thr_source",
   });
-  const blocked = () => store.tasks.creatorThreadBlockerId(store.tasks.getTask(task.id)!) !== null;
-  return { ...host, store, task, blocked };
+  return { ...host, store, task };
 }
 
-describe("creator thread reconciliation", () => {
-  it("reconciles archived creators on startup even without task-thread attachments", async () => {
-    const f = fixture(async () => makeThreadResponse({ id: "thr_source", archivedAt: 1 }));
+describe("creator attribution and attached worker lifecycle", () => {
+  it("never reconciles creator-only relations on startup, polling or creator events", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
     try {
-      expect(f.blocked()).toBe(true);
       await registerLifecycle(f.bb, f.store);
-      expect(f.blocked()).toBe(false);
+      const service = f.harness.runService("thread-status-reconcile");
+      await vi.advanceTimersByTimeAsync(
+        THREAD_STATUS_IDLE_INTERVAL_MS + THREAD_STATUS_RECONCILE_INTERVAL_MS,
+      );
+      for (const event of ["thread.archived", "thread.unarchived", "thread.deleted"] as const) {
+        await f.harness.emitThreadEvent(event, {
+          thread: makeThreadResponse({ id: "thr_source" }),
+        });
+      }
+      expect(f.harness.sdk.callsTo("threads.get")).toEqual([]);
+      expect(f.harness.realtimeSignals).toEqual([]);
+      expect(f.store.tasks.getTask(f.task.id)).toEqual(f.task);
       expect(f.store.tasks.listTasks({ dependency: "ready" }).map((task) => task.id)).toEqual([
         f.task.id,
       ]);
-      expect(f.harness.realtimeSignals).toContainEqual({
-        channel: "tasks:changed",
-        payload: { taskId: f.task.id, projectId: f.task.projectId },
-      });
+      service.controller.abort();
+      await service.done;
     } finally {
       await f.harness.dispose();
+      vi.useRealTimers();
     }
   });
 
-  it("only treats thread_not_found as deletion and fails closed on other SDK errors", async () => {
-    let error: unknown = Object.assign(new Error("Gone"), { code: "thread_not_found" });
-    const f = fixture(async () => {
-      throw error;
+  for (const threadId of ["thr_source", "thr_worker"]) {
+    it(`reconciles and completes attached worker ${threadId} independently of attribution`, async () => {
+      const f = fixture();
+      try {
+        const worker = f.store.tasks.upsertTaskThread({
+          taskId: f.task.id,
+          threadId,
+          title: "Worker",
+          presetName: "Fixture",
+          liveStatus: "starting",
+        });
+        await registerLifecycle(f.bb, f.store);
+        expect(f.harness.sdk.callsTo("threads.get")).toEqual([[{ threadId }]]);
+        expect(f.store.tasks.getTaskThread(worker.id)?.liveStatus).toBe("working");
+        await f.harness.emitThreadEvent("thread.deleted", {
+          thread: makeThreadResponse({ id: threadId, deletedAt: 1 }),
+        });
+        expect(f.store.tasks.getTaskThread(worker.id)?.liveStatus).toBe("completed");
+        expect(f.store.tasks.getTask(f.task.id)).toMatchObject({
+          status: "backlog",
+          createdByThreadId: "thr_source",
+        });
+        expect(f.harness.realtimeSignals).toContainEqual({
+          channel: "threads:changed",
+          payload: { taskId: f.task.id },
+        });
+        expect(f.harness.realtimeSignals.some((signal) => signal.channel === "tasks:changed")).toBe(
+          false,
+        );
+      } finally {
+        await f.harness.dispose();
+      }
     });
-    try {
-      await registerLifecycle(f.bb, f.store);
-      expect(f.blocked()).toBe(false);
-      error = Object.assign(new Error("Unavailable"), { code: "unavailable" });
-      await f.store.creatorThreads.refresh();
-      expect(f.blocked()).toBe(true);
-      expect(() => f.store.tasks.updateTask(f.task.id, { status: "todo" })).toThrow("thr_source");
-    } finally {
-      await f.harness.dispose();
-    }
-  });
-
-  it("does not let an older SDK response override a newer unarchive event", async () => {
-    let resolve!: (thread: ReturnType<typeof makeThreadResponse>) => void;
-    const pending = new Promise<ReturnType<typeof makeThreadResponse>>((done) => {
-      resolve = done;
-    });
-    const f = fixture(() => pending);
-    try {
-      const startup = registerLifecycle(f.bb, f.store);
-      await Promise.resolve();
-      await f.harness.behavior.emitThreadEvent("thread.unarchived", {
-        thread: makeThreadResponse({ id: "thr_source" }),
-      });
-      resolve(makeThreadResponse({ id: "thr_source", archivedAt: 1 }));
-      await startup;
-      expect(f.blocked()).toBe(true);
-    } finally {
-      await f.harness.dispose();
-    }
-  });
-
-  it("ignores SDK replies after disposal", async () => {
-    let resolve!: (thread: ReturnType<typeof makeThreadResponse>) => void;
-    const pending = new Promise<ReturnType<typeof makeThreadResponse>>((done) => {
-      resolve = done;
-    });
-    const f = fixture(() => pending);
-    const refresh = f.store.creatorThreads.refresh();
-    await f.harness.dispose();
-    resolve(makeThreadResponse({ id: "thr_source", archivedAt: 1 }));
-    await expect(refresh).resolves.toBeUndefined();
-  });
+  }
 });

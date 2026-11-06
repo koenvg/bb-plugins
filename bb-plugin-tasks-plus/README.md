@@ -5,7 +5,7 @@ agents, and keeping the task record connected to the threads doing the work.
 It provides projects and folders, task keys, statuses and priorities, labels,
 subtasks, attachments, agent presets, and a full CLI.
 
-The package targets BB >=0.48 and SDK >=0.6.94 <0.7, with development declarations pinned to 0.6.94 for BB 0.48.0. Presets support provider-defined service-tier ids. Migration 11 preserves saved presets and removes the old default/fast database constraint. See [the compatibility report](../BB-0.45-COMPATIBILITY.md) for tests and deployment limits.
+The package targets BB >=0.48 and SDK >=0.6.94 <0.7, with development declarations pinned to 0.6.104 for BB 0.48.0. Presets support provider-defined service-tier ids. Migration 11 preserves saved presets and removes the old default/fast database constraint. See [the compatibility report](../BB-0.45-COMPATIBILITY.md) for tests and deployment limits.
 
 Task comments are removed by migration 12. Read [the upgrade and rollback procedure](COMMENT-REMOVAL-UPGRADE.md) before enabling this build against existing data.
 
@@ -484,34 +484,26 @@ bb tasks list --blocked                        # tasks with an open blocker
   becomes ready without a comment or replacement history entry. No thread is notified.
 - The worker prompt of a dispatched task has a "Blocked by" section.
 
-### Creator-thread blockers
+### Creator-thread attribution
 
 Each task records a nullable `createdByThreadId`. The CLI copies the invoking
-thread context supplied by BB from `BB_THREAD_ID`. Human UI creation leaves it
-null. Both JSON task reads include the field. Task details show a creator thread
-in **Blocked by** while the task reports it as blocking. **Created in thread**
-keeps the attribution visible after blocking ends. Both rows open the saved
-thread in BB and show its full ID. Titles use the first nonblank thread title,
-title fallback, or saved ID. Loading and unavailable lookups keep that ID and
-do not claim an archive state or change the task's blocker status.
+thread context supplied by BB from `BB_THREAD_ID`. Human UI creation and detail
+subtask creation leave it null. JSON task reads include the field. Task details
+show it under **Created in thread**. The row opens the saved thread in BB and
+shows its full ID. Titles use the first nonblank thread title, title fallback,
+or saved ID. Loading and unavailable lookups keep that ID without claiming an
+archive state. Attribution has no unlink or detach control and stays separate
+from attached execution threads.
 
-List, board, and subtask badges distinguish task and thread counts, such as
-**Blocked by 2 tasks + 1 thread**. Resolved task dependencies stay linked in a
-separate group and do not enter open blocker counts. Creator attribution has
-no unlink or detach control and is separate from attached execution threads.
+Creator state never blocks a task. Creation, edits, board moves, and reorders to
+`todo` do not look up the creator or require archival. `--blocked`, `--ready`,
+`openBlockerCount`, and `blocked` use only explicit task dependencies. List,
+board, and subtask badges count tasks only. Resolved dependencies stay linked
+in a separate group and do not enter open blocker counts.
 
-An unarchived creator contributes one open blocker, separate from task-to-task
-dependencies. `--blocked`, `--ready`, `openBlockerCount`, and `blocked` include it.
-CLI status updates, detail edits, and board moves to `todo` refuse the write with
-`creator_thread_open` and the creator ID. The transaction saves no other edits.
-The server rechecks the creator before a todo write. An unavailable thread lookup
-keeps the task blocked. Only an archived, deleted, or confirmed missing thread
-clears this blocker.
-
-Archive, unarchive, and deletion events refresh the board immediately. Startup
-and periodic reconciliation recover missed events. Unarchiving restores the
-blocker but does not rewrite the task's existing workflow status. A failed detail
-save keeps the unsaved draft and offers Retry, as other save failures do.
+Creator metadata uses the existing detail refresh behavior. Immediate archive
+label updates are not guaranteed. A failed detail save keeps the unsaved draft
+and offers Retry, as other save failures do.
 
 Migration 13 backfills the field once from standalone `Source bbthread://thr_…`
 or `Source discussion: bbthread://thr_…` lines. Multiple distinct IDs, malformed

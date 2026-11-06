@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import { createStore, registerTasksApi } from "../../api";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -49,12 +51,20 @@ function ref(number: number, status: Task["status"]): TaskDependencyRef {
   };
 }
 
-function renderParent(subtasks: () => Task[]) {
-  const parent = task(1);
+function renderParent(
+  subtasks: () => Task[],
+  parent = task(1),
+  createTask?: (raw: unknown) => Promise<unknown>,
+) {
   return renderSlot(
     app.navPanels[0]!,
     { subPath: "task/ABC-1" },
     {
+      sdk: {
+        threads: {
+          get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "idle" }),
+        },
+      },
       rpc: {
         listProjects: () => ({
           projects: [
@@ -70,6 +80,7 @@ function renderParent(subtasks: () => Task[]) {
             },
           ],
         }),
+        ...(createTask ? { createTask } : {}),
         listFolders: () => ({ folders: [] }),
         listPresets: () => ({ presets: [] }),
         sidebarSummary: () => ({ projects: [] }),
@@ -109,21 +120,65 @@ const blockingSubtask = task(3, {
 const plainSubtask = task(4, { parentTaskId: task(1).id });
 
 describe("sub-task rows in the parent detail view", () => {
-  it("shares mixed blocker labels and keeps subtask host navigation", async () => {
+  it("creates todo from an attributed parent without inheriting its creator", async () => {
+    const host = createFakePluginHost({ pluginId: "subtask-attribution" });
+    try {
+      const store = createStore(host.bb);
+      store.tasks.createProject({
+        id: PROJECT_ID,
+        name: "ABC project",
+        prefix: "ABC",
+        color: "blue",
+      });
+      const parent = store.tasks.createTask({
+        projectId: PROJECT_ID,
+        title: "Attributed parent",
+        createdByThreadId: "thr_open_creator",
+      });
+      registerTasksApi(host.bb, store);
+      const calls: Record<string, unknown>[] = [];
+      const slot = renderParent(
+        () => store.tasks.listSubtasks(parent.id).map((entry) => makeTask(entry)),
+        makeTask(parent),
+        async (raw) => {
+          calls.push(rpcInput(raw));
+          return host.harness.callRpc("createTask", rpcInput(raw));
+        },
+      );
+      expect((await slot.findByText("Not archived")).textContent).toBe("Not archived");
+      fireEvent.click(await slot.findByRole("button", { name: "Add sub-task" }));
+      const input = slot.getByPlaceholderText("Sub-task of ABC-1…");
+      fireEvent.change(input, { target: { value: "Independent child" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      await slot.findByText("Independent child");
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.createdByThreadId ?? null).toBeNull();
+      expect(store.tasks.listSubtasks(parent.id)).toMatchObject([
+        {
+          title: "Independent child",
+          status: "todo",
+          parentTaskId: parent.id,
+          createdByThreadId: null,
+        },
+      ]);
+      expect(store.tasks.getTask(parent.id)?.createdByThreadId).toBe("thr_open_creator");
+      expect(host.harness.sdk.callsTo("threads.get")).toEqual([]);
+    } finally {
+      await host.harness.dispose();
+    }
+  });
+  it("shares task-only blocker labels and keeps subtask host navigation", async () => {
     const slot = renderParent(() => [
       {
         ...blockedSubtask,
         createdByThreadId: "thr_creator",
-        creatorThreadBlocked: true,
-        openBlockerCount: 2,
+        openBlockerCount: 1,
         blocks: [ref(8, "todo")],
         openBlockedCount: 1,
       },
     ]);
     const row = await subtaskRow(slot, "ABC-2");
-    expect(row.getByText("Blocked by 1 task + 1 thread").textContent).toBe(
-      "Blocked by 1 task + 1 thread",
-    );
+    expect(row.getByText("Blocked by 1 task").textContent).toBe("Blocked by 1 task");
     expect(row.getByText("Blocks 1 task").textContent).toBe("Blocks 1 task");
     expect(row.getByText("Task 2").textContent).toBe("Task 2");
     expect(slot.getByText("ABC-2").closest("button")?.getAttribute("title")).toBe("Todo");

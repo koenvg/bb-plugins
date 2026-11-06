@@ -185,18 +185,20 @@ describe("board card menus from the keyboard", () => {
     await waitFor(() => expect(focusedCard()).toBe("Open TSK-1: Title 1"));
   });
 
-  it("names the blocking creator when the board refuses a keyboard status move", async () => {
+  it("retains the card and shows a PR error when completion fails", async () => {
     const slot = render([], {
       boardMove: () => ({
         ok: false,
-        error: { code: "creator_thread_open", message: "Creator thread thr_creator blocks todo" },
+        error: { code: "task_pr_open", message: "Worker pull request is still open" },
       }),
     });
     const card = await slot.findByRole("button", { name: "Open TSK-3: Title 3" });
     card.focus();
     press("s");
-    fireEvent.click(await slot.findByRole("menuitem", { name: "Todo" }));
-    await waitFor(() => expect(slot.getByRole("alert").textContent).toContain("thr_creator"));
+    fireEvent.click(await slot.findByRole("menuitem", { name: "Done" }));
+    await waitFor(() =>
+      expect(slot.getByRole("alert").textContent).toContain("Worker pull request is still open"),
+    );
     await waitFor(() =>
       expect(
         slot
