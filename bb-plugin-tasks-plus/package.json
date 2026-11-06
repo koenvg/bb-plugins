@@ -44,7 +44,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "bb-app": "0.48.0",
+    "bb-app": "0.48.1",
     "@tailwindcss/vite": "^4.3.0",
     "tailwindcss": "^4.3.0",
     "@playwright/test": "1.64.0",
