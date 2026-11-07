@@ -8,6 +8,10 @@ import { emptyActivity } from "../activity/activity-contract.js";
 
 const installed = await loadPluginApp(() => import("./app.js"));
 const panel = installed.navPanels[0]!;
+function NavigationBadge() {
+  const badge = panel.experimental_useBadge?.();
+  return badge ? <span title={badge.label}>{badge.text}</span> : null;
+}
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -36,8 +40,7 @@ function fixture(multiple = false) {
     const slot = renderSlot(panel, { subPath: "" }, options);
     return { ...slot, ...within(slot.container) };
   };
-  const accessory = () =>
-    renderSlot({ component: panel.experimental_sidebarAccessory! }, {}, options);
+  const accessory = () => renderSlot({ component: NavigationBadge }, {}, options);
   return {
     now,
     data,
@@ -140,7 +143,7 @@ describe("all-machine Codex slots", () => {
     f.data.accounts[1]!.activity = emptyActivity("auth-required");
     const page = f.dashboard(),
       badge = f.accessory();
-    await waitFor(() => expect(badge.container.textContent).toBe("63%known"));
+    await waitFor(() => expect(badge.container.textContent).toBe("63%*"));
     expect(badge.queryByText("min")).toBeNull();
     expect(
       page.getByText(

@@ -10,7 +10,7 @@ import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
 import {
   parsePatchFiles,
@@ -190,9 +190,9 @@ interface Handlers {
 }
 
 function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
-  const slot = renderSlot<PluginThreadPanelProps, typeof rpcContract>(
+  const slot = renderSlot<ExperimentalThreadActionTabProps, typeof rpcContract>(
     changesTab,
-    { threadId, params: null },
+    { threadId, params: null, environment: null },
     {
       openFilePreview: handlers.openFilePreview ?? (() => true),
       rpc: {

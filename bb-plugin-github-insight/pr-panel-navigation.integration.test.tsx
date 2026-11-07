@@ -27,7 +27,7 @@ function mountDestination(threadId: string) {
       context: { threadId },
       composer: { scope: { kind: "thread", threadId } },
       rpc: { getInsight: () => ({ kind: "no_pr" }) },
-      openThreadPanel: () => true,
+      experimental_panel: { openTab: () => true },
     },
   );
 }
@@ -78,13 +78,16 @@ it("navigates from the sidebar to the correct destination and opens its owner-pl
   );
   expect(sidebar.inspection.threadActionCalls).toEqual([{ method: "open", threadId: "thread-b" }]);
   expect(onNavigate).toHaveBeenCalledOnce();
-  expect(previous.inspection.navigateCalls).toHaveLength(0);
+  expect(previous.inspection.experimental_panelCalls).toHaveLength(0);
   previous.lifecycle.unmount();
 
   const destination = mountDestination("thread-b");
   await waitFor(() =>
-    expect(destination.inspection.navigateCalls).toEqual([
-      { method: "openThreadPanel", options: { actionId: "pr" } },
+    expect(destination.inspection.experimental_panelCalls).toEqual([
+      {
+        method: "openTab",
+        options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+      },
     ]),
   );
   expect(destination.inspection.rpcCalls).toContainEqual(
@@ -96,8 +99,8 @@ it("navigates from the sidebar to the correct destination and opens its owner-pl
   expect(within(destination.container).queryByRole("button")).toBeNull();
   destination.lifecycle.unmount();
   const revisit = mountDestination("thread-b");
-  expect(revisit.inspection.navigateCalls).toHaveLength(0);
-  expect(previous.inspection.navigateCalls).toHaveLength(0);
+  expect(revisit.inspection.experimental_panelCalls).toHaveLength(0);
+  expect(previous.inspection.experimental_panelCalls).toHaveLength(0);
 });
 
 it("also opens the PR action when the clicked thread is already mounted", async () => {
@@ -105,7 +108,10 @@ it("also opens the PR action when the clicked thread is already mounted", async 
   const { slot: sidebar } = mountSidebar("thread-b");
   const badge = await sidebar.findByRole("button", { name: "Open PR tab, PR #42: 1 failed check" });
   act(() => fireEvent.click(badge));
-  expect(destination.inspection.navigateCalls).toEqual([
-    { method: "openThreadPanel", options: { actionId: "pr" } },
+  expect(destination.inspection.experimental_panelCalls).toEqual([
+    {
+      method: "openTab",
+      options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+    },
   ]);
 });

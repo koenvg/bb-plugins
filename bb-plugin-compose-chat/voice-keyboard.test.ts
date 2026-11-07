@@ -2,9 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, mountPluginContentScripts } from "@get-bb/plugin-sdk/testing/app";
 import appDefinition from "./app.js";
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import type { PluginCommandRegistration } from "@get-bb/plugin-sdk/app";
 
-const context = { threadId: "thread", projectId: "project", openPanel: () => false };
+const context = {
+  threadId: "thread",
+  projectId: "project",
+  experimental_panel: experimental_makePanelController(),
+};
 const mounts: Array<() => Promise<void>> = [];
 const settle = async () => {
   await Promise.resolve();

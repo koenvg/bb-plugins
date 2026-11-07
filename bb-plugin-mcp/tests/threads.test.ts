@@ -11,7 +11,6 @@ function row(id: string, overrides: Partial<Row> = {}): Row {
     activity: {
       activeBackgroundAgentCount: 0,
       activeBackgroundCommandCount: 0,
-      activeGoalCount: 0,
       activePlanModeCount: 0,
       activeWorkflowCount: 0,
     },
@@ -205,7 +204,7 @@ describe("read-only thread protocol", () => {
           activity: {
             activeBackgroundAgentCount: count,
             activeBackgroundCommandCount: 7,
-            activeGoalCount: 7,
+
             activePlanModeCount: 7,
             activeWorkflowCount: 7,
           },

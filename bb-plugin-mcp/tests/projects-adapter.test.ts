@@ -3,8 +3,19 @@ import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/tes
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { createServer } from "node:http";
 import plugin from "../server.js";
-import { freePort, loopbackFetch, project, provider } from "./fixtures.js";
+import { settingsDefinition } from "../config.js";
+import { loopbackFetch, project, provider } from "./fixtures.js";
+
+vi.mock("../remote-access.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../remote-access.js")>();
+  return {
+    ...original,
+    remoteAccess: (options: Parameters<typeof original.remoteAccess>[0]) =>
+      original.remoteAccess({ ...options, connection: { ...options.connection, port: 0 } }),
+  };
+});
 
 let host: ReturnType<typeof createFakePluginHost>;
 let client: Client | undefined;
@@ -19,16 +30,15 @@ const personal = { ...project("proj_personal", "Personal"), kind: "personal" as 
 const ordinary = project("proj_a", "Ordinary");
 const call = { name: "bb_list_projects", arguments: {} };
 
-// Load the production plugin, not a copy of its SDK adapter. Only the issuer
-// fetch and BB data are fixtures; MCP requests use the real loopback listener.
 async function setup(
   authMode: "bearer-jwt" | "cloudflare-access",
   projects: string,
   control = false,
+  port: number = settingsDefinition.port.default,
 ) {
   const settings = {
     publicOrigin: "https://mcp.example.org",
-    port: await freePort(),
+    port,
     issuer: "https://issuer.example.org",
     owner: "owner",
     projects,
@@ -70,6 +80,11 @@ async function setup(
       return JSON.parse(status.stdout ?? "{}").listener;
     })
     .toBe("listening");
+  const status = JSON.parse(
+    (await host.harness.behavior.runCli(["status", "--json"])).stdout ?? "{}",
+  );
+  const listenerPort: unknown = status.port;
+  if (typeof listenerPort !== "number") throw new Error("Missing fixture listener port");
 
   const token = await new SignJWT({
     iss: settings.issuer,
@@ -84,7 +99,7 @@ async function setup(
     .sign(pair.privateKey);
   client = new Client({ name: "adapter-fixture", version: "1.0.0" });
   await client.connect(
-    new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${settings.port}/mcp`), {
+    new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${listenerPort}/mcp`), {
       fetch: loopbackFetch,
       requestInit: {
         headers: {
@@ -96,8 +111,27 @@ async function setup(
       },
     }),
   );
-  return { client, list };
+  return { client, list, port: listenerPort };
 }
+
+it("keeps the adapter fixture isolated from an occupied configured port", async () => {
+  const occupied = createServer();
+  await new Promise<void>((resolve) => occupied.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = occupied.address();
+    if (!address || typeof address === "string") throw new Error("Missing fixture address");
+    const f = await setup("cloudflare-access", "", false, address.port);
+    expect(f.port).not.toBe(address.port);
+    expect(occupied.listening).toBe(true);
+    expect((await f.client.callTool(call)).structuredContent).toMatchObject({
+      projects: expect.arrayContaining([{ id: "proj_a", name: "Ordinary" }]),
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      occupied.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
 
 describe.each(["bearer-jwt", "cloudflare-access"] as const)(
   "%s production project adapter",

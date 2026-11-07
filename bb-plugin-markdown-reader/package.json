@@ -36,8 +36,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.6.49",
-    "bb-app": "0.46.1",
+    "@get-bb/plugin-sdk": "0.6.132",
+    "bb-app": "0.49.0",
     "@playwright/test": "1.64.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -53,7 +53,7 @@
     "jsdom": "^28.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.7.0",
     "typescript": "^5.9.3",
     "vite": "^7.0.0",
     "vitest": "^4.0.0"

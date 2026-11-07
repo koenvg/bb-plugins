@@ -575,7 +575,7 @@ describe("thread list slot", () => {
       indicator: "waiting-for-input",
       indicatorLabel: "Thread needs user input",
       queuedWork: "waiting",
-      activity: { workflows: 2, backgroundAgents: 1, backgroundCommands: 0, planMode: 0, goals: 0 },
+      activity: { workflows: 2, backgroundAgents: 1, backgroundCommands: 0, planMode: 0 },
     });
     const slot = mount(
       [busy],
@@ -1325,7 +1325,6 @@ describe("thread list slot", () => {
           backgroundAgents: 1,
           backgroundCommands: 0,
           planMode: 0,
-          goals: 0,
         },
       }),
     ]);

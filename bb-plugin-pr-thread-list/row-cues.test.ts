@@ -64,7 +64,6 @@ describe("thread indicator", () => {
             backgroundAgents: 0,
             backgroundCommands: 0,
             planMode: 0,
-            goals: 0,
           },
         }),
         false,
@@ -92,7 +91,6 @@ describe("thread indicator", () => {
             backgroundAgents: 1,
             backgroundCommands: 3,
             planMode: 1,
-            goals: 1,
           },
         }),
       ),
@@ -114,7 +112,6 @@ describe("thread indicator", () => {
         error: false,
       },
       { key: "plan", icon: "ListTodo", text: "Plan", title: "Plan mode", error: false },
-      { key: "goals", icon: "Target", text: "1", title: "1 goal", error: false },
     ]);
     expect(workItems(thread({ queuedWork: "waiting" }))).toEqual([
       {
@@ -134,7 +131,6 @@ const activity = {
   backgroundAgents: 1,
   backgroundCommands: 0,
   planMode: 0,
-  goals: 0,
 };
 
 describe("isActive", () => {

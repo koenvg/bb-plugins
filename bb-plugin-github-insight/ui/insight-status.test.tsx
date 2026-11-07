@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import { forgetInsights } from "./pr-availability";
 
 type ReadMethods = Pick<typeof rpcContract, "getInsight" | "refresh">;
@@ -59,9 +59,9 @@ function fixture(initial: InsightResult = ok()) {
     composer: { scope: { kind: "thread" as const, threadId: "a" } },
   };
   const chat = renderSlot<object, ReadMethods>(banner, {}, options);
-  const panel = renderSlot<PluginThreadPanelProps, ReadMethods>(
+  const panel = renderSlot<ExperimentalThreadActionTabProps, ReadMethods>(
     tab,
-    { threadId: "a", params: null },
+    { threadId: "a", params: null, environment: null },
     options,
   );
   const views = [within(chat.container), within(panel.container)];
@@ -91,7 +91,7 @@ describe("PR insight availability in both views", () => {
     vi.useFakeTimers({ toFake: ["Date"], now: refreshedAt + 3 * 3_600_000 });
     const panel = renderSlot(
       tab,
-      { threadId: "a", params: null },
+      { threadId: "a", params: null, environment: null },
       { rpc: { getInsight: async () => ok() } },
     );
 
@@ -104,7 +104,7 @@ describe("PR insight availability in both views", () => {
   it("shows that it is updating while a background load runs", async () => {
     const first = renderSlot(
       tab,
-      { threadId: "a", params: null },
+      { threadId: "a", params: null, environment: null },
       { rpc: { getInsight: async () => ok() } },
     );
     await within(first.container).findByText("Thread A");
@@ -113,7 +113,7 @@ describe("PR insight availability in both views", () => {
 
     const again = renderSlot(
       tab,
-      { threadId: "a", params: null },
+      { threadId: "a", params: null, environment: null },
       { rpc: { getInsight: () => new Promise<InsightResult>(() => {}) } },
     );
 
@@ -125,13 +125,13 @@ describe("PR insight availability in both views", () => {
       rpc: { getInsight: async () => ok() },
       composer: { scope: { kind: "thread" as const, threadId: "a" } },
     };
-    const first = renderSlot(tab, { threadId: "a", params: null }, options);
+    const first = renderSlot(tab, { threadId: "a", params: null, environment: null }, options);
     await within(first.container).findByText("Thread A");
     cleanup();
 
     const again = renderSlot(
       tab,
-      { threadId: "a", params: null },
+      { threadId: "a", params: null, environment: null },
       { ...options, rpc: { getInsight: () => new Promise<InsightResult>(() => {}) } },
     );
 
@@ -146,7 +146,11 @@ describe("PR insight availability in both views", () => {
       composer: { scope: { kind: "thread" as const, threadId: "loading" } },
     };
     const chat = renderSlot(banner, {}, options);
-    const panel = renderSlot(tab, { threadId: "loading", params: null }, options);
+    const panel = renderSlot(
+      tab,
+      { threadId: "loading", params: null, environment: null },
+      options,
+    );
     for (const slot of [chat, panel])
       expect(within(slot.container).getByRole("status").textContent).toBe("Loading pull request…");
     await act(async () => pending.resolve({ kind: "no_pr" }));

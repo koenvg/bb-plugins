@@ -5,6 +5,10 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { metadataFixture } from "../machines/app.test-support.js";
 
 const installed = await loadPluginApp(() => import("./app.js"));
+function NavigationBadge() {
+  const badge = installed.navPanels[0]!.experimental_useBadge?.();
+  return badge ? <span title={badge.label}>{badge.text}</span> : null;
+}
 afterEach(() => {
   cleanup();
   configure({ reactStrictMode: false });
@@ -92,7 +96,7 @@ describe("app-wide quota ownership", () => {
     );
     const panel = installed.navPanels[0]!;
     const page = renderSlot(panel, { subPath: "" }, config);
-    const badge = renderSlot({ component: panel.experimental_sidebarAccessory! }, {}, config);
+    const badge = renderSlot({ component: NavigationBadge }, {}, config);
     const Battery = installed.icons[0]!.component;
     const battery = render(<Battery />);
     await act(async () => {

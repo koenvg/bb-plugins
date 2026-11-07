@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import type { PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import { cn } from "@/lib/utils";
 import { countOf } from "../core/blockers";
 import { peekIntent, useCommandIntent, type IntentOf } from "./command-intents";
@@ -33,7 +33,7 @@ function initialSubTab(threadId: string): PrSubTab {
   return pending === null ? rememberedSubTab(threadId) : SUB_TAB_OF_INTENT[pending];
 }
 
-export function PrPanel({ threadId }: PluginThreadPanelProps) {
+export function PrPanel({ threadId }: ExperimentalThreadActionTabProps) {
   return <PrPanelContent key={threadId} threadId={threadId} />;
 }
 

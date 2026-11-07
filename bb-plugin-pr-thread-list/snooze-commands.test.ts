@@ -1,3 +1,4 @@
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PluginCommandContext, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { createSnoozeClient, type SnoozeSnapshot } from "./snooze-client";
@@ -7,7 +8,7 @@ import { thread, snoozeSnapshot } from "./fixtures";
 const context = (threadId: string | null = "t1"): PluginCommandContext => ({
   threadId,
   projectId: "p1",
-  openPanel: () => false,
+  experimental_panel: experimental_makePanelController(),
 });
 const now = new Date(2026, 9, 7, 15);
 afterEach(() => vi.useRealTimers());

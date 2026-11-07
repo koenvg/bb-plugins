@@ -30,7 +30,6 @@ const activity = {
   backgroundAgents: 1,
   backgroundCommands: 0,
   planMode: 0,
-  goals: 0,
 };
 
 describe("tabFor", () => {

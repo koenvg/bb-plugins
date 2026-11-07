@@ -1,13 +1,17 @@
 import { textContextResultSchema } from "./core/text-context";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import { z } from "zod";
+import type { GitStatus, GitFiles } from "./git-rpc";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import plugin from "./server";
 
-type Environments = BbPluginApi["sdk"]["environments"];
-type StatusResult = Awaited<ReturnType<Environments["status"]>>;
-type DiffFilesResult = Awaited<ReturnType<Environments["diffFiles"]>>;
-type DiffPatchResult = Awaited<ReturnType<Environments["diffPatch"]>>;
+type StatusResult = GitStatus;
+type DiffFilesResult = GitFiles;
+type DiffPatchResult = {
+  outcome: "available";
+  patches: { path: string; patch: string; truncated: boolean }[];
+};
 type SendResult = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["send"]>>;
 
 function deferred<T>() {
@@ -25,6 +29,7 @@ function status(
     outcome: "available",
     workspace: {
       branch: { currentBranch: "feature", defaultBranch: "main" },
+      checkout: { kind: "unknown", reason: "fixture has no head" },
       mergeBase:
         mergeBase === null
           ? null
@@ -49,6 +54,7 @@ const AVAILABLE_FILES = {
       loadMode: "auto",
       changeKind: "modified",
       origin: "tracked",
+      revision: "fixture-revision",
     },
     {
       path: "logo.png",
@@ -59,6 +65,7 @@ const AVAILABLE_FILES = {
       loadMode: "auto",
       changeKind: "added",
       origin: "untracked",
+      revision: "fixture-revision",
     },
     {
       path: "big.json",
@@ -69,6 +76,7 @@ const AVAILABLE_FILES = {
       loadMode: "too_large",
       changeKind: "added",
       origin: "tracked",
+      revision: "fixture-revision",
     },
     {
       path: "src/new.ts",
@@ -79,13 +87,14 @@ const AVAILABLE_FILES = {
       loadMode: "on_demand",
       changeKind: "renamed",
       origin: "tracked",
+      revision: "fixture-revision",
     },
   ],
   initialPatches: [{ path: "src/a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n", truncated: false }],
   mergeBaseRef: "main",
   shortstat: "4 files changed",
   truncated: false,
-} as DiffFilesResult;
+} satisfies DiffFilesResult;
 
 interface Calls {
   status: unknown[];
@@ -135,41 +144,115 @@ async function setup(
         },
       },
       environments: {
-        diffFile:
-          options.diffFile ??
-          (async () => ({
-            content: "iVBORw0KGgoAAAAA",
-            contentEncoding: "base64" as const,
-            sizeBytes: 12,
-          })),
-        status: async (args) => {
-          calls.status.push(args);
-          return (
-            options.status ??
-            ((query) => status(query.mergeBaseBranch === undefined ? null : [COMMIT]))
-          )(args);
-        },
-        diffBranches: async () => ({
-          branches: ["main"],
-          branchesTruncated: false,
-          remoteBranches: options.remoteBranches ?? ["origin/main"],
-          remoteBranchesTruncated: false,
-          selectedBranch: null,
+        get: async ({ environmentId }) => ({
+          id: environmentId,
+          path: "/w",
+          projectId: "project-1",
+          hostId: "host-1",
+          hostLifecycle: "active",
+          status: "ready",
+          lifecycle: { phase: "active", retireAt: null, teardown: null },
+          baseBranch: null,
+          branchName: null,
+          defaultBranch: null,
+          environmentProviderId: null,
+          environmentProviderInstanceKey: null,
+          environmentProviderSelection: null,
+          isGitRepo: true,
+          isWorktree: false,
+          managed: false,
+          mergeBaseBranch: null,
+          name: null,
+          workspaceProvisionType: "unmanaged",
+          createdAt: 0,
+          updatedAt: 0,
         }),
-        diffFiles: async (args) => {
-          calls.diffFiles.push(args);
-          if (options.diffFiles instanceof Error) throw options.diffFiles;
-          if (typeof options.diffFiles === "function") return options.diffFiles();
-          return options.diffFiles ?? AVAILABLE_FILES;
-        },
-        diffPatch: async (args) => {
-          calls.diffPatch.push(args);
-          return (
-            options.diffPatch ?? {
-              outcome: "available",
-              patches: [{ path: "src/new.ts", patch: "@@ -1 +1 @@\n-x\n+y\n", truncated: false }],
+      },
+      plugins: {
+        callRpc: async ({ pluginId, method, input, outputSchema }) => {
+          expect(pluginId).toBe("bb--git");
+          let output: unknown;
+          switch (method) {
+            case "workspaceStatus": {
+              const args = z
+                .object({ environmentId: z.string(), mergeBaseBranch: z.string().optional() })
+                .parse(input);
+              calls.status.push(args);
+              output = await (
+                options.status ??
+                ((query) => status(query.mergeBaseBranch === undefined ? null : [COMMIT]))
+              )(args);
+              break;
             }
-          );
+            case "branches":
+              output = { remoteBranches: options.remoteBranches ?? ["origin/main"] };
+              break;
+            case "files": {
+              const args = z
+                .object({
+                  environmentId: z.string(),
+                  target: z.object({ type: z.string() }).passthrough(),
+                  ignoreWhitespace: z.boolean(),
+                })
+                .parse(input);
+              calls.diffFiles.push(args);
+              if (options.diffFiles instanceof Error) throw options.diffFiles;
+              output =
+                typeof options.diffFiles === "function"
+                  ? await options.diffFiles()
+                  : (options.diffFiles ?? AVAILABLE_FILES);
+              break;
+            }
+            case "fileSide": {
+              const args = z
+                .object({
+                  environmentId: z.string(),
+                  query: z.object({ path: z.string() }).passthrough(),
+                })
+                .parse(input);
+              const file = options.diffFile
+                ? await options.diffFile({ environmentId: args.environmentId, ...args.query })
+                : {
+                    path: args.query.path,
+                    content: "iVBORw0KGgoAAAAA",
+                    contentEncoding: "base64",
+                    sizeBytes: 12,
+                  };
+              output = {
+                outcome: "available",
+                file: { ...file, path: `/w/${file.path ?? args.query.path}` },
+              };
+              break;
+            }
+            case "patches": {
+              const args = z.object({ keys: z.array(z.string()).min(1).max(50) }).parse(input);
+              calls.diffPatch.push(args);
+              const result = options.diffPatch ?? {
+                outcome: "available",
+                patches: [{ path: "src/new.ts", patch: "@@ -1 +1 @@\n-x\n+y\n", truncated: false }],
+              };
+              output = Object.fromEntries(
+                args.keys.map((key) => {
+                  const tuple = z
+                    .tuple([z.string(), z.unknown(), z.boolean(), z.string(), z.string()])
+                    .parse(JSON.parse(key));
+                  return [
+                    key,
+                    {
+                      outcome: "available",
+                      patch: result.patches.find((patch) => patch.path === tuple[3]),
+                    },
+                  ];
+                }),
+              );
+              break;
+            }
+            default:
+              throw new Error(`Unexpected Git RPC: ${method}`);
+          }
+          const parsed = await outputSchema["~standard"].validate(output);
+          if (parsed.issues) throw new Error(JSON.stringify(parsed.issues));
+          return parsed.value;
         },
       },
     },
@@ -211,6 +294,11 @@ describe("getTextContext", () => {
   };
   beforeEach(() => {
     readArgs.length = 0;
+  });
+  it("accepts the absolute host path returned by Git fileSide", async () => {
+    const { harness } = await setup({ diffFile: read });
+    const result = textContextResultSchema.parse(await harness.callRpc("getTextContext", request));
+    expect(result.kind).toBe("ready");
   });
   it.each(["all", "uncommitted", "branch_committed", "commit"])(
     "reads the captured %s revisions",
@@ -619,8 +707,16 @@ describe("getChanges", () => {
       },
     });
     expect(calls.diffFiles).toEqual([
-      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
-      { environmentId: "env-1", target: "branch_committed", mergeBaseBranch: "origin/main" },
+      {
+        environmentId: "env-1",
+        target: { type: "branch_committed", mergeBaseBranch: "origin/main" },
+        ignoreWhitespace: false,
+      },
+      {
+        environmentId: "env-1",
+        target: { type: "branch_committed", mergeBaseBranch: "origin/main" },
+        ignoreWhitespace: false,
+      },
     ]);
   });
   it("keeps text available but disables images if checkout keeps moving", async () => {
@@ -660,7 +756,10 @@ describe("getChanges", () => {
 
     await harness.callRpc("getChanges", { threadId: "thr_1", target });
 
-    expect(calls.diffFiles).toEqual([expected]);
+    const { environmentId, target: type, ...rest } = expected;
+    expect(calls.diffFiles).toEqual([
+      { environmentId, target: { type, ...rest }, ignoreWhitespace: false },
+    ]);
   });
 
   it("returns the environment resolved from the requested thread", async () => {
@@ -753,7 +852,11 @@ describe("getChanges", () => {
     await harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
 
     expect(calls.diffFiles).toEqual([
-      { environmentId: "env-1", target: "all", mergeBaseBranch: "main" },
+      {
+        environmentId: "env-1",
+        target: { type: "all", mergeBaseBranch: "main" },
+        ignoreWhitespace: false,
+      },
     ]);
   });
 
@@ -816,6 +919,7 @@ describe("getChanges", () => {
             loadMode: "auto",
             changeKind: "deleted",
             origin: "tracked",
+            revision: "fixture-revision",
           },
         ],
       } as DiffFilesResult,
@@ -858,6 +962,32 @@ describe("getChanges", () => {
 });
 
 describe("getPatches", () => {
+  it("loads more than 50 requested patches through the bounded Git API", async () => {
+    const files = Array.from({ length: 51 }, (_, index) => ({
+      ...AVAILABLE_FILES.files[0]!,
+      path: `file-${index}.ts`,
+      revision: `revision-${index}`,
+    }));
+    const patches = files.map(({ path }, index) => ({
+      path,
+      patch: `patch ${index}`,
+      truncated: false,
+    }));
+    const { harness } = await setup({
+      diffFiles: { ...AVAILABLE_FILES, outcome: "available", files },
+      diffPatch: { outcome: "available", patches },
+    });
+    expect(
+      await harness.callRpc("getPatches", {
+        threadId: "thr_1",
+        query: { target: "uncommitted" },
+        paths: files.map(({ path }) => path),
+      }),
+    ).toEqual({
+      kind: "ok",
+      patches: Object.fromEntries(patches.map(({ path, patch }) => [path, patch])),
+    });
+  });
   it.each([
     [
       { target: "all", mergeBaseBranch: "origin/main" },
@@ -873,7 +1003,9 @@ describe("getPatches", () => {
 
     await harness.callRpc("getPatches", { threadId: "thr_1", query, paths: ["src/new.ts"] });
 
-    expect(calls.diffPatch).toEqual([{ environmentId: "env-1", paths: ["src/new.ts"], target }]);
+    expect(calls.diffPatch).toEqual([
+      { keys: [JSON.stringify(["env-1", target, false, "src/new.ts", "fixture-revision"])] },
+    ]);
     expect(calls.status).toEqual([]);
   });
 

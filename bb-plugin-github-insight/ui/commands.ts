@@ -24,7 +24,13 @@ function prTabCommand(
     isAvailable: availableWhen(hasPr),
     run: (context) => {
       const { threadId } = context;
-      if (threadId === null || !context.openPanel({ actionId: "pr" })) return;
+      if (
+        threadId === null ||
+        !context.experimental_panel.openTab({
+          tab: { id: "pr", context: { kind: "thread" }, availability: "action" },
+        })
+      )
+        return;
       for (const { tab, intent } of intents) postIntent(threadId, tab, intent);
     },
   };
