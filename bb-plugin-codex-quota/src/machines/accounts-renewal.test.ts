@@ -113,7 +113,7 @@ describe("account polling through the host quota cache", () => {
     },
   );
 
-  it("hides a retained observation after a renewal failure and preserves frontend backoff", async () => {
+  it("retains an observation after a renewal failure and preserves frontend backoff", async () => {
     account = pollingAccount();
     await vi.advanceTimersByTimeAsync(21_000);
     const original = displayed().quota.snapshot;
@@ -121,11 +121,11 @@ describe("account polling through the host quota cache", () => {
     await vi.advanceTimersByTimeAsync(229_000);
 
     expect(displayed().quota).toEqual({ state: "stale", reason: "network", snapshot: original });
-    expect(displayed().footer.label).toBe("—");
+    expect(displayed().footer).toMatchObject({ label: "63%", known: true });
     expect(Date.now() - Date.parse(original!.observedAt)).toBeLessThan(300_000);
     await vi.advanceTimersByTimeAsync(950_000);
     expect(
-      account.samples.filter((sample) => sample.at >= 250_000 && sample.label !== "—"),
+      account.samples.filter((sample) => sample.at >= 250_000 && sample.label !== "63%"),
     ).toEqual([]);
     expect(account.requests).toEqual([
       0, 81_000, 153_000, 225_000, 306_000, 447_000, 708_000, 1_029_000,
@@ -164,14 +164,14 @@ describe("account polling through the host quota cache", () => {
     expect(account.cache.peek("account-a").snapshot).toBeNull();
   });
 
-  it("hides observations after RPC failure and ages them on the viewer clock without more reads", async () => {
+  it("retains observations after RPC failure and expires them on the viewer clock without more reads", async () => {
     account = pollingAccount();
     await vi.advanceTimersByTimeAsync(21_000);
     const original = displayed().quota.snapshot;
     account.upstream.rpcFailed = true;
     await vi.advanceTimersByTimeAsync(72_000);
     expect(displayed().quota).toEqual({ state: "stale", reason: "network", snapshot: original });
-    expect(displayed().footer.label).toBe("—");
+    expect(displayed().footer).toMatchObject({ label: "63%", known: true });
     vi.setSystemTime(start + 86_408_000);
     await vi.advanceTimersByTimeAsync(1000);
     expect(displayed().quota).toEqual({ state: "unavailable", reason: "expired", snapshot: null });
@@ -180,20 +180,20 @@ describe("account polling through the host quota cache", () => {
   });
 
   it.each([
-    { age: 300_000, state: "stale", reason: "aged" },
-    { age: 86_400_000, state: "unavailable", reason: "expired" },
-    { age: -60_000, state: "unavailable", reason: "expired" },
+    { age: 300_000, state: "stale", reason: "aged", label: "63%", known: true },
+    { age: 86_400_000, state: "unavailable", reason: "expired", label: "—", known: false },
+    { age: -60_000, state: "unavailable", reason: "expired", label: "—", known: false },
   ])(
     "never presents a non-current upstream observation as current ($age ms)",
-    async ({ age, state, reason }) => {
+    async ({ age, state, reason, label, known }) => {
       account = pollingAccount();
       account.upstream.observationAge = age;
       await vi.advanceTimersByTimeAsync(21_000);
       expect(displayed().quota).toMatchObject({ state, reason });
-      expect(displayed().footer.label).toBe("—");
+      expect(displayed().footer).toMatchObject({ label, known });
       await vi.advanceTimersByTimeAsync(600_000);
       expect(
-        account.samples.filter((sample) => sample.label !== "—" || sample.state === "fresh"),
+        account.samples.filter((sample) => sample.label !== label || sample.state === "fresh"),
       ).toEqual([]);
     },
   );

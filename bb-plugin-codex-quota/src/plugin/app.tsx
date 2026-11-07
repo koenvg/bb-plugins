@@ -252,9 +252,6 @@ function SidebarQuotaBadge({ descriptionId }: { descriptionId?: string }) {
         title={label}
       >
         {summary.label}
-        {summary.known && (
-          <span className="text-[11px] font-normal text-muted-foreground">known</span>
-        )}
       </span>
       {descriptionId && (
         <span id={descriptionId} className="sr-only">
@@ -269,7 +266,7 @@ function useQuotaNavigationBadge() {
   const summary = footerAllowance(state.data, state.now, state.owners > 0);
   const detail = accountDetails(state.data, state.now).join(". ");
   return {
-    text: `${summary.label}${summary.known ? "*" : ""}`,
+    text: summary.label,
     label: `${summary.known ? "Lowest known" : "Lowest"} Codex account allowance; ${summary.label}${summary.known ? "; some accounts unavailable or unverified" : ""}. ${detail}`,
   };
 }

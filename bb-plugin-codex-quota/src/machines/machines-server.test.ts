@@ -4,6 +4,7 @@ import { accountsSchema, reportsSchema } from "./machines-contract.js";
 import { combineReports } from "./combined-report.js";
 import { footerAllowance } from "./accounts-store.js";
 import {
+  accountsFixture,
   memorySummaries,
   machineFixture,
   quotaFixture,
@@ -60,6 +61,70 @@ function fixture(storage = memorySummaries()) {
     create: () => createMachineCoordinator(deps),
   };
 }
+describe("footer allowance selection", () => {
+  it.each([
+    { stalePercent: 0, label: "0%", state: "stale", reason: "network" },
+    { stalePercent: 38, label: "38%", state: "stale", reason: "network" },
+    { stalePercent: 80, label: "63%", state: "fresh", reason: "ok" },
+  ])(
+    "includes stale $stalePercent percent in the minimum without claiming fresh coverage",
+    ({ stalePercent, label, state, reason }) => {
+      const data = accountsFixture(now, true);
+      data.accounts[1]!.quota = {
+        ...quotaFixture(now, stalePercent),
+        state: "stale",
+        reason: "network",
+      };
+      expect(footerAllowance(data, now)).toMatchObject({
+        label,
+        known: true,
+        view: { state, reason },
+      });
+    },
+  );
+
+  it.each(["fresh", "stale"] as const)("excludes %s snapshots without a binding value", (state) => {
+    const data = accountsFixture(now, true);
+    data.accounts[1]!.quota = {
+      state,
+      reason: state === "fresh" ? "ok" : "network",
+      snapshot: { ...quotaFixture(now).snapshot, bindingRemainingPercent: null },
+    };
+    expect(footerAllowance(data, now)).toMatchObject({ label: "63%", known: true });
+    data.accounts.shift();
+    expect(footerAllowance(data, now)).toEqual({
+      label: "—",
+      known: false,
+      view: { state: "unavailable", reason: "unavailable", snapshot: null },
+    });
+  });
+
+  it("uses only current accounts after replacement and removal", () => {
+    const data = accountsFixture(now);
+    data.accounts[0]!.quota = { ...quotaFixture(now, 0), state: "stale", reason: "network" };
+    expect(footerAllowance(data, now)).toMatchObject({ label: "0%", known: true });
+    data.accounts = accountsFixture(now, true).accounts;
+    expect(footerAllowance(data, now)).toMatchObject({ label: "38%", known: false });
+    data.accounts = [];
+    expect(footerAllowance(data, now)).toEqual({
+      label: "—",
+      known: false,
+      view: { state: "unavailable", reason: "unavailable", snapshot: null },
+    });
+  });
+
+  it("does not show a retained stale snapshot without an active owner", () => {
+    const data = accountsFixture(now);
+    data.accounts[0]!.quota = { ...quotaFixture(now), state: "stale", reason: "network" };
+    expect(footerAllowance(data, now, true)).toMatchObject({ label: "63%", known: true });
+    expect(footerAllowance(data, now, false)).toEqual({
+      label: "—",
+      known: false,
+      view: { state: "unavailable", reason: "unavailable", snapshot: null },
+    });
+  });
+});
+
 describe("all-machine public reports", () => {
   it("reads every enrolled machine, adds only recorded history, and keeps shared paths separate", async () => {
     const f = fixture(),

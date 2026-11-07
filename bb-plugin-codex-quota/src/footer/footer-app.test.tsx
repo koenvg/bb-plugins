@@ -163,7 +163,9 @@ describe("Codex quota footer integration", () => {
           }),
         ).toBe(button),
       );
-      expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("—");
+      expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe(
+        state === "stale" ? "72%" : "—",
+      );
       if (identity === "unknown") {
         expect(
           within(sidebar).getByRole("button", {
@@ -221,7 +223,7 @@ describe("Codex quota footer integration", () => {
       ).toBe(button),
     );
     expect(api).toHaveBeenCalledTimes(2);
-    expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("—");
+    expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("72%");
     await act(async () => button.focus());
     expect(within(document.body).getByRole("tooltip").textContent).toContain(
       "stale · Allowance refresh failed",
@@ -273,7 +275,7 @@ describe("Codex quota footer integration", () => {
     act(() => {
       (clocks[0]![0] as () => void)();
     });
-    expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("—");
+    expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("72%");
     expect(icon.container.querySelector("[data-battery-fill]")).toBeNull();
     tooltip = within(document.body).getByRole("tooltip");
     expect(
