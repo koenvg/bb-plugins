@@ -1,5 +1,6 @@
 import type { PluginBbSdk } from "@get-bb/plugin-sdk";
 import type { OutputSnapshot } from "./contract";
+import { failureHistoryLimit } from "./contract";
 import {
   graphSeconds,
   smoothSeconds,
@@ -56,6 +57,8 @@ type Verification = {
   nextSeedAt: number;
 };
 
+type FailureDiagnostic = OutputSnapshot["recentFailures"][number];
+class InvalidReadResponse extends Error {}
 export class OutputCollector {
   private readonly threads = new Map<ThreadId, ThreadObservation>();
   private readonly live = new Set<ThreadId>();
@@ -87,6 +90,7 @@ export class OutputCollector {
   private totalBytes = 0;
   private deltas = 0;
   private failures = 0;
+  private readonly recentFailures: FailureDiagnostic[] = [];
 
   constructor(
     private readonly api: () => Pick<PluginBbSdk["threads"], "list" | "get" | "events">,
@@ -200,6 +204,7 @@ export class OutputCollector {
     this.live.clear();
     this.background.clear();
     this.readStarts.length = 0;
+    this.recentFailures.length = 0;
     this.missing.clear();
     this.discovery = null;
     this.verification = null;
@@ -282,6 +287,7 @@ export class OutputCollector {
       totalBytes: this.totalBytes,
       deltas: this.deltas,
       failures: this.failures,
+      recentFailures: this.recentFailures.map((failure) => ({ ...failure })),
       backlog,
       capacityLimited: this.capacityLimited,
       rawBytesPerSecond: latest.rawBytesPerSecond,
@@ -370,6 +376,20 @@ export class OutputCollector {
     }
   }
 
+  private recordFailure(operation: FailureDiagnostic["operation"], error: unknown): void {
+    const category: FailureDiagnostic["category"] =
+      error instanceof InvalidReadResponse
+        ? "invalid-response"
+        : error instanceof Error && error.name === "TimeoutError"
+          ? "timeout"
+          : error instanceof Error && error.name === "AbortError"
+            ? "aborted"
+            : "read-error";
+    this.failures++;
+    if (this.recentFailures.length === failureHistoryLimit) this.recentFailures.shift();
+    this.recentFailures.push({ operation, category, at: Date.now() });
+  }
+
   private async work(): Promise<void> {
     if (this.disposed || this.reading) return;
     this.reading = true;
@@ -404,13 +424,14 @@ export class OutputCollector {
         this.readStarts.push(Date.now());
         const id = observation.metadata.id;
         this.readingId = id;
+        const operation = this.missing.has(id) ? "threads.get" : "threads.events.list";
         try {
-          if (this.missing.has(id)) await this.confirmThread(observation);
+          if (operation === "threads.get") await this.confirmThread(observation);
           else await this.readPage(observation);
-        } catch {
+        } catch (error) {
           if (this.disposed || observation.deleted || this.threads.get(id) !== observation)
             continue;
-          this.failures++;
+          this.recordFailure(operation, error);
           observation.retryAt = Date.now() + 3000;
           this.enqueue(observation);
         } finally {
@@ -422,9 +443,9 @@ export class OutputCollector {
         }
       }
       if (!discoveryRead && this.discovery && !this.disposed) await this.discoverPage();
-    } catch {
+    } catch (error) {
       if (!this.disposed) {
-        this.failures++;
+        this.recordFailure("threads.list", error);
         this.discoveryError = true;
         this.discovery = null;
         this.nextDiscoveryAt = Date.now() + 3000;
@@ -449,13 +470,14 @@ export class OutputCollector {
       this.discoveryError = true;
       return;
     }
-    if (rows.length > discoveryPageSize) throw new Error("Oversized discovery page");
+    if (rows.length > discoveryPageSize) throw new InvalidReadResponse("Oversized discovery page");
     for (const row of rows) {
       this.mergeMetadata(row);
     }
     if (rows.length === discoveryPageSize) {
       discovery.offset += discoveryPageSize;
-      if (discovery.offset > maxThreads) throw new Error("Discovery pagination limit");
+      if (discovery.offset > maxThreads)
+        throw new InvalidReadResponse("Discovery pagination limit");
       return;
     }
     if (!discovery.archived) {
@@ -487,7 +509,7 @@ export class OutputCollector {
     const revision = observation.metadataRevision;
     const metadata = await this.api().get({ threadId: id, signal: this.requestSignal() });
     if (this.disposed || observation.deleted || this.threads.get(id) !== observation) return;
-    if (metadata.id !== id) throw new Error("Unexpected thread identity");
+    if (metadata.id !== id) throw new InvalidReadResponse("Unexpected thread identity");
     if (!this.missing.has(id) || observation.metadataRevision !== revision) {
       this.enqueue(observation);
       return;
@@ -532,7 +554,7 @@ export class OutputCollector {
       this.threads.get(observation.metadata.id) !== observation
     )
       return;
-    if (rows.length > eventPageSize) throw new Error("Oversized event page");
+    if (rows.length > eventPageSize) throw new InvalidReadResponse("Oversized event page");
     let previous = cursor.kind === "ready" ? cursor.after : (cursor.before ?? Infinity);
     const events = rows.map((row) => {
       if (
@@ -546,7 +568,7 @@ export class OutputCollector {
         (row.type !== types[0] && row.type !== types[1]) ||
         typeof row.data.delta !== "string"
       )
-        throw new Error("Invalid output event page");
+        throw new InvalidReadResponse("Invalid output event page");
       previous = row.seq;
       return { seq: row.seq, at: row.createdAt, bytes: encoder.encode(row.data.delta).byteLength };
     });

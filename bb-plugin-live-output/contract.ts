@@ -10,6 +10,14 @@ const sampleSchema = z
     smoothBytesPerSecond: count,
   })
   .strict();
+export const failureHistoryLimit = 20;
+const failureDiagnosticSchema = z
+  .object({
+    operation: z.enum(["threads.list", "threads.get", "threads.events.list"]),
+    category: z.enum(["timeout", "aborted", "invalid-response", "read-error"]),
+    at: count,
+  })
+  .strict();
 const contributorSchema = z
   .object({
     id: z.string(),
@@ -33,6 +41,7 @@ export const snapshotSchema = z
     totalBytes: count,
     deltas: count,
     failures: count,
+    recentFailures: z.array(failureDiagnosticSchema).max(failureHistoryLimit),
     backlog: count,
     capacityLimited: z.boolean(),
     rawBytesPerSecond: count,

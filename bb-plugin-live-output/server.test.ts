@@ -90,6 +90,33 @@ describe("public plugin boundary", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("exposes only safe read failure context through the public snapshot RPC", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    const host = createFakePluginHost({
+      pluginId: "live-output",
+      sdk: {
+        threads: {
+          list: async () => {
+            throw new Error("Bearer private-transcript-secret");
+          },
+        },
+      },
+    });
+    hosts.push(host.harness);
+    plugin(host.bb);
+    const service = host.harness.behavior.runService("observe-output");
+    await vi.advanceTimersByTimeAsync(0);
+    const snapshot = await host.harness.behavior.callRpc("snapshot");
+    expect(snapshotSchema.parse(snapshot).recentFailures).toEqual([
+      { operation: "threads.list", category: "read-error", at: 100_000 },
+    ]);
+    expect(JSON.stringify(snapshot)).not.toContain("private-transcript-secret");
+    expect(host.harness.inspection.logEntries).toEqual([]);
+    await host.harness.lifecycle.dispose();
+    await service.done;
+  });
+
   it("does not resurrect an unknown deleted thread from an in-flight discovery page", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
