@@ -310,6 +310,10 @@ function project(packages, report) {
 }
 
 function alignmentStages(packages, evidence) {
+  const localCliPackages = packages.filter(
+    (pkg) => pkg.manifest.devDependencies?.["bb-app"] ?? pkg.manifest.dependencies?.["bb-app"],
+  );
+  const localCli = (pkg) => join(pkg.path, "node_modules/.bin/bb");
   const stages = [
     ...packages.map((pkg) => ({
       id: `sync:${pkg.directory}`,
@@ -320,6 +324,22 @@ function alignmentStages(packages, evidence) {
       id: `postcheck:${pkg.directory}`,
       command: ["bb", "plugin", "types", pkg.path, "--check"],
     })),
+    ...localCliPackages.flatMap((pkg) => [
+      {
+        id: `local-cli-version:${pkg.directory}`,
+        command: [localCli(pkg), "--version"],
+        cwd: pkg.path,
+        packageCli: true,
+        expectedVersion:
+          pkg.manifest.devDependencies?.["bb-app"] ?? pkg.manifest.dependencies["bb-app"],
+      },
+      {
+        id: `local-postcheck:${pkg.directory}`,
+        command: [localCli(pkg), "plugin", "types", pkg.path, "--check"],
+        cwd: pkg.path,
+        packageCli: true,
+      },
+    ]),
   ];
   if (packages.some((pkg) => pkg.directory === "bb-plugin-tasks-plus")) {
     stages.push({ id: "sqlite", command: ["sqlite3", "--version"] });
@@ -360,6 +380,12 @@ function alignmentStages(packages, evidence) {
       id: `build:${pkg.directory}`,
       command: ["bb", "plugin", "build", pkg.path],
     })),
+    ...localCliPackages.map((pkg) => ({
+      id: `local-build:${pkg.directory}`,
+      command: [localCli(pkg), "plugin", "build", pkg.path],
+      cwd: pkg.path,
+      packageCli: true,
+    })),
   );
   return stages.map((stage) => ({ cwd: root, ...stage, status: "skipped", result: null }));
 }
@@ -374,10 +400,17 @@ function align(input, report) {
   if (input.kind === "preview") return true;
   try {
     for (const stage of report.stages) {
-      stage.result = run(stage.command, stage.cwd, { ...process.env, NODE_ENV: "development" });
+      const env = { ...process.env, NODE_ENV: "development" };
+      if (stage.packageCli) delete env.BB_CLI;
+      stage.result = run(stage.command, stage.cwd, env);
       stage.status = "failed";
       if (stage.id === "lockfile") report.lockfile = "reconciliation-started";
       if (!passed(stage.result)) throw new Error(`Stage failed: ${stage.id}`);
+      if (stage.expectedVersion && stage.result.stdout.trim() !== stage.expectedVersion) {
+        throw new Error(
+          `Stage failed: ${stage.id}, expected bb-app ${stage.expectedVersion}, got ${stage.result.stdout.trim()}`,
+        );
+      }
       if (stage.id.startsWith("sync:")) {
         const index = packages.findIndex((pkg) => stage.id === `sync:${pkg.directory}`);
         const pkg = packages[index];

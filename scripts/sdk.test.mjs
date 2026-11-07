@@ -53,6 +53,7 @@ function fixture(t) {
   writeFileSync(join(root, "bun.lock"), "original root lock\n");
   writeFileSync(join(root, "configuration.json"), '{"enabled":false,"secret":"fixture"}\n');
   writeFileSync(join(root, "tasks.json"), '[{"id":"owned-fixture","state":"open"}]\n');
+  writeFileSync(join(root, ".gitignore"), "node_modules/\n");
   const tracePath = join(home, "commands.jsonl");
   const stub = `#!${process.execPath}
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -60,16 +61,17 @@ import { basename, join } from "node:path";
 const args = process.argv.slice(2);
 const command = basename(process.argv[1]);
 const options = JSON.parse(process.env.SDK_CASE);
-appendFileSync(process.env.SDK_TRACE, JSON.stringify({ command, args, cwd: process.cwd() }) + "\\n");
+const local = process.argv[1].includes("/node_modules/.bin/") && !process.env.BB_CLI;
+appendFileSync(process.env.SDK_TRACE, JSON.stringify({ command, args, cwd: process.cwd(), local, bbCli: process.env.BB_CLI ?? null }) + "\\n");
 const fail = (code, message) => { console.error(message); process.exit(code); };
 if (command === "bb" && args.join(" ") === "--version") {
-  console.log(options.bb ?? "0.48.1");
+  console.log(local ? (options.localVersion ?? "0.48.0") : (options.bb ?? "0.48.1"));
 } else if (command === "bb" && args[0] === "plugin" && args[1] === "types") {
   const path = args[2];
   const file = join(path, "package.json");
   const pkg = JSON.parse(readFileSync(file, "utf8"));
   if (typeof pkg.bb?.server !== "string") fail(32, "Plugin manifest requires a string bb.server");
-  const target = options.sdk ?? "0.6.104";
+  const target = (local ? options.localSdk : options.sdk) ?? "0.6.104";
   const tsconfig = join(path, "tsconfig.json");
   if (existsSync(join(path, "types/bb-plugin-sdk.d.ts")) ||
       existsSync(join(path, "types/bb-plugin-sdk-app.d.ts")) ||
@@ -98,7 +100,8 @@ if (command === "bb" && args.join(" ") === "--version") {
     console.log("Synchronized SDK " + target);
   }
 } else if (command === "bb" && args[0] === "plugin" && args[1] === "build") {
-  if (options.buildExit) fail(options.buildExit, "Build failed");
+  const code = local ? options.localBuildExit : options.buildExit;
+  if (code) fail(code, "Build failed");
   console.log("Built selected plugin");
 } else if (command === "bun" && args[0] === "install") {
   if (args.join(" ") !== "install --ignore-scripts" || process.env.NODE_ENV !== "development") {
@@ -144,6 +147,14 @@ if (command === "bb" && args.join(" ") === "--version") {
     git,
     commit,
     json,
+    pinCli(name = names[0], version = "0.48.0") {
+      const pkg = this.manifest(name);
+      pkg.devDependencies["bb-app"] = version;
+      json(join(root, name, "package.json"), pkg);
+      const directory = join(root, name, "node_modules/.bin");
+      mkdirSync(directory, { recursive: true });
+      writeFileSync(join(directory, "bb"), stub, { mode: 0o755 });
+    },
     manifest(name = names[0]) {
       return JSON.parse(readFileSync(join(root, name, "package.json"), "utf8"));
     },
@@ -166,6 +177,7 @@ if (command === "bb" && args.join(" ") === "--version") {
           env: {
             ...process.env,
             PATH: bin + ":" + process.env.PATH,
+            BB_CLI: join(bin, "bb"),
             SDK_ROOT: root,
             SDK_TRACE: tracePath,
             SDK_CASE: JSON.stringify(options),
@@ -778,5 +790,140 @@ test("audit reports malformed declared workspaces instead of assuming the legacy
     Array(5).fill(["bb", ["--version"]]),
   );
   assert.equal(f.read("bun.lock"), "original root lock\n");
+  f.preserved();
+});
+
+test("alignment detects a pinned package CLI SDK mismatch despite BB_CLI redirection", (t) => {
+  const f = fixture(t);
+  f.pinCli();
+  f.pinCli(names[1]);
+  f.commit();
+  const unselected = f.read(`${names[1]}/package.json`);
+  const result = f.run(f.apply(), { localSdk: "0.6.94" });
+  assert.equal(result.status, 1);
+  assert.equal(result.report.error, `Stage failed: local-postcheck:${names[0]}`);
+  const stage = result.report.stages.find(({ id }) => id === `local-postcheck:${names[0]}`);
+  assert.equal(stage.status, "failed");
+  assert.equal(stage.result.exitCode, 12);
+  assert.equal(stage.result.stdout, "pin=0.6.104 host=0.6.94\n");
+  assert.equal(stage.result.stderr, "Official SDK and shim declarations need synchronization\n");
+  assert.equal(
+    result.report.stages.find(({ id }) => id === `postcheck:${names[0]}`).status,
+    "passed",
+  );
+  assert.equal(result.report.stages.find(({ id }) => id === "review").status, "skipped");
+  assert.equal(f.manifest().devDependencies["bb-app"], "0.48.0");
+  assert.equal(f.manifest().devDependencies.unrelated, "1.0.0");
+  assert.equal(f.read(`${names[1]}/package.json`), unselected);
+  assert.equal(f.read("bun.lock"), "reconciled root lock\n");
+  assert.equal(
+    f.trace().some(({ args }) => args[1] === "build"),
+    false,
+  );
+  f.preserved();
+});
+
+for (const localBuildExit of [0, 47]) {
+  test(`alignment validates and builds with the selected package CLI, build exit=${localBuildExit}`, (t) => {
+    const f = fixture(t);
+    f.pinCli();
+    f.pinCli(names[1], "0.48.9");
+    f.commit();
+    const unselected = f.read(`${names[1]}/package.json`);
+    const result = f.run(f.apply(), { localBuildExit });
+    assert.equal(result.status, localBuildExit ? 1 : 0);
+    assert.equal(
+      result.report.error,
+      localBuildExit ? `Stage failed: local-build:${names[0]}` : null,
+    );
+    assert.deepEqual(
+      result.report.stages
+        .filter(({ packageCli }) => packageCli)
+        .map(({ id, status }) => [id, status]),
+      [
+        [`local-cli-version:${names[0]}`, "passed"],
+        [`local-postcheck:${names[0]}`, "passed"],
+        [`local-build:${names[0]}`, localBuildExit ? "failed" : "passed"],
+      ],
+    );
+    const localCommands = f.trace().filter(({ local }) => local);
+    assert.deepEqual(
+      localCommands.map(({ args }) => args),
+      [
+        ["--version"],
+        ["plugin", "types", join(f.root, names[0]), "--check"],
+        ["plugin", "build", join(f.root, names[0])],
+      ],
+    );
+    assert.equal(
+      localCommands.every(({ cwd, bbCli }) => cwd === join(f.root, names[0]) && bbCli === null),
+      true,
+    );
+    assert.equal(
+      f
+        .trace()
+        .filter(({ local }) => !local)
+        .every(({ bbCli }) => bbCli !== null),
+      true,
+    );
+    assert.equal(
+      result.report.stages.find(({ id }) => id === `build:${names[0]}`).status,
+      "passed",
+    );
+    assert.equal(
+      result.report.stages.find(({ id }) => id === `local-build:${names[0]}`).result.exitCode,
+      localBuildExit,
+    );
+    assert.equal(f.manifest().devDependencies["bb-app"], "0.48.0");
+    assert.equal(f.read(`${names[1]}/package.json`), unselected);
+    f.preserved();
+  });
+}
+
+test("alignment rejects a package executable whose version differs from its bb-app pin", (t) => {
+  const f = fixture(t);
+  f.pinCli();
+  f.commit();
+  const result = f.run(f.apply(), { localVersion: "0.48.1" });
+  assert.equal(result.status, 1);
+  assert.equal(
+    result.report.error,
+    `Stage failed: local-cli-version:${names[0]}, expected bb-app 0.48.0, got 0.48.1`,
+  );
+  const stage = result.report.stages.find(({ id }) => id === `local-cli-version:${names[0]}`);
+  assert.equal(stage.status, "failed");
+  assert.equal(stage.result.exitCode, 0);
+  assert.equal(stage.result.stdout, "0.48.1\n");
+  assert.equal(
+    result.report.stages.find(({ id }) => id === `local-postcheck:${names[0]}`).status,
+    "skipped",
+  );
+  assert.equal(f.manifest().devDependencies["bb-app"], "0.48.0");
+  f.preserved();
+});
+
+test("preview plans package CLI checks without executing or installing them", (t) => {
+  const f = fixture(t);
+  f.pinCli();
+  f.commit();
+  rmSync(join(f.root, names[0], "node_modules"), { recursive: true });
+  const result = f.run(["align", "--package", names[0]]);
+  success(result);
+  assert.deepEqual(
+    result.report.stages
+      .filter(({ packageCli }) => packageCli)
+      .map(({ id, status }) => [id, status]),
+    [
+      [`local-cli-version:${names[0]}`, "skipped"],
+      [`local-postcheck:${names[0]}`, "skipped"],
+      [`local-build:${names[0]}`, "skipped"],
+    ],
+  );
+  assert.equal(f.git("status", "--porcelain"), "");
+  assert.equal(f.read("bun.lock"), "original root lock\n");
+  assert.equal(
+    f.trace().some(({ local, command }) => local || command === "bun"),
+    false,
+  );
   f.preserved();
 });
