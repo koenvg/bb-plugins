@@ -23,6 +23,7 @@ function snapshot(overrides: Partial<OutputSnapshot> = {}): OutputSnapshot {
     totalBytes: 800,
     deltas: 2,
     failures: 0,
+    recentFailures: [],
     backlog: 0,
     capacityLimited: false,
     rawBytesPerSecond: 80,

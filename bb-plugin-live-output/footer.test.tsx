@@ -23,6 +23,7 @@ const snapshot = (): OutputSnapshot => ({
   totalBytes: 2400,
   deltas: 100,
   failures: 0,
+  recentFailures: [],
   backlog: 0,
   capacityLimited: false,
   rawBytesPerSecond: 800,

@@ -28,6 +28,8 @@ Rolling event verification starts after ten minutes and spreads a fixed set of t
 
 Memory is limited to 10,000 tracked threads, at most 635 second buckets per thread and ten displayed contributors. The page reports degraded coverage for a capacity limit, pending catch-up or read errors. Starting means initial discovery is incomplete. Idle means collection is live but recent output is zero. Disconnected means the page's connection or snapshot is stale; the last graph is not current evidence.
 
+The public `snapshot` RPC includes `recentFailures`, the latest twenty read failures in oldest-first order. Each record contains an SDK operation, a fixed failure category, and `at`, the failure time in Unix milliseconds. Operations are `threads.list`, `threads.get`, and `threads.events.list`. Categories are `timeout`, `aborted`, `invalid-response`, and `read-error`. Timeout and abort categories require the corresponding error name; other SDK failures remain `read-error`, not a guessed cause. The lifetime `failures` count can exceed the retained history and stays unchanged after recovery. Records contain no error messages, stacks, causes, thread identifiers, titles, or transcript content. History stays in memory and clears on disposal or reload. No diagnostic logs are written.
+
 ## Compatibility and local install
 
 Targets BB 0.46 and the public `@get-bb/plugin-sdk` 0.6.37 contract. The manifest requires SDK `>=0.6.37 <0.7`. The experimental thread-event hook must be available.
