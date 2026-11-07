@@ -38,6 +38,7 @@ try {
     resolve: { dedupe: ["react", "react-dom"] },
     server: {
       host: "127.0.0.1",
+      watch: { usePolling: true },
       middlewareMode: { server: http },
       hmr: { server: http },
     },
