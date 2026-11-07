@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
-  copyFileSync,
+  cpSync,
   existsSync,
   globSync,
   lstatSync,
@@ -219,7 +219,7 @@ function applyAuthority(input) {
 }
 
 function reconcileAlias(pkg, original) {
-  const version = pkg.devDependencies?.[sdk];
+  const version = declarations(pkg).sdk;
   if (typeof version !== "string" || !Bun.semver.satisfies(version, "*")) {
     throw new Error("Official projection did not produce an SDK version");
   }
@@ -258,21 +258,24 @@ function project(packages, report) {
     for (const pkg of packages) {
       const path = join(scratch, pkg.directory);
       mkdirSync(path, { recursive: true, mode: 0o700 });
-      copyFileSync(join(pkg.path, "package.json"), join(path, "package.json"));
-      const inputs = [
-        ...globSync("tsconfig*.json", { cwd: pkg.path }),
-        "types/bb-plugin-sdk.d.ts",
-        "types/bb-plugin-sdk-app.d.ts",
-      ];
-      for (const file of inputs) {
-        const source = join(pkg.path, file);
-        if (!existsSync(source)) continue;
-        if (!lstatSync(source).isFile() || realpathSync(source) !== source) {
-          throw new Error(`Projection input must be a regular owned file: ${source}`);
-        }
-        mkdirSync(dirname(join(path, file)), { recursive: true });
-        copyFileSync(source, join(path, file));
-      }
+      cpSync(pkg.path, path, {
+        recursive: true,
+        filter(source) {
+          if (
+            source !== pkg.path &&
+            ["node_modules", "dist", "build", "coverage", ".git", ".cache", ".turbo"].includes(
+              basename(source),
+            )
+          ) {
+            return false;
+          }
+          const stat = lstatSync(source);
+          if (!stat.isDirectory() && (!stat.isFile() || realpathSync(source) !== source)) {
+            throw new Error(`Projection input must be a regular owned file: ${source}`);
+          }
+          return true;
+        },
+      });
       const projection = {
         directory: pkg.directory,
         official: run(["bb", "plugin", "types", path], scratch),
@@ -291,7 +294,7 @@ function project(packages, report) {
       const engines = pkg.manifest.engines;
       for (const [engine, version] of [
         ["bb", report.host.stdout.trim()],
-        ["bbPluginSdk", projected[index].devDependencies[sdk]],
+        ["bbPluginSdk", declarations(projected[index]).sdk],
       ]) {
         if (
           typeof engines?.[engine] !== "string" ||
