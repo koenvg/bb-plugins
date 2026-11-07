@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -356,6 +357,7 @@ it("surfaces a failed run's error when queued work continues the same settlement
       kind: "provider.error",
       message: "Provider error",
       detail: "failure-original",
+      errorInfo: { category: "unknown", providerCode: null, httpStatusCode: null },
     },
   ]);
   expect(deltas.filter((delta) => delta.kind === "turn.boundary")).toEqual([
@@ -429,7 +431,7 @@ it.each(["bb-first", "bb-last"])(
     const wireOrder: string[] = [];
     const source = BB_PI_EXTENSION_SOURCE.slice(CODEX_SPEED_SOURCE.length)
       .replace(/^import .*;$/gm, "")
-      .replace("export default function bbExtension", "function bbExtension");
+      .replace("export default async function bbExtension", "async function bbExtension");
     const bbFactory: ExtensionFactory = runInNewContext(`${source}; bbExtension`, {
       PiRuntime: { VERSION, SessionManager },
       __bbCodexSpeed: { installSpeed: () => null },
@@ -438,19 +440,20 @@ it.each(["bb-first", "bb-last"])(
       randomUUID: (await import("node:crypto")).randomUUID,
       Buffer,
       StringDecoder,
-      process: { env: {} },
-      Socket: class {
-        on() {
-          return this;
-        }
-        unref() {}
+      process: {
+        env: { BB_PI_BRIDGE_CHANNEL: "fixture", BB_PI_BRIDGE_CHANNEL_TOKEN: "fixture-token" },
       },
-      writeSync: (_fd: number, buffer: Buffer, offset: number, length: number) => {
-        const message: Record<string, unknown> = JSON.parse(
-          buffer.subarray(offset, offset + length).toString(),
-        );
-        h.control.handleChannelMessage(message);
-        return length;
+      connect: () => {
+        const socket = new EventEmitter();
+        Object.assign(socket, {
+          writable: true,
+          unref() {},
+          write(line: string) {
+            if (line.startsWith("{")) h.control.handleChannelMessage(JSON.parse(line));
+          },
+        });
+        queueMicrotask(() => socket.emit("connect"));
+        return socket;
       },
     });
     let runtime!: {

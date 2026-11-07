@@ -3,13 +3,13 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type Readable, type Writable } from "node:stream";
 import { afterEach, expect, it } from "vitest";
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import { runInNewContext } from "node:vm";
 import { Type } from "typebox";
 import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { PiBridgeChannel } from "./bridge-channel.js";
 import { CODEX_SPEED_SOURCE } from "./codex-speed-source.js";
 
 const cli = join(
@@ -19,6 +19,7 @@ const cli = join(
 );
 const children: ChildProcess[] = [];
 const roots: string[] = [];
+const channels: PiBridgeChannel[] = [];
 
 afterEach(async () => {
   await Promise.all(
@@ -31,6 +32,7 @@ afterEach(async () => {
         }),
     ),
   );
+  for (const channel of channels.splice(0)) channel.close();
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
@@ -60,7 +62,19 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
     mkdirSync(join(root, ".pi", "extensions"));
     writeFileSync(join(root, ".pi", "extensions", "project.mjs"), "export default function() {}");
   }
+  const messages: Record<string, unknown>[] = [];
+  const bridgeChannel = new PiBridgeChannel({
+    onLine: (line) => messages.push(JSON.parse(line)),
+    onOverflow: () => {
+      throw new Error("Unexpected channel overflow");
+    },
+    onError: (error) => {
+      throw error;
+    },
+  });
+  channels.push(bridgeChannel);
   const env = {
+    ...bridgeChannel.env,
     ...process.env,
     NODE_PATH: "",
     PI_CODING_AGENT_DIR: agentDir,
@@ -83,16 +97,15 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
     {
       cwd: root,
       env,
-      stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     },
   );
   children.push(child);
-  const messages: Record<string, unknown>[] = [];
   let stderr = "";
   child.stderr!.on("data", (chunk) => {
     stderr += String(chunk);
   });
-  for (const stream of [child.stdout!, child.stdio[3] as Readable]) {
+  for (const stream of [child.stdout!]) {
     let pending = "";
     stream.on("data", (chunk) => {
       pending += String(chunk);
@@ -123,7 +136,7 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
   }
   async function channel(method: string) {
     const id = `channel-${++nextId}`;
-    (child.stdio[4] as Writable).write(JSON.stringify({ kind: "request", id, method }) + "\n");
+    bridgeChannel.write(JSON.stringify({ kind: "request", id, method }) + "\n");
     const reply = await waitFor((message) => message.kind === "reply" && message.id === id);
     expect(reply.error, JSON.stringify(reply)).toBeUndefined();
     return reply.result;
@@ -204,13 +217,21 @@ it("ignores late tool results from a replaced session", async () => {
       readers.push(this);
     }
     unref() {}
+    writable = true;
+    write(line: string) {
+      if (line.startsWith("{")) replies.push(JSON.parse(line));
+    }
   }
   expect(BB_PI_EXTENSION_SOURCE.startsWith(CODEX_SPEED_SOURCE)).toBe(true);
   const source = BB_PI_EXTENSION_SOURCE.slice(CODEX_SPEED_SOURCE.length)
     .replace(/^import .+;$/gm, "")
-    .replace("export default function bbExtension", "function bbExtension");
+    .replace("export default async function bbExtension", "async function bbExtension");
   const factory = runInNewContext(source + "\nbbExtension;", {
-    Socket: BridgeSocket,
+    connect: () => {
+      const socket = new BridgeSocket();
+      queueMicrotask(() => socket.emit("connect"));
+      return socket;
+    },
     StringDecoder: (await import("node:string_decoder")).StringDecoder,
     Type,
     PiRuntime: { VERSION: "1.1.0" },
@@ -219,20 +240,22 @@ it("ignores late tool results from a replaced session", async () => {
     randomUUID,
     setTimeout,
     clearTimeout,
-    process: { env: { PI_BB_TOOLS_FILE: "tools.json" } },
-    readFileSync: () => JSON.stringify([{ name: "probe", description: "probe", inputSchema: {} }]),
-    writeSync: (_fd: number, buffer: Buffer, offset: number, length: number) => {
-      replies.push(JSON.parse(buffer.subarray(offset, offset + length).toString()));
-      return length;
+    process: {
+      env: {
+        PI_BB_TOOLS_FILE: "tools.json",
+        BB_PI_BRIDGE_CHANNEL: "fixture",
+        BB_PI_BRIDGE_CHANNEL_TOKEN: "fixture-token",
+      },
     },
+    readFileSync: () => JSON.stringify([{ name: "probe", description: "probe", inputSchema: {} }]),
   }) as (pi: {
     on: (event: string, handler: (event: unknown, ctx: unknown) => unknown) => void;
     registerTool: (tool: { execute: () => Promise<{ content: unknown }> }) => void;
-  }) => void;
+  }) => Promise<void>;
   async function start() {
     const handlers = new Map<string, ((event: unknown, ctx: unknown) => unknown)[]>();
     let tool!: { execute: () => Promise<{ content: unknown }> };
-    factory({
+    await factory({
       on(event, handler) {
         const list = handlers.get(event) ?? [];
         list.push(handler);

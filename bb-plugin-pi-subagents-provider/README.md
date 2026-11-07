@@ -18,7 +18,7 @@ bun run typecheck
 bun run build
 ```
 
-`bun run test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `bun run build` uses the pinned published `bb-app@0.47.1` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.79, which stays available with `bun install --frozen-lockfile --omit=dev`. The canonical SDK supplies development types and test harnesses. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0471).
+`bun run test` runs once. It retains upstream regression tests and drives a scripted Pi RPC child, not a paid agent. It also builds and loads a temporary production-only copy with no canonical SDK or development tools installed. `bun run build` uses the pinned published `bb-app@0.49.0` CLI and builds all three artifacts. Build output is in `dist/` and is not committed. Public runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of SDK 0.6.132, which stays available with `bun install --frozen-lockfile --omit=dev`. The canonical SDK supplies development types and test harnesses. Pi error-message patterns are retained locally from Pi 1.1.0 under the included MIT license, without adding Pi to production dependencies. See [production packaging](COMPATIBILITY.md#sdk-packaging-on-bb-0490).
 
 `bun run update:codex-speed`, `bun run check:codex-speed`, and the generator tests require system `tar` with gzip and stdin support. The generator verifies installed package inputs against the pinned archive before bundling the verified archive bytes.
 
@@ -43,6 +43,8 @@ bb plugin install git:https://github.com/koenvg/bb-plugins.git@main --subdirecto
 ```
 
 These commands are examples, not actions taken by this task. A thread worktree can expire; use a stable source for retained installations. New fork-provider threads require a user-installed Pi CLI on their host. The inherited provider reports whether Pi is missing or older than 0.84.0. Sign-in happens through Pi on that host. This package does not install Pi or subagents as an install hook.
+
+Provider maintenance distinguishes Pi-managed launchers, Bun global installs, and npm global installs. It offers the matching self-update or package-manager command. Health probes still avoid update discovery when `checkUpdates` is false. These command descriptions do not perform an installation or update.
 
 ### Read captured conversations
 
