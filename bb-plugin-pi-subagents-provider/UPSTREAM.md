@@ -2,7 +2,7 @@
 
 This package imports `get-bb/bb`'s committed `plugins/provider-pi` tree at the exact revision in [UPSTREAM.json](UPSTREAM.json). The tracked branch is `main`. The source came from GitHub's commit archive, not a local checkout. Before adaptation, a recursive comparison found no differences in the provider tree. Only the copied root MIT [LICENSE](LICENSE) was additional. No uncommitted upstream changes were imported.
 
-The imported provider was version 0.1.0, with SDK 0.5.24 and Pi types/fixtures 0.84.0. The initial standalone package pinned SDK 0.5.29 and build CLI 0.44.0. The current package pins SDK 0.6.79 and build CLI 0.47.1. See [compatibility and runtime packaging](COMPATIBILITY.md). The lockfile records npm package integrity. These are deliberate pins, not an automatic update policy.
+The imported provider was version 0.1.0, with SDK 0.5.24 and Pi types/fixtures 0.84.0. The initial standalone package pinned SDK 0.5.29 and build CLI 0.44.0. The current package pins SDK 0.6.132 and build CLI 0.49.0. See [compatibility and runtime packaging](COMPATIBILITY.md). The lockfile records npm package integrity. These are deliberate pins, not an automatic update policy.
 
 ## Local adaptations
 
@@ -20,15 +20,15 @@ The imported provider was version 0.1.0, with SDK 0.5.24 and Pi types/fixtures 0
 
 ## Current integration boundaries
 
-`ExtensionUiCoordinator.handle` receives widgets and dialogs. `PiRpcSession` owns the child and run settlement. `PiSessionChannel` owns correlated extension reports; `PiSessionInputs` owns input acknowledgement. `bridge.ts` owns construction, disposal and native-turn accounting. Observation and capture stay in `src/bridge/subagents`. Pure command, edit and image shapes live in `pi-tool-shapes.ts`; the translator retains bounded event bookkeeping.
+`ExtensionUiCoordinator.handle` receives widgets and dialogs. `PiRpcSession` owns the child and run settlement. `PiSessionChannel` owns correlated extension reports; `PiSessionInputs` owns input acknowledgement. `bridge.ts` owns construction, disposal and native-turn accounting. Observation and capture stay in `src/bridge/subagents`. Pure command, edit and image shapes live in `pi-tool-shapes.ts`; `PiAssistantStreams` owns assistant-message/reasoning stream state and reset policy; the translator retains bounded tool-event bookkeeping.
 
 ## Draft package-level synchronization
 
-The draft compares upstream `plugins/provider-pi` at incorporated revision `fdd3de3b19b97e6cd1ef7300cbb54711431249d3`, this fork at `a1a44e4e626b391b4bb4b3d7085791f3ee82d0fa`, and [upstream main at `916d684a`](https://github.com/get-bb/bb/commit/916d684ac23d0b0de82c09cfc7553a50287d2188). `UPSTREAM.json` keeps the incorporated baseline unchanged until the draft is accepted.
+The draft compares upstream `plugins/provider-pi` at incorporated revision `fdd3de3b19b97e6cd1ef7300cbb54711431249d3`, this fork at `3a69193b1cd835bf4837398c216cb96fdc90010f`, and [upstream main at `e61446e1`](https://github.com/get-bb/bb/commit/e61446e15a0bb3e6df551e45c3aba5c5187ffad3). `UPSTREAM.json` keeps the incorporated baseline unchanged until the draft is accepted. The [path accounting](verification/upstream-e61446e1-draft.md) records all 50 upstream changes and the fork-specific resolutions.
 
 Ports cover authoritative settlement and checkpoints, compaction queuing, exact model selection and catalog refresh, cwd relocation, assistant-message completion, edit batches, image results, cache-TTL metadata, recursive skill roots, local-only installation probes and static provider identity. The native composer matcher accepts both the older extra-count label and the current total-count badge. Compatibility tests retain the fork's speed and capture safeguards.
 
-The draft retains SDK/runtime alias 0.6.79, BB tooling 0.47.1, Pi contracts 1.1.0 and all other dependency pins and engine ranges. Upstream's newer host-toolchain/process API migration and Windows npm-shim changes remain deferred. Its private shared QuestionForm, workspace aliases, bundled preparation, compiler change and blanket test removals are not copied. The fork keeps its public question-host hook, select interaction model and package-owned controls. Required source checks and independent review must be reported separately from installed acceptance. No installed retention, delivery, parent wake or reload guarantee follows from these ports.
+The draft retains SDK/runtime alias 0.6.132, BB tooling 0.49.0, Pi contracts 1.1.0 and all other dependency pins and engine ranges. It ports the authenticated socket channel, public portable-process and host-process APIs, launcher and managed-install detection, graceful fork shutdown, image attachment fallbacks, retry-stream separation, and structured error categories. Pi 1.1.0 error-message patterns are retained locally under their MIT license so production builds still omit Pi development dependencies. Upstream's private shared QuestionForm, workspace aliases, bundled preparation, compiler change and blanket test removals are not copied. The fork keeps its public question-host hook, controls, bounded observation/capture, and Codex speed guards. Source checks and independent review remain separate from installed acceptance. No installed retention, delivery, parent wake or reload guarantee follows from these ports.
 
 ## Deliberate upstream updates
 

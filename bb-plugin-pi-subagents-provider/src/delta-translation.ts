@@ -6,6 +6,12 @@ import {
   hasPiImageContent,
 } from "./pi-tool-shapes.js";
 import { z } from "zod";
+import { piErrorInfo } from "./pi-error-info.js";
+import {
+  PiAssistantStreams,
+  ASSISTANT_STREAM_KEY,
+  thinkingStreamChannel,
+} from "./pi-assistant-streams.js";
 import {
   ZERO_TOKEN_USAGE,
   addTokenUsage,
@@ -215,12 +221,6 @@ type PiConversationMessage = z.infer<typeof piConversationMessageSchema>;
 type PiToolExecutionUpdateEvent = z.infer<typeof piToolExecutionUpdateEventSchema>;
 
 const PI_EMPTY_BASH_OUTPUT_PLACEHOLDERS = ["(no output)"] as const;
-const ASSISTANT_STREAM_KEY = "assistant";
-
-function thinkingStreamChannel(contentIndex: number): string {
-  return `thinking-${contentIndex}`;
-}
-
 interface PiModelContextWindowLookup {
   byCanonicalId: ReadonlyMap<string, number>;
   byModelId: ReadonlyMap<string, number>;
@@ -295,22 +295,13 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
   const startedToolShapes = new Map<string, StartedPiTool>();
   const cumulativeTokensByThreadId = new Map<string, ThreadEventTokenUsageBreakdown>();
   const promptCacheTtlMsByThreadId = new Map<string, number>();
-  const closedAssistantStreams = new Set<string>();
+  const assistantStreams = new PiAssistantStreams();
 
   function resetThread(threadId: string): void {
     cumulativeTokensByThreadId.delete(threadId);
     promptCacheTtlMsByThreadId.delete(threadId);
     clearThreadToolShapes({ threadId });
-    const prefix = `${threadId} `;
-    for (const key of closedAssistantStreams) {
-      if (key.startsWith(prefix)) {
-        closedAssistantStreams.delete(key);
-      }
-    }
-  }
-
-  function assistantStreamKey(context: PiDeltaTranslationContext | undefined): string {
-    return `${context?.threadId ?? ""} ${context?.parentToolCallId ?? ""}`;
+    assistantStreams.resetThread(threadId);
   }
 
   function toolShapeKey(
@@ -471,6 +462,7 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
           kind: "provider.error",
           message: "Provider error",
           detail: errorEnvelope.data.params?.message ?? "unknown error",
+          errorInfo: piErrorInfo(errorEnvelope.data.params?.message ?? "unknown error"),
           settlesTurn: true,
         },
       ];
@@ -503,16 +495,14 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
       case "message_start": {
         const assistantEvent = piAssistantMessageBoundaryEventSchema.safeParse(event);
         if (assistantEvent.success) {
-          const streamKey = assistantStreamKey(context);
           const message = assistantEvent.data.message;
           if (assistantEvent.data.type === "message_start") {
-            closedAssistantStreams.delete(streamKey);
-            return [];
+            return assistantStreams.start(context);
           }
           if (message.stopReason === "error" || message.stopReason === "aborted") {
             return [];
           }
-          closedAssistantStreams.add(streamKey);
+          assistantStreams.markMessageClosed(context);
           const text = extractAssistantText(message);
           if (!text) {
             return [];
@@ -608,6 +598,9 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
               ? "Context compaction interrupted"
               : "Context compaction failed",
             detail: parsed.data.errorMessage ?? "Automatic context compaction was interrupted",
+            errorInfo: piErrorInfo(
+              parsed.data.errorMessage ?? "Automatic context compaction was interrupted",
+            ),
           },
         ];
       }
@@ -625,6 +618,7 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
                 kind: "provider.error",
                 message: "Provider error",
                 detail: lastAssistant.errorMessage,
+                errorInfo: piErrorInfo(lastAssistant.errorMessage),
                 willRetry: true,
               },
             ];
@@ -641,6 +635,7 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
               kind: "provider.error",
               message: "Provider error",
               detail: settlementError,
+              errorInfo: piErrorInfo(settlementError),
             });
           }
           failure.push({
@@ -664,10 +659,11 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
             kind: "provider.error",
             message: "Provider error",
             detail: settlementError,
+            errorInfo: piErrorInfo(settlementError),
             ...(piEvent.data.willRetry ? { willRetry: true } : {}),
           });
         }
-        const assistantClosed = closedAssistantStreams.delete(assistantStreamKey(context));
+        const assistantClosed = assistantStreams.takeMessageClosed(context);
         if (lastAssistant && !assistantClosed && !piEvent.data.settlementOnly && !settlementError) {
           const text = extractAssistantText(lastAssistant);
           if (text) {
@@ -742,6 +738,7 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
           if (typeof assistantEvent.contentIndex !== "number") {
             return unexpectedSdkEventDeltas(event, context);
           }
+          assistantStreams.appendThinking(context, assistantEvent.contentIndex);
           return [
             {
               kind: "item.textDelta",
@@ -762,6 +759,7 @@ export function createPiDeltaTranslator(options: CreatePiDeltaTranslatorOptions)
           if (typeof assistantEvent.contentIndex !== "number") {
             return unexpectedSdkEventDeltas(event, context);
           }
+          assistantStreams.finishThinking(context, assistantEvent.contentIndex);
           return [
             {
               kind: "item.textClose",

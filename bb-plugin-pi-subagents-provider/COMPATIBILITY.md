@@ -38,7 +38,7 @@ The normal `bb plugin types . --check` gate must pass at SDK 0.6.132 before buil
 
 On 2026-10-06, the read-only checker exited 0 at published source `2952bf97d84160d515afc88bdc101c58425c3e7f`, with BB 0.45.0 and both source SDK pins at 0.6.15. [BBP-156](bbtask://BBP-156) resolved this source gate. This result does not change the old checker evidence or certify an installed build.
 
-The canonical `@get-bb/plugin-sdk` pin is a development dependency for public types and test harnesses. Runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of the same published SDK 0.6.132 package. Only its public `/host` and `/provider-bridge` exports are used. This is not a separate SDK fork. BB bundles those exports into the host and server artifacts. Production installs retain the alias and Zod without development packages.
+The canonical `@get-bb/plugin-sdk` pin is a development dependency for public types and test harnesses. Runtime imports use `@get-bb/plugin-sdk-runtime`, an exact npm alias of the same published SDK 0.6.132 package. Only its public `/host`, `/provider-bridge`, and `/process` exports are used. This is not a separate SDK fork. BB bundles those exports into the host and server artifacts. Production installs retain the alias and Zod without development packages.
 
 `production.test.ts` creates a package-local copy, runs `bun install --frozen-lockfile --production --omit=optional --ignore-scripts`, checks the normal gate, builds with BB 0.49.0, and loads the server and host artifacts in Node. It checks all three artifact version records, provider registration, native-roots RPC and an unknown bridge request. The child cannot resolve the canonical SDK. The SDK test harnesses stay outside the production copy. Pi settings and model sessions are not used.
 
@@ -46,7 +46,7 @@ Moving only the canonical SDK to development dependencies is insufficient. BB 0.
 
 ## SDK check limit on BB 0.44.0
 
-This historical exception covers only BB 0.44.0 / SDK 0.5.29. It does not apply to the current 0.47.1 source or its production runtime alias.
+This historical exception covers only BB 0.44.0 / SDK 0.5.29. It does not apply to the current 0.49.0 source or its production runtime alias.
 
 Run `bb plugin types . --check` and retain its true exit code and complete output. The operator approved a [provider-only diagnostic exception](../.pi/skills/verify-bb-plugins/references/pi-subagents-sdk-exception.md) for the verified case. That reference is authoritative for scope, conditions, replacement evidence, and report rules. That historical source keeps the required SDK in runtime dependencies; the checker remains failed, not fixed or passed.
 
