@@ -1,6 +1,10 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import {
+  experimental_npmLatestVersion as npmLatestVersion,
+  experimental_probeNpmGlobalPackage as probeNpmGlobalPackage,
+} from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const probeState = vi.hoisted(() => ({
@@ -33,6 +37,7 @@ import {
 } from "./provider-maintenance.js";
 
 const temporaryDirectories: string[] = [];
+const describeOnPosix = process.platform === "win32" ? describe.skip : describe;
 
 afterEach(async () => {
   await Promise.all(
@@ -42,7 +47,7 @@ afterEach(async () => {
   );
 });
 
-describe("Pi provider maintenance with a Bun-managed executable", () => {
+describeOnPosix("Pi provider maintenance with a Bun-managed executable", () => {
   it("updates through Bun when the resolved Pi command is a wrapper around Bun's global binary", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "bb-pi-bun-update-"));
     temporaryDirectories.push(root);
@@ -70,5 +75,16 @@ describe("Pi provider maintenance with a Bun-managed executable", () => {
         args: ["add", "-g", "@earendil-works/pi-coding-agent@latest"],
       },
     });
+
+    vi.clearAllMocks();
+    const compatibilityStatus = await getPiProviderInstallationStatus(false);
+    expect(compatibilityStatus).toMatchObject({
+      installed: true,
+      currentVersion: "0.84.0",
+      latestVersion: null,
+      versionUnsupported: false,
+    });
+    expect(npmLatestVersion).not.toHaveBeenCalled();
+    expect(probeNpmGlobalPackage).not.toHaveBeenCalled();
   });
 });

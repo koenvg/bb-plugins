@@ -37,7 +37,7 @@ describe("standalone packaging", () => {
         /^@get-bb\/plugin-sdk\/provider-bridge\/testing$/,
         /^@get-bb\/plugin-sdk\/testing\/app$/,
         /^react-dom\/client$/,
-        /^@get-bb\/plugin-sdk-runtime\/(?:host|provider-bridge)$/,
+        /^@get-bb\/plugin-sdk-runtime\/(?:host|provider-bridge|process)$/,
         /^typebox$/,
         /^@testing-library\/react$/,
         /^@playwright\/test$/,
@@ -46,7 +46,6 @@ describe("standalone packaging", () => {
         /^esbuild$/,
       ],
     });
-    // Production imports remain subject to the public-package allowlist.
     expect(
       result.violations.filter(
         (violation) =>
@@ -58,7 +57,7 @@ describe("standalone packaging", () => {
                   violation.specifier === "../../scripts/browser-fixture-runner.mjs"))) ||
             (violation.file === "src/bridge/fake-pi-rpc.mjs" &&
               violation.reason === "dynamic-specifier" &&
-              violation.specifier === "pathToFileURL(loadPath).href") ||
+              violation.specifier === "loadUrl.href") ||
             (violation.file === "src/bridge/codex-speed-source.test.ts" &&
               ((violation.reason === "outside-allowlist" &&
                 violation.specifier === "@koenvg/pi-openai-codex-speed") ||

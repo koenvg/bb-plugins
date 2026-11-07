@@ -41,7 +41,7 @@ const processLogPath = process.env.FAKE_PI_PROCESS_LOG;
 const commandLogPath = process.env.FAKE_PI_COMMAND_LOG;
 const supportsSettlement = process.env.FAKE_PI_SETTLEMENT !== "0";
 const promptDumpPath = process.env.FAKE_PI_PROMPT_DUMP;
-let settlementReleaseFile = process.env.FAKE_PI_SETTLEMENT_RELEASE_FILE;
+let delayedSettlementReportReleaseFile = process.env.FAKE_PI_SETTLEMENT_RELEASE_FILE;
 if (process.env.FAKE_PI_ENV_LOG) {
   appendFileSync(process.env.FAKE_PI_ENV_LOG, `${process.env.FAKE_PI_ENV_MARKER ?? ""}\n`);
 }
@@ -267,7 +267,10 @@ async function emitExtensionEvent(type, payload = {}) {
   }
 }
 
-async function loadExtension(path) {
+let extensionGeneration = 0;
+let extensionLoadPath = null;
+
+async function prepareExtensionLoadPath(path) {
   const runtimeUrl = new URL(
     "./core/session-manager.js",
     import.meta.resolve("@earendil-works/pi-coding-agent"),
@@ -312,8 +315,15 @@ async function loadExtension(path) {
       } catch {}
     });
   }
-  const module = await import(pathToFileURL(loadPath).href);
-  module.default({
+  return loadPath;
+}
+
+async function loadExtension(path) {
+  extensionLoadPath ??= prepareExtensionLoadPath(path);
+  const loadUrl = pathToFileURL(await extensionLoadPath);
+  loadUrl.searchParams.set("generation", String(++extensionGeneration));
+  const module = await import(loadUrl.href);
+  await module.default({
     registerProvider: (provider) => speedRuntime?.register(provider),
     events: fakeSubagents?.events,
     getCommands: () =>
@@ -385,6 +395,12 @@ async function runPrompt(text) {
   turnCounter += 1;
   if (text === "/compact-on-settle" || text === "/compact-on-settle-late") {
     compactOnSettle = text;
+  }
+  if (text === "/reload") {
+    await emitExtensionEvent("session_shutdown");
+    extensionTools.clear();
+    extensionHandlers.clear();
+    await loadExtension(extensionPath);
   }
   await emitExtensionEvent("agent_start");
   event({ type: "agent_start" });
@@ -710,10 +726,9 @@ async function emitSettlement() {
     process.env.FAKE_PI_SETTLED_ABORTED === undefined
       ? {}
       : { aborted: JSON.parse(process.env.FAKE_PI_SETTLED_ABORTED) };
-  if (settlementReleaseFile !== undefined) {
-    const releaseFile = settlementReleaseFile;
-    settlementReleaseFile = undefined;
-    // Model stdout overtaking the extension FD while the older report is delayed.
+  if (delayedSettlementReportReleaseFile !== undefined) {
+    const releaseFile = delayedSettlementReportReleaseFile;
+    delayedSettlementReportReleaseFile = undefined;
     event({ type: "agent_settled", ...payload });
     while (!existsSync(releaseFile)) await sleep(10);
     await emitExtensionEvent("agent_settled", payload);

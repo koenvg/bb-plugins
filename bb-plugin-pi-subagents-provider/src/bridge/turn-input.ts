@@ -54,7 +54,11 @@ export function extractPiPromptInput(input: PromptInput[]): ExtractedPiPromptInp
           data,
           mimeType: mimeTypeFromExtension(item.path),
         });
-      } catch {}
+      } catch {
+        chunks.push(`[Attached image: ${item.path}]`);
+      }
+    } else if (item.type === "image") {
+      chunks.push(`[Attached image: ${item.url}]`);
     } else if (item.type === "localFile") {
       chunks.push(
         item.name
