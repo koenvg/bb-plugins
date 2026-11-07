@@ -143,7 +143,7 @@ describe("all-machine Codex slots", () => {
     f.data.accounts[1]!.activity = emptyActivity("auth-required");
     const page = f.dashboard(),
       badge = f.accessory();
-    await waitFor(() => expect(badge.container.textContent).toBe("63%*"));
+    await waitFor(() => expect(badge.container.textContent).toBe("63%"));
     expect(badge.queryByText("min")).toBeNull();
     expect(
       page.getByText(
