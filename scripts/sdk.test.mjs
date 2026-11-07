@@ -8,6 +8,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -49,6 +50,14 @@ function fixture(t) {
       devDependencies: { [sdk]: "0.6.49", sonner: "^1.7.4", unrelated: "1.0.0" },
     });
     json(join(root, name, "tsconfig.json"), { compilerOptions: { strict: true } });
+    writeFileSync(
+      join(root, name, "server.ts"),
+      'import type { BbPluginApi } from "@get-bb/plugin-sdk";\n',
+    );
+    writeFileSync(
+      join(root, name, "app.tsx"),
+      'import type { BbPluginAppApi } from "@get-bb/plugin-sdk/app";\n',
+    );
   }
   writeFileSync(join(root, "bun.lock"), "original root lock\n");
   writeFileSync(join(root, "configuration.json"), '{"enabled":false,"secret":"fixture"}\n');
@@ -81,10 +90,20 @@ if (command === "bb" && args.join(" ") === "--version") {
   if (!pkg.bb || pkg.description !== "Keep the complete manifest" || !pkg.engines.node) {
     fail(34, "Projection lost complete manifest inputs");
   }
+  const entry = join(path, pkg.bb.app);
+  const contract = join(path, ".contracts/rpc.ts");
+  const runtimeContract = existsSync(entry) &&
+    readFileSync(entry, "utf8").includes('from "./.contracts/rpc.js"') &&
+    existsSync(contract) && readFileSync(contract, "utf8").includes(
+      'import { defineRpcContract } from "@get-bb/plugin-sdk"'
+    );
+  const sdkField = runtimeContract ? "dependencies" : "devDependencies";
+  const otherField = runtimeContract ? "devDependencies" : "dependencies";
   if (args[3] === "--check") {
-    console.log("pin=" + pkg.devDependencies["@get-bb/plugin-sdk"] + " host=" + target);
+    console.log("pin=" + pkg[sdkField]?.["@get-bb/plugin-sdk"] + " host=" + target);
     if (options.diagnostic) fail(35, options.diagnostic);
-    if (pkg.devDependencies["@get-bb/plugin-sdk"] !== target || pkg.devDependencies.sonner !== "^2.0.7") {
+    if (pkg[sdkField]?.["@get-bb/plugin-sdk"] !== target ||
+        pkg[otherField]?.["@get-bb/plugin-sdk"] !== undefined || pkg.devDependencies.sonner !== "^2.0.7") {
       fail(12, "Official SDK and shim declarations need synchronization");
     }
     if (options.postcheckExit && path.startsWith(process.env.SDK_ROOT)) {
@@ -93,7 +112,9 @@ if (command === "bb" && args.join(" ") === "--version") {
   } else {
     if (options.diagnostic) fail(35, options.diagnostic);
     if (options.syncExit && path.startsWith(process.env.SDK_ROOT)) fail(options.syncExit, "Sync failed");
-    pkg.devDependencies["@get-bb/plugin-sdk"] = target;
+    pkg[sdkField] ??= {};
+    pkg[sdkField]["@get-bb/plugin-sdk"] = target;
+    delete pkg[otherField]?.["@get-bb/plugin-sdk"];
     pkg.devDependencies.sonner = "^2.0.7";
     if (options.unrelated) pkg.engines.bb = "*";
     writeFileSync(file, JSON.stringify(pkg, null, 2) + "\\n");
@@ -206,6 +227,18 @@ if (command === "bb" && args.join(" ") === "--version") {
   };
 }
 
+function runtimeContract(f) {
+  writeFileSync(
+    join(f.root, names[0], "app.tsx"),
+    'import { contract } from "./.contracts/rpc.js";\nexport { contract };\n',
+  );
+  mkdirSync(join(f.root, names[0], ".contracts"));
+  writeFileSync(
+    join(f.root, names[0], ".contracts/rpc.ts"),
+    'import { defineRpcContract } from "@get-bb/plugin-sdk";\nexport const contract = defineRpcContract({});\n',
+  );
+}
+
 function success(result) {
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0, result.stderr + result.stdout);
@@ -287,6 +320,118 @@ test("preview projects SDK, shim and existing alias changes without checkout wri
     result.report.stages.every(({ status }) => status === "skipped"),
     true,
   );
+  f.preserved();
+});
+
+for (const initialGroup of ["dependencies", "devDependencies"]) {
+  test(`transitive runtime contract preserves SDK placement from ${initialGroup} in preview and apply`, (t) => {
+    const f = fixture(t);
+    runtimeContract(f);
+    const original = f.manifest();
+    if (initialGroup === "dependencies") {
+      original.dependencies[sdk] = original.devDependencies[sdk];
+      delete original.devDependencies[sdk];
+      f.json(join(f.root, names[0], "package.json"), original);
+    }
+    f.commit();
+    const preview = f.run(["align", "--package", names[0]]);
+    success(preview);
+    const expected = [
+      {
+        field: `dependencies.${sdk}`,
+        from: initialGroup === "dependencies" ? "0.6.49" : null,
+        to: "0.6.104",
+      },
+      { field: `dependencies.${alias}`, from: `npm:${sdk}@0.6.49`, to: `npm:${sdk}@0.6.104` },
+      ...(initialGroup === "devDependencies"
+        ? [{ field: `devDependencies.${sdk}`, from: "0.6.49", to: null }]
+        : []),
+      { field: "devDependencies.sonner", from: "^1.7.4", to: "^2.0.7" },
+    ];
+    assert.deepEqual(preview.report.projections[0].changes, expected);
+    assert.equal(preview.report.projections[0].declarations.sdk, "0.6.104");
+    assert.equal(f.git("status", "--porcelain"), "");
+    assert.deepEqual(f.manifest(), original);
+    const applied = f.run(f.apply());
+    success(applied);
+    assert.deepEqual(applied.report.projections[0].changes, expected);
+    original.dependencies[sdk] = "0.6.104";
+    original.dependencies[alias] = `npm:${sdk}@0.6.104`;
+    delete original.devDependencies[sdk];
+    original.devDependencies.sonner = "^2.0.7";
+    assert.deepEqual(f.manifest(), original);
+    assert.equal(
+      applied.report.stages.every(({ status }) => status === "passed"),
+      true,
+    );
+    f.preserved();
+  });
+}
+
+test("runtime contract SDK in dependencies still rejects an unsupported engine before writes", (t) => {
+  const f = fixture(t);
+  runtimeContract(f);
+  const pkg = f.manifest();
+  pkg.dependencies[sdk] = pkg.devDependencies[sdk];
+  delete pkg.devDependencies[sdk];
+  pkg.engines.bbPluginSdk = ">=0.7";
+  f.json(join(f.root, names[0], "package.json"), pkg);
+  f.commit();
+  const result = f.run(f.apply());
+  assert.equal(result.status, 1);
+  assert.match(result.report.error, /Unsupported engine bbPluginSdk.*0\.6\.104/);
+  assert.equal(result.report.projections[0].declarations.sdk, "0.6.104");
+  assert.equal(f.git("status", "--porcelain"), "");
+  assert.equal(
+    f.trace().some(({ command }) => command === "bun"),
+    false,
+  );
+  f.preserved();
+});
+
+for (const kind of ["file", "directory"]) {
+  test(`projection rejects a transitive source ${kind} symlink without checkout writes`, (t) => {
+    const f = fixture(t);
+    runtimeContract(f);
+    const directory = join(f.root, names[0], ".contracts");
+    const foreign = join(f.home, "foreign");
+    mkdirSync(foreign);
+    writeFileSync(join(foreign, "rpc.ts"), readFileSync(join(directory, "rpc.ts")));
+    if (kind === "file") {
+      rmSync(join(directory, "rpc.ts"));
+      symlinkSync(join(foreign, "rpc.ts"), join(directory, "rpc.ts"));
+    } else {
+      rmSync(directory, { recursive: true });
+      symlinkSync(foreign, directory);
+    }
+    f.commit();
+    const result = f.run(f.apply());
+    assert.equal(result.status, 1);
+    assert.match(result.report.error, /Projection input must be a regular owned file/);
+    assert.equal(f.git("status", "--porcelain"), "");
+    assert.equal(f.read("bun.lock"), "original root lock\n");
+    assert.equal(
+      f.trace().some(({ command }) => command === "bun"),
+      false,
+    );
+    f.preserved();
+  });
+}
+
+test("projection omits dependency and build cache trees", (t) => {
+  const f = fixture(t);
+  runtimeContract(f);
+  const foreign = join(f.home, "foreign.ts");
+  writeFileSync(foreign, "Do not copy dependency or generated inputs\n");
+  for (const cache of ["node_modules", "dist", "build", "coverage", ".cache", ".turbo"]) {
+    mkdirSync(join(f.root, names[0], cache));
+    symlinkSync(foreign, join(f.root, names[0], cache, "input.ts"));
+  }
+  f.commit();
+  const result = f.run(["align", "--package", names[0]]);
+  success(result);
+  assert.equal(result.report.projections[0].declarations.sdk, "0.6.104");
+  assert.equal(f.git("status", "--porcelain"), "");
   f.preserved();
 });
 
