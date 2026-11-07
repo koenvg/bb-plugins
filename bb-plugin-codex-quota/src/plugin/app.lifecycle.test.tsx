@@ -145,7 +145,7 @@ describe("app-wide quota ownership", () => {
       await vi.advanceTimersByTimeAsync(240_000);
     });
     expect(input.read).toHaveBeenCalledTimes(2);
-    expect(badge.container.textContent).toBe("—");
+    expect(badge.container.textContent).toBe("42%*");
     expect(badge.container.querySelector("[title]")!.getAttribute("title")).toContain(
       `observed ${observation}`,
     );

@@ -2,9 +2,9 @@ import { test, expect, sizes, viewport, noOverflow, capture, jsonEvidence } from
 
 const cases = [
   ["fresh", "fresh", "63%", "63%", "verified"],
-  ["aged", "stale · Observation at least 5 minutes old", "—", "63%", "verified"],
+  ["aged", "stale · Observation at least 5 minutes old", "63%known", "63%", "verified"],
   ["expired", "unavailable · Observation expired", "—", "Unavailable", "verified"],
-  ["network", "stale · Allowance refresh failed", "—", "63%", "verified"],
+  ["network", "stale · Allowance refresh failed", "63%known", "63%", "verified"],
   ["auth", "unavailable · Pi Codex sign-in required", "—", "Unavailable", "unknown"],
   [
     "credentials",

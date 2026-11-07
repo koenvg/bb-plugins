@@ -140,13 +140,14 @@ export function footerAllowance(data: MachineAccounts | null, now: number, activ
   const empty: QuotaStatus = { state: "unavailable", reason: "unavailable", snapshot: null };
   if (!active || !data) return { view: empty, known: false, label: "—" };
   const views = data.accounts.map((account) => visibleView(account.quota, now));
-  const fresh = views.filter(
+  const candidates = views.filter(
     (view) =>
-      view.state === "fresh" &&
+      (view.state === "fresh" || view.state === "stale") &&
       view.snapshot?.bindingRemainingPercent !== null &&
       view.snapshot !== null,
   );
-  const lowest = fresh.sort(
+  const fresh = candidates.filter((view) => view.state === "fresh");
+  const lowest = candidates.sort(
     (a, b) => a.snapshot!.bindingRemainingPercent! - b.snapshot!.bindingRemainingPercent!,
   )[0];
   if (!lowest) return { view: empty, known: false, label: "—" };
