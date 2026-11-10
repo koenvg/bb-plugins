@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createAnnotateController } from "../lib/controller";
+import type { AnnotationsRpc } from "../lib/contract";
 import { installAnnotator, type AnnotatorApi, type PagePin } from "../lib/page/annotator";
 import { annotatorCallScript, annotatorInstallScript } from "../lib/page/script";
 
@@ -203,6 +205,62 @@ describe("hover and selection", () => {
 
 describe("comment entry", () => {
   beforeEach(() => click(120, 210));
+
+  it("preserves the selected area, comment and pins after a failed command and manual reactivation", async () => {
+    const evaluate = vi.fn(async (script: string) =>
+      new Function("window", "bb", `return ${script}`)(window, {
+        postMessage: (message: unknown) => posted.push(message),
+      }),
+    );
+    const controller = createAnnotateController({
+      threadId: "thr",
+      tabId: "tab",
+      page: { evaluate, onMessage: () => () => {} },
+      rpc: { call: vi.fn() } as unknown as AnnotationsRpc,
+      capture: vi.fn(),
+      render: vi.fn(),
+      pills: () => null,
+      isHidden: () => false,
+      onModeChange: vi.fn(),
+      onError: vi.fn(),
+    });
+    api.setPins([
+      {
+        id: "a",
+        number: 1,
+        comment: "Saved pin",
+        rect: { x: 20, y: 30, width: 40, height: 50 },
+        isFixed: true,
+      },
+    ]);
+    textarea().value = "Keep this draft";
+    const originalHost = host();
+    const originalForm = textarea();
+    await controller.setMode(true);
+    evaluate.mockRejectedValueOnce(new Error("Page command blocked"));
+
+    await expect(controller.setMode(false)).rejects.toThrow("Page command blocked");
+    await controller.setMode(true);
+
+    expect(host()).toBe(originalHost);
+    expect(textarea()).toBe(originalForm);
+    expect(textarea().value).toBe("Keep this draft");
+    expect(shadow().querySelector(".pin")!.textContent).toBe("1");
+    press(textarea(), "Enter");
+    expect(posted).toEqual([
+      {
+        type: "save",
+        url: location.href,
+        kind: "a",
+        comment: "Keep this draft",
+        rect: { x: 100, y: 200, width: 80, height: 30 },
+        scroll: { x: 0, y: 0 },
+        isFixed: false,
+        viewport: { width: 1440, height: 900 },
+      },
+    ]);
+    controller.dispose();
+  });
 
   it("does not save a blank comment", () => {
     textarea().value = "   ";

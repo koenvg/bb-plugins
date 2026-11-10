@@ -21,6 +21,7 @@ export interface ControllerDeps {
   pills(): PillWriter | null;
   isHidden(id: string): boolean;
   onModeChange(on: boolean): void;
+  onError(error: unknown): void;
 }
 
 export const NO_COMPOSER_MESSAGE = "Open this thread's chat to add annotations.";
@@ -44,22 +45,33 @@ export function createAnnotateController(deps: ControllerDeps) {
   let theme: PageTheme | null = null;
   let loadedPins: PagePin[] = [];
   let disposed = false;
+  let checksPaused = false;
   let queue: Promise<void> = Promise.resolve();
 
+  function confirm(result: unknown) {
+    if (result !== true) {
+      throw new Error("Browser Annotate did not confirm the page command completed.");
+    }
+  }
+
   async function install() {
-    await page.evaluate(annotatorInstallScript());
-    if (theme) await page.evaluate(annotatorCallScript("setTheme", theme));
-    await page.evaluate(annotatorCallScript("setMode", modeOn));
-    await page.evaluate(annotatorCallScript("setPins", await pins()));
+    confirm(await page.evaluate(annotatorInstallScript()));
+    if (theme) confirm(await page.evaluate(annotatorCallScript("setTheme", theme)));
+    confirm(await page.evaluate(annotatorCallScript("setMode", modeOn)));
+    confirm(await page.evaluate(annotatorCallScript("setPins", await pins())));
   }
 
   async function call<M extends keyof AnnotatorApi>(
     method: M,
     ...args: Parameters<AnnotatorApi[M]>
   ) {
-    if ((await page.evaluate(annotatorCallScript(method, ...args))) !== false) return;
+    const result = await page.evaluate(annotatorCallScript(method, ...args));
+    if (result !== false) return confirm(result);
+    if (checksPaused && method !== "setMode") {
+      throw new Error("Browser Annotate is not installed on this page.");
+    }
     await install();
-    await page.evaluate(annotatorCallScript(method, ...args));
+    confirm(await page.evaluate(annotatorCallScript(method, ...args)));
   }
 
   async function pins(): Promise<PagePin[]> {
@@ -152,20 +164,37 @@ export function createAnnotateController(deps: ControllerDeps) {
   }
 
   function enqueue(task: () => Promise<void>): Promise<void> {
-    queue = queue.then(() => (disposed ? undefined : task())).catch(() => undefined);
-    return queue;
+    const result = queue.then(() => (disposed ? undefined : task()));
+    queue = result.catch(() => {
+      checksPaused = true;
+    });
+    return result;
   }
 
-  const unsubscribe = page.onMessage((data) => void enqueue(() => handle(data)));
+  const unsubscribe = page.onMessage((data) => {
+    void enqueue(() => handle(data)).catch((error) => {
+      if (!disposed) deps.onError(error);
+    });
+  });
 
   return {
     attach(nextUrl: string) {
       url = nextUrl;
-      return enqueue(install);
+      return enqueue(async () => {
+        deps.onModeChange(false);
+        await install();
+        checksPaused = false;
+        if (!disposed) deps.onModeChange(modeOn);
+      });
     },
     setMode(on: boolean) {
-      modeOn = on;
-      return enqueue(() => call("setMode", on));
+      return enqueue(async () => {
+        await call("setMode", on);
+        if (disposed) return;
+        modeOn = on;
+        checksPaused = false;
+        deps.onModeChange(on);
+      });
     },
     setTheme(next: PageTheme) {
       theme = next;
@@ -178,7 +207,9 @@ export function createAnnotateController(deps: ControllerDeps) {
       return enqueue(() => call("setPins", visible()));
     },
     ensureInstalled() {
-      return enqueue(() => call("ping"));
+      return enqueue(async () => {
+        if (!checksPaused) await call("ping");
+      });
     },
     dispose() {
       disposed = true;

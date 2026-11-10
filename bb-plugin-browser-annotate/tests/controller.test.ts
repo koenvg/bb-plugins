@@ -13,7 +13,7 @@ function fakePage() {
   let listener: ((data: unknown) => void) | null = null;
   let installed = false;
   const page = {
-    evaluate: vi.fn(async (script: string) => {
+    evaluate: vi.fn(async (script: string): Promise<unknown> => {
       scripts.push(script);
       if (script.includes("bb.postMessage")) {
         installed = true;
@@ -86,6 +86,7 @@ function setup(options: { pills?: PillWriter | null; capture?: () => Promise<nev
   const hidden = new Set<string>();
   const order: string[] = [];
   const onModeChange = vi.fn();
+  const onError = vi.fn();
   const controller = createAnnotateController({
     threadId: "thr",
     tabId: "tab",
@@ -101,8 +102,9 @@ function setup(options: { pills?: PillWriter | null; capture?: () => Promise<nev
     pills: () => (options.pills === undefined ? pills : options.pills),
     isHidden: (id) => hidden.has(id),
     onModeChange,
+    onError,
   });
-  return { ...fake, api, pills, controller, order, onModeChange, hidden, annotations };
+  return { ...fake, api, pills, controller, order, onModeChange, onError, hidden, annotations };
 }
 
 const saveMessage = {
@@ -121,6 +123,90 @@ async function flush(controller: { refreshPins(): Promise<void> }) {
 }
 
 describe("annotate controller", () => {
+  it("rejects failed operations while keeping the queue usable", async () => {
+    const { controller, page, calls } = setup();
+    page.evaluate.mockRejectedValueOnce(new Error("Page scripting denied"));
+
+    await expect(controller.attach("https://example.com/a")).rejects.toThrow(
+      "Page scripting denied",
+    );
+    await controller.attach("https://example.com/a");
+    page.evaluate.mockRejectedValueOnce(new Error("Activation denied"));
+    await expect(controller.setMode(true)).rejects.toThrow("Activation denied");
+    await controller.setMode(true);
+
+    expect(calls().at(-1)).toBe("setMode(true)");
+  });
+
+  it("skips watchdog ticks queued behind a failure until a manual action succeeds", async () => {
+    const { controller, page, calls } = setup();
+    await controller.attach("https://example.com/a");
+    page.evaluate.mockClear();
+    let reject!: (error: Error) => void;
+    const pending = new Promise<boolean>((_resolve, fail) => {
+      reject = fail;
+    });
+    page.evaluate.mockImplementationOnce(() => pending);
+
+    const failed = expect(controller.ensureInstalled()).rejects.toThrow("Page unavailable");
+    await Promise.resolve();
+    expect(page.evaluate).toHaveBeenCalledTimes(1);
+    const queued = [controller.ensureInstalled(), controller.ensureInstalled()];
+    reject(new Error("Page unavailable"));
+    await failed;
+    await Promise.all(queued);
+    await controller.ensureInstalled();
+
+    expect(page.evaluate).toHaveBeenCalledTimes(1);
+    await controller.applyHidden();
+    expect(calls().at(-1)).toBe("setPins([])");
+    await controller.ensureInstalled();
+    expect(calls().at(-1)).toBe("setPins([])");
+
+    await controller.setMode(true);
+    await controller.ensureInstalled();
+    expect(calls().slice(-2)).toEqual(["setMode(true)", "ping()"]);
+
+    page.evaluate.mockRejectedValueOnce(new Error("Page unavailable again"));
+    await expect(controller.ensureInstalled()).rejects.toThrow("Page unavailable again");
+    await controller.attach("https://example.com/b");
+    await controller.ensureInstalled();
+    expect(calls().slice(-3)).toEqual(["setMode(true)", "setPins([])", "ping()"]);
+  });
+
+  it.each([
+    { operation: "attach", results: [undefined] },
+    { operation: "attach", results: [true, false] },
+    { operation: "setMode", results: [null] },
+    { operation: "setMode", results: [false, true, true, true, false] },
+  ])("rejects unconfirmed $operation acknowledgements $results", async ({ operation, results }) => {
+    const { controller, page, onModeChange } = setup();
+    for (const result of results) page.evaluate.mockResolvedValueOnce(result);
+
+    const action =
+      operation === "attach"
+        ? controller.attach("https://example.com/a")
+        : controller.setMode(true);
+
+    await expect(action).rejects.toThrow("did not confirm");
+    expect(page.evaluate).toHaveBeenCalledTimes(results.length);
+    expect(onModeChange).not.toHaveBeenCalledWith(true);
+  });
+
+  it("reports failed page-message delivery once and keeps later operations usable", async () => {
+    const { controller, page, emit, onError, calls } = setup({ pills: null });
+    await controller.attach("https://example.com/a");
+    const error = new Error("Could not display the save error");
+    page.evaluate.mockRejectedValueOnce(error);
+
+    emit(saveMessage);
+    await flush(controller);
+
+    expect(onError).toHaveBeenCalledExactlyOnceWith(error);
+    await controller.setMode(true);
+    expect(calls().at(-1)).toBe("setMode(true)");
+  });
+
   it("installs the picker and loads the pins of the attached URL", async () => {
     const { controller, api, calls } = setup();
 
@@ -259,11 +345,13 @@ describe("annotate controller", () => {
   it("reports Esc from the page as mode off", async () => {
     const { controller, emit, onModeChange } = setup();
     await controller.attach("https://example.com/a");
+    await controller.setMode(true);
+    expect(onModeChange).toHaveBeenLastCalledWith(true);
 
     emit({ type: "mode", on: false });
     await flush(controller);
 
-    expect(onModeChange).toHaveBeenCalledWith(false);
+    expect(onModeChange).toHaveBeenLastCalledWith(false);
   });
 
   it("reports a save whose area scrolled off screen instead of hanging", async () => {
