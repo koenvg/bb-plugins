@@ -222,3 +222,73 @@ for (const size of [
     );
   });
 }
+
+for (const layout of ["wide", "panel"]) {
+  test(`reported activity stays visible and separate from execution in the ${layout} layout`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/?scenario=activity${layout === "panel" ? "&layout=panel" : ""}`);
+    const overview = page.getByRole("navigation", { name: "Observed children" });
+    const observation = "Last observed activity: Needs attention · Reported tool: bash";
+    const attention = overview.getByRole("button", {
+      name: /Review captured activity.*Entry 1 running Last observed activity: Needs attention/,
+    });
+    await expect(attention.locator(".pi-subagents-activity")).toHaveText(observation);
+    await expect(attention.locator(".pi-subagents-activity")).toBeVisible();
+    await expect(attention.getByLabel("Execution state: running")).toBeVisible();
+    const tool = overview.getByRole("button", { name: /Long-running verification/ });
+    const longTool =
+      'Last observed activity: "active_long_running" · Reported tool: synthetic_verification_tool_' +
+      "long_name_".repeat(12);
+    await expect(tool.locator(".pi-subagents-activity")).toHaveText(longTool);
+    await expect(tool.locator(".pi-subagents-activity")).toBeVisible();
+    await expect(tool.locator(".pi-subagents-activity")).toHaveCSS("overflow-wrap", "anywhere");
+    expect(
+      await tool
+        .locator(".pi-subagents-activity")
+        .evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+    await expect(
+      overview
+        .getByRole("button", { name: /Package-paused review/ })
+        .getByLabel("Execution state: paused"),
+    ).toBeVisible();
+    await expect(
+      overview
+        .getByRole("button", { name: /Legacy activity record/ })
+        .locator(".pi-subagents-activity"),
+    ).toHaveText("waiting");
+    await expect(
+      overview
+        .getByRole("button", { name: /Reported waiting token/ })
+        .locator(".pi-subagents-activity"),
+    ).toHaveText('Last observed activity: "waiting" · Reported tool: bg_wait');
+    await expect(
+      overview
+        .getByRole("button", { name: /Review captured activity.*Entry 7/ })
+        .getByLabel("Execution state: running"),
+    ).toBeVisible();
+    await page.screenshot({ path: info.outputPath("activity-overview.png") });
+    await attention.click();
+    const detail = page.getByRole("article", { name: "Child detail" });
+    await expect(detail.locator("header .pi-subagents-activity")).toHaveText(observation);
+    await expect(detail.locator("header .pi-subagents-activity")).toBeVisible();
+    await expect(detail.getByLabel("Execution state: running")).toBeVisible();
+    await expect(detail.locator(".pi-subagents-capture .pi-subagents-activity")).toHaveCount(0);
+    await page.getByRole("tab", { name: "Agents", exact: true }).click();
+    await overview.getByRole("button", { name: /Completed review/ }).click();
+    const terminal = page.getByRole("article", { name: "Child detail" });
+    await expect(terminal.getByLabel("Execution state: complete")).toBeVisible();
+    await expect(terminal.locator("header .pi-subagents-activity")).toHaveText(
+      "Last observed activity: Needs attention · Reported tool: read",
+    );
+    await expect(terminal.locator("header .pi-subagents-activity")).toBeVisible();
+    await terminal.getByRole("button", { name: "Final output", exact: true }).click();
+    await expect(terminal.getByRole("region", { name: "Final output" })).toBeFocused();
+    await expect(terminal.locator(".pi-subagents-output .pi-subagents-prose")).toHaveText(
+      "SYNTHETIC retained final answer. Attention does not erase this result.",
+    );
+    await page.screenshot({ path: info.outputPath("activity-terminal.png") });
+  });
+}

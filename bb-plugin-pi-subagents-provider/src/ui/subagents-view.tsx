@@ -260,6 +260,12 @@ function CapturedConversation({
           </span>
           <span>{elapsed(row)}</span>
         </div>
+        <p
+          className="pi-subagents-activity"
+          title="Activity is a reported observation. It does not confirm waiting or completion."
+        >
+          {row.activity || "Activity unavailable"}
+        </p>
         <p className="pi-subagents-muted">Captured observation, not a live feed.</p>
       </header>
       <ConversationReader active={active}>
@@ -360,7 +366,6 @@ function CapturedConversation({
           {capture?.attemptedAt !== undefined && (
             <p>Last capture attempt {new Date(capture.attemptedAt).toISOString()}</p>
           )}
-          <p>{row.activity || "Activity unavailable"}</p>
           {capture?.truncated?.task && <p>Task text was truncated.</p>}
           {!!capture?.truncated?.messages && (
             <p>{capture.truncated.messages} transcript entries omitted.</p>
@@ -640,6 +645,7 @@ export function SubagentsView({
                         presentation.entryLabel,
                         presentation.childLabel,
                         row.state,
+                        row.activity,
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -694,6 +700,14 @@ export function SubagentsView({
                             <span className="pi-subagents-capture-gap">Incomplete coverage</span>
                           )}
                         </span>
+                        {row.activity && (
+                          <span
+                            className="pi-subagents-activity"
+                            title="Activity is a reported observation. It does not confirm waiting or completion."
+                          >
+                            {row.activity}
+                          </span>
+                        )}
                       </span>
                       <span className="pi-subagents-row-side">
                         <span

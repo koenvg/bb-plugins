@@ -29,6 +29,7 @@ it("fits nonmutating and idempotently with task prefixes, output tails and error
     Array.from({ length: 20 }, (_, i) => ({
       ...row,
       id: `run-${i}`,
+      activity: "Last observed activity: Needs attention · Reported tool: " + "界".repeat(160),
       capture: {
         status: "captured",
         capturedAt: 7,
@@ -54,6 +55,9 @@ it("fits nonmutating and idempotently with task prefixes, output tails and error
   expect(parseViewState(fitted)).toEqual(fitted);
   expect(fitViewState(fitted)).toEqual(fitted);
   for (const [i, item] of fitted.rows.entries()) {
+    expect(item.activity).toBe(
+      "Last observed activity: Needs attention · Reported tool: " + "界".repeat(160),
+    );
     expect(item.capture?.task?.startsWith(`TASK-${i} `)).toBe(true);
     expect(item.capture?.finalOutput?.endsWith(` RESULT-${i}`)).toBe(true);
     expect(item.capture).toMatchObject({

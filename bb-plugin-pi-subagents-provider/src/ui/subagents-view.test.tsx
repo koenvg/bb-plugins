@@ -387,7 +387,7 @@ it.each([
       />,
     );
     const button = within(view.getByRole("navigation")).getByRole("button", {
-      name: `Original agent ${purpose} Entry 1 complete`,
+      name: `Original agent ${purpose} Entry 1 complete Not a title`,
     });
     expect(button.querySelector("strong")!.textContent).toBe("  Original  agent  ");
     expect(button.querySelector(".pi-subagents-purpose")!.textContent).toBe(purpose);
