@@ -8,6 +8,7 @@ import { reconcileRunTrees, type RetainedRun } from "./run-reconciliation.js";
 import { createCaptureQueue, type CaptureTarget } from "./capture.js";
 import { createViewStore } from "./view-store.js";
 import type { Capture } from "../../subagents-contract.js";
+import { describeObservedActivity } from "../../observed-activity.js";
 
 export interface ObservationOptions {
   sessionFile: string;
@@ -102,14 +103,31 @@ export function createSubagentObservation(options: ObservationOptions) {
       node.startedAt === undefined
         ? "elapsed unavailable"
         : `${Math.max(0, Math.floor(((active ? now() : (node.endedAt ?? node.updatedAt ?? now())) - node.startedAt) / 1000))}s`;
-    const activity = node.activity?.currentTool ?? node.activity?.state ?? "activity unavailable";
+    const activity =
+      describeObservedActivity({
+        activityState: node.activity?.state,
+        currentTool: node.activity?.currentTool,
+      }) ?? "activity unavailable";
+    let attentionCount = 0;
+    const descendants = [...(node.children ?? [])];
+    for (const child of descendants) {
+      if (
+        (child.state === "running" || child.state === "queued") &&
+        child.activity?.state === "needs_attention"
+      )
+        attentionCount++;
+      descendants.push(...(child.children ?? []));
+    }
+    const descendantActivity = attentionCount
+      ? `; Live descendants last observed needing attention: ${attentionCount}`
+      : "";
     return {
       type: "backgroundTask",
       familyId: "pi-subagents",
       taskType: "local_subagent",
       skipTranscript: false,
       description: `${node.label} [${node.id}]`,
-      summary: `${node.state}; ${elapsed}; ${activity}; result not captured`,
+      summary: `${node.state}; ${elapsed}; ${activity}${descendantActivity}; result not captured`,
       ...(active
         ? {
             status: "pending" as const,

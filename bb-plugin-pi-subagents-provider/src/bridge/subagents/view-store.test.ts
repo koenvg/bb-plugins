@@ -1,6 +1,44 @@
 import { expect, it } from "vitest";
 import { createViewStore } from "./view-store.js";
+import { parseViewState } from "../../subagents-contract.js";
 const owner = { sessionId: "pi", sessionFile: "/owned/session", generation: 1 };
+
+it("preserves both maximum-length activity fields and legacy version-1 activity", () => {
+  const view = createViewStore(
+    () => {},
+    () => 10,
+  );
+  view.background(
+    owner,
+    [
+      {
+        id: "bounded",
+        kind: "subagent",
+        label: "reader",
+        state: "running",
+        activity: { state: "界".repeat(160), currentTool: "工".repeat(160) },
+      },
+    ],
+    false,
+  );
+  const state = view.snapshot();
+  const activity =
+    'Last observed activity: "' + "界".repeat(160) + '" · Reported tool: ' + "工".repeat(160);
+  expect(state).toMatchObject({
+    availability: "available",
+    omitted: 0,
+    rows: [{ state: "running", activity }],
+  });
+  expect(activity.length).toBeLessThanOrEqual(384);
+  expect(parseViewState(state)).toEqual(state);
+  const withActivity = (value: string) => ({
+    ...state,
+    rows: [{ ...state.rows[0]!, activity: value }],
+  });
+  expect(parseViewState(withActivity("bash"))?.rows[0]!.activity).toBe("bash");
+  expect(parseViewState(withActivity("x".repeat(384)))?.rows[0]!.activity).toHaveLength(384);
+  expect(parseViewState(withActivity("x".repeat(385)))).toBeUndefined();
+});
 it("keeps parent-scoped steps, canonical nested identities and known outcomes on capture errors", () => {
   const v = createViewStore(
     () => {},
@@ -23,6 +61,7 @@ it("keeps parent-scoped steps, canonical nested identities and known outcomes on
             kind: "subagent",
             label: "nested",
             state: "running",
+            activity: { state: "needs_attention", currentTool: "bash" },
             children: [{ id: "step:0", kind: "step", label: "inner", state: "running" }],
           },
         ],
@@ -35,6 +74,10 @@ it("keeps parent-scoped steps, canonical nested identities and known outcomes on
   expect(targets.find((t) => t.childId === "step:0" && t.asyncId === "child")).toBeDefined();
   v.capture(targets[0]!.id, { status: "timeout", capturedAt: 10, reason: "No reply" });
   expect(v.snapshot().rows.find((r) => r.runId === "root")!.state).toBe("complete");
+  expect(v.snapshot().rows.find((r) => r.runId === "child")).toMatchObject({
+    state: "running",
+    activity: "Last observed activity: Needs attention · Reported tool: bash",
+  });
 });
 it("foreground partial/final rows use published indices, not positions, and preserve output on disposal", () => {
   const v = createViewStore(

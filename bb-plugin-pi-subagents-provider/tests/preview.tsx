@@ -1,6 +1,7 @@
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { createRoot } from "react-dom/client";
 import { boundedValue, VIEW_BYTES, viewSchema, type ViewState } from "../src/subagents-contract.js";
+import { describeObservedActivity } from "../src/observed-activity.js";
 import { SubagentsView } from "../src/ui/subagents-view.js";
 import "../src/ui/subagents.css";
 
@@ -94,6 +95,88 @@ const state: ViewState = {
     },
   ],
 };
+if (new URLSearchParams(location.search).get("scenario") === "activity") {
+  state.omitted = 0;
+  const scenarios: Pick<
+    ViewState["rows"][number],
+    "id" | "label" | "state" | "activity" | "parentId" | "incomplete" | "capture"
+  >[] = [
+    {
+      id: "attention",
+      label: "Review captured activity",
+      state: "running",
+      incomplete: false,
+      activity: describeObservedActivity({ activityState: "needs_attention", currentTool: "bash" }),
+      capture: {
+        status: "captured",
+        capturedAt: 100000,
+        task: "Synthetic attention observation with reported bash tool. No live session is represented.",
+      },
+    },
+    {
+      id: "tool",
+      label: "Long-running verification",
+      state: "running",
+      incomplete: false,
+      activity: describeObservedActivity({
+        activityState: "active_long_running",
+        currentTool: "synthetic_verification_tool_" + "long_name_".repeat(12),
+      }),
+    },
+    {
+      id: "paused",
+      label: "Package-paused review",
+      state: "paused",
+      incomplete: false,
+      activity: describeObservedActivity({ activityState: "needs_attention", currentTool: "bash" }),
+    },
+    {
+      id: "legacy",
+      label: "Legacy activity record",
+      state: "running",
+      incomplete: false,
+      activity: "waiting",
+    },
+    {
+      id: "waiting",
+      label: "Reported waiting token",
+      state: "running",
+      incomplete: false,
+      activity: describeObservedActivity({ activityState: "waiting", currentTool: "bg_wait" }),
+    },
+    {
+      id: "terminal",
+      label: "Completed review",
+      state: "complete",
+      incomplete: true,
+      activity: describeObservedActivity({ activityState: "needs_attention", currentTool: "read" }),
+      capture: {
+        status: "captured",
+        capturedAt: 100000,
+        task: "Synthetic completed root with a retained running descendant and historical attention.",
+        finalOutput: "SYNTHETIC retained final answer. Attention does not erase this result.",
+      },
+    },
+    {
+      id: "nested",
+      parentId: "terminal",
+      label: "Review captured activity",
+      state: "running",
+      incomplete: true,
+      activity: describeObservedActivity({ activityState: "needs_attention", currentTool: "bash" }),
+    },
+  ];
+  state.rows = scenarios.map((row) => ({
+    runId: row.id,
+    sessionId: "synthetic-activity-session",
+    generation: 1,
+    source: "background",
+    kind: "subagent",
+    observedAt: 100000,
+    startedAt: 1000,
+    ...row,
+  }));
+}
 if (!boundedValue(state, VIEW_BYTES)) throw new Error("Synthetic capture exceeds VIEW_BYTES");
 viewSchema.parse(state);
 installTestPluginRuntime();

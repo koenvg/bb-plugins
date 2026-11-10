@@ -223,6 +223,7 @@ it("recaptures the terminal result when settlement arrives during an earlier ins
       inspect.mock.calls.length === 1 ? first : reply(target, requestId, "Owned final answer"),
     );
     h = harness(view, true, inspect);
+    h.set(receipt([{ ...root(), activity: { state: "needs_attention", currentTool: "bash" } }]));
     await h.observation.refresh();
     expect(inspect).toHaveBeenCalledTimes(1);
     h.set(receipt([root("complete")]));
@@ -288,8 +289,13 @@ describe("native single-run observation", () => {
 
   it("keeps a second background run countable after the first settles", async () => {
     const h = harness();
+    const attentionRun = {
+      ...root(),
+      id: "run-2",
+      activity: { state: "needs_attention", currentTool: "bash" },
+    };
     const latestItems = () => [...new Map(h.items().map((item) => [item.id, item])).values()];
-    h.set(receipt([root(), { ...root(), id: "run-2" }]));
+    h.set(receipt([root(), attentionRun]));
     await h.observation.refresh();
     await h.observation.refresh();
     expect(latestItems()).toMatchObject([
@@ -299,13 +305,16 @@ describe("native single-run observation", () => {
     const ids = latestItems().map((item) => item.id);
     expect(new Set(ids).size).toBe(2);
 
-    h.set(receipt([root("complete"), { ...root(), id: "run-2" }]));
+    h.set(receipt([root("complete"), attentionRun]));
     await h.observation.refresh();
     await h.observation.refresh();
     expect(latestItems()).toMatchObject([
       { id: ids[0], status: "completed", taskStatus: "completed", skipTranscript: false },
       { id: ids[1], status: "pending", taskStatus: "running", skipTranscript: false },
     ]);
+    expect(latestItems()[1]!.summary).toContain(
+      "Last observed activity: Needs attention · Reported tool: bash",
+    );
 
     h.set(receipt([root("complete"), { ...root("failed"), id: "run-2" }]));
     await h.observation.refresh();
@@ -341,32 +350,105 @@ describe("native single-run observation", () => {
   it.each(["complete", "paused", "partial"])(
     "keeps a %s root with live descendants active",
     async (state) => {
-      const h = harness();
+      const view = createViewStore(
+        () => {},
+        () => 3000,
+      );
+      const h = harness(view);
       h.set(
         receipt([
-          root(state, [{ id: "child-1", kind: "subagent", label: "nested", state: "running" }]),
+          root(state, [
+            {
+              id: "child-1",
+              kind: "subagent",
+              label: "nested",
+              state: "running",
+              activity: { state: "needs_attention", currentTool: "bash" },
+            },
+          ]),
         ]),
       );
       await h.observation.refresh();
-      expect(h.items().at(-1)!.status).toBe("pending");
+      const id = h.items()[0]!.id;
+      expect(h.items().at(-1)).toMatchObject({
+        status: "pending",
+        taskStatus: "running",
+        skipTranscript: false,
+      });
+      expect(h.items().at(-1)!.summary).toContain(
+        "Live descendants last observed needing attention: 1",
+      );
+      expect(view.snapshot().rows).toMatchObject([
+        { state },
+        {
+          state: "running",
+          activity: "Last observed activity: Needs attention · Reported tool: bash",
+        },
+      ]);
+      expect(new Set(h.items().map((item) => item.id)).size).toBe(1);
       h.set(
         receipt([
           root(state, [{ id: "child-1", kind: "subagent", label: "nested", state: "complete" }]),
         ]),
       );
       await h.observation.refresh();
-      expect(h.items().at(-1)!.status).not.toBe("pending");
+      expect(h.items().at(-1)).toMatchObject({
+        id,
+        status: state === "complete" ? "completed" : "interrupted",
+        taskStatus: state === "complete" ? "completed" : state === "paused" ? "paused" : "stopped",
+      });
+      expect(h.items().at(-1)!.summary).not.toContain("Live descendants");
+      expect(h.deltas.filter((delta) => delta.kind === "item.close")).toHaveLength(1);
+      h.observation.dispose("release");
     },
   );
 
+  it("settles a package-paused tree without live descendants despite its historical attention", async () => {
+    const view = createViewStore(
+      () => {},
+      () => 3000,
+    );
+    const h = harness(view);
+    await h.observation.refresh();
+    const id = h.items()[0]!.id;
+    h.set(
+      receipt([{ ...root("paused"), activity: { state: "needs_attention", currentTool: "bash" } }]),
+    );
+    await h.observation.refresh();
+    await h.observation.refresh();
+    expect(h.items().at(-1)).toMatchObject({
+      id,
+      status: "interrupted",
+      taskStatus: "paused",
+      skipTranscript: false,
+      summary:
+        "paused; 1s; Last observed activity: Needs attention · Reported tool: bash; result not captured",
+    });
+    expect(view.snapshot().rows[0]).toMatchObject({
+      state: "paused",
+      activity: "Last observed activity: Needs attention · Reported tool: bash",
+    });
+    expect(h.deltas.filter((delta) => delta.kind === "item.close")).toHaveLength(1);
+    h.observation.dispose("release");
+  });
+
   it("keeps missing known descendants and correlates a promoted descendant root", async () => {
     const h = harness();
-    const child = { id: "child-1", kind: "subagent", label: "nested", state: "running" };
+    const child = {
+      id: "child-1",
+      kind: "subagent",
+      label: "nested",
+      state: "running",
+      activity: { state: "needs_attention", currentTool: "bash" },
+    };
     h.set(receipt([root("complete", [child])]));
     await h.observation.refresh();
     h.set(receipt([root("complete")]));
     await h.observation.refresh();
     expect(h.items().at(-1)!.status).toBe("pending");
+    expect(h.items().at(-1)!.summary).toContain(
+      "Live descendants last observed needing attention: 1",
+    );
     h.set(receipt([root("complete"), { ...child, state: "complete" }]));
     await h.observation.refresh();
     expect(h.items().at(-1)!.status).toBe("completed");
@@ -545,6 +627,64 @@ describe("native single-run observation", () => {
     expect(scheduled).toHaveLength(1);
     observation.dispose("release");
   });
+});
+
+it("keeps attention and long tools countable, then clears attention on the same native item", async () => {
+  const view = createViewStore(
+    () => {},
+    () => 3000,
+  );
+  const h = harness(view);
+  h.set(receipt([{ ...root(), activity: { state: "needs_attention", currentTool: "bash" } }]));
+  await h.observation.refresh();
+  const id = h.items()[0]!.id;
+  expect(h.items().at(-1)).toMatchObject({
+    id,
+    status: "pending",
+    taskStatus: "running",
+    skipTranscript: false,
+    summary:
+      "running; 2s; Last observed activity: Needs attention · Reported tool: bash; result not captured",
+  });
+  expect(view.snapshot().rows[0]).toMatchObject({
+    state: "running",
+    activity: "Last observed activity: Needs attention · Reported tool: bash",
+  });
+  h.time(1000000);
+  await h.observation.refresh();
+  h.set(receipt([]));
+  await h.observation.refresh();
+  expect(h.items().at(-1)).toMatchObject({ id, status: "pending", taskStatus: "running" });
+  expect(h.items().at(-1)!.summary).toContain("999s; Last observed activity: Needs attention");
+  expect(h.deltas.filter((delta) => delta.kind === "item.close")).toHaveLength(0);
+  h.set(receipt([{ ...root(), activity: { state: "active", currentTool: "read" } }]));
+  await h.observation.refresh();
+  expect(h.items().at(-1)).toMatchObject({
+    id,
+    status: "pending",
+    taskStatus: "running",
+    skipTranscript: false,
+    summary:
+      'running; 999s; Last observed activity: "active" · Reported tool: read; result not captured',
+  });
+  expect(view.snapshot().rows[0]!.activity).toBe(
+    'Last observed activity: "active" · Reported tool: read',
+  );
+  h.set(receipt([root("complete")]));
+  await h.observation.refresh();
+  await h.observation.refresh();
+  expect(h.items().at(-1)).toMatchObject({
+    id,
+    status: "completed",
+    taskStatus: "completed",
+    skipTranscript: false,
+  });
+  expect(view.snapshot().rows[0]).toMatchObject({
+    state: "complete",
+    activity: "Last reported tool: read",
+  });
+  expect(h.deltas.filter((delta) => delta.kind === "item.close")).toHaveLength(1);
+  h.observation.dispose("release");
 });
 
 it("recaptures an unchanged terminal exact run once when its file route becomes ready", async () => {

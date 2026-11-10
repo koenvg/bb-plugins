@@ -1,3 +1,4 @@
+import { describeObservedActivity } from "../../observed-activity.js";
 import { retainCapture } from "../../capture-history.js";
 import { fitViewState } from "../../view-budget.js";
 import { isDeepStrictEqual } from "node:util";
@@ -190,7 +191,10 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
           state: node.state,
           startedAt: node.startedAt,
           endedAt: node.endedAt,
-          activity: node.activity?.currentTool ?? node.activity?.state,
+          activity: describeObservedActivity({
+            activityState: node.activity?.state,
+            currentTool: node.activity?.currentTool,
+          }),
           incomplete,
           observedAt: now(),
           capture: previous?.capture,

@@ -1,6 +1,78 @@
 import { expect, it } from "vitest";
 import { foregroundRows } from "./foreground.js";
+import { rowSchema } from "../../subagents-contract.js";
 const owner = { sessionId: "pi", sessionFile: "/owned", generation: 1 };
+
+it.each([
+  [{ activityState: "needs_attention" }, "Last observed activity: Needs attention"],
+  [{ activityState: " needs_attention " }, 'Last observed activity: " needs_attention "'],
+  [{ activityState: "active" }, 'Last observed activity: "active"'],
+  [
+    { activityState: "waiting", currentTool: "bg_wait" },
+    'Last observed activity: "waiting" · Reported tool: bg_wait',
+  ],
+  [{ currentTool: "bash" }, "Last reported tool: bash"],
+  [{ activityState: "  ", currentTool: " " }, undefined],
+  [{ activityState: 17, currentTool: false }, undefined],
+  [{ activityState: {}, currentTool: ["bash"] }, undefined],
+  [{ activityState: false, currentTool: "read" }, "Last reported tool: read"],
+  [
+    { activityState: "needs_attention", currentTool: 17 },
+    "Last observed activity: Needs attention",
+  ],
+  [
+    { activityState: "観察", currentTool: "読む" },
+    'Last observed activity: "観察" · Reported tool: 読む',
+  ],
+])(
+  "preserves reported foreground observation %j without inferring execution",
+  (progressSummary, activity) => {
+    const rows = foregroundRows(
+      owner,
+      {
+        mode: "single",
+        runId: "summary",
+        results: [{ index: 0, agent: "reader", progressSummary }],
+      },
+      false,
+      1,
+    );
+    expect(rows[0]).toMatchObject({ state: "running", activity });
+    expect(rows).toHaveLength(1);
+    expect(rowSchema.parse(rows[0])).toMatchObject({ state: "running", activity });
+  },
+);
+
+it.each([
+  [
+    "needs_attention",
+    "Last observed activity: Needs attention · Reported tool: " + "界".repeat(160),
+  ],
+  [
+    "x".repeat(200),
+    'Last observed activity: "' + "x".repeat(160) + '" · Reported tool: ' + "界".repeat(160),
+  ],
+])("bounds foreground state and tool independently for %s", (activityState, expected) => {
+  const row = foregroundRows(
+    owner,
+    {
+      mode: "single",
+      runId: "bounded",
+      results: [
+        {
+          index: 0,
+          agent: "reader",
+          progressSummary: { activityState },
+          progress: { currentTool: "界".repeat(200) },
+        },
+      ],
+    },
+    false,
+    1,
+  )[0]!;
+  expect(row.activity).toBe(expected);
+  expect(rowSchema.parse(row)).toMatchObject({ state: "running", activity: expected });
+});
 it("matches root progress by published index through reordered parallel results", () => {
   const rows = foregroundRows(
     owner,
@@ -12,15 +84,36 @@ it("matches root progress by published index through reordered parallel results"
         { index: 2, agent: "b" },
       ],
       progress: [
-        { index: 2, currentTool: "read", durationMs: 500, status: "running" },
-        { index: 8, currentTool: "bash", durationMs: 900, status: "completed" },
+        {
+          index: 2,
+          activityState: "waiting",
+          currentTool: "read",
+          durationMs: 500,
+          status: "running",
+        },
+        {
+          index: 8,
+          activityState: "needs_attention",
+          currentTool: "bash",
+          durationMs: 900,
+          status: "completed",
+        },
       ],
     },
     false,
     1,
   );
-  expect(rows[0]).toMatchObject({ index: 8, state: "complete", activity: "bash", durationMs: 900 });
-  expect(rows[1]).toMatchObject({ index: 2, state: "running", activity: "read" });
+  expect(rows[0]).toMatchObject({
+    index: 8,
+    state: "complete",
+    durationMs: 900,
+    activity: "Last observed activity: Needs attention · Reported tool: bash",
+  });
+  expect(rows[1]).toMatchObject({
+    index: 2,
+    state: "running",
+    activity: 'Last observed activity: "waiting" · Reported tool: read',
+  });
 });
 it("rejects missing/duplicate identity, omits absent fields and never counts async launch receipts", () => {
   expect(foregroundRows(owner, { mode: "single", results: [] }, true, 1)).toEqual([]);

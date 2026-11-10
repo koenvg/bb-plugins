@@ -69,7 +69,7 @@ export const rowSchema = z.object({
   startedAt: count.optional(),
   endedAt: count.optional(),
   durationMs: count.optional(),
-  activity: z.string().max(160).optional(),
+  activity: z.string().max(384).optional(),
   incomplete: z.boolean(),
   observedAt: count,
   capture: captureSchema.optional(),

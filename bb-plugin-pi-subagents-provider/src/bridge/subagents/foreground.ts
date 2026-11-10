@@ -1,3 +1,4 @@
+import { describeObservedActivity } from "../../observed-activity.js";
 import { z } from "zod";
 import { boundedValue, type ViewRow } from "../../subagents-contract.js";
 import { type ViewOwner } from "./view-store.js";
@@ -136,7 +137,10 @@ export function foregroundRows(
       state,
       index: r.index,
       durationMs: count(progress.durationMs) ?? count(summary.durationMs),
-      activity: text(progress.currentTool ?? progress.activityState ?? summary.currentTool, 160),
+      activity: describeObservedActivity({
+        activityState: text(progress.activityState ?? summary.activityState, 160),
+        currentTool: text(progress.currentTool ?? summary.currentTool, 160),
+      }),
       incomplete: state === "unknown" || state === "detached",
       observedAt: now,
       capture: {
