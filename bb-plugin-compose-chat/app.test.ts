@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, mountPluginContentScripts } from "@get-bb/plugin-sdk/testing/app";
 import appDefinition from "./app.js";
 import { mountStyles } from "./styles-lifecycle.js";
@@ -82,35 +82,28 @@ describe("Compose Chat's public content-script lifecycle", () => {
     cleanup2();
     expect(document.documentElement.getAttribute(marker)).toBe("changed-elsewhere");
   });
-  it("pauses motion in hidden documents and releases its visibility listener", () => {
-    let visibility = "visible";
-    const original = Object.getOwnPropertyDescriptor(document, "visibilityState");
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      get: () => visibility,
-    });
+  it.each([null, "previous"])("activates without motion bookkeeping over %s", (previousMotion) => {
+    const root = document.documentElement;
     const motionMarker = "data-compose-chat-motion";
-    document.documentElement.setAttribute(motionMarker, "previous");
+    if (previousMotion !== null) root.setAttribute(motionMarker, previousMotion);
+    const addListener = vi.spyOn(document, "addEventListener");
+    const controller = new AbortController();
     try {
-      const controller = new AbortController();
       const cleanup = mountStyles({ signal: controller.signal });
-      expect(document.documentElement.getAttribute(motionMarker)).toBe("running");
-      visibility = "hidden";
+      expect(root.getAttribute(marker)).toBe("active");
+      expect(root.getAttribute(motionMarker)).toBe(previousMotion);
       document.dispatchEvent(new Event("visibilitychange"));
-      expect(document.documentElement.getAttribute(motionMarker)).toBe("paused");
-      visibility = "visible";
-      document.dispatchEvent(new Event("visibilitychange"));
-      expect(document.documentElement.getAttribute(motionMarker)).toBe("running");
+      expect(root.getAttribute(marker)).toBe("active");
+      expect(root.getAttribute(motionMarker)).toBe(previousMotion);
+      expect(addListener.mock.calls.filter(([type]) => type === "visibilitychange")).toEqual([]);
       controller.abort();
       cleanup();
-      expect(document.documentElement.getAttribute(motionMarker)).toBe("previous");
-      visibility = "hidden";
-      document.dispatchEvent(new Event("visibilitychange"));
-      expect(document.documentElement.getAttribute(motionMarker)).toBe("previous");
+      expect(root.hasAttribute(marker)).toBe(false);
+      expect(root.getAttribute(motionMarker)).toBe(previousMotion);
     } finally {
-      document.documentElement.removeAttribute(motionMarker);
-      if (original) Object.defineProperty(document, "visibilityState", original);
-      else Reflect.deleteProperty(document, "visibilityState");
+      controller.abort();
+      addListener.mockRestore();
+      root.removeAttribute(motionMarker);
     }
   });
 });

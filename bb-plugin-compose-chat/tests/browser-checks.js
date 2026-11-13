@@ -38,6 +38,7 @@ export function runChecks() {
   const statusLabel = document.querySelector(".work-status .animate-shine");
   const lattice = () => getComputedStyle(liveLabel, "::before");
   check("native inline tool label stays readable", liveLabel.textContent === "Running 3 tools");
+  check("native inline Thinking label stays readable", thinkingLabel.textContent === "Thinking…");
   check(
     "inline tools have a decorative lattice",
     lattice().content === '""' && lattice().width === "4px",
@@ -65,16 +66,34 @@ export function runChecks() {
       labelStyle.maskImage === "none" && labelStyle.webkitMaskImage === "none",
     );
     check("inline label releases native compositor hint", labelStyle.willChange === "auto");
+    const dots = getComputedStyle(label, "::before");
+    check("inline activity label has no animation", labelStyle.animationName === "none");
+    check("inline activity lattice has no animation", dots.animationName === "none");
+    check(
+      "inline activity lattice keeps its static geometry",
+      dots.width === "4px" &&
+        dots.height === "4px" &&
+        dots.borderRadius === "50%" &&
+        parseFloat(dots.width) + parseFloat(dots.marginInlineEnd) === 20,
+    );
   }
   const details = thinkingLabel.closest("details");
   details.querySelector("summary").click();
   check("native Thinking expansion is preserved", details.open);
   details.querySelector("summary").click();
   check("native Thinking collapse is preserved", !details.open);
-  liveLabel.classList.remove("animate-shine");
-  check("completion removes the inline lattice", lattice().content === "none");
-  liveLabel.classList.add("animate-shine");
-  check("running again restores the inline lattice", lattice().content === '""');
+  for (const label of [liveLabel, thinkingLabel]) {
+    label.classList.remove("animate-shine");
+    check(
+      "completion removes the inline lattice",
+      getComputedStyle(label, "::before").content === "none",
+    );
+    label.classList.add("animate-shine");
+    check(
+      "running again restores the inline lattice",
+      getComputedStyle(label, "::before").content === '""',
+    );
+  }
   check(
     "lattice uses the native 20px icon/text column",
     parseFloat(lattice().width) + parseFloat(lattice().marginInlineEnd) === 20,
@@ -129,11 +148,6 @@ export function runChecks() {
   check(
     "top-left lattice dot has a visible fill",
     getComputedStyle(liveLabel, "::before").backgroundColor !== "rgba(0, 0, 0, 0)",
-  );
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  check(
-    "lattice respects the motion preference",
-    lattice().animationName === (reduceMotion ? "none" : "compose-lattice-arrow"),
   );
   const nativeText = liveLabel.textContent;
   const beforeDisableLabelWidth = liveLabel.getBoundingClientRect().width;
@@ -296,7 +310,6 @@ export function runChecks() {
     "disable restores native image mask",
     getComputedStyle(liveLabel).maskImage.includes("fixture-shine.svg"),
   );
-  check("disable releases the visibility marker", !root.hasAttribute("data-compose-chat-motion"));
   check(
     "no unrelated editor styling",
     getComputedStyle(unrelated).backgroundColor === unrelatedStyle,
@@ -314,13 +327,11 @@ export function runChecks() {
     "re-enable restores lattice geometry",
     liveLabel.getBoundingClientRect().width === beforeDisableLabelWidth,
   );
-  if (!reduceMotion) {
-    root.setAttribute("data-compose-chat-motion", "paused");
-    check("hidden-document state pauses the lattice", lattice().animationPlayState === "paused");
-    root.setAttribute("data-compose-chat-motion", "running");
-    liveLabel.parentElement.style.animationPlayState = "paused";
-    check("native collapsed state pauses the lattice", lattice().animationPlayState === "paused");
-    liveLabel.parentElement.style.animationPlayState = "";
+  for (const label of [liveLabel, thinkingLabel]) {
+    check(
+      "re-enable keeps the lattice static",
+      getComputedStyle(label, "::before").animationName === "none",
+    );
   }
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
     check(
