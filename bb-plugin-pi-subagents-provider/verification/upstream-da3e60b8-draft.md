@@ -1,6 +1,6 @@
 # Upstream da3e60b8 draft reconciliation
 
-Koen's goal is a package-only upstream reconciliation for review. This draft is inactive. Independent review is blocked by this run's no-delegation permission. It is not ready and does not advance incorporation.
+Koen's goal is a package-only upstream reconciliation for source review. The executable change has independent approval. This candidate remains inactive and unmerged, and it does not advance incorporation.
 
 ## Fixed inputs
 
@@ -115,9 +115,9 @@ Locked setup and SDK audit pass on Bun 1.4.4, Node 26.12.1, BB 0.49.0 and SDK/ru
 
 Final source checks and three-artifact build results are retained in this run's report. They are separate from installed acceptance.
 
-The configured Playwright Chromium build 1248 is absent. Older cached builds exist, but this package configuration has no supported executable selector. No browser is downloaded and no configuration is changed to bypass the missing prerequisite. The owned browser fixture remains blocked.
+The configured local Playwright Chromium build 1248 is absent, and this package has no supported executable selector. No local browser was installed and no configuration was changed to bypass that limit. The existing CI fixture passed five tests. CI checked out merge preview 288898cdea981adf6d9b22865bf947f8b95517cd, whose complete Git tree equals reviewed head 1ceee595f8bd38f4e2a576b9f63b04a99ad05058. This establishes credential-free fixture proof, not installed acceptance.
 
-Independent implementation and decision-trail review remain blocked by the explicit no-delegation restriction. There are no unresolved executable merge files. Required review and browser proof remain unmet, so the candidate remains a draft and the successful-review checkpoint is unchanged.
+Koen authorized one fresh read-only reviewer for implementation, scoped comments and the decision trail. The reviewer, openai-codex/gpt-6.1-sol, approved source-review readiness at 1ceee595f8bd38f4e2a576b9f63b04a99ad05058 with no blocking findings. It independently checked Git trees, package inventory, source/artifact hashes and retained validation. Transcript review used truncated fragments from the one authorized session, not an exhaustive transcript audit. This follow-up changes readiness prose only. No executable merge conflict remains. Installed lifecycle and Windows acceptance remain unverified.
 
 The existing .github/workflows/pi-compatibility.yml remains unchanged. Publication can trigger its existing pull-request checks. No manual dispatch, plugin installation, activation, reload or issue creation is part of this draft.
 
