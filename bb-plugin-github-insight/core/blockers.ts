@@ -57,11 +57,11 @@ export function countOf(count: number, noun: string): string {
 export function buildBlockers(input: BlockerInput): Blocker[] {
   if (input.prState === "merged" || input.prState === "closed") return [];
   if (input.mergeQueue !== null) return [];
-  if (READY_TO_MERGE.has(input.mergeStateStatus)) return [];
 
   const withStatus = (status: Check["status"]) =>
     input.checks.filter((check) => check.status === status);
   const failed = withStatus("failed").length;
+  const cancelled = withStatus("cancelled").length;
   const running = withStatus("running").length;
   const waiting = withStatus("waiting");
   const candidates: [applies: boolean, blocker: Blocker][] = [
@@ -69,7 +69,16 @@ export function buildBlockers(input: BlockerInput): Blocker[] {
       input.mergeable === "CONFLICTING" || input.mergeStateStatus === "DIRTY",
       { code: "conflicts", text: "Merge conflicts" },
     ],
-    [failed > 0, { code: "checks_failed", text: `${countOf(failed, "check")} failed` }],
+    [
+      failed + cancelled > 0,
+      {
+        code: "checks_failed",
+        text: [
+          ...(failed > 0 ? [`${countOf(failed, "check")} failed`] : []),
+          ...(cancelled > 0 ? [`${countOf(cancelled, "check")} cancelled`] : []),
+        ].join(", "),
+      },
+    ],
     [
       waiting.length > 0,
       {
@@ -97,6 +106,9 @@ export function buildBlockers(input: BlockerInput): Blocker[] {
     [input.prState === "draft", { code: "draft", text: "Draft" }],
   ];
   const blockers = candidates.flatMap(([applies, blocker]) => (applies ? [blocker] : []));
+  if (READY_TO_MERGE.has(input.mergeStateStatus)) {
+    return blockers.filter((blocker) => blocker.code.startsWith("checks_"));
+  }
   if (blockers.length === 0 && input.mergeStateStatus === "BLOCKED") {
     return [{ code: "blocked", text: "Blocked by branch rules" }];
   }

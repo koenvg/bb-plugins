@@ -3681,21 +3681,16 @@ describe("archiveReview", () => {
 describe("runPrAction", () => {
   const HEAD = pageOne.data.repository.pullRequest.headRefOid;
 
-  const readyPage = {
-    ...pageOne,
-    data: {
-      repository: {
-        ...pageOne.data.repository,
-        viewerDefaultMergeMethod: "SQUASH",
-        squashMergeAllowed: true,
-        pullRequest: {
-          ...pageOne.data.repository.pullRequest,
-          mergeStateStatus: "CLEAN",
-          isMergeQueueEnabled: false,
-        },
-      },
-    },
-  };
+  const readyPage = structuredClone(pageOne);
+  const readyRepository = readyPage.data.repository;
+  readyRepository.viewerDefaultMergeMethod = "SQUASH";
+  readyRepository.squashMergeAllowed = true;
+  readyRepository.pullRequest.mergeStateStatus = "CLEAN";
+  readyRepository.pullRequest.isMergeQueueEnabled = false;
+  const readyContexts =
+    readyRepository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts;
+  readyContexts.nodes = readyContexts.nodes.filter((node) => node.conclusion === "SUCCESS");
+  readyContexts.pageInfo.hasNextPage = false;
 
   function mergeHost(
     merge: unknown = ok({ data: { mergePullRequest: { pullRequest: { state: "MERGED" } } } }),

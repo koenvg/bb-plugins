@@ -209,7 +209,7 @@ describe("collectInsight on PR 25337", () => {
     const { insight } = await collectInsight(recordedGitHub());
 
     expect(insight.blockers).toEqual([
-      { code: "checks_failed", text: "1 check failed" },
+      { code: "checks_failed", text: "1 check failed, 1 check cancelled" },
       { code: "behind", text: "Branch out of date" },
       { code: "review_required", text: "Review required" },
     ]);
@@ -328,14 +328,15 @@ describe("collectInsight on a merge queue repo", () => {
 });
 
 describe("collectInsight merge action", () => {
-  function readyPage(overrides: { isMergeQueueEnabled?: boolean } = {}) {
-    const { repository } = onlyPassingChecksPage().data;
+  function readyPage(overrides: Record<string, unknown> = {}, extraNodes: readonly unknown[] = []) {
+    const { repository } = onlyPassingChecksPage(extraNodes).data;
     return {
       data: {
         repository: {
           ...repository,
           viewerDefaultMergeMethod: "SQUASH",
           squashMergeAllowed: true,
+          autoMergeAllowed: true,
           pullRequest: {
             ...repository.pullRequest,
             mergeStateStatus: "CLEAN",
@@ -346,6 +347,127 @@ describe("collectInsight merge action", () => {
       },
     };
   }
+
+  const cancelledRun = {
+    ...requiredChecksPage.data.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup
+      .contexts.nodes[0]!,
+    id: "cancelled-ci",
+    databaseId: 1,
+    name: "CI",
+    conclusion: "CANCELLED",
+    isRequired: false,
+  };
+
+  it.each([
+    ["UNSTABLE", false, false, 0, 1, "1 check cancelled"],
+    ["UNSTABLE", true, true, 0, 1, "1 check cancelled"],
+    ["BLOCKED", false, true, 0, 1, "1 check cancelled"],
+    ["BLOCKED", true, false, 0, 1, "1 check cancelled"],
+    ["UNSTABLE", false, false, 2, 3, "2 checks failed, 3 checks cancelled"],
+  ] as const)(
+    "blocks cancelled CI under %s with required=%s, queue=%s, failed=%s, cancelled=%s",
+    async (mergeStateStatus, isRequired, isMergeQueueEnabled, failed, cancelled, text) => {
+      const nodes = [
+        ...Array.from({ length: failed }, (_, index) => ({
+          ...cancelledRun,
+          id: `failed-${index}`,
+          name: `failed-${index}`,
+          conclusion: "FAILURE",
+          isRequired,
+        })),
+        ...Array.from({ length: cancelled }, (_, index) => ({
+          ...cancelledRun,
+          id: `cancelled-${index}`,
+          name: `cancelled-${index}`,
+          isRequired,
+        })),
+      ];
+      const { insight } = await collectInsight(
+        recordedGitHub({
+          fetchOverviewPage: async () =>
+            readyPage({ mergeStateStatus, isMergeQueueEnabled, reviewDecision: "APPROVED" }, nodes),
+        }),
+      );
+
+      expect(insight.blockers).toEqual([{ code: "checks_failed", text }]);
+      expect(insight.mergeAction).toEqual({ kind: "none" });
+      expect(insight.autoMergeAction).toEqual({ kind: "none" });
+    },
+  );
+
+  it.each([
+    ["CLEAN", false, false, { kind: "merge", method: "SQUASH" }],
+    ["CLEAN", true, true, { kind: "enqueue" }],
+    ["HAS_HOOKS", false, true, { kind: "enqueue" }],
+    ["HAS_HOOKS", true, false, { kind: "merge", method: "SQUASH" }],
+    ["UNSTABLE", false, false, { kind: "merge", method: "SQUASH" }],
+    ["UNSTABLE", true, true, { kind: "enqueue" }],
+  ] as const)(
+    "keeps CI blocking under %s with required=%s, queue=%s until the rerun passes",
+    async (mergeStateStatus, isRequired, isMergeQueueEnabled, readyAction) => {
+      const cancelled = { ...cancelledRun, isRequired };
+      let nodes: readonly unknown[] = [cancelled];
+      const read = () =>
+        collectInsight(
+          recordedGitHub({
+            fetchOverviewPage: async () =>
+              readyPage(
+                { mergeStateStatus, isMergeQueueEnabled, reviewDecision: "APPROVED" },
+                nodes,
+              ),
+          }),
+          Date.parse("2026-10-08T14:00:00Z"),
+        );
+
+      const initial = (await read()).insight;
+      expect.soft(initial.blockers).toEqual([{ code: "checks_failed", text: "1 check cancelled" }]);
+      expect.soft(initial.mergeAction).toEqual({ kind: "none" });
+      expect.soft(initial.autoMergeAction).toEqual({ kind: "none" });
+
+      const rerun = { ...cancelled, id: "newer-ci", databaseId: 2 };
+      nodes = [cancelled, { ...rerun, status: "QUEUED", conclusion: null, startedAt: null }];
+      const queued = (await read()).insight;
+      expect.soft(queued.blockers).toEqual([{ code: "checks_running", text: "1 check running" }]);
+      expect.soft(queued.mergeAction).toEqual({ kind: "none" });
+
+      nodes = [cancelled, { ...rerun, status: "IN_PROGRESS", conclusion: null }];
+      const running = (await read()).insight;
+      expect.soft(running.blockers).toEqual([{ code: "checks_running", text: "1 check running" }]);
+      expect.soft(running.mergeAction).toEqual({ kind: "none" });
+
+      nodes = [cancelled, { ...rerun, conclusion: "FAILURE" }];
+      const failed = (await read()).insight;
+      expect.soft(failed.blockers).toEqual([{ code: "checks_failed", text: "1 check failed" }]);
+      expect.soft(failed.mergeAction).toEqual({ kind: "none" });
+      expect.soft(failed.autoMergeAction).toEqual({ kind: "none" });
+
+      const passed = { ...rerun, conclusion: "SUCCESS" };
+      nodes = [
+        cancelled,
+        passed,
+        {
+          __typename: "StatusContext",
+          context: "UI Review",
+          state: "PENDING",
+          description: "Review the UI",
+          targetUrl: "https://example.com/review",
+          createdAt: "2026-10-08T13:45:00Z",
+          isRequired,
+        },
+      ];
+      const waiting = (await read()).insight;
+      expect
+        .soft(waiting.blockers)
+        .toEqual([{ code: "checks_waiting", text: "UI Review waiting for you" }]);
+      expect.soft(waiting.mergeAction).toEqual({ kind: "none" });
+
+      nodes = [cancelled, passed, { ...cancelled, name: "not-needed", conclusion: "SKIPPED" }];
+      const successful = (await read()).insight;
+      expect.soft(successful.blockers).toEqual([]);
+      expect.soft(successful.mergeAction).toEqual(readyAction);
+      expect.soft(successful.autoMergeAction).toEqual({ kind: "none" });
+    },
+  );
 
   it("merges a clean PR with the user's default method", async () => {
     const { insight } = await collectInsight(
