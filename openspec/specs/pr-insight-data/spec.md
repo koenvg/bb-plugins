@@ -102,7 +102,7 @@ The plugin SHALL list each requested reviewer and each reviewer with a latest ap
 
 The plugin SHALL give the list of reasons why the PR cannot merge now. Each blocker SHALL have a code and a short text. The codes SHALL be:
 
-- `checks_failed`: at least one check has status `failed`
+- `checks_failed`: at least one check has status `failed` or `cancelled`; one blocker gives separate failed and cancelled counts
 - `checks_running`: at least one check has status `running`
 - `review_required`: GitHub reports that a review is required
 - `changes_requested`: GitHub reports that changes are requested
@@ -111,7 +111,8 @@ The plugin SHALL give the list of reasons why the PR cannot merge now. Each bloc
 - `unresolved_threads`: at least one review thread is not resolved (the text gives the count)
 - `draft`: the PR is a draft
 - `blocked`: GitHub reports the PR as blocked and no other code explains it
-  A PR that GitHub reports as ready to merge SHALL have an empty blocker list.
+
+For an open PR outside the merge queue, failed, cancelled, running, or waiting checks SHALL block merge and enqueue, whether required or optional. Cancelled checks SHALL also prevent enabling auto-merge. Under `CLEAN` and `HAS_HOOKS`, check-health blockers SHALL still apply, but non-check blockers SHALL be suppressed. A newer successful rerun SHALL replace an older cancellation and restore readiness when no other blocker remains.
 
 #### Scenario: Blocked on code owner review
 
