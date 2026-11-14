@@ -6,7 +6,8 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, ReturnedReason, rpcContract } from "./contract";
 import type { Check } from "./core/checks";
-import type { PrInsight } from "./core/overview";
+import { collectInsight, type PrInsight } from "./core/overview";
+import requiredChecksPage from "./test/fixtures/pr-cli-14583-overview-required-checks.json";
 import { postIntent, useCommandIntent } from "./ui/command-intents";
 import { GITHUB_COMMANDS } from "./ui/commands";
 import { forgetInsights } from "./ui/pr-availability";
@@ -928,6 +929,62 @@ function bannerMergeCalls(slot: ReturnType<typeof renderBanner>) {
 }
 
 describe("Composer banner merge action", () => {
+  it.each([
+    ["CLEAN", false, false, "Ready to merge", "Squash and merge"],
+    ["HAS_HOOKS", true, true, "Ready to enqueue", "Enqueue"],
+  ] as const)(
+    "shows collected cancelled CI under %s until a newer successful rerun",
+    async (mergeStateStatus, isRequired, isMergeQueueEnabled, readyText, actionText) => {
+      const page = structuredClone(requiredChecksPage);
+      page.data.repository.viewerDefaultMergeMethod = "SQUASH";
+      const pullRequest = page.data.repository.pullRequest;
+      pullRequest.mergeStateStatus = mergeStateStatus;
+      pullRequest.isMergeQueueEnabled = isMergeQueueEnabled;
+      const contexts = pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts;
+      const cancelled = {
+        ...contexts.nodes[0]!,
+        name: "CI",
+        conclusion: "CANCELLED",
+        isRequired,
+      };
+      contexts.nodes = [cancelled];
+      const github = {
+        fetchOverviewPage: async () => page,
+        fetchCheckRunDetails: async () => ({ data: { nodes: [] } }),
+      };
+      let current = ok((await collectInsight(github)).insight);
+      const slot = renderBanner(() => current);
+
+      const blocked = await slot.findByRole("button", { name: /1 check cancelled/ });
+      expect(blocked.getAttribute("aria-label")).toBe("Open: 1 check cancelled");
+      expect(slot.queryByText(/Ready to merge|Ready to enqueue/)).toBeNull();
+      expect(slot.container.querySelector(".text-success")).toBeNull();
+      expect(slot.queryByRole("button", { name: /merge|enqueue/i })).toBeNull();
+
+      contexts.nodes = [
+        cancelled,
+        {
+          ...cancelled,
+          id: "newer-ci",
+          databaseId: cancelled.databaseId + 1,
+          conclusion: "SUCCESS",
+        },
+      ];
+      current = ok((await collectInsight(github)).insight);
+      await slot.behavior.emitRealtime("insight.updated", { threadIds: ["thr_1"] });
+
+      expect(
+        (await slot.findByRole("button", { name: new RegExp(readyText) })).getAttribute(
+          "aria-label",
+        ),
+      ).toBe(`Open: ${readyText}`);
+      expect(slot.getByRole("button", { name: actionText })).toHaveProperty("disabled", false);
+      expect(slot.container.querySelector(".text-success")).not.toBeNull();
+      expect(slot.queryByText(/cancelled/)).toBeNull();
+      expect(bannerMergeCalls(slot)).toEqual([]);
+    },
+  );
+
   it("shows Ready to merge and the merge button for a ready PR", async () => {
     const slot = renderBanner(readyBanner);
 
