@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { packagedCollectorAsset, readCollectorCompatibility } from "./collector-compatibility.js";
 const roots: string[] = [];
 async function fixture() {
@@ -10,6 +10,7 @@ async function fixture() {
   return root;
 }
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -35,6 +36,9 @@ describe("self-contained collector compatibility", () => {
   });
   it("loads actual capture handlers but stays inert without explicit compatible control metadata", async () => {
     const root = await fixture();
+    const timestamp = Date.UTC(2026, 9, 3);
+    const log = join(root, "history/events-v1-2026-10-03.jsonl");
+    vi.spyOn(Date, "now").mockReturnValue(timestamp);
     const handlers = new Map<string, (event?: unknown, context?: unknown) => Promise<void>>();
     const module = await import(
       /* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root)).toString("base64")}`
@@ -55,7 +59,7 @@ describe("self-contained collector compatibility", () => {
       role: "assistant",
       provider: "openai-codex",
       model: "synthetic",
-      timestamp: Date.UTC(2026, 9, 3),
+      timestamp,
       usage: {
         input: 1,
         output: 2,
@@ -81,10 +85,7 @@ describe("self-contained collector compatibility", () => {
     );
     await handlers.get("message_end")!({ message }, context);
     await handlers.get("session_shutdown")!();
-    const text = await readFile(
-      join(root, `history/events-v1-${new Date().toISOString().slice(0, 10)}.jsonl`),
-      "utf8",
-    );
+    const text = await readFile(log, "utf8");
     const event = JSON.parse(text.trim());
     expect(event).toMatchObject({
       version: 1,
@@ -102,12 +103,7 @@ describe("self-contained collector compatibility", () => {
       context,
     );
     await handlers.get("session_shutdown")!();
-    expect(
-      await readFile(
-        join(root, `history/events-v1-${new Date().toISOString().slice(0, 10)}.jsonl`),
-        "utf8",
-      ),
-    ).toBe(text);
+    expect(await readFile(log, "utf8")).toBe(text);
     await writeFile(
       join(root, "history/collector-control-v1.json"),
       JSON.stringify({
@@ -118,23 +114,13 @@ describe("self-contained collector compatibility", () => {
     );
     await handlers.get("message_end")!({ message }, context);
     await handlers.get("session_shutdown")!();
-    expect(
-      await readFile(
-        join(root, `history/events-v1-${new Date().toISOString().slice(0, 10)}.jsonl`),
-        "utf8",
-      ),
-    ).toBe(text);
+    expect(await readFile(log, "utf8")).toBe(text);
     await writeFile(
       join(root, "history/collector-control-v1.json"),
       JSON.stringify({ protocol: 99, enabled: true }),
     );
     await handlers.get("message_end")!({ message }, context);
     await handlers.get("session_shutdown")!();
-    expect(
-      await readFile(
-        join(root, `history/events-v1-${new Date().toISOString().slice(0, 10)}.jsonl`),
-        "utf8",
-      ),
-    ).toBe(text);
+    expect(await readFile(log, "utf8")).toBe(text);
   });
 });

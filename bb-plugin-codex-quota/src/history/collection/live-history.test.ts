@@ -6,6 +6,7 @@ import { createHostHistory } from "../history-host.js";
 import { openHistoryDatabase } from "../storage/history-storage.js";
 
 const roots: string[] = [];
+const now = () => Date.UTC(2026, 9, 1);
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -23,7 +24,7 @@ async function fixture() {
     bodyRead: () => {
       reads++;
     },
-    now: () => Date.UTC(2026, 9, 1),
+    now,
     ingestBytes: 65536,
     ingestRows: 2,
   });
@@ -120,7 +121,7 @@ it("persists transactions and unchanged-source progress, bounds backlog, exclude
   const before = f.reads();
   await f.history.read(f.context);
   expect(f.reads()).toBe(before);
-  const reload = createHostHistory({ agentDir: () => f.agent });
+  const reload = createHostHistory({ agentDir: () => f.agent, now });
   expect((await reload.read(f.context)).collection!.workspaces[0].totalTokens).toBe(12);
   const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"), true);
   expect(
@@ -234,7 +235,7 @@ it("keeps first capture ownership on lower-UUID replay and excludes conflicting 
     ),
   ).toMatchObject({ workspace: "/shared/work", totalTokens: 6, capturedCost: null });
   db!.close();
-  const reload = createHostHistory({ agentDir: () => f.agent });
+  const reload = createHostHistory({ agentDir: () => f.agent, now });
   expect((await reload.read(f.context)).collection).toMatchObject({
     workspaces: [],
     conflictingEntries: 1,
@@ -250,6 +251,7 @@ it("reads persisted bounded projections after reload without rescanning detailed
   const sql: string[] = [];
   const reload = createHostHistory({
     agentDir: () => f.agent,
+    now,
     storage: async () => (path, readonly) => {
       const db = factory(path, readonly);
       return {
