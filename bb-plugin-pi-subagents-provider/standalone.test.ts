@@ -11,7 +11,8 @@ describe("standalone packaging", () => {
   it.each([
     ["bb", "0.48.1", false],
     ["bb", "0.49.0", true],
-    ["bb", "0.50.0", false],
+    ["bb", "0.50.0", true],
+    ["bb", "0.51.0", false],
     ["bbPluginSdk", "0.6.131", false],
     ["bbPluginSdk", "0.6.132", true],
     ["bbPluginSdk", "0.7.0", false],
