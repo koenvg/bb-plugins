@@ -1204,6 +1204,7 @@ describe("queue CLI", () => {
                 number: 15,
                 review: "updated_since_review",
                 newActivity: ["new_comments"],
+                labels: [{ name: "DO NOT REVIEW", color: "D93F0B" }],
                 thread: { ...reviewThread, status: "idle", returned: "finished" },
               }),
               queuePr({
@@ -1234,6 +1235,7 @@ describe("queue CLI", () => {
           author: "alice",
           section: "needs_review",
           marks: ["New commits", "New comments"],
+          labels: ["DO NOT REVIEW"],
           thread: { id: "thr_review", status: "finished" },
         },
         {
@@ -1243,6 +1245,7 @@ describe("queue CLI", () => {
           author: "bob",
           section: "reviewed",
           marks: [],
+          labels: [],
           thread: null,
         },
       ],

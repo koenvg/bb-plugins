@@ -23,6 +23,7 @@ function queuePr(repo: string, number: number, overrides: Partial<QueuePr> = {})
     createdAt: "2026-09-30T10:00:00Z",
     updatedAt: "2026-10-01T10:00:00Z",
     draft: false,
+    labels: [],
     ci: "passed",
     reviewDecision: "REVIEW_REQUIRED",
     yourReview: null,
@@ -1032,6 +1033,19 @@ describe("new activity after the mark", () => {
 
     expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
       { activity: null, newActivity: [] },
+    );
+  });
+
+  it("reads a stored PR from before labels as without labels", async () => {
+    const { service, kv } = serviceWith();
+    const loaded = await service.refreshReviewQueue();
+    const stored = structuredClone(loaded) as { kind: "ok" } & Record<string, unknown>;
+    const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
+    delete prs[0]!.labels;
+    kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 6, result: stored });
+
+    expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
+      { labels: [] },
     );
   });
 });

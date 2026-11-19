@@ -22,6 +22,7 @@ export interface QueueListEntry {
   author: string | null;
   section: Section;
   marks: QueueMark[];
+  labels: string[];
   thread: { id: string; status: AgentState } | null;
 }
 
@@ -65,6 +66,7 @@ function entryOf(pr: LinkedQueuePr, section: Section): QueueListEntry {
     author: pr.author,
     section,
     marks: attentionReasons(pr).map((reason) => ATTENTION_TEXT[reason]),
+    labels: pr.labels.map((label) => label.name),
     thread: pr.thread === null ? null : { id: pr.thread.id, status: agentStateOf(pr.thread) },
   };
 }
@@ -93,6 +95,7 @@ function formatEntry(entry: QueueListEntry): string {
   const parts = [`  ${entry.key}  ${entry.title}`];
   if (entry.author !== null) parts.push(`by ${entry.author}`);
   if (entry.marks.length > 0) parts.push(`[${entry.marks.join(", ")}]`);
+  if (entry.labels.length > 0) parts.push(`labels: ${entry.labels.join(", ")}`);
   if (entry.thread !== null) parts.push(`thread ${entry.thread.id} ${entry.thread.status}`);
   return parts.join("  ");
 }

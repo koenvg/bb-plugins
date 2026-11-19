@@ -63,6 +63,7 @@
         "headRefName": "feature-15",
         "headRefOid": "e15e15e15e15e15e15e15e15e15e15e15e15e15e",
         "reviewDecision": "REVIEW_REQUIRED",
+        "labels": { "nodes": [{ "name": "DO NOT REVIEW", "color": "D93F0B" }] },
         "viewerLatestReview": {
           "state": "COMMENTED"
         },

@@ -53,6 +53,10 @@ describe("parseReviewQueue", () => {
       createdAt: "2026-09-30T08:00:00Z",
       updatedAt: "2026-10-02T09:00:00Z",
       draft: false,
+      labels: [
+        { name: "DO NOT MERGE", color: "B60205" },
+        { name: "DO NOT REVIEW", color: "D93F0B" },
+      ],
       ci: "passed",
       reviewDecision: "REVIEW_REQUIRED",
       yourReview: "APPROVED",
@@ -101,6 +105,18 @@ describe("parseReviewQueue", () => {
   it("marks drafts", () => {
     expect(byNumber(queue, 7).draft).toBe(true);
     expect(byNumber(queue, 12).draft).toBe(false);
+  });
+
+  it("maps a PR without labels, or with null or absent labels, to no labels", () => {
+    const [first, ...rest] = fixture.data.reviewRequests.nodes;
+    const nullLabels = { ...first, labels: null };
+    const data = {
+      ...fixture.data,
+      reviewRequests: { ...fixture.data.reviewRequests, nodes: [nullLabels, ...rest] },
+    };
+    const parsed = parseReviewQueue([{ data }], [], NOW).requests;
+
+    expect([12, 15, 7].map((number) => byNumber(parsed, number).labels)).toEqual([[], [], []]);
   });
 
   it("maps a deleted author to null", () => {
@@ -166,6 +182,14 @@ describe("parseReviewQueue with tracked PRs", () => {
       [15, "COMMENTED"],
       [8, null],
       [12, null],
+    ]);
+  });
+
+  it("reads the labels of tracked PRs", () => {
+    expect(fetched.tracked.map((pr) => [pr.number, pr.labels])).toEqual([
+      [15, [{ name: "DO NOT REVIEW", color: "D93F0B" }]],
+      [8, []],
+      [12, []],
     ]);
   });
 

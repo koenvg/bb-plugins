@@ -42,6 +42,7 @@ describe("queueListOf", () => {
           author: "alice",
           section: "needs_review",
           marks: [],
+          labels: [],
           thread: null,
         },
       ],
@@ -75,6 +76,17 @@ describe("queueListOf", () => {
     const list = listed(ok(view([queuePr({ thread: { ...reviewThread, ...thread } })])));
 
     expect(list.prs[0]?.thread).toEqual({ id: "thr_review", status });
+  });
+
+  it("lists the label names of a PR in GitHub order", () => {
+    const labels = [
+      { name: "DO NOT MERGE", color: "B60205" },
+      { name: "DO NOT REVIEW", color: "D93F0B" },
+    ];
+
+    const list = listed(ok(view([queuePr({ labels })])));
+
+    expect(list.prs[0]?.labels).toEqual(["DO NOT MERGE", "DO NOT REVIEW"]);
   });
 
   it("keeps truncated from the stored view", () => {
@@ -125,6 +137,23 @@ describe("formatQueueList", () => {
         "  acme/api#2  Fix cache",
         "",
       ].join("\n"),
+    );
+  });
+
+  it("prints the label names after the marks", () => {
+    const list = listed(
+      ok(
+        view([
+          queuePr({
+            review: "updated_since_review",
+            labels: [{ name: "DO NOT REVIEW", color: "D93F0B" }],
+          }),
+        ]),
+      ),
+    );
+
+    expect(formatQueueList(list)).toContain(
+      "  acme/api#15  Add rate limits  by alice  [New commits]  labels: DO NOT REVIEW\n",
     );
   });
 

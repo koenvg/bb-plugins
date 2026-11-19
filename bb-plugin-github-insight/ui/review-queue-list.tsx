@@ -11,7 +11,7 @@ import {
   type AgentState,
   type AttentionReason,
 } from "../core/review-queue-view";
-import type { CiState, PrState, QueuePr } from "../core/review-queue";
+import type { CiState, PrLabel, PrState, QueuePr } from "../core/review-queue";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { messageOf } from "./error-message";
@@ -574,6 +574,9 @@ function QueueRow({
             </span>
           )}
           {draft && <span className={LABEL_CLASS}>Draft</span>}
+          {pr.labels.map((label) => (
+            <LabelChip key={label.name} label={label} />
+          ))}
           {attention.map(({ icon, text }) => (
             <span
               key={text}
@@ -590,6 +593,32 @@ function QueueRow({
       </div>
       <RowActions pr={pr} actions={actions} />
     </li>
+  );
+}
+
+const HEX_COLOR = /^[0-9a-f]{6}$/i;
+const BLOCKING_LABEL = /\bdo not\b/i;
+
+function LabelChip({ label }: { label: PrLabel }) {
+  const validColor = HEX_COLOR.test(label.color);
+  const blocking = BLOCKING_LABEL.test(label.name);
+  return (
+    <span
+      data-testid="queue-label"
+      data-blocking={blocking || undefined}
+      className={cn(
+        LABEL_CLASS,
+        "flex items-center gap-1 text-foreground",
+        blocking && "border-destructive/40 bg-destructive/10 font-medium text-destructive",
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn("size-2 rounded-full", !validColor && "bg-muted-foreground/60")}
+        style={validColor ? { backgroundColor: `#${label.color}` } : undefined}
+      />
+      {label.name}
+    </span>
   );
 }
 
