@@ -55,12 +55,14 @@ test("document and review consumers resolve the local source workspaces", () => 
   }
 });
 
-test("both pinned BB toolchains retain the accepted npm override", () => {
-  assert.equal(manifest.overrides.npm, "11.21.0");
+test("both pinned BB toolchains load patched Undici through npm's node-gyp", () => {
   for (const plugin of ["bb-plugin-mcp", "bb-plugin-pi-subagents-provider"]) {
     const require = createRequire(join(root, plugin, "package.json"));
     const bbRequire = createRequire(require.resolve("bb-app"));
-    assert.equal(bbRequire("npm/package.json").version, "11.21.0", plugin);
+    const npmRequire = createRequire(bbRequire.resolve("npm/package.json"));
+    const nodeGypRequire = createRequire(npmRequire.resolve("node-gyp/package.json"));
+    const { version } = nodeGypRequire("undici/package.json");
+    assert.ok(Bun.semver.satisfies(version, ">=6.29.1 <7"), `${plugin} loads Undici ${version}`);
   }
 });
 
