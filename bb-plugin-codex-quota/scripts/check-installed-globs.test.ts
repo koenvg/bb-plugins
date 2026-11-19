@@ -20,9 +20,11 @@ const piRequire = createRequire(
   realpathSync(join(pluginRoot, "node_modules/@earendil-works/pi-coding-agent/package.json")),
 );
 const minimatchSource = dirname(piRequire.resolve("minimatch/package.json"));
-const braceSource = dirname(
-  createRequire(join(minimatchSource, "package.json")).resolve("brace-expansion/package.json"),
+const minimatchRequire = createRequire(join(minimatchSource, "package.json"));
+const matcherSource = dirname(
+  minimatchRequire.resolve("@isaacs/nonrecursive-glob-match/package.json"),
 );
+const braceSource = dirname(minimatchRequire.resolve("brace-expansion/package.json"));
 const balancedSource = dirname(
   createRequire(join(braceSource, "package.json")).resolve("balanced-match/package.json"),
 );
@@ -58,6 +60,9 @@ beforeEach(() => {
   // and nested placement. A separate clean-install probe verifies actual 5.0.9.
   const minimatchDir = join(piDir, "node_modules/minimatch");
   cpSync(minimatchSource, minimatchDir, { recursive: true });
+  cpSync(matcherSource, join(minimatchDir, "node_modules/@isaacs/nonrecursive-glob-match"), {
+    recursive: true,
+  });
   braceDir = join(minimatchDir, "node_modules/brace-expansion");
   cpSync(braceSource, braceDir, { recursive: true });
   cpSync(balancedSource, join(braceDir, "node_modules/balanced-match"), { recursive: true });

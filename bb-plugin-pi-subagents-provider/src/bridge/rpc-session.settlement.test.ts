@@ -418,9 +418,9 @@ it("ignores duplicate authoritative settlement without duplicate delivery", asyn
 });
 
 it.each(["bb-first", "bb-last"])(
-  "real pinned Pi 1.1 starts B inside an async settlement handler before A stdout (%s)",
+  "real pinned Pi 1.5 starts B inside an async settlement handler before A stdout (%s)",
   async (order) => {
-    expect(VERSION).toBe("1.1.0");
+    expect(VERSION).toBe("1.5.2");
     const h = harness();
     const dir = mkdtempSync(join(tmpdir(), "bb-pi-real-settlement-"));
     const settingsManager = SettingsManager.inMemory({

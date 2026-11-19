@@ -32,8 +32,8 @@
     "skills": []
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "1.0.1",
-    "@earendil-works/pi-coding-agent": "1.0.1",
+    "@earendil-works/pi-ai": "1.5.2",
+    "@earendil-works/pi-coding-agent": "1.5.2",
     "@get-bb/plugin-sdk": "0.6.132",
     "@tanstack/charts": "1.1.0",
     "zod": "^4.3.6"
