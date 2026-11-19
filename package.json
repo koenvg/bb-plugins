@@ -8,9 +8,6 @@
     "packages/*",
     "review-ui"
   ],
-  "overrides": {
-    "npm": "11.21.0"
-  },
   "scripts": {
     "test:setup": "bun test ./scripts/environment-setup.test.mjs ./scripts/pi-compatibility.test.mjs",
     "test:workspaces": "bun test scripts/workspaces.test.mjs",

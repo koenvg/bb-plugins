@@ -3,9 +3,9 @@
 | Component    | Declared/tested boundary                                                                                                                 |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Node         | 26.0.0 or newer within Node 26                                                                                                           |
-| BB           | Manifest accepts >=0.49.0 <0.50.0; build tooling pinned to 0.49.0. Installed acceptance remains separate.                                |
+| BB           | Manifest accepts `0.49.x` and exactly `0.50.1`. Build tooling stays pinned to `0.49.0`.                                                  |
 | Public SDK   | 0.6.132; manifest accepts 0.6.132 through 0.6.x; development and runtime alias pins match                                                |
-| Pi           | Inherited Default install gate: 0.84.0 or newer. Shared speed integration and development type contracts: 1.1.0.                         |
+| Pi           | Inherited Default install gate: 0.84.0 or newer. Shared speed integration and development type contracts: 1.5.2.                         |
 | pi-subagents | Not installed/enabled by this provider. Public RPC v1 and inspection contracts were statically checked at 0.75.0; no live certification. |
 
 Credential-free tests drive the real bridge through a scripted Pi RPC child and use published SDK harnesses. They cover prompts, native tool translation, dynamic tools, model/reasoning choices, select/confirm/input/editor dialogs, native skill roots, checkpoint forks, compaction, process handling, RPC framing, and bridge conformance. They do not prove compatibility with every later Pi release or with a live authenticated model.
@@ -13,6 +13,8 @@ Credential-free tests drive the real bridge through a scripted Pi RPC child and 
 ## Release compatibility checks
 
 The normal CI suite uses the committed dependency pins. The [latest-release workflow](../.github/workflows/pi-compatibility.yml) runs daily, on relevant pull requests, and on manual dispatch. In a disposable checkout, it installs the latest published BB. It reads `builtWith.pluginSdkVersion` from BB's built-in plugin build metadata and requires one distinct string version. It installs that exact canonical SDK version and the matching runtime SDK alias. Candidate setup, declared engine ranges, exact pins, CLI version, official `types --check`, TypeScript, the complete package suite including production coverage, and all three build artifacts remain blocking. CI artifacts retain individual check logs, exit codes, candidate versions, and the dependency diff.
+
+On PR #403, BB `0.50.1` with SDK `0.6.157` passed the CLI version, official `types --check`, TypeScript, package tests, and build checks. Only declared BB version admission failed. The manifest now admits that BB release, but the source checks did not verify installed lifecycle acceptance.
 
 A newer release outside the declared ranges requires a support review, even when the source checks pass. A separate metadata query records the independently latest published SDK without installing it. A version mismatch or lookup failure is advisory and does not affect the blocking checks. The always-run summary and retained artifacts show the candidate SDK, latest published SDK when available, exact query exit code, and `matched`, `different`, or `unavailable` status. The workflow never changes source pins or engine ranges, promotes dependencies, installs the plugin into a running BB instance, or starts model sessions. A successful source check does not establish installed lifecycle acceptance. Scheduled checks begin only after the workflow reaches the repository's default branch.
 
