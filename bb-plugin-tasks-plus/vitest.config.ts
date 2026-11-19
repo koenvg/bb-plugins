@@ -4,9 +4,6 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom"],
     tsconfigPaths: true,
-    alias: {
-      "tippy.js": "tippy.js/dist/tippy.esm.js",
-    },
   },
   test: {
     silent: "passed-only",
@@ -17,10 +14,5 @@ export default defineConfig({
     // Node web storage shadows jsdom storage unless disabled before worker startup.
     execArgv: ["--no-experimental-webstorage"],
     setupFiles: ["./vitest.setup.ts"],
-    server: {
-      deps: {
-        inline: ["@tiptap/extension-bubble-menu"],
-      },
-    },
   },
 });

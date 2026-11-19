@@ -1,20 +1,34 @@
-import { Extension, getHTMLFromFragment, InputRule, Node, type Extensions } from "@tiptap/core";
+import {
+  Extension,
+  getHTMLFromFragment,
+  InputRule,
+  Node,
+  type Attributes,
+  type Extensions,
+  type NodeConfig,
+} from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
-import Table from "@tiptap/extension-table";
+import { Table } from "@tiptap/extension-table";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import TableRow from "@tiptap/extension-table-row";
-import { Markdown } from "tiptap-markdown";
+import { Markdown, type MarkdownStorage } from "tiptap-markdown";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Fragment, type DOMOutputSpec, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Suggestion, type SuggestionProps } from "@tiptap/suggestion";
 import type { IconSvgElement } from "@hugeicons/react";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
+
+declare module "@tiptap/core" {
+  interface Storage {
+    markdown: MarkdownStorage;
+  }
+}
 
 export type MentionItem =
   | { type: "task"; id: string; key: string; title: string }
@@ -157,6 +171,14 @@ const MarkdownTable = Table.extend({
     };
   },
 });
+
+const omitCellAlignment: Pick<NodeConfig, "addAttributes"> = {
+  addAttributes() {
+    const attributes: Attributes = { ...this.parent?.() };
+    delete attributes.align;
+    return attributes;
+  },
+};
 
 function createMentionNode({
   name,
@@ -328,15 +350,15 @@ export function createEditorExtensions(options?: {
   mentionHandle?: MentionSuggestionHandle;
 }): Extensions {
   return [
-    StarterKit,
+    StarterKit.configure({ link: false, underline: false, trailingNode: false, listKeymap: false }),
     Link.configure({ openOnClick: false, autolink: true }),
     Image.configure({ allowBase64: false }),
     TightTaskList,
     TaskItem.configure({ nested: true }),
     MarkdownTable.configure({ renderWrapper: true }),
     TableRow,
-    TableHeader,
-    TableCell,
+    TableHeader.extend(omitCellAlignment),
+    TableCell.extend(omitCellAlignment),
     MarkdownTaskInput,
     TaskMention,
     ThreadMention,
