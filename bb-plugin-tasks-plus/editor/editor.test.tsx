@@ -5,6 +5,10 @@ import { Editor } from "@tiptap/core";
 import { createEditorExtensions } from "./extensions.js";
 import { TasksEditor } from "./tasks-editor.js";
 
+const layoutlessElement = document.createElement("span");
+Range.prototype.getClientRects ??= () => layoutlessElement.getClientRects();
+Range.prototype.getBoundingClientRect ??= () => layoutlessElement.getBoundingClientRect();
+
 afterEach(cleanup);
 
 function getEditorSurface(container: HTMLElement): HTMLElement {
@@ -93,6 +97,64 @@ describe("markdown round-trip", () => {
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(`${value} elsewhere`));
   });
 
+  it("ignores Markdown table alignment before and after an unrelated edit and reload", async () => {
+    const value = "| Item | Owner |\n| :--- | ---: |\n| Parser | Ada |\n\nEdit here";
+    const onChange = vi.fn<(markdown: string) => void>();
+    let editor: Editor | null = null;
+    const initial = render(
+      <TasksEditor value={value} onChange={onChange} onEditorReady={(ready) => (editor = ready)} />,
+    );
+    const readTable = ({ getAllByRole }: ReturnType<typeof render>) =>
+      [...getAllByRole("columnheader"), ...getAllByRole("cell")].map((cell) => [
+        cell.textContent,
+        cell.getAttribute("align"),
+        cell.style.textAlign,
+      ]);
+    const loadedCells = readTable(initial);
+
+    editor!.chain().focus("end").insertContent(" elsewhere").run();
+
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith(
+        "| Item | Owner |\n| --- | --- |\n| Parser | Ada |\n\nEdit here elsewhere",
+      ),
+    );
+    const [saved] = onChange.mock.lastCall!;
+    initial.unmount();
+    const reloaded = render(<TasksEditor value={saved} onChange={onChange} />);
+    const expectedCells = [
+      ["Item", null, ""],
+      ["Owner", null, ""],
+      ["Parser", null, ""],
+      ["Ada", null, ""],
+    ];
+    expect(readTable(reloaded)).toEqual(expectedCells);
+    expect(loadedCells).toEqual(expectedCells);
+  });
+
+  it("retains merged and multi-block table cells after an unrelated edit and reload", () => {
+    const editor = new Editor({
+      extensions: createEditorExtensions(),
+      content:
+        '<table><tbody><tr><th colspan="2"><p>Heading</p></th></tr><tr><td><p>First</p><p>Second</p></td><td><p>Other</p></td></tr></tbody></table>\n\nEdit here',
+    });
+    try {
+      editor.commands.insertContentAt(editor.state.doc.content.size - 1, " elsewhere");
+      const saved = editor.storage.markdown.getMarkdown();
+      expect(saved).toContain('<th colspan="2"');
+      expect(saved).toContain("<p>First</p><p>Second</p>");
+      expect(saved).toContain("Edit here elsewhere");
+      editor.commands.setContent(saved);
+      expect(editor.view.dom.querySelector("th")?.colSpan).toBe(2);
+      expect(
+        [...editor.view.dom.querySelectorAll("td:first-child p")].map((p) => p.textContent),
+      ).toEqual(["First", "Second"]);
+      expect(editor.storage.markdown.getMarkdown()).toBe(saved);
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it("renders table headers and cells", () => {
     const screen = render(
       <TasksEditor
@@ -111,7 +173,8 @@ describe("mention extension", () => {
   it("parses a bbtask link into a pill node and serializes it back", () => {
     const editor = new Editor({
       extensions: createEditorExtensions(),
-      content: "Ping [TSK-42](bbtask://TSK-42) today.",
+      content:
+        "Ping [TSK-42](bbtask://TSK-42) and [Review](bbthread://thr_review), see [docs](https://example.com).\n\nEdit here",
     });
     const findMentions = () => {
       const found: Array<Record<string, unknown>> = [];
@@ -125,6 +188,19 @@ describe("mention extension", () => {
       const pill = editor.view.dom.querySelector('[data-task-mention="TSK-42"]');
       expect(pill?.classList.contains("bb-tasks-mention")).toBe(true);
       expect(pill?.textContent).toBe("TSK-42");
+      expect(editor.view.dom.querySelector('[data-thread-mention="thr_review"]')?.textContent).toBe(
+        "Review",
+      );
+      expect(editor.view.dom.querySelector('a[href="https://example.com"]')?.textContent).toBe(
+        "docs",
+      );
+      editor
+        .chain()
+        .insertContentAt(editor.state.doc.content.size - 1, " elsewhere")
+        .run();
+      expect(editor.storage.markdown.getMarkdown()).toBe(
+        "Ping [TSK-42](bbtask://TSK-42) and [Review](bbthread://thr_review), see [docs](https://example.com).\n\nEdit here elsewhere",
+      );
       editor.commands.setContent("[docs](https://example.com)");
       expect(findMentions()).toEqual([]);
       expect(editor.storage.markdown.getMarkdown()).toBe("[docs](https://example.com)");
@@ -366,6 +442,62 @@ describe("TasksEditor component", () => {
     expect(onChange.mock.lastCall?.[0]?.trimEnd()).toBe(markdown);
   });
 
+  it.each([
+    {
+      name: "plain paste",
+      value: "",
+      text: "# literal",
+      shift: true,
+      html: "",
+      expected: "\\# literal",
+    },
+    {
+      name: "code context",
+      value: "```\ncode\n```",
+      text: " **literal**",
+      shift: false,
+      html: "",
+      expected: "```\ncode **literal**\n```",
+    },
+    {
+      name: "interior whitespace",
+      value: "",
+      text: "left   right",
+      shift: false,
+      html: "",
+      expected: "left   right",
+    },
+    {
+      name: "HTML clipboard precedence",
+      value: "",
+      text: "**ignored**",
+      shift: false,
+      html: "<p><em>HTML</em></p>",
+      expected: "*HTML*",
+    },
+  ])("preserves $name at the paste boundary", async ({ value, text, shift, html, expected }) => {
+    const onChange = vi.fn();
+    let editor: Editor | null = null;
+    const screen = render(
+      <TasksEditor value={value} onChange={onChange} onEditorReady={(ready) => (editor = ready)} />,
+    );
+    editor!.commands.setTextSelection(editor!.state.doc.content.size - 1);
+    const surface = getEditorSurface(screen.container);
+    fireEvent.keyDown(surface, {
+      key: shift ? "Shift" : "v",
+      keyCode: shift ? 16 : 86,
+      shiftKey: shift,
+    });
+    fireEvent.paste(surface, {
+      clipboardData: {
+        files: [],
+        getData: (type: string) =>
+          type === "text/html" ? html : type === "text/plain" ? text : "",
+      },
+    });
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expected));
+  });
+
   it("routes pasted and dropped files to onAttachFiles instead of inline upload", () => {
     const onAttachFiles = vi.fn();
     const onUploadImage = vi.fn();
@@ -406,12 +538,27 @@ describe("TasksEditor component", () => {
     expect(onAttachFiles).toHaveBeenCalledTimes(2);
   });
 
-  it("replaces the document when the value prop changes externally", async () => {
+  it("replaces external values silently and keeps the caret on an identical local echo", async () => {
     const onChange = vi.fn();
-    const screen = render(<TasksEditor value={"original"} onChange={onChange} />);
-    screen.rerender(<TasksEditor value={"replaced"} onChange={onChange} />);
+    let editor: Editor | null = null;
+    const ready = (instance: Editor) => (editor = instance);
+    const screen = render(
+      <TasksEditor value="original" onChange={onChange} onEditorReady={ready} />,
+    );
+    screen.rerender(<TasksEditor value="replaced" onChange={onChange} onEditorReady={ready} />);
     await screen.findByText("replaced");
     expect(onChange).not.toHaveBeenCalled();
+    editor!.commands.insertContentAt(9, " locally");
+    editor!.commands.setTextSelection(3);
+    await waitFor(() => expect(onChange).toHaveBeenCalledExactlyOnceWith("replaced locally"));
+    const surface = getEditorSurface(screen.container);
+    screen.rerender(
+      <TasksEditor value="replaced locally" onChange={onChange} onEditorReady={ready} />,
+    );
+    expect(getEditorSurface(screen.container)).toBe(surface);
+    expect(editor!.state.selection.from).toBe(3);
+    expect(editor!.storage.markdown.getMarkdown()).toBe("replaced locally");
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it("stays editable when the description is only a single image", async () => {
