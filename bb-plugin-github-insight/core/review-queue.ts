@@ -18,6 +18,9 @@ export function parseGithubRepo(remoteUrl: string | null): string | null {
   return `${match[1]}/${match[2]}`.toLowerCase();
 }
 
+export const prLabelSchema = z.object({ name: z.string(), color: z.string() });
+export type PrLabel = z.infer<typeof prLabelSchema>;
+
 const rollupStateSchema = z.enum(["SUCCESS", "FAILURE", "ERROR", "PENDING", "EXPECTED"]);
 
 const prNodeSchema = z.object({
@@ -35,6 +38,7 @@ const prNodeSchema = z.object({
   headRefName: z.string(),
   headRefOid: z.string(),
   reviewDecision: reviewDecisionSchema,
+  labels: z.object({ nodes: z.array(prLabelSchema) }).nullish(),
   viewerLatestReview: z.object({ state: githubReviewStateSchema }).nullish(),
   latestOpinionatedReviews: z.object({
     nodes: z.array(
@@ -133,6 +137,7 @@ export const queuePrSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   draft: z.boolean(),
+  labels: z.array(prLabelSchema).default([]),
   ci: ciStateSchema,
   reviewDecision: reviewDecisionSchema,
   yourReview: reviewVerdictSchema.nullable(),
@@ -246,6 +251,7 @@ function toQueuePr(node: PrNode, viewer: string): QueuePr {
     createdAt: node.createdAt,
     updatedAt: node.updatedAt,
     draft: node.isDraft,
+    labels: node.labels?.nodes ?? [],
     ci: rollup === null ? "none" : CI_STATE[rollup.state],
     reviewDecision: node.reviewDecision,
     yourReview: yourReviewOf(node, viewer),

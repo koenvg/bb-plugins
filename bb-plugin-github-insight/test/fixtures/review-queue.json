@@ -25,6 +25,7 @@
           "headRefName": "alice/retries",
           "headRefOid": "a12a12a12a12a12a12a12a12a12a12a12a12a12a",
           "reviewDecision": "REVIEW_REQUIRED",
+          "labels": { "nodes": [{ "name": "DO NOT MERGE", "color": "B60205" }, { "name": "DO NOT REVIEW", "color": "D93F0B" }] },
           "viewerLatestReview": {
             "state": "COMMENTED"
           },
@@ -109,6 +110,7 @@
           "headRefName": "rate-limits",
           "headRefOid": "c15c15c15c15c15c15c15c15c15c15c15c15c15c",
           "reviewDecision": "APPROVED",
+          "labels": { "nodes": [] },
           "viewerLatestReview": {
             "state": "CHANGES_REQUESTED"
           },

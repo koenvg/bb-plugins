@@ -18,6 +18,7 @@ export function queuePr(overrides: Partial<LinkedQueuePr> = {}): LinkedQueuePr {
     createdAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
     updatedAt: new Date().toISOString(),
     draft: false,
+    labels: [],
     ci: "passed",
     reviewDecision: "REVIEW_REQUIRED",
     yourReview: null,

@@ -192,6 +192,44 @@ describe("Pull Requests lists", () => {
     expect(within(card).getByRole("button", { name: "Show overview" })).toBeTruthy();
   });
 
+  it("shows each GitHub label in the meta row with its color as a dot", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ labels: [{ name: "DO NOT REVIEW", color: "D93F0B" }] })])),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    const label = within(within(card).getByTestId("queue-meta")).getByTestId("queue-label");
+    expect(label.textContent).toBe("DO NOT REVIEW");
+    const dot = label.firstElementChild as HTMLElement;
+    expect(dot.style.backgroundColor).toBe("rgb(217, 63, 11)");
+  });
+
+  it.each([
+    ["DO NOT REVIEW", true],
+    ["do not merge", true],
+    ["accessibility", false],
+    ["donotes", false],
+  ])("marks the label %s as blocking: %s", async (name, blocking) => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ labels: [{ name, color: "D93F0B" }] })])),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    const label = within(card).getByTestId("queue-label");
+    expect(label.hasAttribute("data-blocking")).toBe(blocking);
+  });
+
+  it("shows a label with an invalid color with a neutral dot", async () => {
+    const slot = renderPanel("", () =>
+      ok(view([queuePr({ labels: [{ name: "odd", color: "red;x" }] })])),
+    );
+
+    const card = await findCard(slot, "Needs review", "acme/api#15");
+    const dot = within(card).getByTestId("queue-label").firstElementChild as HTMLElement;
+    expect(dot.getAttribute("style")).toBeNull();
+    expect(dot.classList.contains("bg-muted-foreground/60")).toBe(true);
+  });
+
   it("shows Draft on a draft card", async () => {
     const slot = renderPanel("", () => ok(view([queuePr({ draft: true, ci: "failed" })])));
 
