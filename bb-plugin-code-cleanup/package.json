@@ -43,8 +43,8 @@
     "react-markdown": "^10.1.0",
     "tsx": "^4.23.15",
     "typescript": "^5.7.0",
-    "vite": "^6.4.3",
-    "vitest": "^4.1.11"
+    "vite": "^6.4.4",
+    "vitest": "^4.1.12"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.3.5",

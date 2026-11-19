@@ -45,7 +45,7 @@
     "tailwind-merge": "^3.7.0",
     "typescript": "^5.7.0",
     "vaul": "^1.1.2",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.3"
   },
   "packageManager": "bun@1.4.4",
   "scripts": {
