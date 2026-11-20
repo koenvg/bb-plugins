@@ -170,6 +170,7 @@ const RowContents = memo(function RowContents({
   return (
     <>
       <StatusEditor
+        modal={false}
         task={task}
         onEdit={onEdit}
         {...menuProps("status")}
@@ -256,7 +257,7 @@ const RowContents = memo(function RowContents({
   );
 });
 // Bind per-task actions here. All meaningful action inputs stay explicit.
-export function BoundTaskRow({
+export const BoundTaskRow = memo(function BoundTaskRow({
   onOpenTask,
   setOpenRowMenu,
   toggleExpanded,
@@ -284,10 +285,9 @@ export function BoundTaskRow({
   const onToggleExpanded = useCallback(() => {
     if (entry) onRequestContextChange(() => toggleExpanded(entry));
   }, [entry, onRequestContextChange, toggleExpanded]);
-  const subProgress = useMemo(
-    () => (entry ? { done: entry.subDone, total: entry.subTotal } : undefined),
-    [entry],
-  );
+  const done = entry?.subDone ?? 0;
+  const total = entry?.subTotal ?? 0;
+  const subProgress = useMemo(() => (total > 0 ? { done, total } : undefined), [done, total]);
   return (
     <TaskRow
       {...props}
@@ -297,4 +297,4 @@ export function BoundTaskRow({
       subProgress={subProgress}
     />
   );
-}
+});

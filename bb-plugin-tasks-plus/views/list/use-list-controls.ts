@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { canRestoreBrowseFocus } from "../../shell/shortcuts.js";
@@ -35,13 +35,15 @@ export function useListControls({
 }: ListControlOptions) {
   const { preferenceScope, scopeKey, sectionFocus, filters, orderSettled, treeReady } = data;
   const navigation = useTasksNavigation();
-  const openTask = useCallback(
-    (taskKey: string) => {
-      if (onRequestSelection) onRequestSelection(taskKey);
-      else navigation.go({ kind: "task", taskKey });
-    },
-    [onRequestSelection, navigation],
-  );
+  const openTaskAction = useRef({ onRequestSelection, navigation });
+  useLayoutEffect(() => {
+    openTaskAction.current = { onRequestSelection, navigation };
+  }, [onRequestSelection, navigation]);
+  const openTask = useCallback((taskKey: string) => {
+    const { onRequestSelection, navigation } = openTaskAction.current;
+    if (onRequestSelection) onRequestSelection(taskKey);
+    else navigation.go({ kind: "task", taskKey });
+  }, []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [openRowMenu, setOpenRowMenu] = useState<{
     taskKey: string;

@@ -76,21 +76,24 @@ interface TasksQuerySnapshot<T> {
   schema: z.ZodType<T>;
 }
 
+interface TasksQueryOptions<T> {
+  snapshot?: TasksQuerySnapshot<T>;
+  reconcile?: (previous: T | undefined, next: T) => T;
+}
+
 export function useTasksQueryWithRefresh<T>(
   refreshState: Pick<TasksRefreshState, "generation" | "beginGenerationWork" | "endGenerationWork">,
   fetcher: (rpc: TasksRpc) => Promise<T>,
   channels: readonly InvalidationChannel[],
   deps: readonly unknown[] = [],
-  options: {
-    snapshot?: TasksQuerySnapshot<T>;
-  } = {},
+  options: TasksQueryOptions<T> = {},
 ): TasksQuery<T> {
   const rpc = useTasksRpc();
   const { generation, beginGenerationWork, endGenerationWork } = refreshState;
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
-  const snapshotRef = useRef(options.snapshot);
-  snapshotRef.current = options.snapshot;
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const depsKey = JSON.stringify(deps);
   const [state, setState] = useState<{
     data: T | undefined;
@@ -113,7 +116,7 @@ export function useTasksQueryWithRefresh<T>(
     // restoration must not validate project deletion during any refresh.
     setState((current) => ({ ...current, isLoading: true }));
     const seq = ++seqRef.current;
-    const snapshot = snapshotRef.current;
+    const { snapshot, reconcile } = optionsRef.current;
     const snapshotRevision = snapshot === undefined ? 0 : claimQuerySnapshotRevision(snapshot.name);
     return fetcherRef.current(rpc).then(
       (data) => {
@@ -121,7 +124,14 @@ export function useTasksQueryWithRefresh<T>(
           writeQuerySnapshot(snapshot.name, data, snapshotRevision);
         }
         if (seq !== seqRef.current) return;
-        setState({ data, error: null, isLoading: false, depsKey });
+        setState((current) => ({
+          data: reconcile
+            ? reconcile(current.depsKey === depsKey ? current.data : undefined, data)
+            : data,
+          error: null,
+          isLoading: false,
+          depsKey,
+        }));
       },
       (error: unknown) => {
         if (seq !== seqRef.current) return;
@@ -165,9 +175,7 @@ export function useTasksQuery<T>(
   fetcher: (rpc: TasksRpc) => Promise<T>,
   channels: readonly InvalidationChannel[],
   deps: readonly unknown[] = [],
-  options: {
-    snapshot?: TasksQuerySnapshot<T>;
-  } = {},
+  options: TasksQueryOptions<T> = {},
 ): TasksQuery<T> {
   return useTasksQueryWithRefresh(useTasksRefresh(), fetcher, channels, deps, options);
 }

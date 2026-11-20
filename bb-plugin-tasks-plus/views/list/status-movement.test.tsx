@@ -7,6 +7,7 @@ import type { Task, TaskMutationResult } from "../../shared/contract.js";
 import { makeTask } from "../../test-fixtures.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 import { ListView } from "./index.js";
+import * as listDates from "./lib.js";
 
 window.matchMedia = (query: string) => ({
   matches: false,
@@ -58,6 +59,7 @@ function fixture(projectId: string | null, status: Task["status"] = "backlog") {
         key: `A-${index + 2}`,
         status: destination,
         position: (index + 1) * 1024,
+        dueDate: "2026-07-10",
       }),
     ),
     ...(projectId === null
@@ -116,7 +118,10 @@ function fixture(projectId: string | null, status: Task["status"] = "backlog") {
       expect(order()).toEqual(expected);
       const byKey = new Map([...tasks.slice(1), saved].map((task) => [task.key, task]));
       await act(async () =>
-        finishRefresh({ tasks: expected.map((key) => byKey.get(key)!), nextCursor: null }),
+        finishRefresh({
+          tasks: expected.map((key) => structuredClone(byKey.get(key)!)),
+          nextCursor: null,
+        }),
       );
     },
   };
@@ -137,7 +142,11 @@ async function changeStatus(f: ReturnType<typeof fixture>) {
 it.each([null, "a"])(
   "keeps Manual placement stable through save and delayed refresh in scope %s",
   async (projectId) => {
+    const formatDueDate = vi.spyOn(listDates, "formatDueDate");
     const f = fixture(projectId);
+    await waitFor(() => expect(formatDueDate).toHaveBeenCalled());
+    await waitFor(() => expect(f.slot.queryByText("Agent activity loading")).toBeNull());
+    formatDueDate.mockClear();
     await changeStatus(f);
     await waitFor(() => expect(f.order()).toEqual(f.expected));
     expect(f.context).toHaveBeenCalledTimes(1);
@@ -148,6 +157,7 @@ it.each([null, "a"])(
     await f.save({ ok: true, task: saved });
     expect(f.order()).toEqual(f.expected);
     await f.refetch(saved);
+    expect(formatDueDate.mock.calls.filter(([date]) => date === "2026-07-10")).toHaveLength(0);
     await waitFor(() => expect(f.order()).toEqual(f.expected));
   },
 );

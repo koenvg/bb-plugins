@@ -101,7 +101,9 @@ const presets = [
 ];
 type PendingCommand = (() => void) | null;
 function Fixture() {
-  const [subPath, setSubPath] = useState("task/TSK-1");
+  const [subPath, setSubPath] = useState(
+    new URLSearchParams(window.location.search).has("home") ? "all" : "task/TSK-1",
+  );
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [, refresh] = useState(0);

@@ -58,10 +58,11 @@ still cross the caller's save barrier.
 The cheap row wrapper owns selection, pending appearance, the open button and
 expansion button. Memoized row contents own property editors, date output and
 thread/PR summaries. Memoized context-menu contents keep their explicit edit,
-label and task inputs. A new open action can update cheap wrappers without
-rebuilding unchanged menus or metadata. Ordinary selection with unchanged actions
-updates the old/new wrappers. Opening an editor or receiving changed data still
-updates the affected contents. No editor lifetime or native Ticket portal changes.
+label and task inputs. Row clicks use the latest navigation action without changing
+the callback passed to rows. Selection updates the old and new wrappers.
+The list also reuses unchanged task records after a refresh and uses stable
+subtask counts when rebuilding the status groups. Opening an editor or
+receiving changed data still updates the affected contents.
 
 ## Dates
 
@@ -78,9 +79,10 @@ existing render, as before.
 
 ## Repository checks and remaining gate
 
-`render-work.test.tsx` exercises real rows and the public list with 100 tasks. It
-counts date operations and rows whose semantic status input is read, not jsdom
-latency. `row-inputs.test.tsx` checks current actions, task/label edits, live
+`render-work.test.tsx` checks selection on 100 real rows.
+`status-movement.test.tsx` checks that unchanged rows skip date work during an
+optimistic move, save, and refetch. These tests count work, not latency.
+`row-inputs.test.tsx` checks current actions, task/label edits, live
 thread/PR updates and unsettled pending writes. `date-work.test.ts` checks formatter
 construction/use, local parsing, supplied references and year rollover.
 

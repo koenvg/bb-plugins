@@ -1,4 +1,4 @@
-import { memo, type ReactElement, type ReactNode } from "react";
+import { memo, useRef, type ReactElement, type ReactNode } from "react";
 import {
   TASK_STATUSES,
   type Label,
@@ -118,6 +118,7 @@ export function StatusEditor({
   open,
   onOpenChange,
   onCloseAutoFocus,
+  modal = true,
   className,
   trigger,
 }: {
@@ -126,14 +127,16 @@ export function StatusEditor({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus?: (event: Event) => void;
+  modal?: boolean;
   className?: string;
   trigger?: ReactElement;
 }) {
+  const dismissedOutside = useRef(false);
   const select = (status: TaskStatus) => {
     if (status !== task.status) onEdit(task, { status });
   };
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+    <DropdownMenu modal={modal} open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         {trigger ?? (
           <button
@@ -149,7 +152,18 @@ export function StatusEditor({
         align="start"
         className="min-w-56"
         mobileTitle="Change status"
-        onCloseAutoFocus={onCloseAutoFocus}
+        onInteractOutside={
+          modal
+            ? undefined
+            : () => {
+                dismissedOutside.current = true;
+              }
+        }
+        onCloseAutoFocus={(event) => {
+          const outside = dismissedOutside.current;
+          dismissedOutside.current = false;
+          if (!outside) onCloseAutoFocus?.(event);
+        }}
         onKeyDown={(event) => {
           const status = statusForShortcut(event.key);
           if (status !== null && isBareKey(event)) {
