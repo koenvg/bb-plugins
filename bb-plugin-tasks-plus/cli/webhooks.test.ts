@@ -43,7 +43,10 @@ async function receiver(statuses = [204]) {
   };
 }
 
-async function fixture(settings?: Record<string, string>) {
+async function fixture(
+  settings?: Record<string, string>,
+  onSettingsRead?: (values: Record<string, unknown>) => void | Promise<void>,
+) {
   const directory = await mkdtemp(join(tmpdir(), "tasks-webhooks-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const host = createFakePluginHost({
@@ -65,6 +68,19 @@ async function fixture(settings?: Record<string, string>) {
       },
     },
   });
+  if (onSettingsRead) {
+    const define = host.bb.settings.define.bind(host.bb.settings);
+    host.bb.settings.define = (...args) => {
+      const handle = define(...args);
+      const get = handle.get.bind(handle);
+      handle.get = async () => {
+        const values = await get();
+        await onSettingsRead(values);
+        return values;
+      };
+      return handle;
+    };
+  }
   await plugin(host.bb);
   let current = host;
   cleanup.push(() => current.harness.dispose());
@@ -335,7 +351,7 @@ describe("bb tasks webhook", () => {
     expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [] });
   });
 
-  it("fails closed on malformed persisted documents and recovers after a valid settings update", async () => {
+  it("fails closed on malformed persisted documents and recovers after an explicit admin unset", async () => {
     const target = await receiver();
     const f = await fixture({ taskWebhooks: "{private invalid stored config" });
     await f.project("SAFE");
@@ -346,7 +362,7 @@ describe("bb tasks webhook", () => {
       error: { code: "webhook_invalid_stored", message: "Invalid stored webhook configuration" },
     });
     await f.run(["create", "--project", "SAFE", "--title", "No delivery"]);
-    await f.harness.setSettings({ taskWebhooks: JSON.stringify({ version: 1, endpoints: [] }) });
+    await f.harness.setSettings({ taskWebhooks: null });
     await f.add(target.url);
     await f.run(["create", "--project", "SAFE", "--title", "Delivery restored"]);
     await waitForCount(target.requests, 1);
@@ -354,6 +370,342 @@ describe("bb tasks webhook", () => {
     expect(JSON.stringify(f.harness.logEntries)).not.toContain("private");
   });
 
+  it("shares one redacted settings RPC boundary with CLI-created endpoints", async () => {
+    const f = await fixture();
+    const tracker = await f.project("SCOPE");
+    const target = await receiver([403]);
+    const cli = await f.add(target.url, undefined, "Bearer fixture-secret");
+    const rpc = f.harness.behavior.callRpc;
+    const scope = { kind: "tracker", projectId: tracker.id };
+    const input = {
+      url: "https://127.0.0.1:1/synthetic-secret",
+      authorization: "Bearer fixture-secret",
+      scope,
+    };
+    const added = (await rpc("addWebhook", input)) as { ok: true; endpoint: { id: string } };
+    const endpoint = {
+      id: expect.stringMatching(/^wh_[a-f0-9]{32}$/),
+      scope,
+      hasAuthorization: true,
+    };
+    expect(added).toEqual({ ok: true, endpoint });
+    expect(await rpc("listWebhooks", null)).toEqual({
+      state: "healthy",
+      endpoints: [cli.endpoint, endpoint],
+      trackers: [{ id: tracker.id, prefix: tracker.prefix, name: tracker.name }],
+    });
+    expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [cli.endpoint, added.endpoint] });
+    expect(await rpc("testWebhook", { id: cli.endpoint.id })).toEqual({
+      ok: true,
+      outcome: { code: "http_error", attempts: 1, status: 403 },
+    });
+    expect(target.requests).toEqual([
+      {
+        url: "/hook?token=url-secret",
+        authorization: "Bearer fixture-secret",
+        body: expect.objectContaining({ event: "task.created", test: true }),
+      },
+    ]);
+    expect(await rpc("deleteWebhook", { id: added.endpoint.id })).toEqual({ ok: true, endpoint });
+    expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [cli.endpoint] });
+    expect(await rpc("addWebhook", input)).toMatchObject({ ok: true });
+    const missing = { ...scope, projectId: "00000000000000000000000000" };
+    expect(await rpc("addWebhook", { ...input, scope: missing })).toEqual({
+      ok: false,
+      code: "tracker_not_found",
+    });
+    expect(await rpc("addWebhook", { ...input, url: { private: target.url } })).toEqual({
+      ok: false,
+      code: "invalid_input",
+    });
+    expect(JSON.stringify(f.harness.logEntries)).not.toMatch(
+      /url-secret|fixture-secret|private response body/,
+    );
+  });
+
+  it("persists names by ID across RPC and CLI without changing legacy delivery", async () => {
+    const legacy = await receiver();
+    const scope = { kind: "global" } as const;
+    const id = `wh_${"a".repeat(32)}`;
+    const authorization = "Bearer legacy-secret";
+    const f = await fixture({
+      taskWebhooks: JSON.stringify({
+        version: 1,
+        endpoints: [{ id, scope, url: legacy.url, authorization }],
+      }),
+    });
+    const unnamed = { id, scope, hasAuthorization: true };
+    expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [unnamed] });
+    const file = await f.config({
+      url: "https://127.0.0.1:1/other-secret",
+      name: "  Build alerts  ",
+    });
+    const { endpoint: other } = await f.run(["webhook", "create", "--config-file", file]);
+    expect(other).toEqual({
+      id: expect.stringMatching(/^wh_[a-f0-9]{32}$/),
+      name: "Build alerts",
+      scope,
+      hasAuthorization: false,
+    });
+    expect(other.id).not.toBe(id);
+    const rpc = f.harness.behavior.callRpc;
+    const named = { ...unnamed, name: "Build alerts" };
+    expect(await rpc("renameWebhook", { id, name: "  Build alerts  " })).toEqual({
+      ok: true,
+      endpoint: named,
+    });
+    expect(legacy.requests).toEqual([]);
+    const reloaded = await f.reload();
+    expect(await reloaded.harness.callRpc("listWebhooks", null)).toEqual({
+      state: "healthy",
+      endpoints: [named, other],
+      trackers: [],
+    });
+    expect(await f.run(["webhook", "rename", id, "--name", ""])).toEqual({ endpoint: unnamed });
+    expect(legacy.requests).toEqual([]);
+    await f.reload();
+    expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [unnamed, other] });
+    expect(await f.run(["webhook", "test", id])).toEqual({
+      endpoint: unnamed,
+      outcome: { code: "delivered", attempts: 1, status: 204 },
+    });
+    expect(legacy.requests).toEqual([
+      {
+        url: "/hook?token=url-secret",
+        authorization,
+        body: {
+          event: "task.created",
+          key: "WEBHOOK-0",
+          project: "WEBHOOK",
+          title: "Webhook test sample",
+          createdAt: expect.any(String),
+          test: true,
+        },
+      },
+    ]);
+  });
+
+  it("accepts a trimmed RPC name and reports invalid names without echoing input", async () => {
+    const f = await fixture();
+    const rpc = f.harness.behavior.callRpc;
+    const scope = { kind: "global" };
+    const url = "https://127.0.0.1:1/private-url";
+    const name = "N".repeat(80);
+    const { endpoint } = (await rpc("addWebhook", { scope, url, name: `  ${name}  ` })) as {
+      endpoint: { id: string; name?: string };
+    };
+    expect(endpoint).toEqual({ id: expect.any(String), scope, name, hasAuthorization: false });
+    const invalid = "private-label".repeat(10);
+    expect(await rpc("addWebhook", { scope, url, name: invalid })).toEqual({
+      ok: false,
+      code: "invalid_name",
+    });
+    expect(await rpc("renameWebhook", { id: endpoint.id, name: { invalid } })).toEqual({
+      ok: false,
+      code: "invalid_name",
+    });
+    const result = await f.harness.runCli(
+      ["webhook", "rename", endpoint.id, "--name", invalid, "--json"],
+      { cwd: f.directory },
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      error: {
+        code: "webhook_invalid_name",
+        message: "Webhook name must be text with at most 80 characters",
+      },
+    });
+    expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [endpoint] });
+  });
+
+  it("rejects a valid native replacement while a Tasks write preserves the saved endpoint", async () => {
+    const scope = { kind: "global" } as const;
+    const id = `wh_${"a".repeat(32)}`;
+    const f = await fixture({
+      taskWebhooks: JSON.stringify({
+        version: 1,
+        endpoints: [{ id, scope, url: "https://example.test/old" }],
+      }),
+    });
+    const rpc = f.harness.behavior.callRpc;
+    const add = rpc("addWebhook", { scope, url: "https://example.test/new" });
+    const replacement = JSON.stringify({ version: 1, endpoints: [] });
+    const [, created] = await Promise.all([
+      expect(f.harness.setSettings({ taskWebhooks: replacement })).rejects.toThrow(
+        "Use the Webhooks form or the Tasks webhook commands.",
+      ),
+      add,
+    ]);
+    expect(created).toMatchObject({ ok: true });
+    expect(await f.run(["webhook", "list"])).toEqual({
+      endpoints: [
+        { id, scope, hasAuthorization: false },
+        { id: expect.stringMatching(/^wh_[a-f0-9]{32}$/), scope, hasAuthorization: false },
+      ],
+    });
+  });
+
+  it("keeps delivering after a Rename storage failure and reloads saved settings on Retry", async () => {
+    const target = await receiver();
+    let storageError = false;
+    const f = await fixture(undefined, () => {
+      if (storageError) throw new Error("private settings read failure");
+    });
+    await f.project("RETRY");
+    const { endpoint } = await f.add(target.url, undefined, "Bearer saved-secret");
+    const rpc = f.harness.behavior.callRpc;
+
+    storageError = true;
+    expect(await rpc("renameWebhook", { id: endpoint.id, name: "Not saved" })).toEqual({
+      ok: false,
+      code: "storage_error",
+    });
+    await f.run(["create", "--project", "RETRY", "--title", "Created during storage outage"]);
+    await waitForCount(target.requests, 1);
+    expect(target.requests[0]).toMatchObject({
+      authorization: "Bearer saved-secret",
+      body: { key: "RETRY-1", title: "Created during storage outage" },
+    });
+    await expect(rpc("listWebhooks", null)).rejects.toThrow("Could not load webhook settings");
+    const cli = await f.harness.runCli(["webhook", "list", "--json"]);
+    expect(cli.stderr).toBe("Webhook configuration unavailable\n");
+    expect(JSON.parse(cli.stdout)).toEqual({
+      ok: false,
+      error: { code: "webhook_storage_error", message: "Webhook configuration unavailable" },
+    });
+
+    storageError = false;
+    expect(await rpc("listWebhooks", null)).toMatchObject({
+      state: "healthy",
+      endpoints: [endpoint],
+    });
+    expect(await rpc("renameWebhook", { id: endpoint.id, name: "Saved" })).toEqual({
+      ok: true,
+      endpoint: { ...endpoint, name: "Saved" },
+    });
+  });
+
+  it("retries an unread startup document and invalidates a verified snapshot only on malformed data", async () => {
+    const target = await receiver();
+    const id = `wh_${"a".repeat(32)}`;
+    const scope = { kind: "global" } as const;
+    let storage: "unavailable" | "healthy" | "malformed" = "unavailable";
+    const f = await fixture(
+      {
+        taskWebhooks: JSON.stringify({
+          version: 1,
+          endpoints: [{ id, scope, url: target.url, name: "Already saved" }],
+        }),
+      },
+      (values) => {
+        if (storage === "unavailable") throw new Error("private startup read failure");
+        if (storage === "malformed") values.taskWebhooks = "{private malformed data";
+      },
+    );
+    const rpc = f.harness.behavior.callRpc;
+    await expect(rpc("listWebhooks", null)).rejects.toThrow("Could not load webhook settings");
+    expect(await rpc("testWebhook", { id })).toEqual({ ok: false, code: "storage_error" });
+    storage = "healthy";
+    expect(await rpc("listWebhooks", null)).toEqual({
+      state: "healthy",
+      endpoints: [{ id, scope, name: "Already saved", hasAuthorization: false }],
+      trackers: [],
+    });
+    storage = "malformed";
+    expect(await rpc("listWebhooks", null)).toEqual({ state: "blocked" });
+    expect(await rpc("testWebhook", { id })).toEqual({ ok: false, code: "invalid_stored" });
+    expect(target.requests).toEqual([]);
+  });
+
+  it("does not replace a completed Rename with an older in-flight Settings list", async () => {
+    const target = await receiver();
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    let resume!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    let pauseNextRead = false;
+    const f = await fixture(undefined, () => {
+      if (!pauseNextRead) return;
+      pauseNextRead = false;
+      markStarted();
+      return paused;
+    });
+    const { endpoint } = await f.add(target.url);
+    const rpc = f.harness.behavior.callRpc;
+    pauseNextRead = true;
+    const list = rpc("listWebhooks", null);
+    await Promise.race([
+      started,
+      list.then(() => {
+        throw new Error("Settings list did not read persisted configuration");
+      }),
+    ]);
+    const rename = rpc("renameWebhook", { id: endpoint.id, name: "New name" });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    resume();
+    await list;
+    expect(await rename).toEqual({ ok: true, endpoint: { ...endpoint, name: "New name" } });
+    expect(await f.run(["webhook", "test", endpoint.id])).toEqual({
+      endpoint: { ...endpoint, name: "New name" },
+      outcome: { code: "delivered", attempts: 1, status: 204 },
+    });
+  });
+
+  it("does not restore a cleared webhook from an older in-flight Settings list", async () => {
+    const target = await receiver();
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    let resume!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    let pauseNextRead = false;
+    const f = await fixture(undefined, () => {
+      if (!pauseNextRead) return;
+      pauseNextRead = false;
+      markStarted();
+      return paused;
+    });
+    const { endpoint } = await f.add(target.url);
+    const rpc = f.harness.behavior.callRpc;
+    pauseNextRead = true;
+    const list = rpc("listWebhooks", null);
+    await Promise.race([
+      started,
+      list.then(() => {
+        throw new Error("Settings list did not read persisted configuration");
+      }),
+    ]);
+    try {
+      await f.harness.setSettings({ taskWebhooks: null });
+    } finally {
+      resume();
+    }
+    expect(await list).toEqual({ state: "healthy", endpoints: [], trackers: [] });
+    expect(await rpc("testWebhook", { id: endpoint.id })).toEqual({ ok: false, code: "not_found" });
+    expect(target.requests).toEqual([]);
+  });
+
+  it("blocks all normal webhook actions while stored configuration is invalid", async () => {
+    const f = await fixture({ taskWebhooks: "{private invalid stored data" });
+    const rpc = f.harness.behavior.callRpc;
+    const id = `wh_${"a".repeat(32)}`;
+    expect(await rpc("listWebhooks", null)).toEqual({ state: "blocked" });
+    for (const [method, input] of [
+      ["addWebhook", { scope: { kind: "global" }, url: "https://127.0.0.1:1/private-url" }],
+      ["deleteWebhook", { id }],
+      ["testWebhook", { id }],
+    ] as const) {
+      expect(await rpc(method, input)).toEqual({ ok: false, code: "invalid_stored" });
+    }
+  });
   it("returns successful CLI and RPC creation before a stalled receiver settles and aborts on host disposal", async () => {
     vi.useFakeTimers();
     const signals: AbortSignal[] = [];

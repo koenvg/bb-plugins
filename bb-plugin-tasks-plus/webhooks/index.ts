@@ -1,16 +1,21 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { ULID_PATTERN } from "../shared/contract";
+import {
+  endpointId,
+  scopeSchema,
+  WEBHOOKS_CHANGED,
+  WEBHOOK_NAME_MAX_LENGTH,
+  type DeliveryOutcome,
+  type EndpointSummary,
+  type WebhookScope,
+} from "./contract";
 
-export type WebhookScope = { kind: "global" } | { kind: "tracker"; projectId: string };
-export interface EndpointSummary {
-  id: string;
-  scope: WebhookScope;
-  hasAuthorization: boolean;
-}
+export type { WebhookScope } from "./contract";
 interface Endpoint {
   id: string;
+  name?: string;
   scope: WebhookScope;
   url: string;
   authorization?: string;
@@ -33,12 +38,10 @@ interface TaskCreatedEvent {
   createdAt: string;
   test?: true;
 }
-export type DeliveryOutcome =
-  | { code: "delivered" | "http_error"; attempts: number; status: number }
-  | { code: "network_error" | "timeout" | "queue_full" | "expired" | "disposed"; attempts: number };
 export interface Webhooks {
   create(scope: WebhookScope, json: string): Promise<EndpointSummary>;
-  list(): EndpointSummary[];
+  list(): Promise<EndpointSummary[]>;
+  rename(id: string, name: unknown): Promise<EndpointSummary>;
   delete(id: string): Promise<EndpointSummary>;
   test(id: string): Promise<{ endpoint: EndpointSummary; outcome: DeliveryOutcome }>;
   taskCreated(task: CreatedTask, project: string): void;
@@ -65,6 +68,7 @@ const RESIDENCE_MS = 8000;
 const BACKOFF_MS = [100, 300];
 const messages = {
   invalid_input: "Invalid webhook configuration",
+  invalid_name: `Webhook name must be text with at most ${WEBHOOK_NAME_MAX_LENGTH} characters`,
   invalid_stored: "Invalid stored webhook configuration",
   storage_error: "Webhook configuration unavailable",
   limit: "Webhook configuration limit exceeded",
@@ -97,10 +101,6 @@ function validUrl(value: string): boolean {
     return false;
   }
 }
-const scopeSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("global") }).strict(),
-  z.object({ kind: z.literal("tracker"), projectId: z.string().regex(ULID_PATTERN) }).strict(),
-]);
 const inputSchema = z
   .object({
     url: z.string().refine(validUrl),
@@ -113,8 +113,23 @@ const inputSchema = z
       .optional(),
   })
   .strict();
+const createInput = inputSchema.extend({ name: z.unknown().optional() });
+const inputName = z.string().trim().max(WEBHOOK_NAME_MAX_LENGTH);
+
+function displayName(value: unknown): string | undefined {
+  const parsed = inputName.safeParse(value);
+  if (!parsed.success) throw new WebhookError("invalid_name");
+  return parsed.data || undefined;
+}
+
 const endpointSchema = inputSchema.extend({
-  id: z.string().regex(/^wh_[a-f0-9]{32}$/),
+  id: endpointId,
+  name: z
+    .string()
+    .min(1)
+    .max(WEBHOOK_NAME_MAX_LENGTH)
+    .refine((value) => value === value.trim())
+    .optional(),
   scope: scopeSchema,
 });
 const documentSchema = z
@@ -137,6 +152,7 @@ function readDocument(value: string | undefined): EndpointDocument {
 function summary(endpoint: Endpoint): EndpointSummary {
   return {
     id: endpoint.id,
+    ...(endpoint.name ? { name: endpoint.name } : {}),
     scope: { ...endpoint.scope },
     hasAuthorization: endpoint.authorization !== undefined,
   };
@@ -149,16 +165,23 @@ function encode(event: TaskCreatedEvent): string {
 }
 
 export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
+  const managedWrite = new AsyncLocalStorage<string>();
   const settings = bb.settings.define({
     taskWebhooks: {
       type: "string",
-      label: "Task webhook endpoints",
+      label: "Webhook configuration (managed by Tasks)",
+      description: "This field does not accept edits. Use the Webhooks form below.",
       secret: true,
+      experimental_schema: z.custom<string>(
+        (value) => typeof value === "string" && managedWrite.getStore() === value,
+        "Use the Webhooks form or the Tasks webhook commands.",
+      ),
     },
   });
-  let snapshot: EndpointDocument | null = null;
+  let snapshot: EndpointDocument | "invalid_stored" | "storage_error" = "storage_error";
+  let settingsRevision = 0;
   let disposed = false;
-  let mutations = Promise.resolve();
+  let settingsOperations = Promise.resolve();
   const jobs = new Set<DeliveryJob>();
   let ready: DeliveryJob[] = [];
   let pendingBytes = 0;
@@ -176,19 +199,34 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
     try {
       snapshot = readDocument(value);
     } catch {
-      snapshot = null;
-      warn(messages.invalid_stored);
+      if (snapshot !== "invalid_stored") warn(messages.invalid_stored);
+      snapshot = "invalid_stored";
     }
   }
+  async function readSettings(): Promise<void> {
+    const revision = settingsRevision;
+    let value: string | undefined;
+    try {
+      value = (await settings.get()).taskWebhooks;
+    } catch {
+      throw new WebhookError("storage_error");
+    }
+    if (revision === settingsRevision) update(value);
+  }
+  settings.onChange((next) => {
+    if (disposed) return;
+    settingsRevision++;
+    update(next.taskWebhooks);
+    bb.realtime.publish(WEBHOOKS_CHANGED, {});
+  });
   try {
-    update((await settings.get()).taskWebhooks);
+    await readSettings();
   } catch {
     warn(messages.storage_error);
   }
-  settings.onChange((next) => update(next.taskWebhooks));
 
   function configured(): EndpointDocument {
-    if (!snapshot) throw new WebhookError("invalid_stored");
+    if (typeof snapshot === "string") throw new WebhookError(snapshot);
     return snapshot;
   }
   function live(): void {
@@ -199,25 +237,29 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
     if (!endpoint) throw new WebhookError("not_found");
     return endpoint;
   }
+  function withSettings<T>(run: (document: EndpointDocument) => T | Promise<T>): Promise<T> {
+    const next = settingsOperations.then(async () => {
+      live();
+      await readSettings();
+      live();
+      return run(configured());
+    });
+    settingsOperations = next.then(
+      () => {},
+      () => {},
+    );
+    return next;
+  }
   function mutate<T>(
     change: (document: EndpointDocument) => { document: EndpointDocument; result: T },
   ): Promise<T> {
-    const next = mutations.then(async () => {
-      live();
-      let document: EndpointDocument;
-      try {
-        document = readDocument((await settings.get()).taskWebhooks);
-      } catch (error) {
-        snapshot = null;
-        throw error instanceof WebhookError ? error : new WebhookError("storage_error");
-      }
-      live();
+    return withSettings(async (document) => {
       const changed = change(document);
       const json = JSON.stringify(changed.document);
       if (Buffer.byteLength(json) > MAX_CONFIG_BYTES || changed.document.endpoints.length > 32)
         throw new WebhookError("limit");
       try {
-        await settings.experimental_set({ taskWebhooks: json });
+        await managedWrite.run(json, () => settings.experimental_set({ taskWebhooks: json }));
       } catch {
         throw new WebhookError("storage_error");
       }
@@ -225,11 +267,6 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
       snapshot = changed.document;
       return changed.result;
     });
-    mutations = next.then(
-      () => {},
-      () => {},
-    );
-    return next;
   }
 
   function report(endpoint: Endpoint, outcome: DeliveryOutcome): void {
@@ -355,17 +392,22 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
   return {
     create(scope, json) {
       return mutate((document) => {
-        let endpoint: Endpoint;
+        let input: z.infer<typeof createInput>;
         try {
           if (Buffer.byteLength(json) > 8192) throw new Error();
-          endpoint = {
-            ...inputSchema.parse(JSON.parse(json)),
-            scope: scopeSchema.parse(scope),
-            id: `wh_${randomUUID().replaceAll("-", "")}`,
-          };
+          input = createInput.parse(JSON.parse(json));
+          scope = scopeSchema.parse(scope);
         } catch {
           throw new WebhookError("invalid_input");
         }
+        const { name: draft, ...delivery } = input;
+        const name = draft === undefined ? undefined : displayName(draft);
+        const endpoint: Endpoint = {
+          ...delivery,
+          ...(name === undefined ? {} : { name }),
+          scope,
+          id: `wh_${randomUUID().replaceAll("-", "")}`,
+        };
         return {
           document: { version: 1, endpoints: [...document.endpoints, endpoint] },
           result: summary(endpoint),
@@ -373,7 +415,23 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
       });
     },
     list() {
-      return configured().endpoints.map(summary);
+      return withSettings((document) => document.endpoints.map(summary));
+    },
+    rename(id, draft) {
+      return mutate((document) => {
+        const index = document.endpoints.findIndex((endpoint) => endpoint.id === id);
+        if (index === -1) throw new WebhookError("not_found");
+        const name = displayName(draft);
+        const endpoint = { ...document.endpoints[index]! };
+        if (name === undefined) delete endpoint.name;
+        else endpoint.name = name;
+        const endpoints = [...document.endpoints];
+        endpoints[index] = endpoint;
+        return {
+          document: { ...document, endpoints },
+          result: summary(endpoint),
+        };
+      });
     },
     delete(id) {
       return mutate((document) => {
@@ -398,7 +456,7 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
       return { endpoint: summary(endpoint), outcome: await enqueue(endpoint, body) };
     },
     taskCreated(task, project) {
-      if (disposed || !snapshot) return;
+      if (disposed || typeof snapshot === "string") return;
       try {
         const body = encode({
           event: "task.created",
