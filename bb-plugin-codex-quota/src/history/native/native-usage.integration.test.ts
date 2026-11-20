@@ -442,15 +442,32 @@ it("rejects symlink escapes and oversized lines with visible incomplete work", a
   expect(view.summary.totalTokens).toBe(120);
   expect(view.days[14].coverage.state).toBe("incomplete");
 });
-it("bounds discovery/lines, eventually revisits files, and gives native identity only to the matching provider and host", async () => {
+it("bounds discovery and resumes it before ingesting usage from a deferred directory", async () => {
+  const f = await fixture([header(), turn(), usage("base")]);
+  const deferred = join(f.sessions, "deferred");
+  await mkdir(deferred);
+  await writeFile(
+    join(deferred, "rollout.jsonl"),
+    text([header(), turn(), ...Array.from({ length: 135 }, (_, i) => usage(`deferred${i}`))]),
+  );
+  for (let i = 0; i < 135; i++) await writeFile(join(f.sessions, `${i}.txt`), "");
+
+  const first = await f.history.prepare!(f.context);
+  expect(first).toMatchObject({ state: "available", ingestionPending: true });
+  expect((await f.report()).summary.totalTokens).toBeLessThanOrEqual(120);
+  await f.prepare();
+  expect((await f.report()).summary.totalTokens).toBe(136 * 120);
+});
+
+it("bounds lines, revisits pending files, and gives native identity only to the matching provider and host", async () => {
   const f = await fixture([header(), turn(), usage("base")], { lines: 12 });
-  for (let i = 0; i < 135; i++)
+  for (let i = 0; i < 4; i++)
     await writeFile(join(f.sessions, `${i}.jsonl`), text([header(), turn(), usage(`file${i}`)]));
   const first = await f.history.prepare!(f.context);
   expect(first).toMatchObject({ state: "available", ingestionPending: true });
   expect((await f.report()).summary.totalTokens).toBeLessThanOrEqual(480);
   await f.prepare();
-  expect((await f.report()).summary.totalTokens).toBe(136 * 120);
+  expect((await f.report()).summary.totalTokens).toBe(5 * 120);
   f.context.identities = {
     hostId: "host_fixture",
     generation: 2,
@@ -470,7 +487,7 @@ it("bounds discovery/lines, eventually revisits files, and gives native identity
   await f.prepare();
   const report = await f.report({ ...query, group: "thread" });
   expect(report.ranking.map((row) => row.key)).toEqual(["thr_native"]);
-}, 15_000);
+});
 it("supports schema-4 read-only scalar projection and transactional writer migration", async () => {
   const f = await fixture([header(), turn()]);
   await f.prepare();

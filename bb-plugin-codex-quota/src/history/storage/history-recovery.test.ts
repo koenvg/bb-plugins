@@ -14,6 +14,7 @@ import { afterEach, expect, it } from "vitest";
 import { createHostHistory } from "../history-host.js";
 import { openHistoryDatabase, loadHistoryStorage } from "./history-storage.js";
 import { readCalendarTotals } from "./history-retention.js";
+import { controlCollector } from "../collection/collector-control.js";
 const roots: string[] = [];
 afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
@@ -188,7 +189,20 @@ it.each([false, true])(
   "preserves recovery ownership between quarantine move and phase publication with native preparation=%s",
   async (prepare) => {
     const f = await fixture();
-    await f.history.control("pause", f.context);
+    const db = (await openHistoryDatabase(f.path))!;
+    try {
+      await controlCollector(
+        "pause",
+        db,
+        f.dataDir,
+        f.agent,
+        new Date(at).toISOString(),
+        f.context.signal,
+        false,
+      );
+    } finally {
+      db.close();
+    }
     const boundary = JSON.parse(
       await readFile(join(f.directory, "retention-boundary-v2.json"), "utf8"),
     );
