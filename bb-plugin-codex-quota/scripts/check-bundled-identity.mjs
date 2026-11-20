@@ -15,7 +15,18 @@ const root = mkdtempSync(join(tmpdir(), "bbp19-bundle-"));
 const previousAgentDir = process.env.PI_CODING_AGENT_DIR,
   previousFetch = globalThis.fetch;
 const previousCodexHome = process.env.CODEX_HOME;
+const RealDate = globalThis.Date;
+const occurredAt = "2026-10-01T00:00:00.000Z";
+const fixtureNow = RealDate.parse(occurredAt);
 try {
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [fixtureNow]));
+    }
+    static now() {
+      return fixtureNow;
+    }
+  };
   // Native input is absent unless this check creates its own fixture.
   process.env.CODEX_HOME = join(root, "absent-codex");
   const agent = join(root, "agent"),
@@ -43,7 +54,7 @@ try {
     version: 1,
     eventId: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
     provenance: "observed",
-    occurredAt: "2026-10-01T00:00:00.000Z",
+    occurredAt,
     sessionId: "pi-not-provider",
     workspace: "/original",
     providerSessionKey: key,
@@ -226,6 +237,7 @@ try {
     process.versions.node,
   );
 } finally {
+  globalThis.Date = RealDate;
   globalThis.fetch = previousFetch;
   if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
