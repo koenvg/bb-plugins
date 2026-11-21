@@ -70,6 +70,7 @@ export function BrowseWorkspace({
     latestNoProjects.current = noProjects;
   }, [noProjects]);
   const listRef = useRef<HTMLElement>(null);
+  const listShortcutOwner = useRef({ rootRef: listRef, allowUnfocused: true }).current;
   const detailRef = useRef<HTMLElement>(null);
   const canRestoreSectionFocus = useCallback(() => {
     const list = listRef.current;
@@ -254,7 +255,7 @@ export function BrowseWorkspace({
         className="flex h-full min-h-0 flex-col min-w-0 flex-1"
       >
         <div className="min-h-0 flex-1">
-          <ShortcutOwner value={{ rootRef: listRef, allowUnfocused: true }}>
+          <ShortcutOwner value={listShortcutOwner}>
             <ListView
               projectId={route.kind === "project" ? route.projectId : null}
               activeOnly={route.kind === "active"}
