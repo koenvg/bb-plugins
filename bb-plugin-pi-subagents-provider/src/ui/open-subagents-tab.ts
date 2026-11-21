@@ -9,15 +9,8 @@ export type SubagentsTabRequest = {
   params: { rowId: string } | { overview: true };
 };
 
-type SubagentsPanel =
-  | { openTab(options: SubagentsTabRequest): boolean }
-  | {
-      experimental_openTab(
-        options: SubagentsTabRequest & { surface: { kind: "current" } },
-      ): boolean;
-    };
+type SubagentsPanel = { openTab(options: SubagentsTabRequest): boolean };
 
 export function openSubagentsTab(panel: SubagentsPanel, request: SubagentsTabRequest): boolean {
-  if ("openTab" in panel) return panel.openTab(request);
-  return panel.experimental_openTab({ ...request, surface: { kind: "current" } });
+  return panel.openTab(request);
 }
