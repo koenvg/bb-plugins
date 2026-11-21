@@ -11,6 +11,30 @@ async function palette(page: Page, title: string) {
   await expect(page.getByRole("dialog", { name: "Fixture command palette" })).toBeHidden();
 }
 
+test("the home status menu keeps outside focus and restores row focus on Escape", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto("/tests/task-commands.html?home");
+  const row = page.locator('[data-task-key="TSK-1"]');
+  const status = row.getByRole("button", { name: /change status/i });
+  const openTask = row.getByRole("button", { name: "Open TSK-1: Task 1" });
+  const menu = page.getByRole("menu");
+
+  await status.focus();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(openTask).toBeFocused();
+
+  await status.click();
+  await expect(menu).toBeVisible();
+  const otherTask = page.getByRole("button", { name: "Open TSK-2: Task 2" });
+  await otherTask.focus();
+  await expect(menu).toBeHidden();
+  await expect(otherTask).toBeFocused();
+});
 for (const width of [1200, 650]) {
   test(`dispatch command opens, cancels and delegates only an explicit preset at ${width}px`, async ({
     page,

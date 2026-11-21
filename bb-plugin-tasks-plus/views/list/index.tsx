@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, memo, useState } from "react";
 import type { Label, Task } from "../../shared/contract.js";
 import { NewTaskDialog } from "../manage/new-task-dialog.js";
 import { DetailToasts } from "../detail/toast.js";
@@ -62,7 +62,7 @@ function LoadingRows() {
   );
 }
 
-export function ListView({
+export const ListView = memo(function ListView({
   projectId,
   activeOnly = false,
   selectedTaskKey = null,
@@ -269,4 +269,4 @@ export function ListView({
       {blockedWorkDialog}
     </div>
   );
-}
+});

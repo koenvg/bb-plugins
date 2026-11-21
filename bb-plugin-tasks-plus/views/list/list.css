@@ -5,6 +5,8 @@
 }
 
 .task-list-row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 40px;
   grid-template-columns: 22px minmax(0, 1fr);
   transition:
     background-color 130ms ease-out,

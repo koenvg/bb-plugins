@@ -7,6 +7,8 @@ import { makeTask, rpcInput } from "../../test-fixtures.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 import type { ComponentProps } from "react";
 import { TaskRow } from "./row.js";
+import * as listDates from "./lib.js";
+import * as threadSummary from "./thread-summary.js";
 
 function List(props: ComponentProps<typeof ListView>) {
   return (
@@ -21,22 +23,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("does date work only in the two changed real rows, even with a new selection action", async () => {
-  // Count the external date operation, not a mocked row or list implementation.
-  const locale = vi.spyOn(Date.prototype, "toLocaleDateString");
-  const descriptor = Object.getOwnPropertyDescriptor(Intl.DateTimeFormat.prototype, "format")!;
-  const dates: Date[] = [];
-  vi.spyOn(
-    Intl.DateTimeFormat.prototype as { readonly format: unknown },
-    "format",
-    "get",
-  ).mockImplementation(function (this: Intl.DateTimeFormat) {
-    const format = descriptor.get!.call(this) as (date: Date) => string;
-    return (date: Date) => {
-      dates.push(date);
-      return format(date);
-    };
-  });
+it("updates only the selected rows even with a new selection action", async () => {
+  const formatDueDate = vi.spyOn(listDates, "formatDueDate");
+  const threadActivity = vi.spyOn(threadSummary, "threadActivity");
   const tasks = Array.from({ length: 100 }, (_, index) =>
     makeTask({
       id: `task-${index}`,
@@ -75,8 +64,9 @@ it("does date work only in the two changed real rows, even with a new selection 
   await waitFor(() => expect(report.mock.calls.at(-1)?.[0].settled).toBe(true));
   // Flush metadata completion before measuring selection-only work.
   await waitFor(() => expect(slot.queryByText("Threads loading")).toBeNull());
-  dates.length = 0;
-  locale.mockClear();
+  expect(formatDueDate).toHaveBeenCalled();
+  formatDueDate.mockClear();
+  threadActivity.mockClear();
   report.mockClear();
   const selection = vi.fn();
   slot.lifecycle.rerender(
@@ -88,7 +78,8 @@ it("does date work only in the two changed real rows, even with a new selection 
   expect(
     slot.getByRole("button", { name: "Open TSK-1: Task 1" }).getAttribute("aria-current"),
   ).toBeNull();
-  expect(dates.length + locale.mock.calls.length).toBe(0);
+  expect(formatDueDate).not.toHaveBeenCalled();
+  expect(threadActivity.mock.calls).toHaveLength(2);
   expect(report).not.toHaveBeenCalled();
   fireEvent.click(slot.getByRole("button", { name: "Open TSK-3: Task 3" }));
   expect(selection).toHaveBeenCalledExactlyOnceWith("TSK-3");
