@@ -83,7 +83,7 @@ export async function runLocalHarness({ output, phase, execute }) {
   let original;
   try {
     await saveLedger();
-    await execute({ output, ledger, resources, evidence, write, saveLedger });
+    await execute({ output, ledger, resources, evidence, write, capture, saveLedger });
   } catch (error) {
     original = error;
     ledger.originalFailure = errorText(error);
@@ -176,12 +176,27 @@ export async function runLocalHarness({ output, phase, execute }) {
       ["browser", browser, () => browser.close()],
       ["browserServer", browserServer, () => browserServer.close()],
       [
+        "serverProcess",
+        resources.serverProcess,
+        async () => {
+          const child = resources.serverProcess;
+          if (child.exitCode !== null || child.signalCode !== null) return;
+          await new Promise((resolve, reject) => {
+            child.once("exit", resolve);
+            child.once("error", reject);
+            child.kill("SIGTERM");
+          });
+        },
+      ],
+      [
         "endpoint",
         server,
-        () =>
-          new Promise((resolve, reject) =>
+        async () => {
+          server.closeAllConnections?.();
+          await new Promise((resolve, reject) =>
             server.close((error) => (error ? reject(error) : resolve())),
-          ),
+          );
+        },
       ],
       ["database", backend, () => backend.dispose()],
     ];

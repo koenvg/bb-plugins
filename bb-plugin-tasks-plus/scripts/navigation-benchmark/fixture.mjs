@@ -6,14 +6,14 @@ const digest = (data) => createHash("sha256").update(data).digest("hex");
 const serialize = (fixture) => JSON.stringify(fixture, null, 2) + "\n";
 // One digest for the canonical fixture file bytes and the browser-run identity.
 export const fixtureDigest = (fixture) => digest(serialize(fixture));
-export function createFixture(owner) {
+export function createFixture(owner, count = 100) {
   if (!/^bbp60-[a-z0-9-]{3,48}$/.test(owner)) throw new Error("Use an owned bbp60- name.");
   const labels = ["Documentation", "Backend", "Review"].map((name, i) => ({
     id: `${owner}-label-${i}`,
     name,
     color: ["blue", "green", "gray"][i],
   }));
-  const tasks = Array.from({ length: 100 }, (_, i) => {
+  const tasks = Array.from({ length: count }, (_, i) => {
     const key = `BENCH-${i + 1}`;
     const marker = `${owner} description ${key}`;
     const intro = `## ${marker}\n\nCheck the native Ticket pane for ${key}.\n\n- Keep the selected row and description together.\n- Keep description drafts on their original task.\n\n[Reference](https://example.com/benchmark)\n\n`;

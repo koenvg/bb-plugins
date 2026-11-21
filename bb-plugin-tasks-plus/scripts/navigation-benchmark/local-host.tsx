@@ -177,6 +177,11 @@ export function createLocalHost(options: LocalHostOptions) {
     live();
     if (owner !== identity) throw new Error("SDK hook outside owned host context");
   }
+  const absentCreatorSdk = new Proxy({} as ReturnType<PluginSdkApp["useSdk"]>, {
+    get(_target, name) {
+      throw new Error(`Owned host blocks SDK access ${String(name)}`);
+    },
+  });
   const supported = {
     useRpc<Contract extends PluginRpcContract>() {
       useOwner();
@@ -185,6 +190,10 @@ export function createLocalHost(options: LocalHostOptions) {
     useBbNavigate() {
       useOwner();
       return navigate;
+    },
+    useSdk() {
+      useOwner();
+      return absentCreatorSdk;
     },
     useBbContext() {
       useOwner();
