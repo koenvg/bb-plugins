@@ -52,7 +52,8 @@ export function installAnnotator(
   host.style.cssText =
     "all: initial; position: fixed; inset: 0; z-index: 2147483647; pointer-events: none; display: block;";
   const root = host.attachShadow({ mode: shadowMode });
-  root.innerHTML = `<style>
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(`
     :host {
       --bba-surface: #fff; --bba-text: #18181b; --bba-mutedText: #71717a; --bba-border: #e4e4e7;
       --bba-input: #fff; --bba-accent: #18181b; --bba-accentText: #fafafa; --bba-ring: #a1a1aa;
@@ -88,8 +89,11 @@ export function installAnnotator(
     button.primary:hover { background: color-mix(in srgb, var(--bba-accent) 88%, var(--bba-surface)); }
     button.danger { color: var(--bba-danger); }
     button:disabled { opacity: .5; cursor: default; }
-  </style><div class="pins"></div>`;
-  const pinsLayer = root.querySelector(".pins") as HTMLDivElement;
+  `);
+  root.adoptedStyleSheets = [sheet];
+  const pinsLayer = doc.createElement("div");
+  pinsLayer.className = "pins";
+  root.appendChild(pinsLayer);
   doc.documentElement.appendChild(host);
 
   let modeOn = false;
