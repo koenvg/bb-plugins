@@ -114,6 +114,16 @@ describe("annotate mode", () => {
     expect(posted).toEqual([{ type: "mode", on: false }]);
   });
 
+  it("provides overlay styles without inline style elements", () => {
+    expect(shadow().querySelector("style")).toBeNull();
+    const sheet = shadow().adoptedStyleSheets[0];
+    const rule = Array.from(sheet.cssRules).find(
+      (rule) => rule instanceof CSSStyleRule && rule.selectorText === ".layer",
+    ) as CSSStyleRule;
+    expect(rule.style.getPropertyValue("pointer-events")).toBe("auto");
+    expect(rule.style.getPropertyValue("position")).toBe("fixed");
+  });
+
   it("applies the BB theme and keeps defaults for missing tokens", () => {
     api.setTheme({
       surface: "#0b0b0c",
@@ -130,7 +140,10 @@ describe("annotate mode", () => {
 
     expect(host().style.getPropertyValue("--bba-surface")).toBe("#0b0b0c");
     expect(host().style.getPropertyValue("--bba-mutedText")).toBe("");
-    expect(shadow().querySelector("style")!.textContent).not.toMatch(/#ff00ff|255,\s*0,\s*255/i);
+    const css = Array.from(shadow().adoptedStyleSheets[0].cssRules, (rule) => rule.cssText).join(
+      "\n",
+    );
+    expect(css).not.toMatch(/#ff00ff|255,\s*0,\s*255/i);
   });
 
   it("removes everything on teardown", () => {
@@ -148,10 +161,11 @@ describe("hover and selection", () => {
     const highlight = shadow().querySelector(".highlight") as HTMLElement;
     expect(highlight.style.left).toBe("100px");
     expect(highlight.style.width).toBe("80px");
-    const css = shadow().querySelector("style")!.textContent!;
-    expect(css).toMatch(
-      /\.highlight \{[^}]*border: 2px solid #fff;[^}]*box-shadow: 0 0 0 1px rgba\(0,0,0,\.85\)/,
-    );
+    const rule = Array.from(shadow().adoptedStyleSheets[0].cssRules).find(
+      (rule) => rule instanceof CSSStyleRule && rule.selectorText === ".highlight",
+    ) as CSSStyleRule;
+    expect(rule.style.getPropertyValue("border")).toBe("2px solid rgb(255, 255, 255)");
+    expect(rule.style.getPropertyValue("box-shadow")).toContain("0 0 0 1px rgba(0,0,0,.85)");
     expect(shadow().querySelector(".tag")!.textContent).toBe("a 80×30");
   });
 
