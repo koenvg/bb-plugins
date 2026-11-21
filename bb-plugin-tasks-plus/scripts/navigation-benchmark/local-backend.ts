@@ -6,7 +6,7 @@ import { tasksRpcContract } from "../../shared/contract.js";
 import { createFixture } from "./fixture.mjs";
 
 const id = (n: number) => String(n).padStart(26, "0");
-export function createLocalBackend(owner: string) {
+export function createLocalBackend(owner: string, count = 100) {
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks-plus",
     sdk: {
@@ -16,7 +16,7 @@ export function createLocalBackend(owner: string) {
   });
   const store = createStore(bb);
   registerTasksApi(bb, store);
-  const fixture = createFixture(owner);
+  const fixture = createFixture(owner, count);
   const project = store.tasks.createProject({ id: id(1), ...fixture.project, color: "blue" });
   const labelIds = new Map<string, string>();
   fixture.labels.forEach((label: { id: string; name: string; color: string }, i: number) => {
