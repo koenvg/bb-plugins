@@ -141,14 +141,6 @@ function panelHandlers(open: (request: HostTabRequest) => boolean) {
         return open(request);
       }),
     },
-    experimental_openTab: vi.fn((request: HostTabRequest & { surface: { kind: "current" } }) => {
-      expect(request).toEqual({
-        surface: { kind: "current" },
-        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-        params: request.params,
-      });
-      return open({ tab: request.tab, params: request.params });
-    }),
   };
 }
 async function mount(
@@ -193,12 +185,10 @@ it("opens the overview for a current BB total-count aggregate badge", async () =
 
 it("routes through the effective SDK panel handler only", async () => {
   const { header } = fixture();
-  const { view, handlers, openTab } = await mount();
+  const { handlers, openTab } = await mount();
   await waitFor(() => expect(header.tabIndex).toBe(0));
   fireEvent.click(header);
-  const modern = "experimental_panelCalls" in view.inspection;
-  expect(handlers.experimental_panel.openTab).toHaveBeenCalledTimes(modern ? 1 : 0);
-  expect(handlers.experimental_openTab).toHaveBeenCalledTimes(modern ? 0 : 1);
+  expect(handlers.experimental_panel.openTab).toHaveBeenCalledTimes(1);
   expect(openTab).toHaveBeenCalledExactlyOnceWith({
     tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
     params: { rowId: "session/path/run-1" },
@@ -568,7 +558,7 @@ describe.each([
   { label: "child", params: { rowId: "session/path/run-1" } },
   { label: "overview", params: { overview: true } },
 ] satisfies { label: string; params: SubagentsTabRequest["params"] }[])(
-  "Subagents $label panel compatibility",
+  "Subagents $label panel navigation",
   ({ params }) => {
     it.each([true, false])("preserves modern acceptance %s", (accepted) => {
       const request: SubagentsTabRequest = {
@@ -581,37 +571,6 @@ describe.each([
         tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
         params,
       });
-    });
-
-    it.each([true, false])("preserves legacy acceptance %s on the current surface", (accepted) => {
-      const request: SubagentsTabRequest = {
-        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-        params,
-      };
-      const panel = { experimental_openTab: vi.fn(() => accepted) };
-      expect(openSubagentsTab(panel, request)).toBe(accepted);
-      expect(panel.experimental_openTab).toHaveBeenCalledExactlyOnceWith({
-        surface: { kind: "current" },
-        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-        params,
-      });
-    });
-
-    it.each([true, false])("does not retry legacy after modern acceptance %s", (accepted) => {
-      const request: SubagentsTabRequest = {
-        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-        params,
-      };
-      const panel = {
-        openTab: vi.fn(() => accepted),
-        experimental_openTab: vi.fn(() => true),
-      };
-      expect(openSubagentsTab(panel, request)).toBe(accepted);
-      expect(panel.openTab).toHaveBeenCalledExactlyOnceWith({
-        tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-        params,
-      });
-      expect(panel.experimental_openTab).not.toHaveBeenCalled();
     });
   },
 );
