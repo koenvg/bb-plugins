@@ -35,6 +35,7 @@ import Loading03Icon from "@hugeicons/core-free-icons/Loading03Icon";
 import MessageQuestionIcon from "@hugeicons/core-free-icons/MessageQuestionIcon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
+import SentIcon from "@hugeicons/core-free-icons/SentIcon";
 import Settings01Icon from "@hugeicons/core-free-icons/Settings01Icon";
 import SidebarLeftIcon from "@hugeicons/core-free-icons/SidebarLeftIcon";
 import SlidersHorizontalIcon from "@hugeicons/core-free-icons/SlidersHorizontalIcon";
@@ -186,6 +187,7 @@ const CORE_ICON_MAP = {
   MoreHorizontal: MoreHorizontalIcon,
   PanelLeft: SidebarLeftIcon,
   Search: Search01Icon,
+  Send: SentIcon,
   SectionAdd: SectionAddStrokeRoundedIcon,
   SectionMove: SectionMoveStrokeRoundedIcon,
   Settings: Settings01Icon,

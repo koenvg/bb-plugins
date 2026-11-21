@@ -5,8 +5,10 @@ import { ticketTab } from "./shell/ticket-panel.js";
 import { TaskDirectiveCard, TaskEmbedPanel } from "./views/embed/index.js";
 import { TASKS_COMMANDS } from "./shell/commands.js";
 import { threadTaskAction } from "./views/thread-header/index.js";
+import { WebhookSettingsSection } from "./webhooks/settings-section.js";
 
 export default definePluginApp((app) => {
+  app.slots.settingsSection({ id: "webhooks", component: WebhookSettingsSection });
   app.slots.navPanel({
     id: "tasks",
     title: "Tasks",

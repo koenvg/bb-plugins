@@ -29,6 +29,7 @@ export function webhookCommands(bb: BbPluginApi, domain: TasksDomain, webhooks: 
   return {
     webhook: groupCommand("webhook", "Manage task-created webhooks", [
       ["create", "Register an endpoint from a private JSON file"],
+      ["rename", "Change or clear an endpoint's display name"],
       ["list", "List redacted endpoint summaries"],
       ["delete", "Delete an endpoint"],
       ["test", "Send a marked sample without creating a task"],
@@ -40,7 +41,7 @@ export function webhookCommands(bb: BbPluginApi, domain: TasksDomain, webhooks: 
           type: "string",
           required: true,
           description:
-            "Regular UTF-8 JSON file with url and optional authorization; keep secrets out of argv",
+            "Regular UTF-8 JSON file with url and optional name and authorization; keep secrets out of argv",
         },
         project: PROJECT_OPTION,
         machine: MACHINE_OPTION,
@@ -67,10 +68,27 @@ export function webhookCommands(bb: BbPluginApi, domain: TasksDomain, webhooks: 
       },
     }),
     "webhook list": cliCommand({
-      summary: "List webhook ids, scopes and authentication presence only",
+      summary: "List webhook ids, optional names, scopes and Authorization presence",
       options: { json: JSON_OPTION },
       run() {
-        return safeCommand(async () => ({ endpoints: webhooks.list() }));
+        return safeCommand(async () => ({ endpoints: await webhooks.list() }));
+      },
+    }),
+    "webhook rename": cliCommand({
+      summary: "Change a webhook display name without sending a delivery",
+      positionals: endpointPositional,
+      options: {
+        name: {
+          type: "string",
+          required: true,
+          description: "Display name (80 characters max); pass an empty string to clear it",
+        },
+        json: JSON_OPTION,
+      },
+      run(input) {
+        return safeCommand(async () => ({
+          endpoint: await webhooks.rename(input.positionals.id, input.options.name),
+        }));
       },
     }),
     "webhook delete": cliCommand({

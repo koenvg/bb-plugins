@@ -150,7 +150,7 @@ describe("webhook owner public boundary", () => {
     await expect(
       webhooks.create({ kind: "global" }, '{"url":"https://example.test"}'),
     ).rejects.toThrow("Webhook configuration limit exceeded");
-    expect(webhooks.list().length).toBe(32);
+    await expect(webhooks.list()).resolves.toHaveLength(32);
   });
 
   it.each([
@@ -189,7 +189,7 @@ describe("webhook owner public boundary", () => {
     },
   ])("fails closed on invalid stored shape", async (document) => {
     const { webhooks, harness } = await service({ taskWebhooks: JSON.stringify(document) });
-    expect(() => webhooks.list()).toThrow("Invalid stored webhook configuration");
+    await expect(webhooks.list()).rejects.toThrow("Invalid stored webhook configuration");
     webhooks.taskCreated(task, "TEST");
     expect(harness.logEntries.map((r) => r.message)).toEqual([
       "Invalid stored webhook configuration",
@@ -203,10 +203,14 @@ describe("webhook owner public boundary", () => {
       .spyOn(settings, "experimental_set")
       .mockRejectedValueOnce(new Error("private settings error"));
     await expect(webhooks.delete(first.id)).rejects.toThrow("Webhook configuration unavailable");
-    expect(webhooks.list()).toEqual([first]);
+    vi.stubGlobal("fetch", async () => new Response(null, { status: 204 }));
+    await expect(webhooks.test(first.id)).resolves.toEqual({
+      endpoint: first,
+      outcome: { code: "delivered", attempts: 1, status: 204 },
+    });
     write.mockRestore();
     expect(await webhooks.delete(first.id)).toEqual(first);
-    expect(webhooks.list()).toEqual([]);
+    await expect(webhooks.list()).resolves.toEqual([]);
   });
 
   it("rejects the aggregate secret-document size limit before persistence", async () => {
@@ -219,6 +223,6 @@ describe("webhook owner public boundary", () => {
     await expect(webhooks.create({ kind: "global" }, json)).rejects.toThrow(
       "Webhook configuration limit exceeded",
     );
-    expect(webhooks.list().length).toBe(11);
+    await expect(webhooks.list()).resolves.toHaveLength(11);
   });
 });

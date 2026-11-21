@@ -154,6 +154,26 @@ Task descriptions hold requirements and current state. Linked work threads hold 
 
 ## Task-created webhooks
 
+In BB, open **Settings → Tasks → Webhooks**. Add a trusted HTTPS receiver and
+choose one tracker or **All trackers**. Enter an `Authorization` header only if
+the receiver requires it. You can add an optional display name. The saved list
+shows the name or **Unnamed webhook**, the scope, the webhook ID, and whether a
+header is set. It does not show saved URLs or header values.
+
+**Rename** changes only the display name. It does not send a delivery.
+**Send test** sends a sample event without creating a task. **Delete** asks you
+to confirm the scope and webhook ID before it removes the endpoint.
+
+The masked **Webhook configuration (managed by Tasks)** field shows whether
+configuration is stored. It rejects edits. Use the form or the Tasks webhook
+commands below to change endpoints.
+
+If the saved document is invalid, Tasks blocks add, rename, test, and delete. An
+administrator who intends to discard the entire configuration can run
+`bb plugin config <plugin-id> unset taskWebhooks` before adding endpoints again.
+This BB admin override bypasses Tasks' write queue. Do not run it while
+anyone is changing webhook settings.
+
 `bb tasks webhook create --config-file <file>` registers a global endpoint. Add
 `--project PROD` to limit it to a tracker prefix or ID. Thread and BB project
 context never narrow the default. Global endpoints and matching tracker endpoints
@@ -165,6 +185,7 @@ Create a private regular UTF-8 JSON file, preferably with mode `0600`:
 ```json
 {
   "url": "https://receiver.example/tasks",
+  "name": "Release alerts",
   "authorization": "Bearer replace-in-your-private-file"
 }
 ```
@@ -175,15 +196,23 @@ file paths use the invoking CLI's working directory. `--machine` selects the
 machine that owns the file, following the existing file-command convention.
 Stdin and process-device paths are not supported.
 
+`name` is optional. Tasks trims surrounding whitespace and accepts up to 80
+characters after trimming. A blank name is the same as no name. Duplicate names
+are allowed, so use the webhook ID for commands. Do not put URLs or credentials
+in names. They appear in settings and CLI results.
+
 ```sh
 bb tasks webhook create --config-file "$HOME/task-webhook.json" --json
 bb tasks webhook create --config-file "$HOME/task-webhook.json" --project PROD --json
 bb tasks webhook list --json
+bb tasks webhook rename wh_replace_with_listed_id --name "Release digest" --json
+bb tasks webhook rename wh_replace_with_listed_id --name "" --json
 bb tasks webhook test wh_replace_with_listed_id --json
 bb tasks webhook delete wh_replace_with_listed_id --json
 ```
 
-Management results contain only endpoint IDs, scopes, and `hasAuthorization`.
+Management results contain only endpoint IDs, optional names, scopes, and
+`hasAuthorization`. Unnamed endpoints omit the `name` field.
 Delivery results add controlled outcome codes, attempt counts, and HTTP status
 when available. They never contain URLs, credentials, receiver bodies, or raw
 errors. `test` sends a synthetic `WEBHOOK-0` event with `test: true` and title
@@ -203,6 +232,14 @@ not SQLite. It serializes configuration mutations within one plugin load. There
 is no cross-process compare-and-swap guarantee. Invalid stored configuration
 blocks management and disables new deliveries without exposing its contents.
 Configuration changes affect newly admitted jobs, not jobs already queued.
+
+**Downgrade:** This version can read existing unnamed version 1 endpoints
+without a migration. An older Tasks version rejects the entire document if any
+endpoint has a `name` field. This blocks webhook management and stops new
+deliveries for all endpoints, including unnamed ones. Before downgrading, clear
+every name using **Rename** or `webhook rename --name ""` and confirm that
+`webhook list --json` no longer contains any `name` fields. Clearing a name
+preserves the endpoint ID, scope, URL, and Authorization.
 
 Limits are 32 endpoints, 64 KiB for the stored document, 8 KiB per input file,
 2,048 URL bytes, and 4,096 printable ASCII Authorization characters without edge
