@@ -31,11 +31,11 @@ const packages = ["bb-plugin-alpha", "bb-plugin-zeta", "bb-plugin-unselected"];
 const entryScripts = {
   check: "bun --no-install scripts/checks.mjs root",
   "check:review": "bun --no-install scripts/checks.mjs review",
-  "test:review": "bun test scripts/checks.test.mjs",
+  "test:review": "bun test --timeout 120000 scripts/checks.test.mjs",
   sdk: "bun --no-install scripts/sdk.mjs",
   "sdk:audit": "bun --no-install scripts/sdk.mjs audit",
   "sdk:align": "bun --no-install scripts/sdk.mjs align",
-  "test:sdk": "bun --no-install test scripts/sdk.test.mjs",
+  "test:sdk": "bun --no-install test --timeout 120000 scripts/sdk.test.mjs",
 };
 
 function fixture(t, exits = {}, missing = []) {
