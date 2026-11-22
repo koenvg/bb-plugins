@@ -30,6 +30,7 @@ async function setup(options: Parameters<typeof fixture>[1] = {}) {
   const send = vi.fn<typeof f.host.bb.sdk.threads.send>(async () => ({
     ok: true,
     delivery: "sent",
+    messageSequence: null,
   }));
   f.host.harness.sdk.stub("threads.get", get);
   f.host.harness.sdk.stub("threads.send", send);
@@ -79,6 +80,7 @@ it("sends an idle instruction once and inspects acceptance without claiming comp
   const send = vi.fn<typeof f.host.bb.sdk.threads.send>(async () => ({
     ok: true,
     delivery: "sent",
+    messageSequence: null,
   }));
   f.host.harness.sdk.stub("threads.send", send);
   const credential = await f.token({ scope: "bb.read bb.control" });
@@ -261,7 +263,7 @@ it("concurrent duplicates share identity, normalized IDs replay, and changed tex
   expect((await call(credential, { threadId: "thr_other" })).content[0].text).toBe(
     "OPERATION_CONFLICT",
   );
-  work.resolve({ ok: true, delivery: "sent" });
+  work.resolve({ ok: true, delivery: "sent", messageSequence: null });
   await expect.poll(async () => (await poll(operationId)).structuredContent.state).toBe("accepted");
   expect(send).toHaveBeenCalledTimes(1);
 });
@@ -432,7 +434,7 @@ it("a pending send hits its deadline, remains inspectable, and can record a late
   const operationId = result.structuredContent.operationId;
   await expect.poll(async () => (await poll(operationId)).structuredContent.state).toBe("unknown");
   expect((await call(credential)).structuredContent.state).toBe("unknown");
-  work.resolve({ ok: true, delivery: "sent" });
+  work.resolve({ ok: true, delivery: "sent", messageSequence: null });
   await expect.poll(async () => (await poll(operationId)).structuredContent.delivery).toBe("sent");
   expect(send).toHaveBeenCalledTimes(1);
 });
@@ -449,7 +451,7 @@ it.each([false, true])(
     const operationId = result.structuredContent.operationId;
     expect((await poll(operationId)).structuredContent.state).toBe("unknown");
     expect((await call(credential)).structuredContent.state).toBe("unknown");
-    work.resolve({ ok: true, delivery: "sent" });
+    work.resolve({ ok: true, delivery: "sent", messageSequence: null });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect((await poll(operationId)).structuredContent.state).toBe("unknown");
     expect(send).toHaveBeenCalledTimes(1);
@@ -544,7 +546,7 @@ it.each([false, true])(
     const replay = await call(credential);
     expect(replay.structuredContent.state).toBe(dispatched ? "unknown" : "failed");
     if (dispatched) {
-      work.resolve({ ok: true, delivery: "sent" });
+      work.resolve({ ok: true, delivery: "sent", messageSequence: null });
       await expect
         .poll(
           async () => (await poll(replay.structuredContent.operationId)).structuredContent.state,
@@ -633,7 +635,7 @@ it("returns a pending operation within the production budget after a slow initia
   expect((await poll(operationId)).structuredContent.state).toBe("pending");
   expect(JSON.stringify(f.logs)).not.toContain("DEADLINE");
   expect(send).toHaveBeenCalledTimes(1);
-  work.resolve({ ok: true, delivery: "sent" });
+  work.resolve({ ok: true, delivery: "sent", messageSequence: null });
   await expect.poll(async () => (await poll(operationId)).structuredContent.state).toBe("accepted");
   expect((await call(credential)).structuredContent.operationId).toBe(operationId);
   expect(send).toHaveBeenCalledTimes(1);
