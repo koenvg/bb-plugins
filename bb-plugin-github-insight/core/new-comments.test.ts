@@ -54,6 +54,9 @@ describe("isOtherPerson", () => {
   it.each([
     ["the viewer", { __typename: "User", login: "me" }],
     ["a bot", { __typename: "Bot", login: "renovate" }],
+    ["a CI user account", { __typename: "User", login: "collibra-cicd" }],
+    ["an app user account", { __typename: "User", login: "dependabot[bot]" }],
+    ["a bot user account", { __typename: "User", login: "release-bot" }],
     ["a deleted user", null],
   ])("rejects %s", (_, actor) => {
     expect(isOtherPerson(actor, "me")).toBe(false);
