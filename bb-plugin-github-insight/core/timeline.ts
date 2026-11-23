@@ -118,6 +118,7 @@ export interface TimelinePage {
   viewerCanUpdate: boolean;
   events: TimelineEvent[];
   othersComments: PostedComment[];
+  ownPrRepliedAt: number | null;
   olderCursor: string | null;
 }
 
@@ -194,6 +195,21 @@ function othersCommentsOf(nodes: readonly Node[], viewer: string): PostedComment
   return [...othersPrComments(comments, viewer), ...othersReviewTexts(reviews, viewer)];
 }
 
+function viewerRepliedAt(nodes: readonly Node[], viewer: string): number {
+  const times = nodes.flatMap((node) => {
+    if (node.__typename === "IssueComment" && node.author?.login === viewer)
+      return [Date.parse(node.createdAt)];
+    if (
+      node.__typename === "PullRequestReview" &&
+      node.submittedAt !== null &&
+      node.author?.login === viewer
+    )
+      return [Date.parse(node.submittedAt)];
+    return [];
+  });
+  return Math.max(0, ...times);
+}
+
 export function parseTimelinePage(response: unknown, signMedia: SignMedia): TimelinePage {
   const { viewer, repository } = timelinePageSchema.parse(response).data;
   const { pullRequest } = repository;
@@ -213,6 +229,8 @@ export function parseTimelinePage(response: unknown, signMedia: SignMedia): Time
       return event === null ? [] : [event];
     }),
     othersComments: othersCommentsOf(nodes, viewer.login),
+    ownPrRepliedAt:
+      pullRequest.author?.login === viewer.login ? viewerRepliedAt(nodes, viewer.login) : null,
     olderCursor: pageInfo.hasPreviousPage ? pageInfo.startCursor : null,
   };
 }

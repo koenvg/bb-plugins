@@ -33,11 +33,11 @@ export function othersReviewTexts(
 
 export function newCommentIds(
   comments: readonly PostedComment[],
-  markedAt: number | null,
+  since: number | null,
   seen: ReadonlySet<string>,
 ): string[] {
-  if (markedAt === null) return [];
+  if (since === null) return [];
   return comments
-    .filter((comment) => Date.parse(comment.postedAt) > markedAt && !seen.has(comment.id))
+    .filter((comment) => Date.parse(comment.postedAt) > since && !seen.has(comment.id))
     .map((comment) => comment.id);
 }

@@ -1,7 +1,7 @@
 See the checks of a thread's pull request, and the pull requests that wait for your review, without leaving bb.
 
 - A **PR** tab in the thread's right panel, with an **Overview** sub-tab (status and conversation) and a **Files** sub-tab (diff and review threads).
-- The Overview conversation shows PR comments, reviews, commits, and ready for review, closed, reopened, and merged events. You can add a PR comment. "N inline comments" on a review opens those comments in Files.
+- The Overview conversation shows PR comments, reviews, commits, and ready for review, closed, reopened, and merged events. You can add a PR comment. "N inline comments" on a review opens those comments in Files. On your own PR, a PR comment or review text from another person glows until you read it or reply. Bots and CI accounts such as collibra-cicd do not count.
 - The PR number, title, state, `head → base` branch, lines added and removed, changed files, author, and a link to GitHub.
 - One summary line at the top: the first merge blocker with "+N more", "Ready to merge", the merge queue state, or "Auto-merge on".
 - Merge blockers, most important first, when there are 2 or more: conflicts, failed checks, changes requested, branch out of date, review required, unresolved threads, running checks, draft, blocked.
