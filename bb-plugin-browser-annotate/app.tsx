@@ -198,6 +198,7 @@ export function PillSync({ hiddenPins }: { hiddenPins: HiddenPins }) {
   const drafts = threadComposers.map((composer) => ({
     threadId: composer.scope.threadId,
     ids: annotationIdsInDraft(composer.draft),
+    isSubmitting: composer.isSubmitting,
   }));
   const draftKey = JSON.stringify(drafts);
   const latestDrafts = useLatest(drafts);
@@ -206,7 +207,8 @@ export function PillSync({ hiddenPins }: { hiddenPins: HiddenPins }) {
 
   useEffect(() => () => tracker.dispose(), [tracker]);
   useEffect(() => {
-    for (const { threadId, ids } of latestDrafts.current) tracker.observe(threadId, ids);
+    for (const { threadId, ids, isSubmitting } of latestDrafts.current)
+      tracker.observe(threadId, ids, isSubmitting);
   }, [draftKey, tracker, latestDrafts]);
   useEffect(() => {
     const unsubscribes = latestComposers.current.map((composer) =>

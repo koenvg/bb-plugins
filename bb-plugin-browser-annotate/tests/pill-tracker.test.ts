@@ -61,8 +61,8 @@ describe("pill tracker", () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
-  it("keeps an annotation whose pill comes back, as after a failed send", () => {
-    const { tracker, remove } = setup();
+  it("restores a failed-send draft when its pills return within the removal delay", () => {
+    const { tracker, remove, hidden } = setup();
     tracker.observe("thr", ["a"]);
 
     tracker.observe("thr", []);
@@ -70,8 +70,81 @@ describe("pill tracker", () => {
     tracker.observe("thr", ["a"]);
     vi.advanceTimersByTime(5000);
 
+    expect([...hidden]).toEqual([]);
     expect(remove).not.toHaveBeenCalled();
   });
+
+  it("pauses an existing removal when submission starts without changing the draft", () => {
+    const { tracker, remove, hidden } = setup();
+    tracker.observe("thr", ["a"]);
+    tracker.observe("thr", []);
+    tracker.observe("thr", [], true);
+    vi.advanceTimersByTime(3100);
+
+    expect([...hidden]).toEqual([]);
+    expect(remove).not.toHaveBeenCalled();
+
+    tracker.observe("thr", ["a"], false);
+    tracker.observe("thr", [], false);
+    vi.advanceTimersByTime(1000);
+    expect([...hidden]).toEqual(["a"]);
+    expect(remove).toHaveBeenCalledExactlyOnceWith("thr", "a");
+  });
+
+  it.each(["empty", "unchanged"] as const)(
+    "keeps next-draft annotations visible and tracked when submission first observes %s pills",
+    (firstDraft) => {
+      const { tracker, hidden, remove } = setup();
+      tracker.observe("thr", ["a"]);
+      tracker.observe("thr", firstDraft === "empty" ? [] : ["a"], true);
+      tracker.observe("thr", ["b"], true);
+
+      tracker.submitted("thr");
+      tracker.observe("thr", ["b"], true);
+      expect([...hidden]).toEqual(["a"]);
+      vi.advanceTimersByTime(5000);
+      expect(remove).not.toHaveBeenCalled();
+
+      tracker.observe("thr", ["b"], false);
+      tracker.observe("thr", [], false);
+      vi.advanceTimersByTime(1000);
+      expect(remove).toHaveBeenCalledExactlyOnceWith("thr", "b");
+      tracker.dispose();
+    },
+  );
+
+  it("does not retire a new annotation when the pending send had no annotations", () => {
+    const { tracker, hidden, remove } = setup();
+    tracker.observe("thr", []);
+    tracker.observe("thr", [], true);
+    tracker.observe("thr", ["b"], true);
+    tracker.submitted("thr");
+    tracker.observe("thr", ["b"], false);
+
+    expect([...hidden]).toEqual([]);
+    expect(remove).not.toHaveBeenCalled();
+    tracker.dispose();
+  });
+
+  it.each([true, false])(
+    "captures the next send after an unsuccessful send, restored=%s",
+    (restored) => {
+      const { tracker, hidden, remove } = setup();
+      tracker.observe("thr", ["a"]);
+      tracker.observe("thr", [], true);
+      vi.advanceTimersByTime(5000);
+      tracker.observe("thr", restored ? ["a"] : [], false);
+      tracker.observe("thr", ["b"], false);
+      tracker.observe("thr", [], true);
+      tracker.observe("thr", ["c"], true);
+      tracker.submitted("thr");
+      tracker.observe("thr", ["c"], false);
+
+      expect([...hidden]).toEqual(["a", "b"]);
+      expect(remove).not.toHaveBeenCalled();
+      tracker.dispose();
+    },
+  );
 
   it("clears sent annotations once after a submit, without a second delete", () => {
     const { tracker, remove, clearResolved } = setup();
@@ -85,16 +158,42 @@ describe("pill tracker", () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
-  it("keeps sent pins hidden and shows pins that the send did not clear", async () => {
+  it.each([
+    ["before", false],
+    ["after", false],
+    ["before", true],
+    ["after", true],
+  ] as const)(
+    "retires submitted pins %s the empty draft, submitting=%s, even before mention resolution",
+    async (order, isSubmitting) => {
+      const { tracker, remove, clearResolved, hidden } = setup();
+      clearResolved.mockResolvedValueOnce({ removed: [] });
+      tracker.observe("thr", ["a", "b"]);
+      if (order === "after") tracker.observe("thr", [], isSubmitting);
+
+      tracker.submitted("thr");
+      if (order === "before") tracker.observe("thr", [], isSubmitting);
+      await vi.runAllTimersAsync();
+
+      expect([...hidden]).toEqual(["a", "b"]);
+      expect(remove).not.toHaveBeenCalled();
+      tracker.observe("thr", ["c"]);
+      expect(hidden.has("c")).toBe(false);
+      tracker.dispose();
+    },
+  );
+
+  it("keeps successful submissions hidden if server cleanup fails", async () => {
     const { tracker, clearResolved, hidden } = setup();
-    clearResolved.mockResolvedValueOnce({ removed: ["a"] });
-    tracker.observe("thr", ["a", "b"]);
+    clearResolved.mockRejectedValueOnce(new Error("offline"));
+    tracker.observe("thr", ["a"]);
     tracker.observe("thr", []);
 
     tracker.submitted("thr");
     await vi.runAllTimersAsync();
 
     expect([...hidden]).toEqual(["a"]);
+    tracker.dispose();
   });
 
   it("keeps a removed pin hidden, and shows it again if the remove fails", async () => {
