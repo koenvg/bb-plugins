@@ -34,6 +34,15 @@ function serviceWith(overrides: Partial<Deps> = {}) {
   return { service, pages, comments };
 }
 
+function withoutLastReply() {
+  const page = structuredClone(timelines["cli-14578"]);
+  const { timelineItems } = page.data.repository.pullRequest;
+  timelineItems.nodes = timelineItems.nodes.filter(
+    (node) => node.id !== "IC_kwDODKw3uc8AAAABaMAhXA",
+  );
+  return page;
+}
+
 const rateLimited = new GhFailureError({ kind: "rate_limited", resetAt: null });
 
 describe("timeline service", () => {
@@ -83,8 +92,46 @@ describe("timeline service", () => {
     expect(result).not.toHaveProperty("othersComments");
   });
 
-  it("returns no new comments for a PR with no mark", async () => {
+  it("returns no new comments on another person's PR with no mark", async () => {
+    const page = structuredClone(timelines["cli-14578"]);
+    page.data.viewer.login = "me";
+    const { service } = serviceWith({ fetchTimelinePage: async () => page });
+
+    expect(await service.getTimeline("thr_1", null)).toMatchObject({ newCommentIds: [] });
+  });
+
+  it("returns no new comments on your own PR when you replied after them", async () => {
     const { service } = serviceWith();
+
+    expect(await service.getTimeline("thr_1", null)).toMatchObject({ newCommentIds: [] });
+  });
+
+  it("returns the PR comments from other people after your last reply on your own PR", async () => {
+    const { service } = serviceWith({ fetchTimelinePage: async () => withoutLastReply() });
+
+    expect(await service.getTimeline("thr_1", null)).toMatchObject({
+      newCommentIds: ["IC_kwDODKw3uc8AAAABaFQoVw"],
+    });
+  });
+
+  it("counts your submitted review as a reply on your own PR", async () => {
+    const page = withoutLastReply();
+    for (const node of page.data.repository.pullRequest.timelineItems.nodes)
+      if (node.id === "PRR_kwDODKw3uc8AAAABRK-09w")
+        Object.assign(node, { author: { __typename: "User", login: "williammartin" } });
+    const { service } = serviceWith({ fetchTimelinePage: async () => page });
+
+    expect(await service.getTimeline("thr_1", null)).toMatchObject({ newCommentIds: [] });
+  });
+
+  it("skips a seen comment on your own PR", async () => {
+    const { service } = serviceWith({
+      fetchTimelinePage: async () => withoutLastReply(),
+      newCommentBasis: async () => ({
+        markedAt: null,
+        seen: new Set(["IC_kwDODKw3uc8AAAABaFQoVw"]),
+      }),
+    });
 
     expect(await service.getTimeline("thr_1", null)).toMatchObject({ newCommentIds: [] });
   });

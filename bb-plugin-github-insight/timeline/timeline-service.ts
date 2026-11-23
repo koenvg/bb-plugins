@@ -25,13 +25,17 @@ export function createTimelineService(deps: TimelineServiceDeps) {
     const resolution = await deps.resolvePr(threadId);
     if (resolution.kind !== "pr") return resolution;
     try {
-      const [{ othersComments, ...page }, { markedAt, seen }] = await Promise.all([
+      const [{ othersComments, ownPrRepliedAt, ...page }, { markedAt, seen }] = await Promise.all([
         deps
           .fetchTimelinePage(resolution.target, before)
           .then((response) => parseTimelinePage(response, deps.signMedia)),
         deps.newCommentBasis(resolution.target.ref),
       ]);
-      return { kind: "ok", ...page, newCommentIds: newCommentIds(othersComments, markedAt, seen) };
+      return {
+        kind: "ok",
+        ...page,
+        newCommentIds: newCommentIds(othersComments, markedAt ?? ownPrRepliedAt, seen),
+      };
     } catch (error) {
       if (error instanceof GhFailureError) {
         return { kind: "error", message: ghFailureText(error.failure) };

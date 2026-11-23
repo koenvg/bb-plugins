@@ -144,7 +144,7 @@ bb github-insight queue list [--json]
 - "Reviewed" is collapsed when the panel opens. "Mark as needs review" deletes the mark. A PR with no request and no review thread then leaves the list.
 - A successful submit in the Files sub-tab marks the PR reviewed at the submitted commit, except on your own PR. When the mark cannot be saved, the submit panel says to use "Mark reviewed".
 - A marked PR also comes back to "Needs review" on activity after `markedAt`. The tracked PR lookups fetch the last 10 PR comments, the last 10 reviews, the last 10 review requests, and `viewer { login }` (`QueueActivity` fragment). The host asks for 8 tracked PRs per GraphQL request, in parallel, because GitHub stops a request after about 10 seconds with `HTTP 504`. It sends a request again once after `HTTP 504` or a cut-off response. `core/review-queue.ts` keeps each comment with its `id` and time, and the newest review request time:
-  - "New comments": a PR comment, a review comment or reply, or a review with text, from a `User` that is not you. Bots, your own activity, deleted users, and approvals with no text and no comments do not count. A reply on github.com is a review with no body and one comment, so it counts.
+  - "New comments": a PR comment, a review comment or reply, or a review with text, from a `User` that is not you. Bots, CI accounts (a login that ends in `[bot]` or `-bot`, or contains `cicd`), your own activity, deleted users, and approvals with no text and no comments do not count. A reply on github.com is a review with no body and one comment, so it counts.
   - A comment that you saw does not count (see "New comments"). A review comment or reply is seen in the Files sub-tab. A PR comment or review text is seen in the Overview Conversation timeline. The seen key of a review text is the review `id`.
   - The fragment reads the first 10 comments of each of the last 10 reviews, with `id` and `publishedAt`. A comment in a pending review counts at the time the review is submitted.
   - "Review requested again": a review request to your login. Requests to a team do not count.
@@ -294,7 +294,12 @@ Each text file in the Files sub-tab that has a patch shows a collapse button and
 
 ### New comments
 
-A comment is new when the PR has a reviewed mark, the comment was published after `markedAt`, its author is a `User` that is not you, and you have not seen it (`core/new-comments.ts`). This holds for:
+A comment is new when its author is a `User` that is not you and not a CI account, you have not seen it, and it was published after one of these times (`core/new-comments.ts`):
+
+- On a PR with a reviewed mark: `markedAt`.
+- On your own PR, in the Overview Conversation timeline: your last PR comment or submitted review in the loaded page. So a reply clears it too.
+
+This holds for:
 
 - A review comment or reply. The Files sub-tab shows it. `getReview` returns `newCommentIds`. The review threads query reads `viewer { login }`, the author `__typename`, and `publishedAt` for this.
 - A PR comment, or the text of a submitted review. The Overview Conversation timeline shows it. `getTimeline` returns `newCommentIds` for the page. The timeline query reads `viewer { login }` and the author `__typename`. The id of a review text is the review id. A review with no text is not new. Its inline comments are new in the Files sub-tab.
