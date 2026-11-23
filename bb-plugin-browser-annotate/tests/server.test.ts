@@ -162,19 +162,27 @@ describe("annotation mention provider", () => {
     });
   });
 
-  it("clears only the annotations that were sent and keeps their images for the sweep", async () => {
-    const { call, provider } = setup();
-    const sent = await call("create", createInput);
-    const kept = await call("create", { ...createInput, number: 2 });
-    const image = (await provider.resolve(sent.id)).experimental_images![0]!;
-    if (image.type !== "localImage") throw new Error("Expected a local image.");
+  it.each(["before", "after"] as const)(
+    "preserves sent captures when mentions resolve %s submission cleanup",
+    async (order) => {
+      const { call, provider } = setup();
+      const sent = await call("create", createInput);
+      const kept = await call("create", { ...createInput, number: 2 });
+      if (order === "after") {
+        expect(await call("clearResolved", { threadId: "thr" })).toEqual({ removed: [] });
+      }
+      const resolved = await provider.resolve(sent.id);
+      expect(resolved.context).toContain("Too much padding");
+      const image = resolved.experimental_images![0]!;
+      if (image.type !== "localImage") throw new Error("Expected a local image.");
 
-    expect(await call("clearResolved", { threadId: "thr" })).toEqual({ removed: [sent.id] });
-    expect(
-      (await call("listForThread", { threadId: "thr" })).map((found: { id: string }) => found.id),
-    ).toEqual([kept.id]);
-    expect(existsSync(image.path)).toBe(true);
-  });
+      expect(await call("clearResolved", { threadId: "thr" })).toEqual({ removed: [sent.id] });
+      expect(
+        (await call("listForThread", { threadId: "thr" })).map((found: { id: string }) => found.id),
+      ).toEqual([kept.id]);
+      expect(existsSync(image.path)).toBe(true);
+    },
+  );
 
   it("deletes the image of an unsent annotation right away", async () => {
     const { call, provider } = setup();

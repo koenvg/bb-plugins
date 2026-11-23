@@ -3,6 +3,9 @@ import { createAnnotateController } from "../lib/controller";
 import type { AnnotationsRpc } from "../lib/contract";
 import { installAnnotator, type AnnotatorApi, type PagePin } from "../lib/page/annotator";
 import { annotatorCallScript, annotatorInstallScript } from "../lib/page/script";
+import type { Annotation, CreateInput } from "../lib/annotation";
+import { createHiddenPins } from "../lib/hidden-pins";
+import { createPillTracker } from "../lib/pill-tracker";
 
 type TestWindow = Window & { __bbBrowserAnnotate?: AnnotatorApi };
 const win = window as TestWindow;
@@ -214,6 +217,102 @@ describe("hover and selection", () => {
     press(textarea(), "Enter");
 
     expect(posted[0]).toMatchObject({ rect: { x: 1400, y: 850, width: 40, height: 50 } });
+  });
+});
+describe("submission capture lifecycle", () => {
+  it("removes sent pins without a reload and excludes them from the next capture", async () => {
+    const url = "https://example.com/page";
+    const annotations: Annotation[] = [
+      {
+        id: "a",
+        threadId: "thr",
+        url,
+        urlKey: url,
+        number: 1,
+        kind: "button",
+        comment: "First capture",
+        rect: { x: 100, y: 200, width: 80, height: 30 },
+        isFixed: true,
+        viewport: { width: 1440, height: 900 },
+      },
+    ];
+    const hidden = createHiddenPins();
+    let listener: (data: unknown) => void = () => {};
+    const captured: { visibility: string; pins: string[] }[] = [];
+    const controller = createAnnotateController({
+      threadId: "thr",
+      tabId: "tab",
+      page: {
+        evaluate: async (script) => {
+          if (script === annotatorInstallScript()) {
+            installAnnotator(win, (data) => listener(data), "open");
+            return true;
+          }
+          return new Function("window", `return ${script}`)(window);
+        },
+        onMessage: (next) => {
+          listener = next;
+          return () => {};
+        },
+      },
+      rpc: {
+        call: async (method: string, input: CreateInput) => {
+          if (method === "create") {
+            const created = { ...input, id: "b", urlKey: url, label: "2 · a" };
+            annotations.push(created);
+            return created;
+          }
+          return annotations;
+        },
+      } as unknown as AnnotationsRpc,
+      capture: async () => {
+        captured.push({
+          visibility: host().style.visibility,
+          pins: [...shadow().querySelectorAll(".pin")].map((pin) => pin.textContent!),
+        });
+        return { base64: "capture", width: 1440, height: 900 };
+      },
+      render: async () => "JPEG",
+      pills: () => ({ insert: () => {}, remove: () => {} }),
+      isHidden: hidden.has,
+      onModeChange: () => {},
+      onError: (error) => {
+        throw error;
+      },
+    });
+    const unsubscribe = hidden.subscribe(() => void controller.applyHidden());
+    const tracker = createPillTracker({
+      remove: async () => {
+        throw new Error("Must not delete a queued capture");
+      },
+      clearResolved: async () => ({ removed: [] }),
+      hide: hidden.hide,
+      show: hidden.show,
+    });
+    try {
+      await controller.attach(url);
+      await controller.setMode(true);
+      expect([...shadow().querySelectorAll(".pin")].map((pin) => pin.textContent)).toEqual(["1"]);
+      tracker.observe("thr", ["a"]);
+      tracker.observe("thr", []);
+      tracker.submitted("thr");
+      await Promise.resolve();
+      await controller.ensureInstalled();
+      expect([...shadow().querySelectorAll(".pin")]).toEqual([]);
+
+      click(120, 210);
+      textarea().value = "Second capture";
+      press(textarea(), "Enter");
+      await controller.ensureInstalled();
+
+      expect(captured).toEqual([{ visibility: "hidden", pins: [] }]);
+      expect([...shadow().querySelectorAll(".pin")].map((pin) => pin.textContent)).toEqual(["2"]);
+      expect(annotations[0]!.comment).toBe("First capture");
+    } finally {
+      tracker.dispose();
+      unsubscribe();
+      controller.dispose();
+    }
   });
 });
 
