@@ -1,5 +1,7 @@
 # BB 0.49 compatibility
 
+This records the BB 0.49.0 verification run, not the current dependency pins. BBP-424 updates Codex Quota, Markdown Reader, MCP, and Pi with subagents to SDK 0.6.157 for BB 0.50.1. Pi's runtime SDK alias matches. Their package-local BB build tools now use 0.50.1. Declared BB 0.49 support remains unchanged; this pin update does not repeat installed acceptance on BB 0.49.
+
 All 13 plugins pin SDK 0.6.132, matching BB 0.49.0. The four package-local BB build tools pin 0.49.0. The root Bun lockfile records these versions.
 
 Changes, Codex Quota, and GitHub Insight require BB 0.49.0 and SDK 0.6.132 for their migrated APIs. Pi with subagents accepts BB 0.49.x and SDK 0.6.132 through 0.6.x. Other packages retain their existing engine ranges. This run tests BB 0.49.0 only.
