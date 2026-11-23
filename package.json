@@ -33,5 +33,8 @@
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "ultracite": "8.1.0"
+  },
+  "patchedDependencies": {
+    "tiptap-markdown@0.9.0": "patches/tiptap-markdown@0.9.0.patch"
   }
 }
