@@ -136,7 +136,9 @@ export function installAnnotator(
   const isFixedElement = (target: Element | null) => {
     for (let node = target; node && node !== doc.documentElement; node = node.parentElement) {
       const position = win.getComputedStyle(node).position;
-      if (position === "fixed" || position === "sticky") return true;
+      if (position === "fixed" || position === "sticky") {
+        return true;
+      }
     }
     return false;
   };
@@ -168,7 +170,9 @@ export function installAnnotator(
   }
 
   function onPointerMove(event: PointerEvent) {
-    if (form) return;
+    if (form) {
+      return;
+    }
     if (pointerStart) {
       const dx = event.clientX - pointerStart.x;
       const dy = event.clientY - pointerStart.y;
@@ -185,19 +189,26 @@ export function installAnnotator(
       }
     }
     const target = elementAt(event.clientX, event.clientY);
-    if (target) showHover(target);
-    else clearHover();
+    if (target) {
+      showHover(target);
+    } else {
+      clearHover();
+    }
   }
 
   function onPointerDown(event: PointerEvent) {
     event.preventDefault();
-    if (form || event.button !== 0) return;
+    if (form || event.button !== 0) {
+      return;
+    }
     pointerStart = { x: event.clientX, y: event.clientY };
   }
 
   function onPointerUp(event: PointerEvent) {
     event.preventDefault();
-    if (!pointerStart || form) return;
+    if (!pointerStart || form) {
+      return;
+    }
     const start = pointerStart;
     pointerStart = null;
     let selection: Selection | null = null;
@@ -213,7 +224,9 @@ export function installAnnotator(
       selection = { kind: "region", pageRect: toPage(box, false), isFixed: false };
     } else {
       const target = hovered ?? elementAt(event.clientX, event.clientY);
-      if (!target) return;
+      if (!target) {
+        return;
+      }
       const rect = target.getBoundingClientRect();
       const isFixed = isFixedElement(target);
       const box = clipToViewport({
@@ -224,7 +237,9 @@ export function installAnnotator(
       });
       selection = { kind: target.tagName.toLowerCase(), pageRect: toPage(box, isFixed), isFixed };
     }
-    if (selection.pageRect.width <= 0 || selection.pageRect.height <= 0) return;
+    if (selection.pageRect.width <= 0 || selection.pageRect.height <= 0) {
+      return;
+    }
     const chosen = selection;
     clearHover();
     const opened = openForm({
@@ -283,7 +298,9 @@ export function installAnnotator(
 
     const handle: Form = {
       submit() {
-        if (textarea.disabled || textarea.value.trim().length === 0) return;
+        if (textarea.disabled || textarea.value.trim().length === 0) {
+          return;
+        }
         error.remove();
         if (options.onSave(textarea.value) === "pending") {
           textarea.disabled = true;
@@ -302,8 +319,12 @@ export function installAnnotator(
       },
       close() {
         node.remove();
-        if (form === handle) form = null;
-        if (pendingSave === handle) pendingSave = null;
+        if (form === handle) {
+          form = null;
+        }
+        if (pendingSave === handle) {
+          pendingSave = null;
+        }
       },
     };
     save.addEventListener("click", () => handle.submit());
@@ -347,7 +368,9 @@ export function installAnnotator(
   }
 
   function onScroll() {
-    if (frame) return;
+    if (frame) {
+      return;
+    }
     frame = win.requestAnimationFrame(() => {
       frame = 0;
       renderPins();
@@ -360,7 +383,9 @@ export function installAnnotator(
   function onKey(event: KeyboardEvent) {
     if (form && doc.activeElement === host) {
       event.stopImmediatePropagation();
-      if (event.type !== "keydown" || event.isComposing) return;
+      if (event.type !== "keydown" || event.isComposing) {
+        return;
+      }
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         form.submit();
@@ -370,7 +395,9 @@ export function installAnnotator(
       }
       return;
     }
-    if (event.type !== "keydown" || event.key !== "Escape" || !modeOn || form) return;
+    if (event.type !== "keydown" || event.key !== "Escape" || !modeOn || form) {
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
     api.setMode(false);
@@ -395,14 +422,19 @@ export function installAnnotator(
   }
   win.addEventListener("scroll", onScroll, { passive: true, capture: true });
   win.addEventListener("resize", onScroll, { passive: true });
-  for (const type of keyEvents) win.addEventListener(type, onKey, true);
+  for (const type of keyEvents) {
+    win.addEventListener(type, onKey, true);
+  }
 
   const api: AnnotatorApi = {
     ping() {},
     setTheme(theme) {
       for (const [key, value] of Object.entries(theme)) {
-        if (value) host.style.setProperty(`--bba-${key}`, value);
-        else host.style.removeProperty(`--bba-${key}`);
+        if (value) {
+          host.style.setProperty(`--bba-${key}`, value);
+        } else {
+          host.style.removeProperty(`--bba-${key}`);
+        }
       }
     },
     setMode(on) {
@@ -413,7 +445,9 @@ export function installAnnotator(
         layer.addEventListener("pointerdown", onPointerDown);
         layer.addEventListener("pointerup", onPointerUp);
         layer.addEventListener("pointerleave", () => {
-          if (!pointerStart) clearHover();
+          if (!pointerStart) {
+            clearHover();
+          }
         });
         layer.addEventListener("click", (event) => event.preventDefault());
         layer.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -424,7 +458,9 @@ export function installAnnotator(
         dragBox?.remove();
         dragBox = null;
         pointerStart = null;
-        if (form && form === pendingSave) form.close();
+        if (form && form === pendingSave) {
+          form.close();
+        }
       }
     },
     setPins(next) {
@@ -448,12 +484,18 @@ export function installAnnotator(
       host.style.visibility = "visible";
     },
     teardown() {
-      if (frame) win.cancelAnimationFrame(frame);
+      if (frame) {
+        win.cancelAnimationFrame(frame);
+      }
       win.removeEventListener("scroll", onScroll, { capture: true });
       win.removeEventListener("resize", onScroll);
-      for (const type of keyEvents) win.removeEventListener(type, onKey, true);
+      for (const type of keyEvents) {
+        win.removeEventListener(type, onKey, true);
+      }
       host.remove();
-      if (win.__bbBrowserAnnotate === api) delete win.__bbBrowserAnnotate;
+      if (win.__bbBrowserAnnotate === api) {
+        delete win.__bbBrowserAnnotate;
+      }
     },
   };
   win.__bbBrowserAnnotate = api;

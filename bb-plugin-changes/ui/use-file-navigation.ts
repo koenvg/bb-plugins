@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { pinToTop } from "../../review-ui/pin-to-top";
 
 export interface FileNavigation {
@@ -16,17 +17,23 @@ export function useFileNavigation(
 
   const updateCurrent = useCallback(() => {
     const area = scrollArea.current;
-    if (area === null) return;
+    if (area === null) {
+      return;
+    }
     setCurrent(topSectionPath(area) ?? paths[0] ?? null);
   }, [scrollArea, paths]);
 
   useEffect(() => {
     const area = scrollArea.current;
-    if (area === null) return;
+    if (area === null) {
+      return;
+    }
     updateCurrent();
     let frame: number | null = null;
     const onScroll = () => {
-      if (stopPin.current !== null || frame !== null) return;
+      if (stopPin.current !== null || frame !== null) {
+        return;
+      }
       frame = requestAnimationFrame(() => {
         frame = null;
         updateCurrent();
@@ -35,7 +42,9 @@ export function useFileNavigation(
     area.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       area.removeEventListener("scroll", onScroll);
-      if (frame !== null) cancelAnimationFrame(frame);
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+      }
     };
   }, [scrollArea, updateCurrent]);
 
@@ -46,7 +55,9 @@ export function useFileNavigation(
       stopPin.current?.();
       const area = scrollArea.current;
       const section = area?.querySelector<HTMLElement>(`section[data-path="${CSS.escape(path)}"]`);
-      if (area == null || section == null) return;
+      if (area == null || section == null) {
+        return;
+      }
       setCurrent(path);
       stopPin.current = pinToTop(
         area,
@@ -66,7 +77,9 @@ export function useFileNavigation(
 function topSectionPath(area: HTMLElement): string | null {
   const areaTop = area.getBoundingClientRect().top;
   for (const section of Array.from(area.querySelectorAll<HTMLElement>("section[data-path]"))) {
-    if (section.getBoundingClientRect().bottom > areaTop + 1) return section.dataset.path ?? null;
+    if (section.getBoundingClientRect().bottom > areaTop + 1) {
+      return section.dataset.path ?? null;
+    }
   }
   return null;
 }

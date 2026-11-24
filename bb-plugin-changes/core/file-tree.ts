@@ -48,7 +48,9 @@ function appendRows(folder: Folder, parentPath: string, depth: number, rows: Fil
     rows.push({ kind: "folder", label, path, depth });
     appendRows(child, path, depth + 1, rows);
   }
-  for (const [name, file] of folder.files) rows.push({ kind: "file", label: name, file, depth });
+  for (const [name, file] of folder.files) {
+    rows.push({ kind: "file", label: name, file, depth });
+  }
 }
 
 export function visibleRows(
@@ -58,7 +60,9 @@ export function visibleRows(
   const visible: FileTreeRow[] = [];
   let hiddenBelow: number | null = null;
   for (const row of rows) {
-    if (hiddenBelow !== null && row.depth > hiddenBelow) continue;
+    if (hiddenBelow !== null && row.depth > hiddenBelow) {
+      continue;
+    }
     hiddenBelow = row.kind === "folder" && collapsed.has(row.path) ? row.depth : null;
     visible.push(row);
   }

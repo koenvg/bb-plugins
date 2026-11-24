@@ -13,6 +13,8 @@ const icons = {
 };
 export function FixtureIcon({ name, fallback: _fallback, ...props }: ExperimentalIconProps) {
   const icon = icons[name as keyof typeof icons];
-  if (!icon) throw new Error(`Unknown fixture icon: ${name}`);
+  if (!icon) {
+    throw new Error(`Unknown fixture icon: ${name}`);
+  }
   return <HugeiconsIcon icon={icon} {...props} data-icon={name} />;
 }

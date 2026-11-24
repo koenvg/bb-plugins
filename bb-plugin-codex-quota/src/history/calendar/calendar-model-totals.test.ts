@@ -139,7 +139,9 @@ it("keeps a missing native model unknown without discarding a real Pi model name
         .split("\n")
         .map((line) => {
           const value = JSON.parse(line);
-          if (value.type === "turn_context") delete value.payload.model;
+          if (value.type === "turn_context") {
+            delete value.payload.model;
+          }
           return JSON.stringify(value);
         })
         .join("\n") + "\n";

@@ -7,8 +7,9 @@ export function capturedEstimate(value: number): string {
 }
 export { capturedEstimate as compactEstimate };
 export function pricedAverage(money: CalendarMoney): string {
-  if (money.capturedCost === null || !money.pricedEntities)
+  if (money.capturedCost === null || !money.pricedEntities) {
     return "Unavailable, no safe priced subtotal";
+  }
   const ratio = money.capturedCost / money.pricedEntities;
   return `${capturedEstimate(money.capturedCost)} / ${money.pricedEntities} = ${ratio > 0 ? capturedEstimate(ratio) : "Unavailable, below numeric range"}`;
 }
@@ -24,7 +25,7 @@ export function MoneyValues({
   entities: string;
   compact?: boolean;
 }) {
-  if (compact)
+  if (compact) {
     return (
       <p className="mt-1 text-muted-foreground tabular-nums [overflow-wrap:anywhere]">
         Captured estimate subtotal:{" "}
@@ -34,6 +35,7 @@ export function MoneyValues({
         {money.reason === "unsafe-sum" ? ", unsafe monetary sum" : ""}.
       </p>
     );
+  }
   return (
     <div className="mt-2 min-w-0 tabular-nums [overflow-wrap:anywhere]">
       <p>

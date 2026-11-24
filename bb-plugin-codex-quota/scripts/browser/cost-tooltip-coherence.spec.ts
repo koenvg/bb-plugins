@@ -4,14 +4,16 @@ import { chart, pointAtDate, rows } from "./calendar-driver.js";
 for (const [state, expectedModels] of [
   ["model-transition", ["B$3.00", "C$6.00"]],
   ["model-replacement", ["B$9.00"]],
-] as const)
+] as const) {
   test(`visible cost tooltip keeps current model dollars during ${state}`, async ({
     page,
   }, info) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.stack ?? error.message));
     page.on("console", (message) => {
-      if (message.type() === "warning" || message.type() === "error") errors.push(message.text());
+      if (message.type() === "warning" || message.type() === "error") {
+        errors.push(message.text());
+      }
     });
     await page.goto(`/saved.html?state=${state}`);
     await chart(page);
@@ -43,7 +45,9 @@ for (const [state, expectedModels] of [
         ).savedFixture.tooltipCommits.filter((commit) => commit.subtotal === "$9.00"),
       );
       expect(commits.at(-1)?.models).toEqual(expectedModels);
-      for (const commit of commits) expect(commit.models).toEqual(expectedModels);
+      for (const commit of commits) {
+        expect(commit.models).toEqual(expectedModels);
+      }
       expect(errors, "No thrown renders or console errors during replacement").toEqual([]);
     } finally {
       await jsonEvidence(info, "projection-transition.json", {
@@ -63,6 +67,7 @@ for (const [state, expectedModels] of [
       });
     }
   });
+}
 
 test("token tooltip survives live model replacement before switching to Estimated cost", async ({
   page,
@@ -70,7 +75,9 @@ test("token tooltip survives live model replacement before switching to Estimate
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.stack ?? error.message));
   page.on("console", (message) => {
-    if (message.type() === "warning" || message.type() === "error") errors.push(message.text());
+    if (message.type() === "warning" || message.type() === "error") {
+      errors.push(message.text());
+    }
   });
   await page.goto("/saved.html?state=model-transition");
   await chart(page);
@@ -100,7 +107,9 @@ test("token tooltip survives live model replacement before switching to Estimate
     );
     expect(commits.at(-1)?.models).toEqual(["B$3.00", "C$6.00"]);
     for (const commit of commits) {
-      if (commit.models.length) expect(commit.models).toEqual(["B$3.00", "C$6.00"]);
+      if (commit.models.length) {
+        expect(commit.models).toEqual(["B$3.00", "C$6.00"]);
+      }
     }
     expect(errors, "No thrown renders or console errors during the metric switch").toEqual([]);
   } finally {

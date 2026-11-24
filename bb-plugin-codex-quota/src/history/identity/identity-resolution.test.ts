@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { resolveIdentity } from "./identity-resolution.js";
+
 const record = {
   sessionId: "pi-header-id",
   providerSessionKey: "provider-a.jsonl",
@@ -11,11 +12,12 @@ const identities = [
   { providerIdentity: "provider-b", threadId: "thr_a" },
 ];
 it("resolves every provider identity without comparing it with Pi session ID", () => {
-  for (const providerSessionKey of ["provider-a.jsonl", "provider-b.jsonl"])
+  for (const providerSessionKey of ["provider-a.jsonl", "provider-b.jsonl"]) {
     expect(resolveIdentity({ ...record, providerSessionKey }, identities, [], true)).toEqual({
       grade: "exact-thread",
       threadId: "thr_a",
     });
+  }
   expect(
     resolveIdentity({ ...record, providerSessionKey: "pi-header-id.jsonl" }, identities, [], true)
       .grade,
@@ -58,10 +60,11 @@ it("conflicts stay ambiguous and confirmed imports join distinct IDs", () => {
   ).toBe("workspace-only");
 });
 it("shared paths, basenames and prefix collisions cannot identify a thread", () => {
-  for (const workspace of ["/recorded", "/recorded/sub", "/other/recorded"])
+  for (const workspace of ["/recorded", "/recorded/sub", "/other/recorded"]) {
     expect(
       resolveIdentity({ ...record, providerSessionKey: null, workspace }, identities, [], true),
     ).toEqual({ grade: "workspace-only", threadId: null });
+  }
   expect(
     resolveIdentity({ ...record, providerSessionKey: null, workspace: null }, [], [], true).grade,
   ).toBe("unattributed");

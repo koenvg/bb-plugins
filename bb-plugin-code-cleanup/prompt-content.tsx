@@ -29,7 +29,9 @@ export function PromptContent({
           role="tablist"
           aria-label="Guidance view"
           onKeyDown={(event) => {
-            if (disabled) return;
+            if (disabled) {
+              return;
+            }
             if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
               event.preventDefault();
               changeTab(

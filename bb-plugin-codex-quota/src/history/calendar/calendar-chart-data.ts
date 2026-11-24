@@ -31,10 +31,14 @@ export const tokenCategories = [
 export function tokenBreakdown(day: CalendarDay) {
   const classes = day.classes;
   const unavailable = { state: "unavailable" as const, unclassified: day.totalTokens };
-  if (classes.state !== "available") return unavailable;
+  if (classes.state !== "available") {
+    return unavailable;
+  }
   // Reasoning is already included in output. Retained totals can outlive their detail.
   const classified = classes.input + classes.output + classes.cacheRead + classes.cacheWrite;
-  if (!Number.isSafeInteger(classified) || classified > day.totalTokens) return unavailable;
+  if (!Number.isSafeInteger(classified) || classified > day.totalTokens) {
+    return unavailable;
+  }
   return { ...classes, unclassified: day.totalTokens - classified };
 }
 export function coverageLabel(day: { coverage: CalendarDay["coverage"] }) {
@@ -52,7 +56,9 @@ export function coverageLabel(day: { coverage: CalendarDay["coverage"] }) {
             : "Partial, recorded usage";
 }
 export function recordedValue(day: CalendarDay, metric: TokenMetric): number | null {
-  if (metric === "cost") return day.money.capturedCost;
+  if (metric === "cost") {
+    return day.money.capturedCost;
+  }
   if (metric === "cost-per-entity") {
     const ratio =
       day.money.capturedCost !== null && day.money.pricedEntities
@@ -60,9 +66,15 @@ export function recordedValue(day: CalendarDay, metric: TokenMetric): number | n
         : null;
     return ratio !== null && ratio > 0 ? ratio : null;
   }
-  if (metric === "entities" && day.activeEntities > 0) return day.activeEntities;
-  if (day.totalTokens === 0 && !day.coverage.zero) return null;
-  if (day.coverage.zero) return metric === "per-entity" ? null : 0;
+  if (metric === "entities" && day.activeEntities > 0) {
+    return day.activeEntities;
+  }
+  if (day.totalTokens === 0 && !day.coverage.zero) {
+    return null;
+  }
+  if (day.coverage.zero) {
+    return metric === "per-entity" ? null : 0;
+  }
   return metric === "tokens"
     ? day.totalTokens
     : metric === "entities"
@@ -92,7 +104,7 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
   // Scale only the drawing coordinates. Facts and tooltip values stay unchanged.
   // A unit domain also avoids unsafe tick arithmetic for subnormal captured prices.
   return {
-    models: models,
+    models,
     maximum,
     rows: days.map((day, index) => ({
       date: day.date,
@@ -143,7 +155,9 @@ export const dateLabel = (date: string) =>
   }).format(new Date(`${date}T12:00:00Z`));
 export function axisValue(value: number, metric: TokenMetric) {
   const money = metric === "cost" || metric === "cost-per-entity";
-  if (money && value > 0 && value < 1) return "<$1";
+  if (money && value > 0 && value < 1) {
+    return "<$1";
+  }
   return new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 0,

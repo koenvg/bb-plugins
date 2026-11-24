@@ -40,13 +40,14 @@ export function fingerprintCatalog(
     ownership_resolved: number;
   }[];
   const finish = () => {
-    if (cursor.total)
+    if (cursor.total) {
       db.prepare("INSERT OR REPLACE INTO discovery_catalogs VALUES (?,?,?,?)").run(
         generation,
         cursor.host,
         cursor.digest,
         cursor.total,
       );
+    }
   };
   for (const row of rows) {
     signal.throwIfAborted();
@@ -68,7 +69,7 @@ export function fingerprintCatalog(
           }),
       )
       .digest("hex");
-    cursor.total++;
+    cursor.total += 1;
   }
   if (rows.length < 50) {
     finish();
@@ -95,7 +96,9 @@ export function deliveryCatalog(db: HistoryDatabase, generation: number, hostId:
   const target = db
     .prepare("SELECT generation,digest,total FROM discovery_targets WHERE host_id=?")
     .get(hostId) as { generation: number; digest: string; total: number } | undefined;
-  if (target && target.digest === current.digest && target.total === current.total) return target;
+  if (target && target.digest === current.digest && target.total === current.total) {
+    return target;
+  }
   db.prepare(
     "INSERT INTO discovery_targets VALUES (?,?,?,?) ON CONFLICT(host_id) DO UPDATE SET generation=excluded.generation,digest=excluded.digest,total=excluded.total",
   ).run(hostId, generation, current.digest, current.total);

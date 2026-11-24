@@ -11,15 +11,21 @@ type MediaQueryRef = {
 const mediaQueryCache = new Map<string, MediaQueryRef>();
 
 function createMediaQueryRef(query: string): MediaQueryRef | null {
-  if (typeof window === "undefined" || !window.matchMedia) return null;
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return null;
+  }
 
   let ref = mediaQueryCache.get(query);
-  if (ref) return ref;
+  if (ref) {
+    return ref;
+  }
 
   const mql = window.matchMedia(query);
   const listeners = new Set<() => void>();
   const onChange = () => {
-    for (const listener of listeners) listener();
+    for (const listener of listeners) {
+      listener();
+    }
   };
 
   ref = {
@@ -48,7 +54,9 @@ export function subscribeMediaQuery(query: string, notify: () => void): () => vo
 }
 
 export function getMediaQuerySnapshot(query: string): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return false;
+  }
   return mediaQueryCache.get(query)?.mql.matches ?? window.matchMedia(query).matches;
 }
 

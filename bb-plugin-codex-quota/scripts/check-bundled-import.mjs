@@ -3,20 +3,23 @@ import { mkdirSync, copyFileSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createBundleFixture } from "./bundle-fixture.mjs";
 import { pathToFileURL } from "node:url";
+
 assert.ok(Number(process.versions.node.split(".")[0]) >= 22);
 const liveOverlap = process.argv.includes("--live-overlap");
-const root = createBundleFixture("bbp22-bundle-"),
-  fetch = globalThis.fetch,
-  agent = process.env.PI_CODING_AGENT_DIR;
+const root = createBundleFixture("bbp22-bundle-");
+const fetch = globalThis.fetch;
+const agent = process.env.PI_CODING_AGENT_DIR;
 const previousCodexHome = process.env.CODEX_HOME;
 try {
   // Native input is absent unless this check creates its own fixture.
   process.env.CODEX_HOME = join(root, "absent-codex");
-  const source = join(root, "configured-custom-source"),
-    ordinary = join(root, "ordinary-workspace-sessions"),
-    workspace = join(root, "workspace"),
-    dataDir = join(root, "host-data");
-  for (const p of [source, ordinary, workspace, dataDir, join(root, "agent")]) mkdirSync(p);
+  const source = join(root, "configured-custom-source");
+  const ordinary = join(root, "ordinary-workspace-sessions");
+  const workspace = join(root, "workspace");
+  const dataDir = join(root, "host-data");
+  for (const p of [source, ordinary, workspace, dataDir, join(root, "agent")]) {
+    mkdirSync(p);
+  }
   process.env.PI_CODING_AGENT_DIR = join(root, "agent");
   globalThis.fetch = async () => {
     throw Error("Network forbidden");
@@ -31,13 +34,13 @@ try {
     lifecycle: { signal: lifecycle.signal },
     experimental_paths: { dataDir, tempDir: join(root, "temp") },
     experimental_retainWorker() {
-      leases++;
+      leases += 1;
       let released = false;
       return {
         async dispose() {
           if (!released) {
             released = true;
-            leases--;
+            leases -= 1;
           }
         },
       };
@@ -49,8 +52,8 @@ try {
       context,
     );
   assert.equal((await call(bundle, { action: "status" })).reason, "not-configured");
-  const now = Date.now() - 86400000,
-    instant = new Date(now).toISOString();
+  const now = Date.now() - 86400000;
+  const instant = new Date(now).toISOString();
   const header = (id, parentSession) => ({
     type: "session",
     version: 3,
@@ -184,8 +187,9 @@ try {
           "history_recovery",
           "history_reconciliation",
           "history_legacy_pending",
-        ])
+        ]) {
           seed.exec(`DROP TABLE ${table}`);
+        }
         seed.exec("PRAGMA user_version=1");
       });
     } finally {
@@ -196,8 +200,8 @@ try {
   assert.equal(v.generation.state, "stopped");
   assert.equal(v.generation.bytes, 0);
   assert.equal(leases, 0);
-  const generation = v.generation.id,
-    start = v.generation.startAt;
+  const generation = v.generation.id;
+  const start = v.generation.startAt;
   let reload = await import(pathToFileURL(artifact).href + "?reload=1");
   v = await call(reload, { action: "status" });
   assert.equal(v.generation.id, generation);
@@ -206,7 +210,7 @@ try {
     (await call(reload, { action: "configure", configuration })).reason,
     "unfinished-generation",
   );
-  for (let i = 0; i < 20 && v.generation.state === "stopped"; i++) {
+  for (let i = 0; i < 20 && v.generation.state === "stopped"; i += 1) {
     v = await call(reload, { action: "resume" });
     assert.equal(leases, 0);
   }
@@ -270,12 +274,13 @@ try {
     ),
   );
   // New modules and database opens replay unchanged inputs in normal mode, without estimates.
-  for (let pass = 2; pass <= 3; pass++) {
+  for (let pass = 2; pass <= 3; pass += 1) {
     reload = await import(pathToFileURL(artifact).href + "?reload=" + pass);
     v = await call(reload, { action: "start" });
     assert.notEqual(v.generation.id, generation);
-    for (let i = 0; i < 30 && v.generation.state === "stopped"; i++)
+    for (let i = 0; i < 30 && v.generation.state === "stopped"; i += 1) {
       v = await call(reload, { action: "resume" });
+    }
     assert.equal(v.generation.state, "completed");
     assert.equal(v.generation.omissions, 0);
     assert.equal(v.generation.replayed, 3);
@@ -312,8 +317,9 @@ try {
     );
   }
   v = await call(reload, { action: "start", includeUncertain: true });
-  for (let i = 0; i < 30 && v.generation.state === "stopped"; i++)
+  for (let i = 0; i < 30 && v.generation.state === "stopped"; i += 1) {
     v = await call(reload, { action: "resume" });
+  }
   assert.equal(v.generation.state, "completed");
   assert.equal(v.generation.includeUncertain, true);
   assert.ok(v.generation.uncertainRecords >= 2);
@@ -346,8 +352,9 @@ try {
     [header("pi-unrelated"), message("entry-a")].map(JSON.stringify).join("\n") + "\n",
   );
   v = await call(reload, { action: "start" });
-  for (let i = 0; i < 30 && v.generation.state === "stopped"; i++)
+  for (let i = 0; i < 30 && v.generation.state === "stopped"; i += 1) {
     v = await call(reload, { action: "resume" });
+  }
   assert.equal(v.generation.state, "completed");
   assert.ok(v.generation.diagnostics.includes("unresolved-ancestry"));
   db = await reload.openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite"), true);
@@ -376,8 +383,9 @@ try {
   unlinkSync(parent);
   execFileSync("mkfifo", [parent]);
   v = await call(reload, { action: "start" });
-  for (let i = 0; i < 20 && v.generation.state === "stopped"; i++)
+  for (let i = 0; i < 20 && v.generation.state === "stopped"; i += 1) {
     v = await call(reload, { action: "resume" });
+  }
   assert.equal(v.generation.state, "completed");
   assert.ok(v.generation.diagnostics.includes("missing-source"));
   await call(reload, { action: "cancel" });
@@ -399,8 +407,14 @@ try {
   );
 } finally {
   globalThis.fetch = fetch;
-  if (agent === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = agent;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (agent === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = agent;
+  }
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
 }

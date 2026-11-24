@@ -5,8 +5,8 @@ import {
   createAnnotateController,
   NO_COMPOSER_MESSAGE,
   OFF_SCREEN_MESSAGE,
-  type PillWriter,
 } from "../lib/controller";
+import type { PillWriter } from "../lib/controller";
 
 function fakePage() {
   const scripts: string[] = [];
@@ -19,7 +19,9 @@ function fakePage() {
         installed = true;
         return true;
       }
-      if (script.includes(".teardown(")) installed = false;
+      if (script.includes(".teardown(")) {
+        installed = false;
+      }
       return installed;
     }),
     onMessage: (next: (data: unknown) => void) => {
@@ -181,7 +183,9 @@ describe("annotate controller", () => {
     { operation: "setMode", results: [false, true, true, true, false] },
   ])("rejects unconfirmed $operation acknowledgements $results", async ({ operation, results }) => {
     const { controller, page, onModeChange } = setup();
-    for (const result of results) page.evaluate.mockResolvedValueOnce(result);
+    for (const result of results) {
+      page.evaluate.mockResolvedValueOnce(result);
+    }
 
     const action =
       operation === "attach"

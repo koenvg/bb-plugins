@@ -1,4 +1,5 @@
-import { mountFooterAdapter, type FooterTarget } from "./footer-adapter.js";
+import { mountFooterAdapter } from "./footer-adapter.js";
+import type { FooterTarget } from "./footer-adapter.js";
 
 /** Connects content-script lifetime to the app-wide React owner, within one window. */
 export class QuotaFooterRuntime {
@@ -17,11 +18,15 @@ export class QuotaFooterRuntime {
   getSnapshot = () => this.targets;
   private publish = () => {
     this.targets = this.adapter?.getSnapshot() ?? [];
-    for (const listener of this.listeners) listener();
+    for (const listener of this.listeners) {
+      listener();
+    }
   };
 
   mount(pluginId: string, signal: AbortSignal): () => void {
-    if (signal.aborted) return () => {};
+    if (signal.aborted) {
+      return () => {};
+    }
     const adapter = mountFooterAdapter(document, pluginId);
     this.adapter = adapter;
     const unsubscribe = adapter.subscribe(this.publish);
@@ -29,12 +34,16 @@ export class QuotaFooterRuntime {
     this.publish();
     let stopped = false;
     const dispose = () => {
-      if (stopped) return;
+      if (stopped) {
+        return;
+      }
       stopped = true;
       signal.removeEventListener("abort", dispose);
       unsubscribe();
       adapter.dispose();
-      if (this.adapter !== adapter) return;
+      if (this.adapter !== adapter) {
+        return;
+      }
       this.adapter = null;
       this.navigate = null;
       this.pending = false;
@@ -45,9 +54,14 @@ export class QuotaFooterRuntime {
   }
 
   activate = () => {
-    if (!this.adapter) return;
-    if (this.navigate) this.navigate();
-    else this.pending = true;
+    if (!this.adapter) {
+      return;
+    }
+    if (this.navigate) {
+      this.navigate();
+    } else {
+      this.pending = true;
+    }
   };
 
   bindNavigation(navigate: () => void): () => void {
@@ -58,7 +72,9 @@ export class QuotaFooterRuntime {
       navigate();
     }
     return () => {
-      if (this.navigate !== navigate) return;
+      if (this.navigate !== navigate) {
+        return;
+      }
       this.navigate = null;
       this.pending = false;
       this.adapter?.setNavigationReady(false);

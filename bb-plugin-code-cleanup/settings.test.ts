@@ -8,7 +8,9 @@ import { defaultGuidance } from "./guidance";
 
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 async function setup() {
   const host = createFakePluginHost({
@@ -115,10 +117,11 @@ describe("Settings public operations", () => {
         project: { id: "proj_a" },
         origin: { kind: "fork", pluginId: "side-chat" },
       }),
-    ])
+    ]) {
       expect(
         (await host.harness.behavior.resolveAgentConfiguration(context)).instructions,
       ).toBeNull();
+    }
   });
 
   it("reports a failed SQLite write without changing saved choices", async () => {
@@ -152,10 +155,11 @@ describe("Settings public operations", () => {
     const host = await setup();
     for (const projectId of ["missing", "personal", ""]) {
       await expect(host.harness.behavior.callRpc("getProject", { projectId })).rejects.toThrow();
-      for (const enabledOverride of [true, false, null])
+      for (const enabledOverride of [true, false, null]) {
         await expect(
           host.harness.behavior.callRpc("setEnablement", { projectId, enabledOverride }),
         ).rejects.toThrow();
+      }
       expect(
         (await host.harness.behavior.runCli(["disable", "--project", projectId])).exitCode,
       ).toBe(1);

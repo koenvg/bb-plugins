@@ -62,7 +62,7 @@ for (const width of sizes) {
         summary: { totalTokens: 0, activeEntities: 0, money: { records: 0, capturedCost: null } },
       });
       expect(report.days).toHaveLength(30);
-      for (const day of report.days)
+      for (const day of report.days) {
         expect(day).toMatchObject({
           totalTokens: 0,
           activeEntities: 0,
@@ -71,6 +71,7 @@ for (const width of sizes) {
           classes: { state: "unavailable" },
           money: { state: "unavailable", records: 0, capturedCost: null },
         });
+      }
     }
     await capture(page, info, `native-unobserved-${width}`);
     await page.getByRole("button", { name: "Next 30 days", exact: true }).click();

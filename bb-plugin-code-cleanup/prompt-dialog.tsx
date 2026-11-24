@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import type { ProjectChoice, ProjectState } from "./rpc";
 import { useProjectSettings } from "./use-project-settings";
 import { PromptContent } from "./prompt-content";
@@ -58,9 +59,14 @@ export function PromptDialog({
       alive.current = false;
       modal.close();
       queueMicrotask(() => {
-        if (modal.open) return;
-        if (trigger.isConnected && !trigger.disabled) trigger.focus();
-        else document.getElementById("cleanup-overview-title")?.focus();
+        if (modal.open) {
+          return;
+        }
+        if (trigger.isConnected && !trigger.disabled) {
+          trigger.focus();
+        } else {
+          document.getElementById("cleanup-overview-title")?.focus();
+        }
       });
     };
   }, [trigger]);
@@ -68,51 +74,77 @@ export function PromptDialog({
     onPending(pending);
   }, [pending, onPending]);
   useEffect(() => {
-    if (confirmation) safeAction.current?.focus();
-    else if (!busy && confirmationOrigin.current) {
+    if (confirmation) {
+      safeAction.current?.focus();
+    } else if (!busy && confirmationOrigin.current) {
       const target = confirmationOrigin.current;
-      if (target.isConnected && !target.matches(":disabled")) target.focus();
-      else title.current?.focus();
+      if (target.isConnected && !target.matches(":disabled")) {
+        target.focus();
+      } else {
+        title.current?.focus();
+      }
       confirmationOrigin.current = null;
     }
     if (!confirmation && dialog.current?.open) {
       const active = document.activeElement;
-      if (!dialog.current.contains(active) || active?.matches(":disabled")) title.current?.focus();
+      if (!dialog.current.contains(active) || active?.matches(":disabled")) {
+        title.current?.focus();
+      }
     }
   }, [confirmation, busy, conflict, writeError]);
 
   function close() {
-    if (writeLock.current || closing.current) return;
+    if (writeLock.current || closing.current) {
+      return;
+    }
     closing.current = true;
     dialog.current?.close();
     onClose();
   }
   function ask(kind: Confirmation) {
-    if (busy || writeLock.current) return;
-    if (kind === "reset" && state) resetExpected.current = { prompt: state.prompt };
+    if (busy || writeLock.current) {
+      return;
+    }
+    if (kind === "reset" && state) {
+      resetExpected.current = { prompt: state.prompt };
+    }
     confirmationOrigin.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setConfirmation(kind);
   }
   function dismiss() {
-    if (busy || writeLock.current) return;
-    if (confirmation) setConfirmation(null);
-    else if (dirty) ask("discard");
-    else close();
+    if (busy || writeLock.current) {
+      return;
+    }
+    if (confirmation) {
+      setConfirmation(null);
+    } else if (dirty) {
+      ask("discard");
+    } else {
+      close();
+    }
   }
   async function persist(prompt: string | null) {
-    if (busy || writeLock.current || conflict || !state) return;
+    if (busy || writeLock.current || conflict || !state) {
+      return;
+    }
     const result = await settings.persist(
       project.name,
       prompt,
       prompt === null ? resetExpected.current : undefined,
     );
-    if (!alive.current || closing.current || !result) return;
+    if (!alive.current || closing.current || !result) {
+      return;
+    }
     onConfirmed(result);
-    if (prompt !== null) close();
+    if (prompt !== null) {
+      close();
+    }
   }
   function save() {
-    if (busy || writeLock.current || !dirty || conflict) return;
+    if (busy || writeLock.current || !dirty || conflict) {
+      return;
+    }
     if (!draft.trim() || draft.length > 4096) {
       invalidPrompt();
       return;
@@ -120,12 +152,18 @@ export function PromptDialog({
     void persist(draft);
   }
   function confirm() {
-    if (!confirmation || busy || writeLock.current) return;
+    if (!confirmation || busy || writeLock.current) {
+      return;
+    }
     const action = confirmation;
     setConfirmation(null);
-    if (action === "discard") close();
-    else if (action === "reload") refresh(true);
-    else void persist(null);
+    if (action === "discard") {
+      close();
+    } else if (action === "reload") {
+      refresh(true);
+    } else {
+      void persist(null);
+    }
   }
 
   return (
@@ -172,7 +210,9 @@ export function PromptDialog({
         if (event.key === "Escape" && confirmation) {
           event.preventDefault();
           event.stopPropagation();
-          if (!busy && !writeLock.current) setConfirmation(null);
+          if (!busy && !writeLock.current) {
+            setConfirmation(null);
+          }
         }
       }}
     >
@@ -244,8 +284,11 @@ export function PromptDialog({
               <button
                 disabled={busy}
                 onClick={() => {
-                  if (dirty) ask("reload");
-                  else refresh(true);
+                  if (dirty) {
+                    ask("reload");
+                  } else {
+                    refresh(true);
+                  }
                 }}
               >
                 Reload saved settings

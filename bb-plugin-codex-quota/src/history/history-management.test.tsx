@@ -12,9 +12,9 @@ const app = await loadPluginApp(() => import("../plugin/app.js"));
 afterEach(cleanup);
 
 it("keeps management idle during chart navigation and opens only the explicitly chosen machine", async () => {
-  const f = await dashboardFixture(),
-    page = f.page(),
-    q = within(page.container);
+  const f = await dashboardFixture();
+  const page = f.page();
+  const q = within(page.container);
   await q.findByRole("group", { name: "Daily recorded values" });
   fireEvent.click(q.getByRole("button", { name: "Threads" }));
   expect(f.selectHost).not.toHaveBeenCalled();
@@ -73,10 +73,11 @@ function fixture() {
     missing,
     settle: async () =>
       act(async () => {
-        for (const call of pending)
+        for (const call of pending) {
           call.resolve(
             call.method === "historicalImport" ? importUnavailable("not-configured") : missing,
           );
+        }
       }),
     stop: () => {
       page.lifecycle.unmount();
@@ -96,12 +97,14 @@ it.each(["close", "unmount"])(
         details.open = true;
         fireEvent(details, new Event("toggle"));
       });
-      if (action === "unmount") f.page.lifecycle.unmount();
-      else
+      if (action === "unmount") {
+        f.page.lifecycle.unmount();
+      } else {
         flushSync(() => {
           details.open = false;
           fireEvent(details, new Event("toggle"));
         });
+      }
     });
     expect(f.pending).toEqual([]);
     f.stop();
@@ -162,8 +165,9 @@ it.each(["close", "unmount"])(
     await act(async () => {
       fireEvent.click(f.q.getByRole("button", { name: "Install collector" }));
       fireEvent.click(f.q.getByRole("button", { name: "Check import status" }));
-      if (action === "unmount") f.page.lifecycle.unmount();
-      else
+      if (action === "unmount") {
+        f.page.lifecycle.unmount();
+      } else {
         flushSync(() => {
           const details = f.q
             .getByText("Machine status and collection settings")
@@ -171,6 +175,7 @@ it.each(["close", "unmount"])(
           details.open = false;
           fireEvent(details, new Event("toggle"));
         });
+      }
     });
     expect(f.pending).toHaveLength(2);
     f.stop();
@@ -225,10 +230,13 @@ it.each(["commands", "host"])(
       }
       fireEvent.click(summary);
       expect(summary.closest("details")!.open).toBe(false);
-      if (action === "host")
+      if (action === "host") {
         fireEvent.click(summary.closest("details")!.querySelectorAll("button")[1]!);
+      }
       // Native toggle is delivered in a later task. Let request microtasks run first.
-      for (let i = 0; i < 10; i++) await Promise.resolve();
+      for (let i = 0; i < 10; i += 1) {
+        await Promise.resolve();
+      }
     });
     expect(f.page.inspection.rpcCalls.filter((call) => call.method === "selectHost")).toHaveLength(
       1,

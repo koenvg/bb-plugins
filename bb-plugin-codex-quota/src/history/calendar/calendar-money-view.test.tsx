@@ -88,10 +88,11 @@ it.each([
   render(<UsageTooltip day={day} metric="cost" />);
   const row = within(screen.getByLabelText("Captured cost by model")).getByRole("listitem");
   expect(row.textContent).toBe(`A${expected}`);
-  if (cost === null)
+  if (cost === null) {
     expect(row.getAttribute("title")).toBe(
       "Unavailable · 1 of 1 records priced · pricing unavailable, unsafe monetary sum",
     );
+  }
 });
 
 it("rounds visible cost ledger dollars without dropping partial-pricing details", () => {

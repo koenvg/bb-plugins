@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planCrop } from "../lib/geometry";
-import { drawAnnotation, OUTLINE_DARK, OUTLINE_LIGHT, type DrawingContext } from "../lib/render";
+import { drawAnnotation, OUTLINE_DARK, OUTLINE_LIGHT } from "../lib/render";
+import type { DrawingContext } from "../lib/render";
 
 function fakeContext() {
   const calls: { op: string; args: unknown[]; style?: unknown; lineWidth?: number }[] = [];

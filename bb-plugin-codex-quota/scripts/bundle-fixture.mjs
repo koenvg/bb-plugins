@@ -13,7 +13,9 @@ export function createBundleFixture(prefix) {
     } catch (error) {
       console.error(`Could not remove owned bundle fixture ${root}:`, error);
       // Report cleanup failure without replacing an existing check failure.
-      if (!process.exitCode) process.exitCode = 1;
+      if (!process.exitCode) {
+        process.exitCode = 1;
+      }
     }
   });
   return root;

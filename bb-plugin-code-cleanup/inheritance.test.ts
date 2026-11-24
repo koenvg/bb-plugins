@@ -8,7 +8,9 @@ import { defaultGuidance } from "./guidance";
 
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 const projects = ["enabled", "disabled", "prompt_only", "absent", "new_prompt"].map((id) => ({
   id,
@@ -23,7 +25,7 @@ function fixture() {
   hosts.push(host.harness);
   return host;
 }
-const exact = "  Legacy prompt\r\n\n`$(literal)` ${text}\n ";
+const exact = `  Legacy prompt\r\n\n\`$(literal)\` \${text}\n `;
 
 describe("enablement inheritance through the official host", () => {
   it("declares an initially disabled host field and signals only confirmed effective changes", async () => {
@@ -136,7 +138,7 @@ describe("enablement inheritance through the official host", () => {
       (await host.harness.behavior.runCli(["enablement", "reset", "--project", "prompt_only"]))
         .exitCode,
     ).toBe(0);
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 2; i += 1) {
       host = await host.harness.lifecycle.reload(plugin);
       hosts.pop();
       hosts.push(host.harness);

@@ -24,8 +24,11 @@ export function placeByAnchor<T>(
       continue;
     }
     const group = byPath.get(path);
-    if (group === undefined) byPath.set(path, [item]);
-    else group.push(item);
+    if (group === undefined) {
+      byPath.set(path, [item]);
+    } else {
+      group.push(item);
+    }
   }
   return { byPath, notInDiff };
 }

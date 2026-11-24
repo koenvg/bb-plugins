@@ -28,7 +28,7 @@ export function comparisonReasons(
         ? "attribution-excluded"
         : "collection-unproved";
   // Only genuine readCoverage.zero dates can yield observed-inactivity. Pricing is independent.
-  if (current.state === "observed-inactivity" && prior.state === "observed-inactivity")
+  if (current.state === "observed-inactivity" && prior.state === "observed-inactivity") {
     return {
       tokens: "zero-baseline",
       entities: "zero-baseline",
@@ -36,6 +36,7 @@ export function comparisonReasons(
       cost: "pricing-unavailable",
       "cost-per-entity": "pricing-unavailable",
     };
+  }
   return Object.fromEntries(comparisonMetrics.map((metric) => [metric, common])) as Record<
     ComparisonMetric,
     ComparisonReason

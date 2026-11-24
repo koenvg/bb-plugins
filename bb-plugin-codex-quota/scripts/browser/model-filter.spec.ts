@@ -16,7 +16,9 @@ const bars = (page: Page) =>
     >();
     for (const node of nodes) {
       const height = Number(node.getAttribute("height"));
-      if (height <= 0) continue;
+      if (height <= 0) {
+        continue;
+      }
       const key = node.getAttribute("data-ts-key")!;
       const identity = JSON.parse(key.slice(key.indexOf("[")))[1];
       const group = groups.get(identity) ?? [];
@@ -56,8 +58,8 @@ async function settled(page: Page) {
       ),
   );
 }
-for (const width of [375, 1280])
-  for (const theme of ["light", "dark"] as const)
+for (const width of [375, 1280]) {
+  for (const theme of ["light", "dark"] as const) {
     test(`exact-series filtering ${width}px ${theme}`, async ({ page }, info) => {
       const writes: unknown[] = [];
       await page.exposeFunction("recordFilterStorageWrite", (...args: unknown[]) =>
@@ -233,8 +235,10 @@ for (const width of [375, 1280])
         .getByRole("group", { name: "Chart metric" })
         .getByRole("button", { name: "Tokens", exact: true })
         .click();
-      for (let cycle = 0; cycle < 2; cycle++) {
-        for (const name of names) await series(page, name).click();
+      for (let cycle = 0; cycle < 2; cycle += 1) {
+        for (const name of names) {
+          await series(page, name).click();
+        }
         await expect(
           page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
         ).toHaveText("All model series hidden. Recorded usage is not zero.");
@@ -282,6 +286,8 @@ for (const width of [375, 1280])
       await settled(page);
       await expect(series(page, names[1])).toHaveAttribute("aria-pressed", "true");
     });
+  }
+}
 
 test("uncertainty restacks unfiltered on the visible daily scale", async ({ page }, info) => {
   await page.goto("/calendar.html?state=partial");
@@ -343,8 +349,8 @@ test("failed same-query refresh keeps selection, range navigation resets it", as
   await expect(previous).toBeFocused();
 });
 
-for (const width of [375, 1280])
-  for (const theme of ["light", "dark"] as const)
+for (const width of [375, 1280]) {
+  for (const theme of ["light", "dark"] as const) {
     test(`tiny and reserved-name series ${width}px ${theme}`, async ({ page }, info) => {
       await page.setViewportSize({ width, height: 1100 });
       await page.emulateMedia({ colorScheme: theme });
@@ -384,11 +390,12 @@ for (const width of [375, 1280])
       const box = (await long.boundingBox())!;
       expect(box.height).toBe(width === 375 ? 64 : 44);
       expect(await long.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-      for (let index = 0; index < names.length; index++) {
+      for (let index = 0; index < names.length; index += 1) {
         await series(page, names[index]).click();
         await expect(series(page, names[index])).toHaveAttribute("aria-pressed", "false");
-        for (let sibling = index + 1; sibling < names.length; sibling++)
+        for (let sibling = index + 1; sibling < names.length; sibling += 1) {
           await expect(series(page, names[sibling])).toHaveAttribute("aria-pressed", "true");
+        }
         expect(await rows(page)).toEqual(daily);
       }
       const filtered = await bars(page);
@@ -410,14 +417,16 @@ for (const width of [375, 1280])
       const labelBox = (await long.locator("span").last().boundingBox())!;
       await page.touchscreen.tap(labelBox.x + labelBox.width - 1, labelBox.y + labelBox.height - 1);
       await expect(long).toHaveAttribute("aria-pressed", "false");
-      for (const name of names.filter((name) => name !== names[2]))
+      for (const name of names.filter((name) => name !== names[2])) {
         await expect(series(page, name)).toHaveAttribute("aria-pressed", "true");
+      }
       await long.click();
       const swatchBox = (await series(page, names[0]).locator("span").first().boundingBox())!;
       await page.touchscreen.tap(swatchBox.x + 5, swatchBox.y + 5);
       await expect(series(page, names[0])).toHaveAttribute("aria-pressed", "false");
-      for (const name of names.slice(1))
+      for (const name of names.slice(1)) {
         await expect(series(page, name)).toHaveAttribute("aria-pressed", "true");
+      }
       await series(page, names[0]).click();
       await noOverflow(page);
       expect(
@@ -426,8 +435,10 @@ for (const width of [375, 1280])
       await capture(page, info, `filter-edges-${width}-${theme}`);
       await jsonEvidence(info, "tiny-series.json", { initial, filtered, daily, long: box });
     });
+  }
+}
 
-for (const state of ["unknown", "inactive", "filter-uncertain-only"])
+for (const state of ["unknown", "inactive", "filter-uncertain-only"]) {
   test(`no recorded series stays honest and recoverable: ${state}`, async ({ page }) => {
     await page.goto(`/calendar.html?state=${state}`);
     await settled(page);
@@ -451,5 +462,8 @@ for (const state of ["unknown", "inactive", "filter-uncertain-only"])
       await expect(page.getByRole("tooltip")).toContainText("Recorded tokensUnavailable");
       await expect(page.getByRole("tooltip")).toContainText("Uncertain estimate300 tokens");
       await expect(page.getByLabel("Tokens by model", { exact: true })).toHaveCount(0);
-    } else expect(await bars(page)).toEqual([]);
+    } else {
+      expect(await bars(page)).toEqual([]);
+    }
   });
+}

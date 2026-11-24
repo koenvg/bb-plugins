@@ -1,4 +1,5 @@
-import { useMemo, type ComponentType } from "react";
+import { useMemo } from "react";
+import type { ComponentType } from "react";
 import type {
   ComposerDraft,
   ComposerMention,
@@ -84,8 +85,9 @@ export function createTabCapturer(
       for (const { instanceId, generation } of instances) {
         const scope = { hostId: host.id, instanceId, generation, threadId };
         const { tabs } = await browsers.listTabs(scope).catch(() => ({ tabs: [] }));
-        if (tabs.some((tab) => tab.tabId === tabId))
+        if (tabs.some((tab) => tab.tabId === tabId)) {
           return { hostId: host.id, instanceId, generation };
+        }
       }
     }
     throw new Error("The Browser tab could not be found for a screenshot.");
@@ -152,7 +154,9 @@ export function withoutAnnotationPill(draft: ComposerDraft, id: string): Compose
   const removed = draft.mentions.filter(
     (mention) => isAnnotationMention(mention) && mention.id === id,
   );
-  if (removed.length === 0) return draft;
+  if (removed.length === 0) {
+    return draft;
+  }
   let text = draft.text;
   let mentions = draft.mentions.filter((mention) => !removed.includes(mention));
   for (const target of [...removed].sort((a, b) => b.from - a.from)) {

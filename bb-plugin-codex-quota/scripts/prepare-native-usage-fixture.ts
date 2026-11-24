@@ -11,8 +11,8 @@ export async function prepareNativeUsageFixture(
   fixtures = fileURLToPath(new URL("../fixtures/", import.meta.url)),
 ) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "native-browser-history-")));
-  const home = join(root, "codex"),
-    dataDir = join(root, "data");
+  const home = join(root, "codex");
+  const dataDir = join(root, "data");
   const now = Date.parse("2026-10-01T12:00:00Z");
   const history = createHostHistory({ now: () => now, codexHome: () => home });
   try {
@@ -63,11 +63,17 @@ export async function prepareNativeUsageFixture(
         ],
       },
     };
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 30; i += 1) {
       const result = await history.prepare!(context);
-      if (result.state !== "available") throw Error(result.reason);
-      if (!result.ingestionPending && !result.attribution.backlog) break;
-      if (i === 29) throw Error("Native usage fixture did not settle");
+      if (result.state !== "available") {
+        throw Error(result.reason);
+      }
+      if (!result.ingestionPending && !result.attribution.backlog) {
+        break;
+      }
+      if (i === 29) {
+        throw Error("Native usage fixture did not settle");
+      }
     }
     const query: CalendarQuery = {
       startDate: "2026-09-02",
@@ -77,15 +83,18 @@ export async function prepareNativeUsageFixture(
       includeUncertain: true,
     };
     const reports = [];
-    for (const group of ["workspace", "thread"] as const)
+    for (const group of ["workspace", "thread"] as const) {
       for (const startDate of ["2026-09-02", "2026-08-03"]) {
         const report = await history.report(
           { ...query, group, includeUncertain: group === "workspace", startDate },
           context,
         );
-        if (report.state === "unavailable") throw Error(report.reason);
+        if (report.state === "unavailable") {
+          throw Error(report.reason);
+        }
         reports.push(report);
       }
+    }
     return reports;
   } finally {
     history.dispose();

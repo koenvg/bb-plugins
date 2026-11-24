@@ -24,7 +24,7 @@ it("finishes 158 bounded batches on one open, keeps the chart usable, and refres
   let batch = 0;
   const prepare = vi.fn(
     async (_input: import("../report-preparation-contract.js").PreparationRequest) =>
-      ++batch < 158 ? pending(String(batch)) : settled,
+      (batch += 1) < 158 ? pending(String(batch)) : settled,
   );
   const read = vi.fn(async ({ query }) => calendarSnapshot(query));
   render(<CalendarReportPanel selection={selection} now={now} read={read} prepare={prepare} />);
@@ -68,7 +68,7 @@ it.each(["host", "hidden", "unmount"])(
       <CalendarReportPanel selection={selection} now={now} read={read} prepare={prepare} />,
     );
     await flush();
-    if (cancel === "host")
+    if (cancel === "host") {
       page.rerender(
         <CalendarReportPanel
           selection={selection}
@@ -78,11 +78,14 @@ it.each(["host", "hidden", "unmount"])(
           prepare={prepare}
         />,
       );
+    }
     if (cancel === "hidden") {
       vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
       fireEvent(document, new Event("visibilitychange"));
     }
-    if (cancel === "unmount") page.unmount();
+    if (cancel === "unmount") {
+      page.unmount();
+    }
     await act(async () => {
       finish(pending("late"));
     });
@@ -139,7 +142,9 @@ it.each(["stalled", "unknown", "failure"])(
   async (mode) => {
     vi.useFakeTimers();
     const prepare = vi.fn(async () => {
-      if (mode === "failure") throw Error("offline");
+      if (mode === "failure") {
+        throw Error("offline");
+      }
       return mode === "unknown"
         ? { state: "unavailable", progress: "", reason: "identity-unavailable" }
         : pending("same");
@@ -179,7 +184,7 @@ it.each(["stalled", "unknown", "failure"])(
 it("stops a progressing but oversized round at its absolute batch limit", async () => {
   vi.useFakeTimers();
   let batch = 0;
-  const prepare = vi.fn(async () => pending(String(++batch)));
+  const prepare = vi.fn(async () => pending(String((batch += 1))));
   render(
     <CalendarReportPanel
       selection={selection}

@@ -121,10 +121,18 @@ describe("quota footer attachment", () => {
       adapter.setNavigationReady(true);
       adapter.getSnapshot()[0]!.commit();
       expect(getComputedStyle(row).display).toBe("none");
-      if (mode === "hidden") item.hidden = true;
-      if (mode === "display") item.style.display = "none";
-      if (mode === "duplicate") item.after(item.cloneNode(true));
-      if (mode === "remove") item.remove();
+      if (mode === "hidden") {
+        item.hidden = true;
+      }
+      if (mode === "display") {
+        item.style.display = "none";
+      }
+      if (mode === "duplicate") {
+        item.after(item.cloneNode(true));
+      }
+      if (mode === "remove") {
+        item.remove();
+      }
       await waitFor(() => expect(getComputedStyle(row).display).not.toBe("none"));
       expect(adapter.getSnapshot()).toHaveLength(0);
       expect(

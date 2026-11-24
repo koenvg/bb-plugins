@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
-import { parsePatchFiles, processFile, type FileDiffMetadata } from "@pierre/diffs";
+import { parsePatchFiles, processFile } from "@pierre/diffs";
+import type { FileDiffMetadata } from "@pierre/diffs";
 import type { rpcContract } from "../contract";
 import {
   ContextError,
@@ -8,9 +9,8 @@ import {
   textRevisions,
   validateContext,
   validateText,
-  type ContextFailure,
-  type Snapshot,
 } from "../core/text-context";
+import type { ContextFailure, Snapshot } from "../core/text-context";
 
 export type ContextState =
   | { kind: "idle" }
@@ -31,18 +31,22 @@ export function useFileContext(snapshot: Snapshot | null) {
   const id = useId();
   const key = snapshot === null ? null : JSON.stringify(snapshot);
   const session = useRef<Session>({ key, snapshot, state: IDLE, requestId: 0 });
-  if (session.current.key !== key) session.current = { key, snapshot, state: IDLE, requestId: 0 };
+  if (session.current.key !== key) {
+    session.current = { key, snapshot, state: IDLE, requestId: 0 };
+  }
   const [published, setPublished] = useState<{
     session: Session;
     state: ContextState;
   } | null>(null);
-  if (published !== null && published.session !== session.current) setPublished(null);
+  if (published !== null && published.session !== session.current) {
+    setPublished(null);
+  }
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      session.current.requestId++;
+      session.current.requestId += 1;
     };
   }, []);
 
@@ -54,13 +58,16 @@ export function useFileContext(snapshot: Snapshot | null) {
       source.state.kind === "loading" ||
       source.state.kind === "ready" ||
       (source.state.kind === "failed" && source.state.error.code !== "read")
-    )
+    ) {
       return;
-    const requestId = ++source.requestId;
+    }
+    const requestId = (source.requestId += 1);
     const current = () =>
       mounted.current && session.current === source && source.requestId === requestId;
     const publish = (state: ContextState) => {
-      if (!current()) return;
+      if (!current()) {
+        return;
+      }
       source.state = state;
       setPublished({ session: source, state });
     };
@@ -72,7 +79,9 @@ export function useFileContext(snapshot: Snapshot | null) {
         file: captured.file,
         patch: captured.patch,
       });
-      if (!current()) return;
+      if (!current()) {
+        return;
+      }
       const texts = validateContext(captured, result);
       let original: FileDiffMetadata[];
       let diff: FileDiffMetadata | undefined;
@@ -99,8 +108,9 @@ export function useFileContext(snapshot: Snapshot | null) {
           original[0]!.hunks.map((hunk) => hunk.hunkSpecs).join("") ||
         diff.additionLines.join("") !== texts.new ||
         diff.deletionLines.join("") !== texts.old
-      )
+      ) {
         throw new ContextError("unsupported", "Context could not be displayed. Refresh changes.");
+      }
       publish({ kind: "ready", snapshot: captured, diff });
     } catch (error) {
       publish({ kind: "failed", snapshot: captured, error: contextFailure(error) });
@@ -116,7 +126,9 @@ export function contextEligibility(
   snapshot: Snapshot | null,
   diff: FileDiffMetadata | null,
 ): string | null {
-  if (!snapshot || !diff?.isPartial || diff.hunks.length === 0) return "";
+  if (!snapshot || !diff?.isPartial || diff.hunks.length === 0) {
+    return "";
+  }
   try {
     textRevisions(snapshot.basis, snapshot.file);
     validateText(snapshot.patch, new TextEncoder().encode(snapshot.patch).length);
@@ -142,9 +154,13 @@ export function prepareContextControls(node: HTMLElement): void {
             : "Expand unchanged lines",
     );
     button.onkeydown = (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
       event.preventDefault();
-      if (event.repeat) return;
+      if (event.repeat) {
+        return;
+      }
       const index = Array.from(root.querySelectorAll("[data-expand-button]")).indexOf(button);
       button.click();
       const controls = root.querySelectorAll<HTMLElement>("[data-expand-button]");

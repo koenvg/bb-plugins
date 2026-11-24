@@ -6,10 +6,11 @@ import { AccountActivity } from "../src/activity/activity-view.js";
 import { normalizeActivity } from "../src/activity/activity.js";
 import type { ActivityApi } from "../src/activity/activity-request-state.js";
 import { HistoryReadinessPanel } from "../src/history/history-view.js";
+
 const now = Date.now();
 let activityCalls = 0;
 const read: ActivityApi = async () => {
-  activityCalls++;
+  activityCalls += 1;
   document.body.dataset.activityCalls = String(activityCalls);
   return {
     state: "fresh",

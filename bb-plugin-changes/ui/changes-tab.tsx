@@ -1,5 +1,6 @@
 import { canMark } from "../core/viewed-files";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -8,11 +9,13 @@ import { DiffStat } from "../../review-ui/diff-stat";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "../../review-ui/styles";
 import type { DiffView } from "../../review-ui/review-file-diff";
 import type { rpcContract } from "../contract";
-import { targetKey, type BranchCommit, type ChangedFile, type DiffTarget } from "../core/changes";
-import { pendingReviews, type OpenForm, type PendingComment } from "../core/pending-review";
-import { placeByAnchor, type FileLines } from "../core/place-comments";
+import { targetKey, messageOf } from "../core/changes";
+import type { BranchCommit, ChangedFile, DiffTarget } from "../core/changes";
+import { pendingReviews } from "../core/pending-review";
+import type { OpenForm, PendingComment } from "../core/pending-review";
+import { placeByAnchor } from "../core/place-comments";
+import type { FileLines } from "../core/place-comments";
 import { buildReviewPrompt, sortComments } from "../core/review-prompt";
-import { messageOf } from "../core/changes";
 import { compareFilePaths } from "../core/file-order";
 import { FileOutline } from "./file-outline";
 import { FileSection } from "./file-section";
@@ -20,9 +23,11 @@ import { NotInDiff } from "./not-in-diff";
 import { SendFeedbackDialog } from "./send-feedback-dialog";
 import { useChanges } from "./use-changes";
 import { useFileNavigation } from "./use-file-navigation";
-import { usePatches, type LoadedChanges, type PatchState, type Patches } from "./use-patches";
+import { usePatches } from "./use-patches";
+import type { LoadedChanges, PatchState, Patches } from "./use-patches";
 import { usePendingReview } from "./use-pending-review";
-import { useViewed, type Viewed } from "./use-viewed";
+import { useViewed } from "./use-viewed";
+import type { Viewed } from "./use-viewed";
 
 export function ChangesTab({ threadId }: { threadId: string }) {
   return <ChangesTabContent key={threadId} threadId={threadId} />;
@@ -187,9 +192,16 @@ function FileList({
   );
 
   useEffect(() => {
-    for (const comment of comments) if (linesByPath.has(comment.path)) patches.load(comment.path);
-    for (const { anchor } of openForms.values())
-      if (linesByPath.has(anchor.path)) patches.load(anchor.path);
+    for (const comment of comments) {
+      if (linesByPath.has(comment.path)) {
+        patches.load(comment.path);
+      }
+    }
+    for (const { anchor } of openForms.values()) {
+      if (linesByPath.has(anchor.path)) {
+        patches.load(anchor.path);
+      }
+    }
   }, [comments, openForms, linesByPath, patches]);
 
   if (
@@ -238,7 +250,9 @@ const NO_FILES: readonly ChangedFile[] = [];
 
 function countByPath(comments: readonly PendingComment[]): ReadonlyMap<string, number> {
   const counts = new Map<string, number>();
-  for (const { path } of comments) counts.set(path, (counts.get(path) ?? 0) + 1);
+  for (const { path } of comments) {
+    counts.set(path, (counts.get(path) ?? 0) + 1);
+  }
   return counts;
 }
 
@@ -247,8 +261,12 @@ function byPath(a: ChangedFile, b: ChangedFile): number {
 }
 
 function fileLines(file: ChangedFile, state: PatchState): FileLines {
-  if (!canMark(file)) return "absent";
-  if (state.kind === "loaded") return diffLines(state.patch);
+  if (!canMark(file)) {
+    return "absent";
+  }
+  if (state.kind === "loaded") {
+    return diffLines(state.patch);
+  }
   return state.kind === "loading" ? "pending" : "absent";
 }
 
@@ -276,7 +294,9 @@ function useSendFeedback(threadId: string) {
   }
 
   async function send(text: string) {
-    if (dialog === null) return;
+    if (dialog === null) {
+      return;
+    }
     const { comments } = dialog;
     setDialog({ ...dialog, sending: true, error: null });
     const result = await rpc
@@ -310,9 +330,15 @@ const STATIC_TARGETS = [
 ] as const;
 
 function parseTarget(value: string): DiffTarget {
-  if (value.startsWith("commit:")) return { kind: "commit", sha: value.slice("commit:".length) };
-  if (value === "uncommitted") return { kind: "uncommitted" };
-  if (value === "branch_committed") return { kind: "branch_committed" };
+  if (value.startsWith("commit:")) {
+    return { kind: "commit", sha: value.slice("commit:".length) };
+  }
+  if (value === "uncommitted") {
+    return { kind: "uncommitted" };
+  }
+  if (value === "branch_committed") {
+    return { kind: "branch_committed" };
+  }
   return ALL_CHANGES;
 }
 

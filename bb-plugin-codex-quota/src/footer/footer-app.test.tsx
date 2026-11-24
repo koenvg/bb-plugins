@@ -16,7 +16,9 @@ const app = await loadPluginApp(() => import("../plugin/app.js"));
 const disposers: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
   cleanup();
-  for (const dispose of disposers.splice(0).reverse()) await act(dispose);
+  for (const dispose of disposers.splice(0).reverse()) {
+    await act(dispose);
+  }
   document.body.replaceChildren();
   vi.restoreAllMocks();
 });
@@ -78,7 +80,9 @@ describe("Codex quota footer integration", () => {
     const { row } = footerFixture();
     const footer = app.experimentalSidebarFooterItems[0];
     expect(footer?.kind).toBe("action");
-    if (footer?.kind !== "action") throw new Error("Expected native quota action");
+    if (footer?.kind !== "action") {
+      throw new Error("Expected native quota action");
+    }
     const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
     disposers.push(() => scripts.lifecycle.dispose());
     footer.onActivate({ openPluginDetails: vi.fn() });
@@ -151,7 +155,9 @@ describe("Codex quota footer integration", () => {
         snapshot: state === "stale" ? fresh(72).snapshot : null,
       });
       data.accounts[0]!.identity = identity;
-      if (reason === "host-offline") data.machines[0]!.status = "disconnected";
+      if (reason === "host-offline") {
+        data.machines[0]!.status = "disconnected";
+      }
       const config = { rpc: { machineAccounts: async () => data } };
       mountRefresh(config);
       renderSlot(footerSlot, {}, config);
@@ -235,8 +241,8 @@ describe("Codex quota footer integration", () => {
     const { button } = footerFixture();
     const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
     disposers.push(() => scripts.lifecycle.dispose());
-    const initial = Date.now(),
-      clock = vi.spyOn(Date, "now").mockReturnValue(initial);
+    const initial = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(initial);
     const timers = vi.spyOn(globalThis, "setInterval");
     let resolve!: (value: ReturnType<typeof accountResult>) => void;
     const api = vi.fn(
@@ -248,8 +254,8 @@ describe("Codex quota footer integration", () => {
     const config = { rpc: { machineAccounts: api } };
     mountRefresh(config);
     renderSlot(footerSlot, {}, config);
-    const Battery = app.icons[0]!.component,
-      icon = render(<Battery />);
+    const Battery = app.icons[0]!.component;
+    const icon = render(<Battery />);
     renderSlot(app.navPanels[0]!, { subPath: "" }, config);
     await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
     await act(async () => {
@@ -331,13 +337,13 @@ describe("Codex quota footer integration", () => {
   it.each([6 * 60_000, 86_400_001])(
     "keeps icons neutral after owner disposal and %i ms",
     async (elapsed) => {
-      const initial = Date.now(),
-        clock = vi.spyOn(Date, "now").mockReturnValue(initial);
+      const initial = Date.now();
+      const clock = vi.spyOn(Date, "now").mockReturnValue(initial);
       const owner = mountRefresh({
         rpc: { machineAccounts: async () => accountResult(fresh(72)) },
       });
-      const Battery = app.icons[0]!.component,
-        icon = render(<Battery />);
+      const Battery = app.icons[0]!.component;
+      const icon = render(<Battery />);
       await waitFor(() => expect(icon.container.querySelector("[data-battery-fill]")).toBeTruthy());
       owner.lifecycle.unmount();
       clock.mockReturnValue(initial + elapsed);

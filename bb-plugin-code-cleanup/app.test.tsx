@@ -3,11 +3,8 @@ import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  loadPluginApp,
-  renderSlot,
-  type PluginRpcTestHandlers,
-} from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import type { ProjectState, ProjectSummary, PromptResult, SettingsContract } from "./rpc";
@@ -15,7 +12,9 @@ import type { ProjectState, ProjectSummary, PromptResult, SettingsContract } fro
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
   cleanup();
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 const choices = [
   { id: "proj_a", name: "Alpha" },
@@ -100,11 +99,15 @@ describe("project Settings", () => {
       const editor = await screen.findByRole("textbox");
       await userEvent.clear(editor);
       await userEvent.type(editor, "Keep exact draft");
-      if (reason === "reconnect") await view.behavior.setRealtimeConnectionState("reconnecting");
+      if (reason === "reconnect") {
+        await view.behavior.setRealtimeConnectionState("reconnecting");
+      }
       enableByDefault = true;
-      if (reason === "default notification")
+      if (reason === "default notification") {
         await view.behavior.emitRealtime("settings.changed", { kind: "default" });
-      else await view.behavior.setRealtimeConnectionState("connected");
+      } else {
+        await view.behavior.setRealtimeConnectionState("connected");
+      }
       expect(toggle().getAttribute("aria-checked")).toBe("true");
       expect((editor as HTMLTextAreaElement).value).toBe("Keep exact draft");
       expect(view.inspection.rpcCalls.filter((c) => c.method.startsWith("set"))).toEqual([]);
@@ -116,7 +119,7 @@ describe("project Settings", () => {
     let reads = 0;
     const view = await mount({
       getProject: ({ projectId }) =>
-        ++reads === 1
+        (reads += 1) === 1
           ? initial.promise
           : { ...state(projectId), prompt: "Latest", effectivePrompt: "Latest" },
     });
@@ -164,7 +167,7 @@ describe("project Settings", () => {
     expect(host.bb.storage.database().prepare("SELECT * FROM project_settings").all()).toEqual(
       before,
     );
-    const draft = '  # Custom\n\n`$(echo "$HOME")` and ${literal}\n';
+    const draft = `  # Custom\n\n\`$(echo "$HOME")\` and \${literal}\n`;
     await userEvent.clear(editor);
     await userEvent.click(editor);
     await userEvent.paste(draft);
@@ -208,7 +211,9 @@ describe("project Settings", () => {
     await mount({
       getProject: ({ projectId }) => {
         if (projectId === "proj_a") {
-          if (++aReads === 1) throw new Error("read failed");
+          if ((aReads += 1) === 1) {
+            throw new Error("read failed");
+          }
           return late.promise;
         }
         return { ...state(projectId), effectivePrompt: "Beta guidance", prompt: null };

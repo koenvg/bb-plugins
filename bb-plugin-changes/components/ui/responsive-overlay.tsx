@@ -32,7 +32,9 @@ const DRAWER_KEYBOARD_INSET_PROPERTY = "--bb-drawer-keyboard-inset";
 const DRAWER_KEYBOARD_MIN_OVERLAP_PX = 80;
 
 function resetDrawerKeyboardStyles(drawerElement: HTMLElement | null): void {
-  if (drawerElement === null) return;
+  if (drawerElement === null) {
+    return;
+  }
 
   drawerElement.style.height = "";
   drawerElement.style.bottom = "";
@@ -61,7 +63,9 @@ function useDrawerKeyboardInset(
   React.useEffect(() => {
     const panel = panelRef.current;
     const visualViewport = window.visualViewport;
-    if (panel === null || !open || !visualViewport) return;
+    if (panel === null || !open || !visualViewport) {
+      return;
+    }
 
     let animationFrame: number | null = null;
     const applyInset = () => {
@@ -486,9 +490,13 @@ export function usePersistentOverlayFocus({
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
 
   React.useLayoutEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
     const panel = panelRef.current;
-    if (panel === null) return;
+    if (panel === null) {
+      return;
+    }
     const ownerDocument = panel.ownerDocument;
     const previousFocus = ownerDocument.activeElement;
     returnFocusRef.current =

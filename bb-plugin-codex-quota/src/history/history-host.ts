@@ -1,33 +1,23 @@
 import { createNativeUsage } from "./native/native-usage.js";
 import { readHostCalendar } from "./calendar/calendar-host.js";
-import {
-  calendarUnavailable,
-  type CalendarQuery,
-  type CalendarReport,
-} from "./calendar/calendar-contract.js";
-import {
-  historyUnavailable,
-  type HistoryReadiness,
-  type CollectorAction,
-  type LegacyConfirmation,
-} from "./history-contract.js";
-import { createImportOperation, type ImportContext } from "./import/import-host.js";
-import {
-  importUnavailable,
-  type ImportCommand,
-  type ImportView,
-} from "./import/import-contract.js";
-import {
-  createHistoryMaintenance,
-  type HistoryDependencies,
-  type HistoryReadContext,
-} from "./history-maintenance.js";
+import { calendarUnavailable } from "./calendar/calendar-contract.js";
+import type { CalendarQuery, CalendarReport } from "./calendar/calendar-contract.js";
+import { historyUnavailable } from "./history-contract.js";
+import type { HistoryReadiness, CollectorAction, LegacyConfirmation } from "./history-contract.js";
+import { createImportOperation } from "./import/import-host.js";
+import type { ImportContext } from "./import/import-host.js";
+import { importUnavailable } from "./import/import-contract.js";
+import type { ImportCommand, ImportView } from "./import/import-contract.js";
+import { createHistoryMaintenance } from "./history-maintenance.js";
+import type { HistoryDependencies, HistoryReadContext } from "./history-maintenance.js";
 import { abortable } from "../activity/activity-cancellation.js";
 import { prepareHostReport } from "./report-preparation-host.js";
 import { hostPreparationSchema } from "./report-preparation-contract.js";
 import type { z } from "zod";
+import { maintenanceUnavailable } from "./collector-maintenance-contract.js";
+import type { RepairResult } from "./collector-maintenance-contract.js";
+
 export type { HistoryReadContext } from "./history-maintenance.js";
-import { maintenanceUnavailable, type RepairResult } from "./collector-maintenance-contract.js";
 
 export interface HostHistory {
   read(context: HistoryReadContext): Promise<HistoryReadiness>;
@@ -115,14 +105,17 @@ export function createHostHistory(deps: HistoryDependencies = {}): HostHistory {
         context,
         async (scoped) => {
           const controller = new AbortController();
-          if ((importEpochs.get(scoped.hostId) ?? 0) !== epoch) controller.abort();
+          if ((importEpochs.get(scoped.hostId) ?? 0) !== epoch) {
+            controller.abort();
+          }
           const signal = AbortSignal.any([scoped.signal, controller.signal]);
           importControllers.set(scoped.hostId, controller);
           try {
             return await importOperation(command, { ...scoped, signal });
           } finally {
-            if (importControllers.get(scoped.hostId) === controller)
+            if (importControllers.get(scoped.hostId) === controller) {
               importControllers.delete(scoped.hostId);
+            }
           }
         },
         importUnavailable("selection-changed"),

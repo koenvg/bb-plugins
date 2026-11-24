@@ -18,9 +18,13 @@ function ProjectSettings() {
   const [showHelp, setShowHelp] = useState(false);
 
   function openEditor(id: string, trigger: HTMLButtonElement) {
-    if (editor || editorLock.current || overview.writeLock.current) return;
+    if (editor || editorLock.current || overview.writeLock.current) {
+      return;
+    }
     const project = overview.rows?.find((row) => row.id === id);
-    if (project) setEditor({ project: { id: project.id, name: project.name }, trigger });
+    if (project) {
+      setEditor({ project: { id: project.id, name: project.name }, trigger });
+    }
   }
 
   return (

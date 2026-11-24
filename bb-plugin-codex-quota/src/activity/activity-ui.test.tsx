@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { within } from "@testing-library/react";
 import { dashboardFixture } from "../machines/app.test-support.js";
 import { AccountActivity, ActivityPanel } from "./activity-view.js";
 import { normalizeActivity } from "./activity.js";
+
 const snapshot = () =>
   normalizeActivity(
     { stats: { lifetime_tokens: 42, daily_usage_buckets: [{ date: "2026-04-20", tokens: 5 }] } },
@@ -117,11 +117,13 @@ describe("account activity disclosure and presentation", () => {
     const f = await dashboardFixture();
     let reads = 0;
     f.machineAccounts.mockImplementation(async (input) => {
-      if ((input as { includeActivity: boolean }).includeActivity) reads++;
+      if ((input as { includeActivity: boolean }).includeActivity) {
+        reads += 1;
+      }
       return f.data;
     });
-    const page = f.settings(),
-      q = within(page.container);
+    const page = f.settings();
+    const q = within(page.container);
     await q.findByText("63%");
     fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]!);
     await waitFor(() => expect(reads).toBe(1));
@@ -135,27 +137,30 @@ describe("account activity disclosure and presentation", () => {
     "stops activity requests when settings unmount with a %s read",
     async (mode) => {
       const f = await dashboardFixture();
-      let reads = 0,
-        finish!: (value: unknown) => void;
+      let reads = 0;
+      let finish!: (value: unknown) => void;
       f.machineAccounts.mockImplementation(async (input) => {
-        if (!(input as { includeActivity: boolean }).includeActivity) return f.data;
-        reads++;
+        if (!(input as { includeActivity: boolean }).includeActivity) {
+          return f.data;
+        }
+        reads += 1;
         return mode === "pending"
           ? new Promise((done) => {
               finish = done;
             })
           : f.data;
       });
-      const settings = f.settings(),
-        q = within(settings.container);
+      const settings = f.settings();
+      const q = within(settings.container);
       await q.findByText("Account allowance");
       fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]!);
       await waitFor(() => expect(reads).toBe(1));
       settings.lifecycle.unmount();
-      if (mode === "pending")
+      if (mode === "pending") {
         await act(async () => {
           finish(f.data);
         });
+      }
       const reopened = f.settings();
       await within(reopened.container).findByText("Account allowance");
       expect(reads).toBe(1);

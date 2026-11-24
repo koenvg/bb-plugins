@@ -2,25 +2,32 @@ import { isVideoPath } from "../core/video-content";
 import { ReviewVideoDiff } from "../../review-ui/video-diff";
 import { contextEligibility, prepareContextControls, useFileContext } from "./use-file-context";
 import type { Snapshot } from "../core/text-context";
-import { useCallback } from "react";
-import { useRpc } from "@get-bb/plugin-sdk/app";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  useRpc,
+  useBbNavigate,
+  experimental_useCodeTheme as useCodeTheme,
+} from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
-import type { ChangesBasis } from "../core/changes";
+import type { ChangesBasis, ChangedFile } from "../core/changes";
 import { isRasterPath } from "../core/image-content";
-import { ReviewImageDiff, imageBlobResult, type ImageSide } from "../../review-ui/image-diff";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ReviewImageDiff, imageBlobResult } from "../../review-ui/image-diff";
+import type { ImageSide } from "../../review-ui/image-diff";
 import { Icon } from "@/components/ui/icon";
-import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
-import { useBbNavigate, experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
-import { diffLines, commentAnchorLine, type DiffLines } from "../../review-ui/diff-lines";
+import { parsePatchFiles } from "@pierre/diffs";
+import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
+import { diffLines, commentAnchorLine } from "../../review-ui/diff-lines";
+import type { DiffLines } from "../../review-ui/diff-lines";
 import { DiffStat } from "../../review-ui/diff-stat";
 import { InlineCommentForm } from "../../review-ui/inline-comment-form";
 import { PendingCommentCard } from "../../review-ui/pending-comment-card";
-import { ReviewFileDiff, type DiffView } from "../../review-ui/review-file-diff";
+import { ReviewFileDiff } from "../../review-ui/review-file-diff";
+import type { DiffView } from "../../review-ui/review-file-diff";
 import { CollapseButton, ViewedCheckbox } from "../../review-ui/viewed-controls";
-import type { ChangedFile } from "../core/changes";
 import { canMark } from "../core/viewed-files";
-import { pendingReviews, type OpenForm, type PendingComment } from "../core/pending-review";
+import { pendingReviews } from "../core/pending-review";
+import type { OpenForm, PendingComment } from "../core/pending-review";
 import type { PatchState } from "./use-patches";
 import type { FileViewedState } from "./use-viewed";
 
@@ -64,7 +71,9 @@ export function FileSection({
   const showsDiff = canMark(file);
   const openFileButton = <OpenFileButton environmentId={environmentId} file={file} />;
   useEffect(() => {
-    if (visible && showsDiff) loadPatch(file.path);
+    if (visible && showsDiff) {
+      loadPatch(file.path);
+    }
   }, [visible, showsDiff, loadPatch, file.path]);
 
   return (
@@ -139,12 +148,13 @@ function ChangesPreview({
   const Preview = video ? ReviewVideoDiff : ReviewImageDiff;
   const load = useCallback(
     async (side: ImageSide, signal: AbortSignal) => {
-      if (!basis)
+      if (!basis) {
         return {
           kind: "error" as const,
           code: "stale" as const,
           message: "Preview revision unavailable. Refresh changes.",
         };
+      }
       const result = await rpc.call(video ? "getVideo" : "getImage", {
         threadId,
         basis,
@@ -253,16 +263,21 @@ function FileDiffWithComments({
   function captureHeaderFocus() {
     const focused = document.activeElement;
     headerFocus.current = null;
-    if (!header.current?.contains(focused)) return;
+    if (!header.current?.contains(focused)) {
+      return;
+    }
     for (const control of ["collapse", "filename", "viewed"] as const) {
-      if (focused?.getAttribute("aria-label") === headerLabels[control])
+      if (focused?.getAttribute("aria-label") === headerLabels[control]) {
         headerFocus.current = control;
+      }
     }
   }
   useLayoutEffect(() => {
     const control = headerFocus.current;
     headerFocus.current = null;
-    if (control === null) return;
+    if (control === null) {
+      return;
+    }
     Array.from(header.current?.querySelectorAll<HTMLElement>("[aria-label]") ?? [])
       .find((element) => element.getAttribute("aria-label") === headerLabels[control])
       ?.focus();
@@ -303,12 +318,13 @@ function FileDiffWithComments({
     ],
     [comments, openForms],
   );
-  if (fileDiff === null)
+  if (fileDiff === null) {
     return (
       <FileNotice file={file} openFileButton={openFileButton}>
         Diff not available
       </FileNotice>
     );
+  }
   return (
     <ReviewFileDiff
       key={
@@ -526,10 +542,14 @@ function useNearView<T extends Element>() {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const element = ref.current;
-    if (visible || element === null) return;
+    if (visible || element === null) {
+      return;
+    }
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) setVisible(true);
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+        }
       },
       { rootMargin: "800px 0px" },
     );

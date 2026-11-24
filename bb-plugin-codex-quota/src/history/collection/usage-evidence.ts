@@ -25,8 +25,8 @@ function scalarValues(payload: string) {
   return values;
 }
 function proofs(payload: string) {
-  const values = scalarValues(payload),
-    { version, ...rest } = values;
+  const values = scalarValues(payload);
+  const { version, ...rest } = values;
   return {
     v: 2,
     d: hash(JSON.stringify(values)),
@@ -40,15 +40,18 @@ export function usageEvidence(payload: string) {
   return JSON.stringify(proofs(payload));
 }
 function evidenceHashes(value: string): string[] {
-  if (!value.startsWith("{")) return [value];
+  if (!value.startsWith("{")) {
+    return [value];
+  }
   const input = JSON.parse(value) as { v?: number; d?: string; o?: string; i?: string };
   const proof = input.v === 2 ? input : proofs(value);
   if (
     ![proof.d, proof.o, proof.i].every(
       (hash) => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash),
     )
-  )
+  ) {
     throw Error("History evidence unavailable");
+  }
   return [proof.d!, proof.o!, proof.i!];
 }
 export function sameUsageEvidence(left: string, right: string) {
@@ -59,7 +62,9 @@ export function usageDigest(payload: string) {
   return hash(JSON.stringify({ eventId: JSON.parse(payload).eventId, d: proofs(payload).d }));
 }
 export function sameCompactUsage(row: CompactRow, payload: string) {
-  if (row.digest === usageDigest(payload)) return true;
+  if (row.digest === usageDigest(payload)) {
+    return true;
+  }
   // The original version-2/3 digest includes optional metadata and provenance. Compare
   // incoming scalars with those original fields, without rewriting the stored row.
   const legacy = usageRecordSchema.parse({

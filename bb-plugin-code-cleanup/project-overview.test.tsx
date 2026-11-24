@@ -3,11 +3,8 @@ import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  loadPluginApp,
-  renderSlot,
-  type PluginRpcTestHandlers,
-} from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import type { ProjectState, ProjectSummary, SettingsContract } from "./rpc";
 
 afterEach(cleanup);
@@ -131,7 +128,9 @@ describe("saved project overview", () => {
     let failed = true;
     const rendered = await mount({
       listProjectSummaries: () => {
-        if (failed) throw new Error("offline");
+        if (failed) {
+          throw new Error("offline");
+        }
         return initial;
       },
     });
@@ -225,7 +224,9 @@ describe("saved project overview", () => {
     let failed = false;
     const rendered = await mount({
       listProjectSummaries: () => {
-        if (failed) throw new Error("refresh offline");
+        if (failed) {
+          throw new Error("refresh offline");
+        }
         return initial;
       },
     });
@@ -258,7 +259,7 @@ describe("saved project overview", () => {
     const confirmed = initial.map((r) => (r.id === "proj_a" ? { ...r, enabled: false } : r));
     const rendered = await mount({
       listProjectSummaries: () =>
-        ++reads === 2 ? oldRead.promise : reads > 2 ? confirmed : initial,
+        (reads += 1) === 2 ? oldRead.promise : reads > 2 ? confirmed : initial,
     });
     await screen.findByRole("table");
     await rendered.behavior.emitRealtime("settings.changed", { kind: "default" });

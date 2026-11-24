@@ -6,6 +6,7 @@ import { reportsFixture } from "../../machines/machines.test-support.js";
 import { calendarEmptySnapshot, calendarSnapshot } from "./calendar-test-support.js";
 import { latestStart, shiftDate } from "./calendar-time.js";
 import type { CalendarQuery } from "./calendar-contract.js";
+
 it("shows only the top ten rankings for each grouping and selected metric", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
@@ -14,7 +15,9 @@ it("shows only the top ten rankings for each grouping and selected metric", asyn
     const data = reportsFixture(requested(input));
     data.machines = data.machines.slice(0, 1);
     const report = data.machines[0]!.report;
-    if (report.state === "unavailable") throw new Error("Fixture unavailable");
+    if (report.state === "unavailable") {
+      throw new Error("Fixture unavailable");
+    }
     const template = report.ranking[0]!;
     report.ranking = Array.from({ length: 12 }, (_, i) => ({
       ...template,
@@ -25,8 +28,8 @@ it("shows only the top ten rankings for each grouping and selected metric", asyn
     }));
     return data;
   });
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   const table = await q.findByRole("table", { name: "Recorded usage ranking" });
   await waitFor(() => expect(table.querySelectorAll("tbody tr")).toHaveLength(10));
   const labels = () =>
@@ -54,12 +57,15 @@ it("defaults to Threads first and removes the requested generic notices", async 
   f.machinePreparation.mockResolvedValue({ state: "pending", progress: "synthetic-pending" });
   f.machineReports.mockImplementation(async (input) => {
     const data = reportsFixture(requested(input));
-    for (const row of data.machines)
-      if (row.report.state !== "unavailable") row.report.truncated = true;
+    for (const row of data.machines) {
+      if (row.report.state !== "unavailable") {
+        row.report.truncated = true;
+      }
+    }
     return data;
   });
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await q.findByRole("table", { name: "Daily recorded usage" });
   expect(q.getByRole("heading", { name: "Top 10 threads" })).toBeTruthy();
   const grouping = q.getByLabelText("Usage grouping");
@@ -81,8 +87,8 @@ const requested = (input: unknown) => (input as { query: CalendarQuery }).query;
 async function pageFixture() {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
-  const f = await dashboardFixture(),
-    page = f.page();
+  const f = await dashboardFixture();
+  const page = f.page();
   return { ...f, view: page, q: within(page.container) };
 }
 it("opens the latest thirty dates through today", async () => {
@@ -122,8 +128,8 @@ it("navigates the retained chart without opening collection or import controls",
 it("changes metrics locally without another report or preparation request", async () => {
   const f = await pageFixture();
   await f.q.findByRole("group", { name: "Daily recorded values" });
-  const reads = f.machineReports.mock.calls.length,
-    preparations = f.machinePreparation.mock.calls.length;
+  const reads = f.machineReports.mock.calls.length;
+  const preparations = f.machinePreparation.mock.calls.length;
   fireEvent.click(f.q.getByRole("button", { name: "Estimated cost" }));
   expect(f.machineReports).toHaveBeenCalledTimes(reads);
   expect(f.machinePreparation).toHaveBeenCalledTimes(preparations);
@@ -169,8 +175,8 @@ it.each(["unknown", "observed-inactivity"] as const)(
     f.machineReports.mockImplementation(async (input) =>
       reportFixture(calendarEmptySnapshot(requested(input), state)),
     );
-    const page = f.page(),
-      q = within(page.container);
+    const page = f.page();
+    const q = within(page.container);
     await q.findByRole("table", { name: "Daily recorded usage" });
     expect(q.getByLabelText("Recorded token subtotal").textContent).toBe(
       state === "unknown" ? "Unknown" : "0",
@@ -185,8 +191,8 @@ it("does not draw monetary zero when accepted records have no captured prices", 
   f.machineReports.mockImplementation(async (input) =>
     reportFixture(calendarSnapshot(requested(input))),
   );
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await q.findByRole("table", { name: "Daily recorded usage" });
   fireEvent.click(q.getByRole("button", { name: "Estimated cost" }));
   expect(q.getByLabelText("Captured cost subtotal").textContent).toBe("Unknown");
@@ -205,8 +211,8 @@ it("retains recorded offline values with an incomplete-coverage notice", async (
     data.machines[0]!.machine.status = "disconnected";
     return data;
   });
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await waitFor(() =>
     expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
   );
@@ -217,11 +223,13 @@ it("does not turn absent history into zero, or hide independently available acco
   const f = await dashboardFixture();
   f.machineReports.mockImplementation(async (input) => {
     const data = reportsFixture(requested(input));
-    for (const row of data.machines) row.report = { state: "unavailable", reason: "host-offline" };
+    for (const row of data.machines) {
+      row.report = { state: "unavailable", reason: "host-offline" };
+    }
     return data;
   });
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await q.findByText(/No usable recorded history/);
   expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("—");
   expect(q.getByText("63%")).toBeTruthy();
@@ -229,8 +237,8 @@ it("does not turn absent history into zero, or hide independently available acco
 it("retries a chart failure without refreshing allowance or installing collection", async () => {
   const f = await dashboardFixture();
   f.machineReports.mockRejectedValue(new Error("private diagnostic"));
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await q.findByRole("button", { name: "Retry chart" });
   expect(page.container.textContent).not.toContain("private diagnostic");
   f.machineReports.mockImplementation(async (input) => reportsFixture(requested(input)));
@@ -247,8 +255,8 @@ it("keeps stopped preparation visible after a successful report and offers manua
     reason: "unsupported",
     progress: "",
   });
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await q.findByRole("group", { name: "Daily recorded values" });
   await q.findByRole("button", { name: "Retry preparation" });
   f.machinePreparation.mockResolvedValue({ state: "settled", progress: "ready" });
@@ -279,7 +287,9 @@ it("keeps recorded totals while omitting the generic bounded-ranking notice", as
   f.machineReports.mockImplementation(async (input) => {
     const data = reportsFixture(requested(input));
     const report = data.machines[0]!.report;
-    if (report.state !== "unavailable") report.truncated = true;
+    if (report.state !== "unavailable") {
+      report.truncated = true;
+    }
     return data;
   });
   const page = f.page();
@@ -291,8 +301,8 @@ it("keeps recorded totals while omitting the generic bounded-ranking notice", as
 });
 it("keeps a previous valid subtotal after a malformed response for the same range", async () => {
   const f = await dashboardFixture();
-  let finish!: (value: unknown) => void,
-    reads = 0;
+  let finish!: (value: unknown) => void;
+  let reads = 0;
   f.machinePreparation.mockImplementationOnce(
     async () =>
       new Promise((done) => {
@@ -300,10 +310,10 @@ it("keeps a previous valid subtotal after a malformed response for the same rang
       }),
   );
   f.machineReports.mockImplementation(async (input) =>
-    ++reads === 1 ? reportsFixture(requested(input)) : { machines: "invalid" },
+    (reads += 1) === 1 ? reportsFixture(requested(input)) : { machines: "invalid" },
   );
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await q.findByRole("group", { name: "Daily recorded values" });
   await act(async () => {
     finish({ state: "settled", progress: "ready" });

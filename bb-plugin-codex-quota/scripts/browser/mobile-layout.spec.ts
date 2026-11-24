@@ -66,8 +66,9 @@ test("coarse-pointer controls have 44px touch targets", async ({ page }) => {
     page.getByRole("button", { name: "Next 30 days" }),
     page.getByRole("button", { name: "Latest", exact: true }),
     page.getByRole("button", { name: "Refresh allowance" }),
-  ])
+  ]) {
     expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
   await expect(page.getByText("Inspect a date", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Inspect / })).toHaveCount(0);
   await page.getByRole("button", { name: "Refresh allowance" }).tap();

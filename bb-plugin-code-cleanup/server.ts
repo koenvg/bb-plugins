@@ -1,4 +1,5 @@
-import { cliCommand, defineCli, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { cliCommand, defineCli } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { openProjectSettings } from "./project-settings";
 import { defaultGuidance } from "./guidance";
 import { projectConfiguration, notifySettings } from "./configuration";
@@ -26,10 +27,13 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
   const settings = openProjectSettings(bb);
 
   bb.agents.configure(({ project, origin }) => {
-    if (project.kind !== "standard" || !project.id || origin.pluginId === "side-chat")
+    if (project.kind !== "standard" || !project.id || origin.pluginId === "side-chat") {
       return { tools: [], skills: [] };
+    }
     const state = settings.get(project.id, enableByDefault);
-    if (!state.enabled) return { tools: [], skills: [] };
+    if (!state.enabled) {
+      return { tools: [], skills: [] };
+    }
     return { tools: [], skills: [], instructions: state.prompt ?? defaultGuidance(project.id) };
   });
 

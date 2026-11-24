@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  definePluginApp,
-  useComposers,
-  useRealtime,
-  useRpc,
-  useSdk,
-  type PluginComposerApi,
-} from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useComposers, useRealtime, useRpc, useSdk } from "@get-bb/plugin-sdk/app";
+import type { PluginComposerApi } from "@get-bb/plugin-sdk/app";
 import { CHANGED_CHANNEL } from "./lib/annotation";
 import type { rpcContract } from "./lib/contract";
-import { createAnnotateController, type AnnotateController } from "./lib/controller";
-import { createHiddenPins, type HiddenPins } from "./lib/hidden-pins";
+import { createAnnotateController } from "./lib/controller";
+import type { AnnotateController } from "./lib/controller";
+import { createHiddenPins } from "./lib/hidden-pins";
+import type { HiddenPins } from "./lib/hidden-pins";
 import { createPillTracker } from "./lib/pill-tracker";
 import { renderAnnotatedJpeg } from "./lib/render";
 import {
@@ -21,8 +17,8 @@ import {
   registerBrowserToolbarAction,
   registerHeadlessOverlay,
   removeAnnotationPill,
-  type BrowserTabProps,
 } from "./lib/sdk-adapter";
+import type { BrowserTabProps } from "./lib/sdk-adapter";
 import { useHostTheme } from "./lib/theme";
 
 const INSTALL_CHECK_MS = 1000;
@@ -64,7 +60,9 @@ export function AnnotateControl({
   const [controller, setController] = useState<AnnotateController | null>(null);
 
   useEffect(() => {
-    if (!page) return;
+    if (!page) {
+      return;
+    }
     const created = createAnnotateController({
       threadId,
       tabId,
@@ -94,7 +92,9 @@ export function AnnotateControl({
   }, [threadId, tabId, page, rpc, capturer, composer, hiddenPins, reportError]);
 
   useEffect(() => {
-    if (!controller || error) return;
+    if (!controller || error) {
+      return;
+    }
     const timer = setInterval(
       () => void controller.ensureInstalled().catch(reportError),
       INSTALL_CHECK_MS,
@@ -103,7 +103,9 @@ export function AnnotateControl({
   }, [controller, error, reportError]);
 
   useEffect(() => {
-    if (!controller) return;
+    if (!controller) {
+      return;
+    }
     return hiddenPins.subscribe(() => void controller.applyHidden().catch(reportError));
   }, [controller, hiddenPins, reportError]);
 
@@ -122,10 +124,14 @@ export function AnnotateControl({
     }
   });
 
-  if (!page) return null;
+  if (!page) {
+    return null;
+  }
 
   const setMode = async (next: boolean) => {
-    if (!controller || pending) return;
+    if (!controller || pending) {
+      return;
+    }
     setPending(true);
     try {
       await controller.setMode(next);
@@ -207,8 +213,9 @@ export function PillSync({ hiddenPins }: { hiddenPins: HiddenPins }) {
 
   useEffect(() => () => tracker.dispose(), [tracker]);
   useEffect(() => {
-    for (const { threadId, ids, isSubmitting } of latestDrafts.current)
+    for (const { threadId, ids, isSubmitting } of latestDrafts.current) {
       tracker.observe(threadId, ids, isSubmitting);
+    }
   }, [draftKey, tracker, latestDrafts]);
   useEffect(() => {
     const unsubscribes = latestComposers.current.map((composer) =>

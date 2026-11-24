@@ -1,8 +1,10 @@
 import type { Annotation } from "./annotation";
 import type { AnnotationsRpc } from "./contract";
-import { planCrop, type CropPlan } from "./geometry";
+import { planCrop } from "./geometry";
+import type { CropPlan } from "./geometry";
 import type { AnnotatorApi, PagePin, PageTheme } from "./page/annotator";
-import { parsePageMessage, type SaveMessage } from "./page/messages";
+import { parsePageMessage } from "./page/messages";
+import type { SaveMessage } from "./page/messages";
 import { annotatorCallScript, annotatorInstallScript } from "./page/script";
 import type { PageScripting, TabCapture } from "./sdk-adapter";
 
@@ -56,7 +58,9 @@ export function createAnnotateController(deps: ControllerDeps) {
 
   async function install() {
     confirm(await page.evaluate(annotatorInstallScript()));
-    if (theme) confirm(await page.evaluate(annotatorCallScript("setTheme", theme)));
+    if (theme) {
+      confirm(await page.evaluate(annotatorCallScript("setTheme", theme)));
+    }
     confirm(await page.evaluate(annotatorCallScript("setMode", modeOn)));
     confirm(await page.evaluate(annotatorCallScript("setPins", await pins())));
   }
@@ -66,7 +70,9 @@ export function createAnnotateController(deps: ControllerDeps) {
     ...args: Parameters<AnnotatorApi[M]>
   ) {
     const result = await page.evaluate(annotatorCallScript(method, ...args));
-    if (result !== false) return confirm(result);
+    if (result !== false) {
+      return confirm(result);
+    }
     if (checksPaused && method !== "setMode") {
       throw new Error("Browser Annotate is not installed on this page.");
     }
@@ -138,8 +144,9 @@ export function createAnnotateController(deps: ControllerDeps) {
   async function handle(data: unknown) {
     const message = parsePageMessage(data);
     if (!message) {
-      if ((data as { type?: unknown } | null)?.type === "save")
+      if ((data as { type?: unknown } | null)?.type === "save") {
         await call("saveFailed", OFF_SCREEN_MESSAGE);
+      }
       return;
     }
     switch (message.type) {
@@ -173,7 +180,9 @@ export function createAnnotateController(deps: ControllerDeps) {
 
   const unsubscribe = page.onMessage((data) => {
     void enqueue(() => handle(data)).catch((error) => {
-      if (!disposed) deps.onError(error);
+      if (!disposed) {
+        deps.onError(error);
+      }
     });
   });
 
@@ -184,13 +193,17 @@ export function createAnnotateController(deps: ControllerDeps) {
         deps.onModeChange(false);
         await install();
         checksPaused = false;
-        if (!disposed) deps.onModeChange(modeOn);
+        if (!disposed) {
+          deps.onModeChange(modeOn);
+        }
       });
     },
     setMode(on: boolean) {
       return enqueue(async () => {
         await call("setMode", on);
-        if (disposed) return;
+        if (disposed) {
+          return;
+        }
         modeOn = on;
         checksPaused = false;
         deps.onModeChange(on);
@@ -208,7 +221,9 @@ export function createAnnotateController(deps: ControllerDeps) {
     },
     ensureInstalled() {
       return enqueue(async () => {
-        if (!checksPaused) await call("ping");
+        if (!checksPaused) {
+          await call("ping");
+        }
       });
     },
     dispose() {

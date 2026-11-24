@@ -18,9 +18,9 @@ const checks = commands.map((command) => {
 });
 const root = realpathSync(mkdtempSync(join(tmpdir(), "codex-bundle-isolation-")));
 try {
-  const home = join(root, "home"),
-    inherited = join(root, "inherited-codex"),
-    ambientRoots = [join(home, ".codex"), inherited];
+  const home = join(root, "home");
+  const inherited = join(root, "inherited-codex");
+  const ambientRoots = [join(home, ".codex"), inherited];
   const fixture = readFileSync(new URL("../fixtures/native-legacy-usage.jsonl", import.meta.url));
   const sources = [];
   for (const nativeRoot of ambientRoots) {
@@ -63,8 +63,11 @@ try {
   `;
   for (const mode of ["default-home", "inherited-home"]) {
     const env = { ...process.env, HOME: home };
-    if (mode === "default-home") delete env.CODEX_HOME;
-    else env.CODEX_HOME = inherited;
+    if (mode === "default-home") {
+      delete env.CODEX_HOME;
+    } else {
+      env.CODEX_HOME = inherited;
+    }
     for (const [script, ...flags] of checks) {
       const result = spawnSync(
         process.execPath,
@@ -85,7 +88,9 @@ try {
         0,
         `${mode}: ${script} ${flags.join(" ")}\n${result.error ?? ""}\n${result.stdout}\n${result.stderr}`,
       );
-      for (const source of sources) assert.deepEqual(readFileSync(source), fixture);
+      for (const source of sources) {
+        assert.deepEqual(readFileSync(source), fixture);
+      }
     }
     console.log(
       `Bundled input isolation passed: ${checks.length} checks, ${mode}, no ambient native access, unchanged ambient fixtures, restored CODEX_HOME.`,

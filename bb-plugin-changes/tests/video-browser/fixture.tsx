@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { ReviewVideoDiff } from "../../../review-ui/video-diff";
-import { imageBlobResult, type ImageSide } from "../../../review-ui/image-diff";
+import { imageBlobResult } from "../../../review-ui/image-diff";
+import type { ImageSide } from "../../../review-ui/image-diff";
 
 function Fixture() {
   const load = useCallback(async (side: ImageSide, signal: AbortSignal) => {

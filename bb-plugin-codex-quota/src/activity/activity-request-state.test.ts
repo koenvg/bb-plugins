@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ActivityRequestState } from "./activity-request-state.js";
 import { normalizeActivity } from "./activity.js";
+
 const time = Date.UTC(2026, 3, 23, 12);
 const snapshot = normalizeActivity({ stats: { lifetime_tokens: 12 } }, time)!;
 const fresh = { state: "fresh" as const, reason: "ok" as const, snapshot };
@@ -27,7 +28,9 @@ describe("activity-only browser request state", () => {
     let fail = false;
     const store = new ActivityRequestState(
       async () => {
-        if (fail) throw new Error("private");
+        if (fail) {
+          throw new Error("private");
+        }
         return fresh;
       },
       () => now,
@@ -89,7 +92,9 @@ describe("activity-only browser request state", () => {
       store.open({ hostId: "a", generation: 1 });
       const cancelled = store.refresh();
       store.close();
-      if (reopen) store.open({ hostId: "b", generation: 2 });
+      if (reopen) {
+        store.open({ hostId: "b", generation: 2 });
+      }
       await cancelled;
       expect(read).not.toHaveBeenCalled();
       expect(store.getSnapshot().view.snapshot).toBeNull();

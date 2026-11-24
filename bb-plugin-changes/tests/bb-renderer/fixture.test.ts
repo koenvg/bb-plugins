@@ -1,4 +1,5 @@
-import { validateContext, type Snapshot } from "../../core/text-context";
+import { validateContext } from "../../core/text-context";
+import type { Snapshot } from "../../core/text-context";
 import { describe, expect, it } from "vitest";
 import {
   DELETED_PATH,

@@ -1,4 +1,5 @@
-import { PluginCliError, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { PluginCliError } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { ProjectSettingsStore } from "./project-settings";
 import { defaultGuidance } from "./guidance";
 
@@ -89,8 +90,11 @@ export function projectConfiguration(
         return { status: "conflict", state: snapshot(projectId) };
       }
       if (!expected) {
-        if (prompt === null) settings.resetPrompt(projectId);
-        else settings.setPrompt(projectId, prompt);
+        if (prompt === null) {
+          settings.resetPrompt(projectId);
+        } else {
+          settings.setPrompt(projectId, prompt);
+        }
       }
       notifySettings(bb, { kind: "project", projectId });
       return { status: "saved", state: snapshot(projectId) };

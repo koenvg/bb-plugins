@@ -18,7 +18,9 @@ export function createPillTracker(deps: PillTrackerDeps) {
 
   const pendingFor = (threadId: string) => {
     let timers = pending.get(threadId);
-    if (!timers) pending.set(threadId, (timers = new Map()));
+    if (!timers) {
+      pending.set(threadId, (timers = new Map()));
+    }
     return timers;
   };
 
@@ -28,7 +30,9 @@ export function createPillTracker(deps: PillTrackerDeps) {
       const known = seen.get(threadId) ?? new Set<string>();
       const timers = pendingFor(threadId);
       if (isSubmitting) {
-        if (!submitting.has(threadId)) submitting.set(threadId, new Set(known));
+        if (!submitting.has(threadId)) {
+          submitting.set(threadId, new Set(known));
+        }
         for (const [id, timer] of timers) {
           clearTimeout(timer);
           deps.show(id);
@@ -47,7 +51,9 @@ export function createPillTracker(deps: PillTrackerDeps) {
         known.add(id);
       }
       for (const id of known) {
-        if (isSubmitting || present.has(id) || timers.has(id)) continue;
+        if (isSubmitting || present.has(id) || timers.has(id)) {
+          continue;
+        }
         deps.hide(id);
         timers.set(
           id,
@@ -65,7 +71,9 @@ export function createPillTracker(deps: PillTrackerDeps) {
       const known = seen.get(threadId);
       for (const id of submitting.get(threadId) ?? known ?? []) {
         const timer = timers.get(id);
-        if (timer !== undefined) clearTimeout(timer);
+        if (timer !== undefined) {
+          clearTimeout(timer);
+        }
         timers.delete(id);
         deps.hide(id);
         known?.delete(id);
@@ -78,8 +86,11 @@ export function createPillTracker(deps: PillTrackerDeps) {
       void deps.clearResolved(threadId).catch(() => undefined);
     },
     dispose() {
-      for (const timers of pending.values())
-        for (const timer of timers.values()) clearTimeout(timer);
+      for (const timers of pending.values()) {
+        for (const timer of timers.values()) {
+          clearTimeout(timer);
+        }
+      }
       pending.clear();
       seen.clear();
       submitting.clear();

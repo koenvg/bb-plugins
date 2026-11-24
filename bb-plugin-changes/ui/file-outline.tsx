@@ -1,18 +1,11 @@
-import {
-  Fragment,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type PointerEvent,
-} from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent, PointerEvent } from "react";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { DiffStat } from "../../review-ui/diff-stat";
 import type { ChangedFile } from "../core/changes";
-import { buildFileTree, visibleRows, type FileTreeRow } from "../core/file-tree";
+import { buildFileTree, visibleRows } from "../core/file-tree";
+import type { FileTreeRow } from "../core/file-tree";
 import { FileTypeIcon } from "./file-icons/file-type-icon";
 import { getFileIconName } from "./file-icons/icon-map";
 import { OUTLINE_WIDTH, useOutlineWidth } from "./use-outline-width";
@@ -38,13 +31,17 @@ export function FileOutline({ files, commentCounts, current, onSelect }: FileOut
   const outline = useOutlineWidth();
   const navId = useId();
   useEffect(() => {
-    if (current !== null && nav.current !== null) revealRow(nav.current, current);
+    if (current !== null && nav.current !== null) {
+      revealRow(nav.current, current);
+    }
   }, [current]);
 
   function toggle(path: string) {
     setCollapsed((previous) => {
       const next = new Set(previous);
-      if (!next.delete(path)) next.add(path);
+      if (!next.delete(path)) {
+        next.add(path);
+      }
       return next;
     });
   }
@@ -90,7 +87,9 @@ function ResizeHandle({ outline, controls }: { outline: OutlineWidth; controls: 
   const [dragging, setDragging] = useState(false);
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return;
+    if (event.button !== 0) {
+      return;
+    }
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const startWidth = renderedWidth(event.currentTarget);
@@ -99,13 +98,17 @@ function ResizeHandle({ outline, controls }: { outline: OutlineWidth; controls: 
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (drag.current === null) return;
+    if (drag.current === null) {
+      return;
+    }
     drag.current.width = drag.current.startWidth + event.clientX - drag.current.startX;
     outline.preview(drag.current.width);
   }
 
   function endDrag() {
-    if (drag.current === null) return;
+    if (drag.current === null) {
+      return;
+    }
     outline.commit(drag.current.width);
     drag.current = null;
     setDragging(false);
@@ -113,7 +116,9 @@ function ResizeHandle({ outline, controls }: { outline: OutlineWidth; controls: 
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const step = event.key === "ArrowRight" ? 10 : event.key === "ArrowLeft" ? -10 : 0;
-    if (step === 0) return;
+    if (step === 0) {
+      return;
+    }
     event.preventDefault();
     outline.commit(renderedWidth(event.currentTarget) + step);
   }
@@ -253,11 +258,14 @@ function StatusBadge({ status }: { status: ChangedFile["status"] }) {
 
 function revealRow(nav: HTMLElement, path: string) {
   const row = nav.querySelector<HTMLElement>(`button[data-path="${CSS.escape(path)}"]`);
-  if (row === null) return;
+  if (row === null) {
+    return;
+  }
   const rowBox = row.getBoundingClientRect();
   const navBox = nav.getBoundingClientRect();
-  if (rowBox.top < navBox.top || rowBox.bottom > navBox.bottom)
+  if (rowBox.top < navBox.top || rowBox.bottom > navBox.bottom) {
     row.scrollIntoView({ block: "nearest" });
+  }
 }
 
 function rowStart(depth: number): number {
@@ -265,7 +273,9 @@ function rowStart(depth: number): number {
 }
 
 function CommentCount({ count }: { count: number }) {
-  if (count === 0) return null;
+  if (count === 0) {
+    return null;
+  }
   return (
     <span className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
       <span aria-hidden className="inline-flex items-center gap-0.5">

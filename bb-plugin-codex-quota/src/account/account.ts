@@ -1,11 +1,8 @@
-import {
-  QuotaCache,
-  type QuotaRead,
-  type QuotaReason,
-  type QuotaView,
-} from "../quota/quota-cache.js";
+import { QuotaCache } from "../quota/quota-cache.js";
+import type { QuotaRead, QuotaReason, QuotaView } from "../quota/quota-cache.js";
 import { ActivityCache } from "../activity/activity-cache.js";
-import { emptyActivity, type ActivityRead } from "../activity/activity-contract.js";
+import { emptyActivity } from "../activity/activity-contract.js";
+import type { ActivityRead } from "../activity/activity-contract.js";
 import { abortable } from "../activity/activity-cancellation.js";
 import type { AuthState } from "./pi-auth.js";
 import { accountProof } from "./correlation.js";
@@ -81,8 +78,9 @@ export function createAccount(deps: AccountDependencies) {
             )
           : Promise.resolve(emptyActivity("unavailable")),
       ]);
-      if (signal.aborted || (await recheck(signal)) !== auth.identity)
+      if (signal.aborted || (await recheck(signal)) !== auth.identity) {
         return empty("identity-changed");
+      }
       return {
         proof: accountProof(auth.token, challenge),
         quota: quotaView,
@@ -97,7 +95,9 @@ export function createAccount(deps: AccountDependencies) {
     async quota(refresh: boolean, request: AbortSignal): Promise<QuotaView> {
       const signal = readSignal(request);
       const auth = await authenticate(signal);
-      if (signal.aborted) return unavailable("selection-changed");
+      if (signal.aborted) {
+        return unavailable("selection-changed");
+      }
       if (!auth || auth.status !== "ok") {
         quota.invalidate();
         return unavailable(auth?.status ?? "auth-check-failed");
@@ -117,7 +117,9 @@ export function createAccount(deps: AccountDependencies) {
     async activity(refresh: boolean, request: AbortSignal) {
       const signal = readSignal(request);
       const auth = await authenticate(signal);
-      if (signal.aborted) return emptyActivity("selection-changed");
+      if (signal.aborted) {
+        return emptyActivity("selection-changed");
+      }
       if (!auth || auth.status !== "ok") {
         activity.invalidate();
         return emptyActivity(auth?.status ?? "auth-check-failed");

@@ -1,7 +1,7 @@
 import { test, expect, noOverflow, capture, jsonEvidence, reportTheme } from "./fixtures.js";
 import { chart, rows, tooltip } from "./calendar-driver.js";
 
-for (const width of [375, 1280])
+for (const width of [375, 1280]) {
   for (const theme of ["light", "dark"] as const) {
     test(`scalar model totals ${width}px ${theme}`, async ({ page }, info) => {
       await page.setViewportSize({ width, height: 1100 });
@@ -64,3 +64,4 @@ for (const width of [375, 1280])
       });
     });
   }
+}

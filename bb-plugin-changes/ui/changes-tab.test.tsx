@@ -1,23 +1,15 @@
 // @vitest-environment jsdom
 import { pendingReviews } from "../core/pending-review";
-import {
-  textContextResultSchema,
-  textRevisions,
-  type Snapshot,
-  type TextContextResult,
-} from "../core/text-context";
+import { textContextResultSchema, textRevisions } from "../core/text-context";
+import type { Snapshot, TextContextResult } from "../core/text-context";
 import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
-import {
-  parsePatchFiles,
-  type DiffLineAnnotation,
-  type FileDiffMetadata,
-  type SelectedLineRange,
-} from "@pierre/diffs";
+import { parsePatchFiles } from "@pierre/diffs";
+import type { DiffLineAnnotation, FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import { ReviewFileDiff } from "../../review-ui/review-file-diff";
 import type { rpcContract } from "../contract";
 import type {
@@ -57,7 +49,9 @@ vi.mock("@pierre/diffs/react", () => ({
   }) => (
     <div
       ref={(element: HTMLDivElement | null) => {
-        if (element === null) return;
+        if (element === null) {
+          return;
+        }
         const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
         if (!root.firstChild && renderCustomHeader === undefined) {
           root.innerHTML = "<div data-diffs-header><div data-title></div></div>";
@@ -189,7 +183,7 @@ interface Handlers {
   openFilePreview?: () => boolean;
 }
 
-function renderTab(handlers: Handlers = {}, threadId = `thr_${++nextThread}`) {
+function renderTab(handlers: Handlers = {}, threadId = `thr_${(nextThread += 1)}`) {
   const slot = renderSlot<ExperimentalThreadActionTabProps, typeof rpcContract>(
     changesTab,
     { threadId, params: null, environment: null },
@@ -308,7 +302,7 @@ describe("Changes raster review", () => {
     const value = changes([file("logo.png", { binary: true, status: "added" })], { imageBasis });
     const slot = renderTab({
       getChanges: () =>
-        ++count === 1
+        (count += 1) === 1
           ? value
           : new Promise((resolve) => {
               finish = resolve;
@@ -453,10 +447,12 @@ describe("Changes tab", () => {
   it("keeps showing a diff while its refreshed patch loads", async () => {
     let patchCalls = 0;
     const slot = renderTab({
-      getPatches: ({ paths }) =>
-        patchCalls++ === 0
+      getPatches: ({ paths }) => {
+        patchCalls += 1;
+        return patchCalls === 1
           ? { kind: "ok", patches: Object.fromEntries(paths.map((path) => [path, PATCH_A])) }
-          : new Promise<PatchesResult>(() => {}),
+          : new Promise<PatchesResult>(() => {});
+      },
     });
     await slot.findByTestId("file-diff");
 
@@ -510,8 +506,10 @@ describe("Changes tab", () => {
     let release: (result: ChangesResult) => void = () => {};
     let call = 0;
     const slot = renderTab({
-      getChanges: () =>
-        call++ === 0 ? A_ONLY : new Promise<ChangesResult>((resolve) => (release = resolve)),
+      getChanges: () => {
+        call += 1;
+        return call === 1 ? A_ONLY : new Promise<ChangesResult>((resolve) => (release = resolve));
+      },
     });
     await slot.findByTestId("file-diff");
 
@@ -526,7 +524,10 @@ describe("Changes tab", () => {
   it("shows a load error with a retry button", async () => {
     let call = 0;
     const slot = renderTab({
-      getChanges: () => (call++ === 0 ? { kind: "error", message: "permission denied" } : A_ONLY),
+      getChanges: () => {
+        call += 1;
+        return call === 1 ? { kind: "error", message: "permission denied" } : A_ONLY;
+      },
     });
 
     expect(await slot.findByText("permission denied")).toBeTruthy();
@@ -980,7 +981,10 @@ describe("inline comments", () => {
   it("shows an open form whose line left the diff under Not in this diff", async () => {
     let call = 0;
     const slot = renderTab({
-      getChanges: () => (call++ === 0 ? A_ONLY : changes([file("src/b.ts")])),
+      getChanges: () => {
+        call += 1;
+        return call === 1 ? A_ONLY : changes([file("src/b.ts")]);
+      },
     });
     fireEvent.click(await slot.findByRole("button", { name: "+ additions 2" }));
     fireEvent.change(slot.getByRole("textbox", { name: "Comment" }), {
@@ -1096,7 +1100,10 @@ describe("inline comments", () => {
   it("moves a comment whose line left the diff to Not in this diff", async () => {
     let call = 0;
     const slot = renderTab({
-      getChanges: () => (call++ === 0 ? A_ONLY : changes([file("src/b.ts")])),
+      getChanges: () => {
+        call += 1;
+        return call === 1 ? A_ONLY : changes([file("src/b.ts")]);
+      },
     });
     await addComment(slot, "+ additions 2", "Null check missing");
 
@@ -1327,8 +1334,12 @@ describe("Viewed files", () => {
   it("drops the mark and expands the file when its patch changes", async () => {
     let load = 0;
     const slot = await viewedTab({
-      getChanges: () =>
-        changes([file("src/a.ts")], { patches: { "src/a.ts": load++ === 0 ? PATCH_A : PATCH_B } }),
+      getChanges: () => {
+        load += 1;
+        return changes([file("src/a.ts")], {
+          patches: { "src/a.ts": load === 1 ? PATCH_A : PATCH_B },
+        });
+      },
     });
     fireEvent.click(slot.getByRole("button", { name: "Expand src/a.ts" }));
     fireEvent.click(slot.getByRole("button", { name: "Collapse src/a.ts" }));
@@ -1361,7 +1372,10 @@ describe("Viewed files", () => {
   it("keeps the marks when a refresh fails", async () => {
     let load = 0;
     const slot = await viewedTab({
-      getChanges: () => (load++ === 0 ? A_LOADED : { kind: "error", message: "permission denied" }),
+      getChanges: () => {
+        load += 1;
+        return load === 1 ? A_LOADED : { kind: "error", message: "permission denied" };
+      },
     });
 
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
@@ -1518,8 +1532,12 @@ describe("file outline", () => {
   it("opens all folders again when the diff target changes", async () => {
     let call = 0;
     const slot = renderTab({
-      getChanges: () =>
-        call++ === 0 ? changes([file("src/a.ts")]) : changes([file("src/a.ts"), file("src/b.ts")]),
+      getChanges: () => {
+        call += 1;
+        return call === 1
+          ? changes([file("src/a.ts")])
+          : changes([file("src/a.ts"), file("src/b.ts")]);
+      },
     });
     await slot.findAllByTestId("file-diff");
     fireEvent.click(outline(slot).getByRole("button", { name: "src" }));
@@ -1752,12 +1770,16 @@ describe("file outline", () => {
     }
 
     function layOut(sizes: Record<string, number>) {
-      for (const [path, height] of Object.entries(sizes)) heights.set(path, height);
+      for (const [path, height] of Object.entries(sizes)) {
+        heights.set(path, height);
+      }
     }
 
     function resize() {
       act(() => {
-        for (const callback of resizeCallbacks) callback([], {} as ResizeObserver);
+        for (const callback of resizeCallbacks) {
+          callback([], {} as ResizeObserver);
+        }
       });
     }
 
@@ -1770,19 +1792,25 @@ describe("file outline", () => {
         this: HTMLElement,
       ) {
         const area = this.closest<HTMLElement>("[data-diff-scroll-area]");
-        if (this.matches("[data-diff-scroll-area]")) return rect(AREA_TOP, AREA_HEIGHT);
+        if (this.matches("[data-diff-scroll-area]")) {
+          return rect(AREA_TOP, AREA_HEIGHT);
+        }
         if (area !== null && this.matches("section[data-path]")) {
           let top = AREA_TOP - area.scrollTop;
           for (const section of Array.from(
             area.querySelectorAll<HTMLElement>("section[data-path]"),
           )) {
-            if (section === this) break;
+            if (section === this) {
+              break;
+            }
             top += heights.get(section.dataset.path!) ?? 0;
           }
           return rect(top, heights.get(this.dataset.path!) ?? 0);
         }
         const nav = this.closest<HTMLElement>("nav");
-        if (this.tagName === "NAV") return rect(0, NAV_HEIGHT);
+        if (this.tagName === "NAV") {
+          return rect(0, NAV_HEIGHT);
+        }
         if (nav !== null && this.tagName === "BUTTON") {
           const index = Array.from(nav.querySelectorAll("li")).indexOf(this.closest("li")!);
           return rect(index * ROW_HEIGHT - nav.scrollTop, ROW_HEIGHT);
@@ -1855,10 +1883,12 @@ describe("file outline", () => {
     it("stops holding the clicked file when the diff target changes", async () => {
       let call = 0;
       const slot = renderTab({
-        getChanges: () =>
-          call++ === 0
+        getChanges: () => {
+          call += 1;
+          return call === 1
             ? changes(["a.ts", "b.ts", "c.ts"].map((path) => file(path)))
-            : changes([file("a.ts")]),
+            : changes([file("a.ts")]);
+        },
       });
       await slot.findAllByTestId("file-diff");
       layOut({ "a.ts": 500, "b.ts": 500, "c.ts": 500 });
@@ -2003,7 +2033,7 @@ describe("Changes text context", () => {
     const slot = renderTab({
       getChanges: () => value,
       getTextContext: (input) =>
-        ++attempts === 1
+        (attempts += 1) === 1
           ? { kind: "error", code: "read", message: "Could not load context. Retry." }
           : ready(input),
     });
@@ -2025,13 +2055,13 @@ describe("Changes text context", () => {
     let captured!: Omit<Snapshot, "generation">;
     const slot = renderTab({
       getChanges: () =>
-        ++loads === 1
+        (loads += 1) === 1
           ? changes([file("src/a.ts")], { imageBasis })
           : new Promise((resolve) => {
               finishChanges = resolve;
             }),
       getPatches: () =>
-        ++patchLoads === 1
+        (patchLoads += 1) === 1
           ? { kind: "ok", patches: { "src/a.ts": patch } }
           : new Promise((resolve) => {
               finishPatch = resolve;

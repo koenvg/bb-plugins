@@ -1,5 +1,6 @@
 // Endpoint field mapping and UTC week grouping adapted from OpenForge Codex Usage. See LICENSE.activity.
-import { MAX_ACTIVITY_BUCKETS, type ActivitySnapshot } from "./activity-contract.js";
+import { MAX_ACTIVITY_BUCKETS } from "./activity-contract.js";
+import type { ActivitySnapshot } from "./activity-contract.js";
 
 type Bucket = { date: string; tokens: number };
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -15,22 +16,26 @@ const number = (value: unknown, integer = true): number | null =>
     ? value
     : null;
 function dailyBuckets(value: unknown): Bucket[] | null {
-  if (!Array.isArray(value) || value.length > MAX_ACTIVITY_BUCKETS) return null;
+  if (!Array.isArray(value) || value.length > MAX_ACTIVITY_BUCKETS) {
+    return null;
+  }
   const dates = new Set<string>();
   const rows: Bucket[] = [];
   for (const item of value) {
     const row = record(item);
     const date = row?.start_date ?? row?.date;
     const tokens = number(row?.tokens);
-    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || tokens === null)
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || tokens === null) {
       return null;
+    }
     const parsed = new Date(`${date}T00:00:00.000Z`);
     if (
       !Number.isFinite(parsed.getTime()) ||
       parsed.toISOString().slice(0, 10) !== date ||
       dates.has(date)
-    )
+    ) {
       return null;
+    }
     dates.add(date);
     rows.push({ date, tokens });
   }
@@ -43,7 +48,9 @@ function weeklyBuckets(daily: Bucket[]): Bucket[] | null {
     date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
     const week = date.toISOString().slice(0, 10);
     const tokens = (weeks.get(week) ?? 0) + row.tokens;
-    if (!Number.isSafeInteger(tokens)) return null;
+    if (!Number.isSafeInteger(tokens)) {
+      return null;
+    }
     weeks.set(week, tokens);
   }
   return [...weeks].map(([date, tokens]) => ({ date, tokens }));
@@ -53,7 +60,9 @@ function cumulativeBuckets(daily: Bucket[]): Bucket[] | null {
   const rows: Bucket[] = [];
   for (const row of daily) {
     total += row.tokens;
-    if (!Number.isSafeInteger(total)) return null;
+    if (!Number.isSafeInteger(total)) {
+      return null;
+    }
     rows.push({ date: row.date, tokens: total });
   }
   return rows;
@@ -64,7 +73,9 @@ export function normalizeActivity(
 ): ActivitySnapshot | null {
   const root = record(payload);
   const stats = record(root?.stats) ?? record(record(root?.profile)?.stats);
-  if (!stats || !Number.isFinite(observedAtMs) || Math.abs(observedAtMs) > 8.64e15) return null;
+  if (!stats || !Number.isFinite(observedAtMs) || Math.abs(observedAtMs) > 8.64e15) {
+    return null;
+  }
   const summary = {
     lifetimeTokens: number(stats.lifetime_tokens),
     peakDailyTokens: number(stats.peak_daily_tokens),
@@ -73,7 +84,9 @@ export function normalizeActivity(
     longestStreakDays: number(stats.longest_streak_days),
   };
   const daily = dailyBuckets(stats.daily_usage_buckets);
-  if (daily === null && Object.values(summary).every((value) => value === null)) return null;
+  if (daily === null && Object.values(summary).every((value) => value === null)) {
+    return null;
+  }
   return {
     observedAt: new Date(observedAtMs).toISOString(),
     summary,

@@ -12,7 +12,7 @@ const choices = [
   { id: "proj_a", name: "Alpha" },
   { id: "proj_b", name: "Beta" },
 ];
-const source = "  # Saved\n\n`$(name)` and ${HOME}\n";
+const source = `  # Saved\n\n\`$(name)\` and \${HOME}\n`;
 const state = (projectId: string, prompt: string | null = source): ProjectState => ({
   projectId,
   enabled: false,
@@ -139,7 +139,9 @@ describe("Markdown prompt editor in its dialog", () => {
     let fail = true;
     const view = await mount({
       setPrompt: ({ projectId, prompt }) => {
-        if (fail) throw new Error("reset failed");
+        if (fail) {
+          throw new Error("reset failed");
+        }
         return { status: "saved", state: state(projectId, prompt) };
       },
     });

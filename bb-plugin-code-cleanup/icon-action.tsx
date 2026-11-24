@@ -1,4 +1,5 @@
-import { useEffect, useId, useState, type ButtonHTMLAttributes, type Ref } from "react";
+import { useEffect, useId, useState } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
 import { HugeiconsIcon } from "@hugeicons/react";
 import FloppyDiskIcon from "@hugeicons/core-free-icons/FloppyDiskIcon";
@@ -20,13 +21,16 @@ export function IconAction({ icon, label, tooltip = label, ref, ...props }: Icon
   const [dismissed, setDismissed] = useState(false);
   const showTooltip = (hovered || focused) && !dismissed;
   useEffect(() => {
-    if (!showTooltip) return;
+    if (!showTooltip) {
+      return;
+    }
     const dismiss = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setDismissed(true);
         // A visible modal label consumes Escape before the native dialog dismissal.
-        if (event.target instanceof Element && event.target.closest("dialog[open]"))
+        if (event.target instanceof Element && event.target.closest("dialog[open]")) {
           event.preventDefault();
+        }
       }
     };
     // Hover labels must also be dismissible when keyboard focus is elsewhere.

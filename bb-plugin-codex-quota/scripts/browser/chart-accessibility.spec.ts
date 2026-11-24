@@ -63,8 +63,10 @@ for (const width of sizes) {
         const date = page.locator(".calendar-tooltip time");
         await page.keyboard.press("ArrowRight");
         await expect(date).toHaveAttribute("datetime", /2026-/);
-        for (let step = 0; step < 30; step++) {
-          if ((await date.getAttribute("datetime")) === dailyRows[0][0]) break;
+        for (let step = 0; step < 30; step += 1) {
+          if ((await date.getAttribute("datetime")) === dailyRows[0][0]) {
+            break;
+          }
           const before = await date.getAttribute("datetime");
           await page.keyboard.press("ArrowLeft");
           await expect(date).not.toHaveAttribute("datetime", before!);
@@ -76,13 +78,15 @@ for (const width of sizes) {
         await expect(date).toHaveAttribute("datetime", dailyRows[0][0]);
         const keyboardDate = dailyRows[0][0];
         await page.keyboard.press("Home");
-        for (let index = 0; index < 30; index++) {
+        for (let index = 0; index < 30; index += 1) {
           await expect(date).toHaveAttribute("datetime", dailyRows[index][0]);
           await expect(page.locator(".calendar-tooltip")).toHaveAttribute(
             "aria-label",
             `${dailyRows[index][0]}: ${dailyRows[index][1]}`,
           );
-          if (index < 29) await page.keyboard.press("ArrowRight");
+          if (index < 29) {
+            await page.keyboard.press("ArrowRight");
+          }
         }
         await page.keyboard.press("End");
         await expect(date).toHaveAttribute("datetime", dailyRows[29][0]);
@@ -153,8 +157,9 @@ for (const width of sizes) {
         for (const button of await page
           .getByRole("group", { name: "Models", exact: true })
           .getByRole("button")
-          .all())
+          .all()) {
           await button.click();
+        }
         await expect(
           page
             .getByRole("group", { name: "Daily recorded values", exact: true })
@@ -168,15 +173,17 @@ for (const width of sizes) {
       await surface.focus();
       await page.keyboard.press("Home");
       const date = page.locator(".calendar-tooltip time");
-      for (let index = 0; index < 30; index++) {
+      for (let index = 0; index < 30; index += 1) {
         await expect(date).toHaveAttribute("datetime", daily[index][0]);
         await expect(page.locator(".calendar-tooltip")).toHaveAttribute(
           "aria-label",
           `${daily[index][0]}: ${daily[index][1]}`,
         );
-        if (index < 29) await page.keyboard.press("ArrowRight");
+        if (index < 29) {
+          await page.keyboard.press("ArrowRight");
+        }
       }
-      for (let index = 28; index >= 0; index--) {
+      for (let index = 28; index >= 0; index -= 1) {
         await page.keyboard.press("ArrowLeft");
         await expect(date).toHaveAttribute("datetime", daily[index][0]);
       }
@@ -228,12 +235,13 @@ for (const width of sizes) {
         })),
       }));
       expect(axis.ticks.length).toBeGreaterThanOrEqual(2);
-      for (let index = 0; index < axis.ticks.length; index++) {
+      for (let index = 0; index < axis.ticks.length; index += 1) {
         expect(axis.ticks[index].text).toMatch(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Sep|Oct) \d+$/);
         expect(axis.ticks[index].left).toBeGreaterThanOrEqual(axis.bounds.left);
         expect(axis.ticks[index].right).toBeLessThanOrEqual(axis.bounds.right);
-        if (index)
+        if (index) {
           expect(axis.ticks[index].left - axis.ticks[index - 1].right).toBeGreaterThanOrEqual(11.9);
+        }
       }
       expect(await rows(page)).toEqual(daily);
       expect(await calls(page)).toEqual(requests);

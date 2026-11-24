@@ -1,20 +1,19 @@
-import { constants, type BigIntStats } from "node:fs";
+import { constants } from "node:fs";
+import type { BigIntStats } from "node:fs";
 import { lstat, open, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import { atomicWrite, publishControl, readControlRecord } from "./collector-control.js";
-import {
-  legacyConfirmationSchema,
-  type LegacyConfirmation,
-  type HistoryReadiness,
-} from "../history-contract.js";
-import { reconcileCollector, type IngestOptions } from "../storage/history-ingest.js";
+import { legacyConfirmationSchema } from "../history-contract.js";
+import type { LegacyConfirmation, HistoryReadiness } from "../history-contract.js";
+import { reconcileCollector } from "../storage/history-ingest.js";
+import type { IngestOptions } from "../storage/history-ingest.js";
 import { parseCompact } from "./usage-record.js";
 
-const RECEIPT = "legacy-retirement-v1.json",
-  LOCK = "legacy-retirement-v1.lock";
+const RECEIPT = "legacy-retirement-v1.json";
+const LOCK = "legacy-retirement-v1.lock";
 const MAX_LINE = 64 * 1024;
 const count = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const manifestSchema = z
@@ -66,8 +65,9 @@ const sameOutput = (a: Manifest | null, b: Manifest | null) =>
   a?.size === b?.size &&
   a?.stamp.split(":")[0] === b?.stamp.split(":")[0];
 function describe(stat: BigIntStats): Manifest {
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n)
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n) {
     throw Error("Legacy retirement unavailable");
+  }
   return manifestSchema.parse({
     identity: `${stat.dev}:${stat.ino}`,
     stamp: `${stat.mtimeNs}:${stat.ctimeNs}`,
@@ -78,7 +78,9 @@ async function manifest(path: string): Promise<Manifest | null> {
   try {
     return describe(await lstat(path, { bigint: true }));
   } catch (e) {
-    if (absent(e)) return null;
+    if (absent(e)) {
+      return null;
+    }
     throw e;
   }
 }
@@ -87,16 +89,21 @@ async function json(path: string, maximum = 32768) {
   try {
     file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   } catch (e) {
-    if (absent(e)) return null;
+    if (absent(e)) {
+      return null;
+    }
     throw e;
   }
   try {
     const stat = await file.stat();
-    if (!stat.isFile() || stat.nlink !== 1 || stat.size > maximum)
+    if (!stat.isFile() || stat.nlink !== 1 || stat.size > maximum) {
       throw Error("Legacy retirement unavailable");
-    const bytes = Buffer.alloc(maximum + 1),
-      result = await file.read(bytes, 0, bytes.length, 0);
-    if (result.bytesRead > maximum) throw Error("Legacy retirement unavailable");
+    }
+    const bytes = Buffer.alloc(maximum + 1);
+    const result = await file.read(bytes, 0, bytes.length, 0);
+    if (result.bytesRead > maximum) {
+      throw Error("Legacy retirement unavailable");
+    }
     return JSON.parse(bytes.subarray(0, result.bytesRead).toString("utf8"));
   } finally {
     await file.close();
@@ -130,26 +137,33 @@ async function lock(directory: string) {
       await file.close();
     }
   } catch (e) {
-    if (!e || typeof e !== "object" || !("code" in e) || e.code !== "EEXIST") throw e;
-    const before = await manifest(path),
-      value = z
-        .object({ pid: z.number().int().positive() })
-        .strict()
-        .parse(await json(path, 128));
+    if (!e || typeof e !== "object" || !("code" in e) || e.code !== "EEXIST") {
+      throw e;
+    }
+    const before = await manifest(path);
+    const value = z
+      .object({ pid: z.number().int().positive() })
+      .strict()
+      .parse(await json(path, 128));
     try {
       process.kill(value.pid, 0);
       throw Error("Legacy retirement busy");
     } catch (error) {
-      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ESRCH")
+      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ESRCH") {
         throw error;
+      }
     }
-    if (!same(before, await manifest(path))) throw Error("Legacy retirement busy");
+    if (!same(before, await manifest(path))) {
+      throw Error("Legacy retirement busy");
+    }
     await unlink(path);
     return lock(directory);
   }
   const owned = await manifest(path);
   return async () => {
-    if (same(owned, await manifest(path))) await unlink(path);
+    if (same(owned, await manifest(path))) {
+      await unlink(path);
+    }
   };
 }
 function pending(db: HistoryDatabase, value: boolean) {
@@ -180,14 +194,16 @@ async function begin(
   ).detail_cutoff;
   const groups: Group[] = [];
   for (const kind of ["events", "confirmations"] as const) {
-    const paths = names(kind),
-      inputs = [];
-    for (const name of [paths.retained, paths.legacy])
+    const paths = names(kind);
+    const inputs = [];
+    for (const name of [paths.retained, paths.legacy]) {
       inputs.push({ manifest: await manifest(join(directory, name)), offset: 0, dropping: false });
+    }
     const staged = await manifest(join(directory, paths.spool));
     const owned = previous?.groups.find((group) => group.kind === kind)?.outputIdentity;
-    if (staged && staged.size && staged.identity !== owned)
+    if (staged && staged.size && staged.identity !== owned) {
       throw Error("Legacy retirement unavailable");
+    }
     groups.push({
       kind,
       inputs: inputs as Group["inputs"],
@@ -211,17 +227,22 @@ async function begin(
 }
 async function validSources(directory: string, receipt: Receipt) {
   for (const group of receipt.groups) {
-    const paths = names(group.kind),
-      retained = await manifest(join(directory, paths.retained));
+    const paths = names(group.kind);
+    const retained = await manifest(join(directory, paths.retained));
     const published =
       group.published &&
       (group.phase === "replace"
         ? sameOutput(retained, group.published)
         : same(retained, group.published));
-    if (group.phase === "copy" && !same(retained, group.inputs[0].manifest)) return false;
-    if (group.phase === "replace" && !published && !same(retained, group.inputs[0].manifest))
+    if (group.phase === "copy" && !same(retained, group.inputs[0].manifest)) {
       return false;
-    if ((group.phase === "cleanup" || group.phase === "done") && !published) return false;
+    }
+    if (group.phase === "replace" && !published && !same(retained, group.inputs[0].manifest)) {
+      return false;
+    }
+    if ((group.phase === "cleanup" || group.phase === "done") && !published) {
+      return false;
+    }
     const original = await manifest(join(directory, paths.legacy));
     if (
       group.phase === "done"
@@ -229,8 +250,9 @@ async function validSources(directory: string, receipt: Receipt) {
         : group.phase === "cleanup" && original === null
           ? false
           : !same(original, group.inputs[1].manifest)
-    )
+    ) {
       return false;
+    }
   }
   return true;
 }
@@ -239,7 +261,9 @@ async function needsReconciliation(db: HistoryDatabase, directory: string) {
     const paths = names(kind);
     for (const name of [paths.retained, paths.legacy]) {
       const source = await manifest(join(directory, name));
-      if (!source?.size) continue;
+      if (!source?.size) {
+        continue;
+      }
       const indexed = db
         .prepare("SELECT identity,size,offset FROM collector_sources WHERE name=?")
         .get(name) as { identity: string; size: number; offset: number } | undefined;
@@ -248,8 +272,9 @@ async function needsReconciliation(db: HistoryDatabase, directory: string) {
         indexed.identity !== source.identity ||
         indexed.size !== source.size ||
         indexed.offset !== source.size
-      )
+      ) {
         return true;
+      }
     }
   }
   return false;
@@ -257,8 +282,12 @@ async function needsReconciliation(db: HistoryDatabase, directory: string) {
 
 function keep(db: HistoryDatabase, line: string, kind: Group["kind"], cutoff: string) {
   const record = parseCompact(line, kind === "confirmations");
-  if (!record) return false; // Ingestion already committed scoped uncertainty for invalid records.
-  if ("workspace" in record) return new Date(record.occurredAt).toISOString() >= cutoff;
+  if (!record) {
+    return false;
+  } // Ingestion already committed scoped uncertainty for invalid records.
+  if ("workspace" in record) {
+    return new Date(record.occurredAt).toISOString() >= cutoff;
+  }
   return !!db
     .prepare("SELECT event_id FROM usage_compact WHERE event_id=? AND occurred_at>=? LIMIT 1")
     .get(record.eventId, cutoff);
@@ -270,8 +299,8 @@ async function copy(
   group: Group,
   options: LegacyOptions,
 ) {
-  const paths = names(group.kind),
-    spool = join(directory, paths.spool);
+  const paths = names(group.kind);
+  const spool = join(directory, paths.spool);
   const output = await open(
     spool,
     constants.O_RDWR | constants.O_CREAT | constants.O_NOFOLLOW,
@@ -283,26 +312,30 @@ async function copy(
       group.outputIdentity
         ? state.identity !== group.outputIdentity || state.size < group.output
         : state.size !== 0
-    )
+    ) {
       throw Error("Legacy retirement unavailable");
+    }
     if (!group.outputIdentity) {
       group.outputIdentity = state.identity;
       await save(directory, receipt, options.signal);
     }
     await output.truncate(group.output); // Remove only uncommitted bytes in this private, fenced spool.
-    let rows = Math.max(1, Math.min(options.rows ?? 500, 500)),
-      bytesLeft = 128 * 1024;
-    for (let index = 0; index < 2 && rows > 0 && bytesLeft > 0; index++) {
-      const input = group.inputs[index],
-        boundary = input.manifest;
-      if (!boundary || input.offset === boundary.size) continue;
+    let rows = Math.max(1, Math.min(options.rows ?? 500, 500));
+    let bytesLeft = 128 * 1024;
+    for (let index = 0; index < 2 && rows > 0 && bytesLeft > 0; index += 1) {
+      const input = group.inputs[index];
+      const boundary = input.manifest;
+      if (!boundary || input.offset === boundary.size) {
+        continue;
+      }
       const file = await open(
         join(directory, index === 0 ? paths.retained : paths.legacy),
         constants.O_RDONLY | constants.O_NOFOLLOW,
       );
       try {
-        if (!same(describe(await file.stat({ bigint: true })), boundary))
+        if (!same(describe(await file.stat({ bigint: true })), boundary)) {
           throw Error("Legacy retirement source changed");
+        }
         const chunk = Buffer.alloc(Math.min(bytesLeft, boundary.size - input.offset));
         const { bytesRead } = await file.read(chunk, 0, chunk.length, input.offset);
         bytesLeft -= bytesRead;
@@ -314,11 +347,12 @@ async function copy(
             if (input.dropping || bytesRead - consumed > MAX_LINE) {
               input.dropping = true;
               consumed = bytesRead;
-            } else if (input.offset + bytesRead === boundary.size)
+            } else if (input.offset + bytesRead === boundary.size) {
               throw Error("Legacy retirement source incomplete");
+            }
             break;
           }
-          rows--;
+          rows -= 1;
           if (
             !input.dropping &&
             end - consumed <= MAX_LINE &&
@@ -333,7 +367,9 @@ async function copy(
                 line.length - written,
                 group.output + written,
               );
-              if (!result.bytesWritten) throw Error("Legacy retirement unavailable");
+              if (!result.bytesWritten) {
+                throw Error("Legacy retirement unavailable");
+              }
               written += result.bytesWritten;
             }
             group.output += line.length;
@@ -341,8 +377,9 @@ async function copy(
           input.dropping = false;
           consumed = end + 1;
         }
-        if (!same(describe(await file.stat({ bigint: true })), boundary))
+        if (!same(describe(await file.stat({ bigint: true })), boundary)) {
           throw Error("Legacy retirement source changed");
+        }
         input.offset += consumed;
       } finally {
         await file.close();
@@ -377,33 +414,40 @@ async function publish(
   group: Group,
   options: LegacyOptions,
 ) {
-  const paths = names(group.kind),
-    target = join(directory, paths.retained),
-    spool = join(directory, paths.spool);
+  const paths = names(group.kind);
+  const target = join(directory, paths.retained);
+  const spool = join(directory, paths.spool);
   if (group.phase === "replace") {
     const staged = await manifest(spool);
     if (staged) {
-      if (!same(staged, group.published)) throw Error("Legacy retirement unavailable");
+      if (!same(staged, group.published)) {
+        throw Error("Legacy retirement unavailable");
+      }
       await validateControl(directory, receipt);
       options.signal.throwIfAborted();
       await rename(spool, target);
       await syncDirectory(directory);
-    } else if (!sameOutput(await manifest(target), group.published))
+    } else if (!sameOutput(await manifest(target), group.published)) {
       throw Error("Legacy retirement unavailable");
+    }
     const published = await manifest(target);
-    if (!published) throw Error("Legacy retirement source changed");
+    if (!published) {
+      throw Error("Legacy retirement source changed");
+    }
     group.published = published;
     group.phase = "cleanup";
     await save(directory, receipt, options.signal);
     options.checkpoint?.("published");
   }
   if (group.phase === "cleanup") {
-    if (!group.published || !same(await manifest(target), group.published))
+    if (!group.published || !same(await manifest(target), group.published)) {
       throw Error("Legacy retirement source changed");
+    }
     const original = await manifest(join(directory, paths.legacy));
     if (original) {
-      if (!same(original, group.inputs[1].manifest))
+      if (!same(original, group.inputs[1].manifest)) {
         throw Error("Legacy retirement source changed");
+      }
       await validateControl(directory, receipt);
       options.signal.throwIfAborted();
       await unlink(join(directory, paths.legacy));
@@ -415,10 +459,11 @@ async function publish(
         const progress = db
           .prepare("SELECT invalid FROM collector_sources WHERE name=?")
           .get(name) as { invalid: number } | undefined;
-        if (progress)
+        if (progress) {
           db.prepare(
             "UPDATE history_counters SET invalid_records=invalid_records+? WHERE id=1",
           ).run(progress.invalid);
+        }
         db.prepare("DELETE FROM collector_sources WHERE name=?").run(name);
       }
     });
@@ -435,14 +480,16 @@ export async function maintainLegacy(
   action?: "prepare-legacy" | "retire-legacy",
   confirmation?: LegacyConfirmation,
 ): Promise<{ status?: Status; failed: boolean }> {
-  let release: (() => Promise<void>) | undefined,
-    receipt: Receipt | null = null;
+  let release: (() => Promise<void>) | undefined;
+  let receipt: Receipt | null = null;
   options.signal.throwIfAborted();
   try {
     release = await lock(directory);
     receipt = receiptSchema.nullable().parse(await json(join(directory, RECEIPT)));
     const control = await readControlRecord(directory);
-    if (!control) throw Error("Legacy retirement unavailable");
+    if (!control) {
+      throw Error("Legacy retirement unavailable");
+    }
     if (action === "prepare-legacy") {
       if (control.enabled) {
         pending(db, true);
@@ -516,7 +563,9 @@ export async function maintainLegacy(
     }
     const day = new Date(now).toISOString().slice(0, 10);
     if (receipt.phase === "complete" && day > receipt.day) {
-      if (control.protocol !== 2) throw Error("Legacy retirement unavailable");
+      if (control.protocol !== 2) {
+        throw Error("Legacy retirement unavailable");
+      }
       receipt = await begin(db, directory, now, control.revision, "maintenance");
       await save(directory, receipt, options.signal);
     }
@@ -531,15 +580,20 @@ export async function maintainLegacy(
         now,
         legacyOnly: true,
       });
-      if (!(await validSources(directory, receipt)))
+      if (!(await validSources(directory, receipt))) {
         throw Error("Legacy retirement source changed");
+      }
       const incomplete = db
         .prepare(
           "SELECT name FROM collector_sources WHERE name IN ('events-v1.jsonl','confirmations-v1.jsonl','events-legacy-retained-v1.jsonl','confirmations-legacy-retained-v1.jsonl') AND (stalled=1 OR (dropping=1 AND offset=size)) LIMIT 1",
         )
         .get();
-      if (incomplete) throw Error("Legacy retirement source incomplete");
-      if (backlog) return { status: publicStatus(receipt), failed: false };
+      if (incomplete) {
+        throw Error("Legacy retirement source incomplete");
+      }
+      if (backlog) {
+        return { status: publicStatus(receipt), failed: false };
+      }
       if (receipt.phase === "ingesting") {
         receipt.phase = "retaining";
         await save(directory, receipt, options.signal);
@@ -548,11 +602,15 @@ export async function maintainLegacy(
     if (receipt.phase === "retaining") {
       const group = receipt.groups.find((value) => value.phase !== "done");
       if (group) {
-        if (group.phase === "copy") await copy(db, directory, receipt, group, options);
-        if (!(await validSources(directory, receipt)))
+        if (group.phase === "copy") {
+          await copy(db, directory, receipt, group, options);
+        }
+        if (!(await validSources(directory, receipt))) {
           throw Error("Legacy retirement source changed");
-        if (group.phase === "replace" || group.phase === "cleanup")
+        }
+        if (group.phase === "replace" || group.phase === "cleanup") {
           await publish(db, directory, receipt, group, options);
+        }
       }
       if (receipt.groups.every((value) => value.phase === "done")) {
         receipt.phase = "complete";

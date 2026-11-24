@@ -60,28 +60,37 @@ async function resolvePiAuth(signal: AbortSignal): Promise<AuthState> {
   } catch {
     return { status: "auth-check-failed" };
   }
-  if (check?.type !== "oauth") return { status: "auth-required" };
+  if (check?.type !== "oauth") {
+    return { status: "auth-required" };
+  }
   let auth;
   try {
     auth = await model.getAuth("openai-codex", { minOAuthValidityMs: 300_000, signal });
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error ? error.code : null;
-    if (code === "auth") return { status: "credential-store-failed" };
+    if (code === "auth") {
+      return { status: "credential-store-failed" };
+    }
     if (code === "oauth") {
       // Classify only fixed Pi prefixes; do not log or return its raw error.
       const text = error instanceof Error ? error.message : "";
-      if (text.startsWith("OAuth refresh failed for openai-codex"))
+      if (text.startsWith("OAuth refresh failed for openai-codex")) {
         return { status: "oauth-refresh-failed" };
-      if (text.startsWith("OAuth auth derivation failed for openai-codex"))
+      }
+      if (text.startsWith("OAuth auth derivation failed for openai-codex")) {
         return { status: "auth-derivation-failed" };
-      if (text.startsWith("OAuth refresh returned a token that expires too soon"))
+      }
+      if (text.startsWith("OAuth refresh returned a token that expires too soon")) {
         return { status: "oauth-short-lived" };
+      }
       return { status: "oauth-resolution-failed" };
     }
     return { status: error instanceof TypeError ? "auth-runtime-failed" : "auth-unavailable" };
   }
   const token = auth?.auth.apiKey;
-  if (!token) return { status: "auth-no-token" };
+  if (!token) {
+    return { status: "auth-no-token" };
+  }
   // Never return this fingerprint in the host RPC or persist it on the BB server.
   return { status: "ok", token, identity: createHash("sha256").update(token).digest("hex") };
 }

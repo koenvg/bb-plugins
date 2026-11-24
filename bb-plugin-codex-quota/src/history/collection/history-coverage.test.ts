@@ -2,9 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "../storage/history-storage.js";
+import { openHistoryDatabase } from "../storage/history-storage.js";
+import type { HistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory, recordPause } from "../storage/history-projection.js";
 import { recordCoverage, readCoverage } from "./history-coverage.js";
+
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
   for (const f of fixtures.splice(0)) {
@@ -13,15 +15,15 @@ afterEach(async () => {
   }
 });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bbp23-coverage-")),
-    db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const root = await mkdtemp(join(tmpdir(), "bbp23-coverage-"));
+  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
   fixtures.push({ root, db });
   initializeHistory(db, "2026-09-01T00:00:00.000Z");
   return db;
 }
-const start = "2026-09-01T00:00:00.000Z",
-  mid = "2026-09-01T12:00:00.000Z",
-  end = "2026-09-02T00:00:00.000Z";
+const start = "2026-09-01T00:00:00.000Z";
+const mid = "2026-09-01T12:00:00.000Z";
+const end = "2026-09-02T00:00:00.000Z";
 const query = { workspace: "/original", start, end };
 it("installation, writer activation and no events are not observed inactivity", async () => {
   const db = await fixture();

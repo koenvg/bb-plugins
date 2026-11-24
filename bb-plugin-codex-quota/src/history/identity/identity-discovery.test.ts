@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { createIdentityDiscovery } from "./identity-discovery.js";
-import { openHistoryDatabase, type HistoryDatabase } from "../storage/history-storage.js";
+import { openHistoryDatabase } from "../storage/history-storage.js";
+import type { HistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory, projectCompactRecord } from "../storage/history-projection.js";
 import { parseCompact } from "../collection/usage-record.js";
 import {
@@ -13,6 +14,7 @@ import {
   reconcileIdentity,
   identityView,
 } from "./identity-storage.js";
+
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
   for (const { root, db } of fixtures.splice(0)) {
@@ -21,8 +23,8 @@ afterEach(async () => {
   }
 });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bbp19-discovery-")),
-    db = (await openHistoryDatabase(join(root, "discovery.sqlite")))!;
+  const root = await mkdtemp(join(tmpdir(), "bbp19-discovery-"));
+  const db = (await openHistoryDatabase(join(root, "discovery.sqlite")))!;
   fixtures.push({ root, db });
   return db;
 }
@@ -96,7 +98,9 @@ it("resolves removed worktrees with bounded metadata reads and keeps unknown own
       environments: {
         list: async () => [{ id: "env_active", hostId: "host_a" }],
         get: async (args: { environmentId: string }) => {
-          if (args.environmentId === "env_unknown" && !resolved) throw Error("Not found");
+          if (args.environmentId === "env_unknown" && !resolved) {
+            throw Error("Not found");
+          }
           return {
             id: args.environmentId,
             hostId: args.environmentId === "env_unknown" ? "host_b" : "host_a",
@@ -137,11 +141,13 @@ it("resolves removed worktrees with bounded metadata reads and keeps unknown own
     () => now,
   );
   const complete = async () => {
-    for (let n = 0; n < 150; n++) {
+    for (let n = 0; n < 150; n += 1) {
       const before = host.harness.inspection.sdk.calls.length;
       const batch = await discovery.next("host_a", new AbortController().signal);
       expect(host.harness.inspection.sdk.calls.length - before).toBeLessThanOrEqual(4);
-      if (batch.total !== null) return batch;
+      if (batch.total !== null) {
+        return batch;
+      }
       // Restart while pending environment lookups remain.
       discovery = createIdentityDiscovery(
         host.bb.sdk,
@@ -294,8 +300,9 @@ it("pages environments, active/archived Pi threads and every retained identity w
     () => db,
     () => 1,
   );
-  for (let n = 0; result.total === null && n < 100; n++)
+  for (let n = 0; result.total === null && n < 100; n += 1) {
     result = await discovery.next("host_a", new AbortController().signal);
+  }
   expect(result.total).toBe(152);
   expect(result.rows).toHaveLength(100);
   discovery.delivered(result);
@@ -340,7 +347,9 @@ it("does not complete failed/invalid identity pages and checks cancellation afte
             : [makeThreadResponse({ id: "thr_a", providerId: "pi", environmentId: "env_a" })],
         events: {
           list: async () => {
-            if (!malformed) controller.abort();
+            if (!malformed) {
+              controller.abort();
+            }
             return [
               {
                 seq: 1,
@@ -373,7 +382,9 @@ it.each(["lookup-failed", "no-host", "wrong-environment", "no-environment"])(
         environments: {
           list: async () => [],
           get: async () => {
-            if (reason === "lookup-failed") throw Error("Unavailable");
+            if (reason === "lookup-failed") {
+              throw Error("Unavailable");
+            }
             return {
               id: reason === "wrong-environment" ? "env_other" : "env_missing",
               hostId: reason === "no-host" ? null : "host_b",
@@ -406,8 +417,9 @@ it.each(["lookup-failed", "no-host", "wrong-environment", "no-environment"])(
     });
     const discovery = createIdentityDiscovery(host.bb.sdk, () => db);
     let result = await discovery.next("host_a", new AbortController().signal);
-    for (let n = 0; result.total === null && n < 10; n++)
+    for (let n = 0; result.total === null && n < 10; n += 1) {
       result = await discovery.next("host_a", new AbortController().signal);
+    }
     expect(result.total).toBe(2);
     expect(result.rows.every((r) => r.ownershipUnknown && r.title === null)).toBe(true);
     expect(db.prepare("SELECT reason FROM discovery_ownership").get()).toEqual({
@@ -444,15 +456,15 @@ it("does not turn canceled ownership lookup into durable uncertainty", async () 
 });
 it("refreshes B despite an unfinished A delivery and resumes unchanged A after cache expiry", async () => {
   const db = await fixture();
-  let now = 1,
-    conflict = false,
-    calls = 0;
+  let now = 1;
+  let conflict = false;
+  let calls = 0;
   const host = createFakePluginHost({
     pluginId: "identity-test",
     sdk: {
       environments: {
         list: async () => {
-          calls++;
+          calls += 1;
           return [
             { id: "env_a", hostId: "host_a" },
             { id: "env_b", hostId: "host_b" },
@@ -461,7 +473,7 @@ it("refreshes B despite an unfinished A delivery and resumes unchanged A after c
       },
       threads: {
         list: async (args = {}) => {
-          calls++;
+          calls += 1;
           return args.archived
             ? []
             : [
@@ -480,7 +492,7 @@ it("refreshes B despite an unfinished A delivery and resumes unchanged A after c
         },
         events: {
           list: async (args) => {
-            calls++;
+            calls += 1;
             const rows = Array.from({ length: args.threadId === "thr_a" ? 101 : 1 }, (_, n) => ({
               id: `e${n}`,
               threadId: args.threadId,
@@ -503,8 +515,9 @@ it("refreshes B despite an unfinished A delivery and resumes unchanged A after c
   );
   const complete = async (hostId: string) => {
     let result = await discovery.next(hostId, new AbortController().signal);
-    for (let n = 0; result.total === null && n < 30; n++)
+    for (let n = 0; result.total === null && n < 30; n += 1) {
       result = await discovery.next(hostId, new AbortController().signal);
+    }
     expect(result.total).not.toBeNull();
     return result;
   };
@@ -547,14 +560,16 @@ it("bounds source rows even when the whole previous uncertainty catalog is now r
     () => 1,
   );
   // Initialize the public module, then exercise recovery from durable carry state.
-  for (let n = 0; n < 5; n++) await discovery.next("host_a", new AbortController().signal);
+  for (let n = 0; n < 5; n += 1) {
+    await discovery.next("host_a", new AbortController().signal);
+  }
   const state = JSON.parse(
     (db.prepare("SELECT value FROM discovery_state").get() as { value: string }).value,
   );
   state.generation = 2;
   state.phase = "uncertainty";
   db.transaction(() => {
-    for (let n = 0; n < 1000; n++) {
+    for (let n = 0; n < 1000; n += 1) {
       const id = `thr_${String(n).padStart(4, "0")}`;
       db.prepare(
         "INSERT INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (1,'',?,'unknown',NULL,'archived')",
@@ -576,8 +591,9 @@ it("bounds source rows even when the whole previous uncertainty catalog is now r
     n: 0,
   });
   let result = first;
-  for (let n = 0; result.total === null && n < 10; n++)
+  for (let n = 0; result.total === null && n < 10; n += 1) {
     result = await discovery.next("host_a", new AbortController().signal);
+  }
   expect(result.total).toBe(0);
   await host.harness.lifecycle.dispose();
 });
@@ -624,8 +640,9 @@ it.each(["pi", "codex"])(
     const signal = new AbortController().signal;
     const complete = async () => {
       let batch = await discovery.next("host_a", signal);
-      for (let n = 0; batch.total === null && n < 20; n++)
+      for (let n = 0; batch.total === null && n < 20; n += 1) {
         batch = await discovery.next("host_a", signal);
+      }
       expect(batch.total).toBe(2);
       return batch;
     };
@@ -654,7 +671,7 @@ it.each(["pi", "codex"])(
         rows: expected,
       });
       discovery.delivered(first);
-      for (let generation = 2; generation <= 8; generation++) {
+      for (let generation = 2; generation <= 8; generation += 1) {
         now = (generation - 1) * 60_000 + 1;
         expect(await complete()).toEqual({
           hostId: "host_a",

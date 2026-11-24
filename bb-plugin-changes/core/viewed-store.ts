@@ -1,4 +1,5 @@
-import { messageOf, targetKey, type DiffTarget } from "./changes";
+import { messageOf, targetKey } from "./changes";
+import type { DiffTarget } from "./changes";
 import type { UpdateViewedResult, ViewedMarks } from "./viewed-files";
 
 export interface ViewedEntry {
@@ -17,14 +18,19 @@ export function viewedKey(threadId: string, target: DiffTarget): string {
 
 function withMark(marks: ViewedMarks | null, path: string, identity: string | null): ViewedMarks {
   const next = { ...marks };
-  if (identity === null) delete next[path];
-  else next[path] = identity;
+  if (identity === null) {
+    delete next[path];
+  } else {
+    next[path] = identity;
+  }
   return next;
 }
 
 function withoutCollapsed(collapsed: ReadonlyMap<string, boolean>, paths: readonly string[]) {
   const next = new Map(collapsed);
-  for (const path of paths) next.delete(path);
+  for (const path of paths) {
+    next.delete(path);
+  }
   return next;
 }
 
@@ -47,7 +53,9 @@ export function createViewedStore() {
 
   function update(key: string, change: (entry: ViewedEntry) => ViewedEntry) {
     entries.set(key, change(get(key)));
-    for (const listener of listeners) listener();
+    for (const listener of listeners) {
+      listener();
+    }
   }
 
   return {
@@ -57,7 +65,9 @@ export function createViewedStore() {
       return () => listeners.delete(listener);
     },
     loaded(key: string, marks: ViewedMarks) {
-      if (get(key).marks !== null) return;
+      if (get(key).marks !== null) {
+        return;
+      }
       update(key, (entry) => ({ ...entry, marks, error: null }));
     },
     failed(key: string, error: string) {
@@ -80,10 +90,14 @@ export function createViewedStore() {
         error: null,
       }));
       const error = await saveError(save);
-      if (error === null) return;
-      if (writes.get(writeKey) !== write) update(key, (entry) => ({ ...entry, error }));
-      else
+      if (error === null) {
+        return;
+      }
+      if (writes.get(writeKey) !== write) {
+        update(key, (entry) => ({ ...entry, error }));
+      } else {
         update(key, (entry) => ({ ...entry, marks: withMark(entry.marks, path, previous), error }));
+      }
     },
     async prune(key: string, paths: readonly string[], save: Save) {
       update(key, (entry) => ({
@@ -94,7 +108,9 @@ export function createViewedStore() {
         collapsed: withoutCollapsed(entry.collapsed, paths),
       }));
       const error = await saveError(save);
-      if (error !== null) update(key, (entry) => ({ ...entry, error }));
+      if (error !== null) {
+        update(key, (entry) => ({ ...entry, error }));
+      }
     },
   };
 }

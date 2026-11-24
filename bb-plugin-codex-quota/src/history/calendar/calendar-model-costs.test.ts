@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
-import { calendarDaySchema, type CalendarQuery } from "./calendar-contract.js";
+import { calendarDaySchema } from "./calendar-contract.js";
+import type { CalendarQuery } from "./calendar-contract.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
 import { chartData } from "./calendar-chart-data.js";
 import type { CapturedSubtotal } from "./calendar-model-costs.js";

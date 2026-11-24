@@ -11,10 +11,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 // BB's public guide specifies a Node 22 ESM host artifact. Copy it away from package dependencies.
 assert.ok(Number(process.versions.node.split(".")[0]) >= 22, "Node host runtime required");
 const root = mkdtempSync(join(tmpdir(), "bbp17-bundle-"));
@@ -240,11 +239,12 @@ try {
   const controlPath = join(dataDir, "history/collector-control-v1.json");
   const pausedControl = readFileSync(controlPath);
   unlinkSync(controlPath);
-  for (const action of ["repair", "install", "resume"])
+  for (const action of ["repair", "install", "resume"]) {
     assert.equal(
       (await bundled.default.handlers.collectorControl({ action }, context)).state,
       "unavailable",
     );
+  }
   assert.ok(!readdirSync(join(dataDir, "history")).includes("collector-control-v1.json"));
   writeFileSync(controlPath, pausedControl);
   console.log(
@@ -271,11 +271,11 @@ try {
     eventId: "00000000-0000-4000-8000-000000000302",
     occurredAt: new Date(Date.now() - 60 * 86400000).toISOString(),
   };
-  const legacyBody = JSON.stringify(legacyEvent) + "\n",
-    expiredBody = JSON.stringify(expiredLegacy) + "\n";
-  const legacyDirectory = join(dataDir, "history"),
-    legacyEvents = join(legacyDirectory, "events-v1.jsonl"),
-    legacyConfirmations = join(legacyDirectory, "confirmations-v1.jsonl");
+  const legacyBody = JSON.stringify(legacyEvent) + "\n";
+  const expiredBody = JSON.stringify(expiredLegacy) + "\n";
+  const legacyDirectory = join(dataDir, "history");
+  const legacyEvents = join(legacyDirectory, "events-v1.jsonl");
+  const legacyConfirmations = join(legacyDirectory, "confirmations-v1.jsonl");
   writeFileSync(legacyEvents, legacyBody + expiredBody);
   const keptConfirmation =
     JSON.stringify({
@@ -324,8 +324,9 @@ try {
     },
     context,
   );
-  for (let step = 0; step < 10 && retired.health.legacyRetirement.phase !== "complete"; step++)
+  for (let step = 0; step < 10 && retired.health.legacyRetirement.phase !== "complete"; step += 1) {
     retired = await reopened.default.handlers.historyReadiness(null, context);
+  }
   assert.equal(retired.health.legacyRetirement.phase, "complete");
   assert.equal(retired.collection.enabled, false);
   assert.equal(
@@ -430,9 +431,15 @@ try {
   );
 } finally {
   globalThis.fetch = previousFetch;
-  if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (previousAgentDir === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+  }
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
   rmSync(root, { recursive: true, force: true });
 }

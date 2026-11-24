@@ -3,11 +3,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, rmSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+
 assert.ok(Number(process.versions.node.split(".")[0]) >= 22);
-const root = mkdtempSync(join(tmpdir(), "bbp20-calendar-bundle-")),
-  oldAgent = process.env.PI_CODING_AGENT_DIR,
-  oldFetch = globalThis.fetch,
-  NativeDate = globalThis.Date;
+const root = mkdtempSync(join(tmpdir(), "bbp20-calendar-bundle-"));
+const oldAgent = process.env.PI_CODING_AGENT_DIR;
+const oldFetch = globalThis.fetch;
+const NativeDate = globalThis.Date;
 let clock = NativeDate.parse("2026-10-01T12:00:00Z");
 class FixtureDate extends NativeDate {
   constructor(...args) {
@@ -71,8 +72,8 @@ try {
     "not-configured",
   );
   await bundled.default.handlers.collectorControl({ action: "install" }, context);
-  const historyDir = join(dataDir, "history"),
-    path = join(historyDir, "usage-v1.sqlite");
+  const historyDir = join(dataDir, "history");
+  const path = join(historyDir, "usage-v1.sqlite");
   writeFileSync(
     join(historyDir, "events-v1.jsonl"),
     Array.from({ length: 12060 }, (_, n) => JSON.stringify(event(n + 1))).join("\n") +
@@ -81,13 +82,15 @@ try {
       "\n",
   );
   let ready;
-  for (let n = 0; n < 80; n++) {
+  for (let n = 0; n < 80; n += 1) {
     ready = await bundled.default.handlers.historyReadiness(null, context);
-    if (!ready.collection.backlog) break;
+    if (!ready.collection.backlog) {
+      break;
+    }
   }
   assert.equal(ready.collection.backlog, false);
-  const bytes = readFileSync(path),
-    control = readFileSync(join(historyDir, "collector-control-v1.json"));
+  const bytes = readFileSync(path);
+  const control = readFileSync(join(historyDir, "collector-control-v1.json"));
   const report = await bundled.default.handlers.calendarReport(query, context);
   assert.equal(report.state, "partial");
   assert.deepEqual(report.summary, {
@@ -159,8 +162,11 @@ try {
   // Review regressions: established-control safety and dormant logical expiry, without readiness.
   const controlPath = join(historyDir, "collector-control-v1.json");
   for (const broken of ["{", null]) {
-    if (broken === null) rmSync(controlPath);
-    else writeFileSync(controlPath, broken);
+    if (broken === null) {
+      rmSync(controlPath);
+    } else {
+      writeFileSync(controlPath, broken);
+    }
     assert.deepEqual(await bundled.default.handlers.calendarReport(query, context), {
       state: "unavailable",
       reason: "storage-unavailable",
@@ -188,10 +194,10 @@ try {
   assert.deepEqual(readFileSync(controlPath), control);
   clock = NativeDate.parse("2026-10-01T12:00:00Z");
   // Import-only public handlers, scoped ledger and no collector installation.
-  const importedDir = join(root, "import-only"),
-    source = join(root, "source"),
-    bbSource = join(root, "bb-source"),
-    workspace = join(root, "workspace");
+  const importedDir = join(root, "import-only");
+  const source = join(root, "source");
+  const bbSource = join(root, "bb-source");
+  const workspace = join(root, "workspace");
   mkdirSync(importedDir);
   mkdirSync(source);
   mkdirSync(bbSource);
@@ -258,11 +264,12 @@ try {
     command({ action: "start" }),
     importedContext,
   );
-  for (let n = 0; n < 10 && imported.generation.state !== "completed"; n++)
+  for (let n = 0; n < 10 && imported.generation.state !== "completed"; n += 1) {
     imported = await bundled.default.handlers.historicalImport(
       command({ action: "resume" }),
       importedContext,
     );
+  }
   assert.equal(imported.generation.state, "completed");
   const importedReport = await bundled.default.handlers.calendarReport(query, importedContext);
   assert.equal(importedReport.summary.totalTokens, 10);
@@ -288,9 +295,15 @@ try {
 } finally {
   globalThis.Date = NativeDate;
   globalThis.fetch = oldFetch;
-  if (oldAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = oldAgent;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (oldAgent === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = oldAgent;
+  }
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
   rmSync(root, { recursive: true, force: true });
 }

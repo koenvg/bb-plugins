@@ -3,11 +3,12 @@ import { act, cleanup, fireEvent, within, waitFor } from "@testing-library/react
 import { afterEach, expect, it } from "vitest";
 import { dashboardFixture } from "../machines/app.test-support.js";
 import { setHistoryManagementOpen } from "./history-test-support.js";
+
 afterEach(cleanup);
 it("keeps one account owner and the official link while history is unconfigured", async () => {
-  const f = await dashboardFixture(),
-    page = f.page(),
-    settings = f.settings();
+  const f = await dashboardFixture();
+  const page = f.page();
+  const settings = f.settings();
   const q = within(settings.container);
   await setHistoryManagementOpen(settings.container);
   await q.findByText("History not configured on this host.");
@@ -24,9 +25,9 @@ it("keeps one account owner and the official link while history is unconfigured"
 it.each([false, true])(
   "does not block selected-machine management on a held allowance refresh, switch back=%s",
   async (back) => {
-    const f = await dashboardFixture(),
-      settings = f.settings(),
-      q = within(settings.container);
+    const f = await dashboardFixture();
+    const settings = f.settings();
+    const q = within(settings.container);
     await setHistoryManagementOpen(settings.container);
     await q.findByText("History not configured on this host.");
     let finish!: (value: unknown) => void;

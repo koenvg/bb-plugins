@@ -4,6 +4,7 @@ import { useState } from "react";
 import { QuotaDashboard } from "../src/quota/quota-view.js";
 import { HistoryReadinessPanel } from "../src/history/history-view.js";
 import type { HistoryReadiness } from "../src/history/history-contract.js";
+
 export const syntheticHistory: HistoryReadiness = {
   state: "available",
   reason: "ok",

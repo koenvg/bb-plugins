@@ -78,7 +78,9 @@ const owners = ["quota-refresh", "quota-footer"].map((id) => {
 window.addEventListener(
   "pagehide",
   () => {
-    for (const owner of owners.reverse()) owner.lifecycle.unmount();
+    for (const owner of owners.reverse()) {
+      owner.lifecycle.unmount();
+    }
     icon.unmount();
     void scripts.lifecycle.dispose();
   },

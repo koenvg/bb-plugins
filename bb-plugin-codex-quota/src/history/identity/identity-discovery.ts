@@ -1,15 +1,16 @@
 import { createHash } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { HistoryDatabase } from "../storage/history-storage.js";
-import { identityRowSchema, type IdentityBatch } from "./identity-contract.js";
+import { identityRowSchema } from "./identity-contract.js";
+import type { IdentityBatch } from "./identity-contract.js";
 import {
   initializeCatalog,
   fingerprintCatalog,
   deliveryCatalog,
   pruneCatalogSnapshots,
   emptyCatalogCursor,
-  type CatalogCursor,
 } from "./identity-catalog.js";
+import type { CatalogCursor } from "./identity-catalog.js";
 
 // Public metadata only. No timeline, output, prompt history or storage-file API.
 type Sdk = Pick<BbPluginApi["sdk"], "threads" | "environments">;
@@ -86,11 +87,13 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       const page = await sdk.environments.list({ limit: PAGE, offset: state.offset, signal });
       signal.throwIfAborted();
       database.transaction(() => {
-        for (const env of page)
-          if (env.hostId)
+        for (const env of page) {
+          if (env.hostId) {
             database
               .prepare("INSERT OR REPLACE INTO discovery_environments VALUES (?,?,?)")
               .run(state.generation, env.id, env.hostId);
+          }
+        }
         state.offset += page.length;
         if (page.length < PAGE) {
           state.phase = "active";
@@ -112,7 +115,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       signal.throwIfAborted();
       database.transaction(() => {
         for (const thread of page) {
-          if (thread.providerId !== "pi" && thread.providerId !== "codex") continue;
+          if (thread.providerId !== "pi" && thread.providerId !== "codex") {
+            continue;
+          }
           database
             .prepare("INSERT OR REPLACE INTO discovery_providers VALUES (?,?,?)")
             .run(state.generation, thread.id, thread.providerId);
@@ -134,13 +139,15 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
                   ? "archived"
                   : "available",
           });
-          if (!row.success) throw Error("Identity metadata unavailable");
+          if (!row.success) {
+            throw Error("Identity metadata unavailable");
+          }
           database
             .prepare(
               "INSERT OR IGNORE INTO discovery_threads(generation,thread_id,host_id,title,state) VALUES (?,?,?,?,?)",
             )
             .run(state.generation, thread.id, env?.host_id ?? "", row.data.title, row.data.state);
-          if (!env)
+          if (!env) {
             database
               .prepare(`INSERT OR IGNORE INTO discovery_ownership VALUES (?,?,?,
               coalesce((SELECT reason FROM discovery_ownership WHERE generation=? AND environment_id=? AND reason!='pending' LIMIT 1),?))`)
@@ -152,6 +159,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
                 thread.environmentId,
                 thread.environmentId ? "pending" : "no-environment",
               );
+          }
         }
         state.offset += page.length;
         state.returnPhase = phase;
@@ -243,7 +251,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
       });
       signal.throwIfAborted();
       database.transaction(() => {
-        if (state.afterSeq === 0)
+        if (state.afterSeq === 0) {
           database
             .prepare(
               "INSERT OR IGNORE INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,?,?,NULL,?,?)",
@@ -255,6 +263,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
               next.host_id ? next.title : null,
               next.state,
             );
+        }
         if (
           state.afterSeq === 0 &&
           next.host_id &&
@@ -286,8 +295,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             event.seq <= seq ||
             event.type !== "thread/identity" ||
             event.threadId !== next.thread_id
-          )
+          ) {
             throw Error("Identity page unavailable");
+          }
           seq = event.seq;
           const row = identityRowSchema.safeParse({
             threadId: next.thread_id,
@@ -295,7 +305,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             title: next.host_id ? next.title : null,
             state: next.state,
           });
-          if (!row.success) throw Error("Identity evidence unavailable");
+          if (!row.success) {
+            throw Error("Identity evidence unavailable");
+          }
           database
             .prepare(
               "INSERT OR IGNORE INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,?,?,?,?,?)",
@@ -366,7 +378,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
               current ? current.state : row.state,
             );
         }
-        if (rows.length < PAGE) state.phase = "uncertainty";
+        if (rows.length < PAGE) {
+          state.phase = "uncertainty";
+        }
         save(database, state);
       });
       return;
@@ -400,23 +414,28 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             .prepare("SELECT host_id FROM discovery_threads WHERE generation=? AND thread_id=?")
             .get(state.generation, row.thread_id) as { host_id: string } | undefined;
           // Advance over every source row, even if this proof must not be carried.
-          if (current && (current.host_id || row.resolved)) continue;
-          if (row.resolved)
+          if (current && (current.host_id || row.resolved)) {
+            continue;
+          }
+          if (row.resolved) {
             database
               .prepare("INSERT OR IGNORE INTO discovery_resolved VALUES (?,?)")
               .run(state.generation, row.thread_id);
+          }
           database
             .prepare(
               "INSERT OR IGNORE INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,'',?,?,NULL,?)",
             )
             .run(state.generation, row.thread_id, row.provider_identity, row.state);
         }
-        if (rows.length < PAGE) state.phase = "fingerprint";
+        if (rows.length < PAGE) {
+          state.phase = "fingerprint";
+        }
         save(database, state);
       });
       return;
     }
-    if (state.phase === "fingerprint")
+    if (state.phase === "fingerprint") {
       database.transaction(() => {
         if (fingerprintCatalog(database, state.generation, state.catalog, signal)) {
           state.phase = "complete";
@@ -425,6 +444,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         }
         save(database, state);
       });
+    }
   }
   async function next(
     hostId: string,
@@ -452,10 +472,12 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
     }
     // Metadata lookup failures are explicit per-entry uncertainty. Other failures
     // must reach the caller, not masquerade as a successful partial heartbeat.
-    if (state.retained && state.phase !== "complete")
+    if (state.retained && state.phase !== "complete") {
       pruneCatalogSnapshots(database, state.generation, signal);
-    for (let calls = 0; calls < 4 && state.phase !== "complete"; calls++)
+    }
+    for (let calls = 0; calls < 4 && state.phase !== "complete"; calls += 1) {
       await advance(database, state, signal);
+    }
     signal.throwIfAborted();
     if (state.phase !== "complete") {
       const batch = { hostId, generation: state.generation, offset: 0, total: null, rows: [] };
@@ -479,7 +501,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
     }
     const catalog = deliveryCatalog(database, state.generation, hostId);
     const generation = catalog.generation;
-    if (state.retained) pruneCatalogSnapshots(database, state.generation, signal);
+    if (state.retained) {
+      pruneCatalogSnapshots(database, state.generation, signal);
+    }
     let receipt = database
       .prepare(
         "SELECT offset,last_id,total FROM discovery_receipts WHERE generation=? AND host_id=?",
@@ -533,7 +557,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
     },
     delivered(batch: IdentityBatch) {
       const lastId = deliveryIds.get(batch);
-      if (batch.total === null || lastId === undefined) return;
+      if (batch.total === null || lastId === undefined) {
+        return;
+      }
       db()
         .prepare(
           "UPDATE discovery_receipts SET offset=max(offset,?),last_id=max(last_id,?) WHERE generation=? AND host_id=?",
@@ -541,7 +567,9 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         .run(batch.offset + batch.rows.length, lastId, batch.generation, batch.hostId);
     },
     resetDelivery(batch: IdentityBatch) {
-      if (batch.total === null || !deliveryIds.has(batch)) return;
+      if (batch.total === null || !deliveryIds.has(batch)) {
+        return;
+      }
       db()
         .prepare(
           "UPDATE discovery_receipts SET offset=0,last_id=0 WHERE generation=? AND host_id=?",

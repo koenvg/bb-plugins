@@ -11,8 +11,9 @@ import { reportPreviewReady } from "../../scripts/browser-fixture-runner.mjs";
 const scripts = dirname(fileURLToPath(import.meta.url));
 const packageRoot = dirname(scripts);
 const requested = process.env.CODEX_QUOTA_PREVIEW_PORT ?? process.env.BB_FIXTURE_PORT ?? "0";
-if (!/^\d+$/.test(requested) || Number(requested) > 65535)
+if (!/^\d+$/.test(requested) || Number(requested) > 65535) {
   throw new Error("Invalid CODEX_QUOTA_PREVIEW_PORT (expected 0 through 65535)");
+}
 const port = Number(requested);
 const suites = [
   "activity",
@@ -132,7 +133,9 @@ try {
     cancellation.signal.addEventListener("abort", resolve, { once: true }),
   );
 } catch (error) {
-  if (!cancellation.signal.aborted) throw error;
+  if (!cancellation.signal.aborted) {
+    throw error;
+  }
 } finally {
   try {
     if (server?.listening) {
@@ -143,7 +146,9 @@ try {
       await closed;
     }
   } finally {
-    if (root) await rm(root, { recursive: true, force: true });
+    if (root) {
+      await rm(root, { recursive: true, force: true });
+    }
     process.off("SIGINT", cancel);
     process.off("SIGTERM", cancel);
   }

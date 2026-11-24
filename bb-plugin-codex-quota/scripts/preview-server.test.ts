@@ -28,7 +28,9 @@ test("owned preview shutdown and occupied-port failure preserve other receipts",
       let stderr = "";
       server.stdout.on("data", (data) => {
         stdout += data.toString();
-        if (stdout.includes("Synthetic preview ready")) resolve(stdout);
+        if (stdout.includes("Synthetic preview ready")) {
+          resolve(stdout);
+        }
       });
       server.stderr.on("data", (data) => {
         stderr += data.toString();

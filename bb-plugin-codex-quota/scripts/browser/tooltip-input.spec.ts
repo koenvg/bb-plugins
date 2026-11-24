@@ -52,10 +52,12 @@ test("metric switch waits for keyboard frames before proving hover", async ({ pa
     let nextId = 0;
     window.tooltipFrameCounts = [];
     document.addEventListener("keydown", (event) => {
-      if (event.key === "ArrowRight") window.tooltipFrameCounts.push(frames.size);
+      if (event.key === "ArrowRight") {
+        window.tooltipFrameCounts.push(frames.size);
+      }
     });
     window.requestAnimationFrame = (callback) => {
-      const id = ++nextId;
+      const id = (nextId += 1);
       const pending: { timer?: number; frame?: number } = {};
       pending.timer = window.setTimeout(() => {
         delete pending.timer;
@@ -69,9 +71,15 @@ test("metric switch waits for keyboard frames before proving hover", async ({ pa
     };
     window.cancelAnimationFrame = (id) => {
       const pending = frames.get(id);
-      if (!pending) return cancel(id);
-      if (pending.timer !== undefined) window.clearTimeout(pending.timer);
-      if (pending.frame !== undefined) cancel(pending.frame);
+      if (!pending) {
+        return cancel(id);
+      }
+      if (pending.timer !== undefined) {
+        window.clearTimeout(pending.timer);
+      }
+      if (pending.frame !== undefined) {
+        cancel(pending.frame);
+      }
       frames.delete(id);
     };
   });
@@ -110,8 +118,9 @@ for (const metric of ["tokens", "cost"] as const) {
         if (
           event.key !== "ArrowLeft" ||
           document.querySelector(".calendar-tooltip time")?.getAttribute("datetime") !== targetDate
-        )
+        ) {
           return;
+        }
         const container = document.querySelector<HTMLElement>(".ts-chart-host")!;
         const before = container.getBoundingClientRect().top;
         container.parentElement!.style.paddingTop = "60px";

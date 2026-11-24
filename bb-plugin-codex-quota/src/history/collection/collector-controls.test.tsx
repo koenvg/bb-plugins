@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { HistoryReadinessPanel } from "../history-view.js";
 import type { HistoryReadiness } from "../history-contract.js";
+
 afterEach(cleanup);
 const missing: HistoryReadiness = {
   state: "not-configured",
@@ -58,8 +59,8 @@ it("does no installation on mount/disclosure; explicit install, repair, pause an
   expect(screen.getByText(/Writer activation: unconfirmed/)).toBeTruthy();
 });
 it("cancels queued controls at selection transition and at disposal", async () => {
-  const control = vi.fn(async () => installed),
-    read = async () => missing;
+  const control = vi.fn(async () => installed);
+  const read = async () => missing;
   const f = render(<HistoryReadinessPanel selection={selection} read={read} control={control} />);
   await screen.findByText("History not configured on this host.");
   act(() => {
@@ -97,8 +98,8 @@ it("excludes late control results after switching away/back to same selection re
   const pending = new Promise((resolve) => {
     finish = resolve;
   });
-  const control = vi.fn(() => pending),
-    read = async () => missing;
+  const control = vi.fn(() => pending);
+  const read = async () => missing;
   const f = render(<HistoryReadinessPanel selection={selection} read={read} control={control} />);
   await screen.findByText("History not configured on this host.");
   fireEvent.click(screen.getByRole("button", { name: "Install collector" }));

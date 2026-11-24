@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { barY, createMark, defineChart, stack, type SceneRect } from "@tanstack/charts";
+import { barY, createMark, defineChart, stack } from "@tanstack/charts";
+import type { SceneRect } from "@tanstack/charts";
 import { decorative } from "@tanstack/charts/mark/decorative";
 import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
@@ -7,14 +8,8 @@ import { Chart } from "@tanstack/charts/react/tooltip";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { portal } from "@tanstack/charts/tooltip/portal";
 import { UsageTooltip, displayValue } from "./calendar-tooltip.js";
-import {
-  axisValue,
-  dateTick,
-  weekdayTick,
-  metricName,
-  type chartData,
-  type TokenMetric,
-} from "./calendar-chart-data.js";
+import { axisValue, dateTick, weekdayTick, metricName } from "./calendar-chart-data.js";
+import type { chartData, TokenMetric } from "./calendar-chart-data.js";
 
 type ChartData = ReturnType<typeof chartData>;
 type DailyRow = ChartData["rows"][number];
@@ -50,7 +45,7 @@ function dailyInspection(
               (models.some((series) => (row.modelFacts[series.key] ?? 0) > 0) ||
                 row.uncertainHeight > 0)
             : (row.value ?? 0) > 0;
-        if (positive && height * chart.height < 2)
+        if (positive && height * chart.height < 2) {
           nodes.push({
             kind: "rect",
             key: `positive:${row.date}`,
@@ -62,6 +57,7 @@ function dailyInspection(
             ariaHidden: true,
             style: { fill: "currentColor" },
           });
+        }
         return {
           key: row.date,
           markId: "calendar-days",
@@ -259,7 +255,9 @@ export function CalendarChart({
         const row = primaryPoint
           ? data.rows.find((candidate) => candidate.date === primaryPoint.datum.date)
           : undefined;
-        if (!row) return null;
+        if (!row) {
+          return null;
+        }
         return (
           <div data-bb-plugin="codex-quota">
             <UsageTooltip

@@ -1,4 +1,5 @@
-import { videoError, isVideoPath, type VideoWireResult } from "./core/video-content";
+import { videoError, isVideoPath } from "./core/video-content";
+import type { VideoWireResult } from "./core/video-content";
 import {
   ContextError,
   MAX_CONTEXT_BYTES,
@@ -6,54 +7,37 @@ import {
   textRevisions,
   validateText,
   validateContext,
-  type TextContextResult,
-  type TextRevision,
-  type TextSide,
 } from "./core/text-context";
-import {
-  imageError,
-  imagePath,
-  imageShaSchema,
-  imageWire,
-  type ImageSide,
-  type ImageWireResult,
-} from "./core/image-content";
-import type { ChangesBasis, ChangedFile } from "./core/changes";
+import type { TextContextResult, TextRevision, TextSide } from "./core/text-context";
+import { imageError, imagePath, imageShaSchema, imageWire } from "./core/image-content";
+import type { ImageSide, ImageWireResult } from "./core/image-content";
 import {
   experimental_joinHostPath,
   experimental_getHostPathComparisonKey,
-  type BbPluginApi,
 } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import {
   gitStatusSchema,
   gitBranchesSchema,
   gitFilesSchema,
   gitFileSideSchema,
   gitPatchesSchema,
-  type GitStatus,
-  type GitFiles,
-  type GitFileSide,
-  type GitPatches,
 } from "./git-rpc";
+import type { GitStatus, GitFiles, GitFileSide, GitPatches } from "./git-rpc";
 import { rpcContract, hostContract } from "./contract";
-import {
-  diffQuery,
-  messageOf,
-  patchTarget,
-  targetKey,
-  type BranchCommit,
-  type ChangesResult,
-  type DiffQuery,
-  type DiffTarget,
-  type PatchesResult,
-  type SendFeedbackResult,
+import { diffQuery, messageOf, patchTarget, targetKey } from "./core/changes";
+import type {
+  ChangesBasis,
+  ChangedFile,
+  BranchCommit,
+  ChangesResult,
+  DiffQuery,
+  DiffTarget,
+  PatchesResult,
+  SendFeedbackResult,
 } from "./core/changes";
-import {
-  storedViewedSchema,
-  type GetViewedResult,
-  type UpdateViewedResult,
-  type ViewedMarks,
-} from "./core/viewed-files";
+import { storedViewedSchema } from "./core/viewed-files";
+import type { GetViewedResult, UpdateViewedResult, ViewedMarks } from "./core/viewed-files";
 
 export type { rpcContract } from "./contract";
 
@@ -71,8 +55,9 @@ class ChangesUnavailableError extends Error {
 
 async function environmentIdOf(sdk: Sdk, threadId: string): Promise<string> {
   const thread = await sdk.threads.get({ threadId });
-  if (thread.environmentId === null)
+  if (thread.environmentId === null) {
     throw new ChangesUnavailableError("This thread has no environment");
+  }
   return thread.environmentId;
 }
 
@@ -83,8 +68,12 @@ async function baseBranchOf(sdk: Sdk, environmentId: string): Promise<string> {
     input: { environmentId },
     outputSchema: gitStatusSchema,
   });
-  if (status.outcome === "not_applicable") throw new ChangesUnavailableError(status.message, true);
-  if (status.outcome === "unavailable") throw new ChangesUnavailableError(status.failure.message);
+  if (status.outcome === "not_applicable") {
+    throw new ChangesUnavailableError(status.message, true);
+  }
+  if (status.outcome === "unavailable") {
+    throw new ChangesUnavailableError(status.failure.message);
+  }
   const defaultBranch = status.workspace.branch.defaultBranch;
   const { remoteBranches } = await sdk.plugins.callRpc<{ remoteBranches: string[] }>({
     pluginId: "bb--git",
@@ -121,7 +110,9 @@ async function branchCommits(
 }
 
 function failure(error: unknown): { kind: "no_git" } | { kind: "error"; message: string } {
-  if (error instanceof ChangesUnavailableError && error.noGit) return { kind: "no_git" };
+  if (error instanceof ChangesUnavailableError && error.noGit) {
+    return { kind: "no_git" };
+  }
   return { kind: "error", message: messageOf(error) };
 }
 
@@ -151,15 +142,20 @@ async function getTextContext(
   try {
     validateText(patch, new TextEncoder().encode(patch).length);
     const ownsEnvironment = async () => {
-      if ((await environmentIdOf(sdk, threadId)) !== basis.environmentId)
+      if ((await environmentIdOf(sdk, threadId)) !== basis.environmentId) {
         throw new ContextError("stale", "Environment changed. Refresh changes.");
+      }
     };
     await ownsEnvironment();
     const revisions = textRevisions(basis, file);
     const { path: rootPath } = await sdk.environments.get({ environmentId: basis.environmentId });
-    if (rootPath === null) throw new ContextError("stale", "Environment changed. Refresh changes.");
+    if (rootPath === null) {
+      throw new ContextError("stale", "Environment changed. Refresh changes.");
+    }
     const read = async (revision: TextRevision): Promise<TextSide> => {
-      if (revision.kind === "absent") return revision;
+      if (revision.kind === "absent") {
+        return revision;
+      }
       const response = await sdk.plugins.callRpc<GitFileSide>({
         pluginId: "bb--git",
         method: "fileSide",
@@ -174,36 +170,43 @@ async function getTextContext(
           },
         },
       });
-      if (response.outcome === "unavailable")
+      if (response.outcome === "unavailable") {
         throw new ContextError(
           response.code === "file_too_large" ? "too_large" : "read",
           response.message,
         );
+      }
       const result = response.file;
       const expectedPath = experimental_joinHostPath({ rootPath, relativePath: revision.path });
       if (
         expectedPath === null ||
         experimental_getHostPathComparisonKey(result.path) !==
           experimental_getHostPathComparisonKey(expectedPath)
-      )
+      ) {
         throw new ContextError("stale", "Context path changed. Refresh changes.");
+      }
       if (
         result.sizeBytes > MAX_CONTEXT_BYTES ||
         result.content.length > Math.ceil(MAX_CONTEXT_BYTES / 3) * 4
-      )
+      ) {
         throw new ContextError("too_large", "Context exceeds the 1 MiB or 20,000 line limit.");
+      }
       let contents: string;
-      if (result.contentEncoding === "utf8") contents = result.content;
-      else if (result.contentEncoding === "base64") {
+      if (result.contentEncoding === "utf8") {
+        contents = result.content;
+      } else if (result.contentEncoding === "base64") {
         const bytes = Buffer.from(result.content, "base64");
-        if (bytes.toString("base64") !== result.content || bytes.length !== result.sizeBytes)
+        if (bytes.toString("base64") !== result.content || bytes.length !== result.sizeBytes) {
           throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
+        }
         try {
           contents = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
         } catch {
           throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
         }
-      } else throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
+      } else {
+        throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
+      }
       validateText(contents, result.sizeBytes);
       return { kind: "text", revision, contents, sizeBytes: result.sizeBytes };
     };
@@ -225,10 +228,13 @@ async function getImage(
   side: ImageSide,
 ): Promise<ImageWireResult> {
   try {
-    if ((await environmentIdOf(sdk, threadId)) !== basis.environmentId)
+    if ((await environmentIdOf(sdk, threadId)) !== basis.environmentId) {
       return imageError("stale", "Environment changed. Refresh changes.");
+    }
     const path = imagePath(file, side);
-    if (path === null) return { kind: "absent" };
+    if (path === null) {
+      return { kind: "absent" };
+    }
     const target = basis.target;
     const live = side === "after" && (target.kind === "all" || target.kind === "uncommitted");
     const sha =
@@ -237,8 +243,9 @@ async function getImage(
         : side === "before" && target.kind !== "uncommitted"
           ? basis.mergeBaseRef
           : basis.headSha;
-    if (!live && !imageShaSchema.safeParse(sha).success)
+    if (!live && !imageShaSchema.safeParse(sha).success) {
       return imageError("stale", "Image revision unavailable. Refresh changes.");
+    }
     const response = await sdk.plugins.callRpc<GitFileSide>({
       pluginId: "bb--git",
       method: "fileSide",
@@ -260,7 +267,9 @@ async function getImage(
         },
       },
     });
-    if (response.outcome === "unavailable") return imageError("read", response.message);
+    if (response.outcome === "unavailable") {
+      return imageError("read", response.message);
+    }
     return imageWire(response.file);
   } catch {
     return imageError("read", "Could not read image at this revision");
@@ -301,8 +310,12 @@ async function getChanges(
         return { diff, headSha, stable: headSha !== null && headSha === endHead };
       })(),
     ]);
-    if (diff.outcome === "not_applicable") return { kind: "no_git" };
-    if (diff.outcome === "unavailable") return { kind: "error", message: diff.failure.message };
+    if (diff.outcome === "not_applicable") {
+      return { kind: "no_git" };
+    }
+    if (diff.outcome === "unavailable") {
+      return { kind: "error", message: diff.failure.message };
+    }
     return {
       kind: "ok",
       environmentId,
@@ -344,11 +357,17 @@ async function getPatches(
       input: { environmentId, target, ignoreWhitespace: false },
       outputSchema: gitFilesSchema,
     });
-    if (files.outcome === "not_applicable") return { kind: "error", message: files.message };
-    if (files.outcome === "unavailable") return { kind: "error", message: files.failure.message };
+    if (files.outcome === "not_applicable") {
+      return { kind: "error", message: files.message };
+    }
+    if (files.outcome === "unavailable") {
+      return { kind: "error", message: files.failure.message };
+    }
     const keys = paths.map((path) => {
       const file = files.files.find((entry) => entry.path === path);
-      if (!file) throw new Error(`File is no longer in this diff: ${path}. Refresh changes.`);
+      if (!file) {
+        throw new Error(`File is no longer in this diff: ${path}. Refresh changes.`);
+      }
       return JSON.stringify([environmentId, target, false, path, file.revision]);
     });
     const patches: Record<string, string> = {};
@@ -362,9 +381,15 @@ async function getPatches(
       });
       for (const key of batch) {
         const row = result[key];
-        if (!row) throw new Error("Git did not return the requested patch. Retry.");
-        if (row.outcome === "not_applicable") return { kind: "error", message: row.message };
-        if (row.outcome === "unavailable") return { kind: "error", message: row.failure.message };
+        if (!row) {
+          throw new Error("Git did not return the requested patch. Retry.");
+        }
+        if (row.outcome === "not_applicable") {
+          return { kind: "error", message: row.message };
+        }
+        if (row.outcome === "unavailable") {
+          return { kind: "error", message: row.failure.message };
+        }
         patches[row.patch.path] = row.patch.patch;
       }
     }
@@ -404,7 +429,9 @@ function createViewedMarksKv(kv: Kv) {
     const settled = run.catch(() => undefined);
     queues.set(key, settled);
     void settled.then(() => {
-      if (queues.get(key) === settled) queues.delete(key);
+      if (queues.get(key) === settled) {
+        queues.delete(key);
+      }
     });
     return run;
   }
@@ -426,9 +453,14 @@ function createViewedMarksKv(kv: Kv) {
       const key = keyOf(threadId, target);
       return inOrder(key, async () => {
         const marks: Record<string, string> = { ...(await read(key)), ...set };
-        for (const path of remove) delete marks[path];
-        if (Object.keys(marks).length === 0) await kv.delete(key);
-        else await kv.set(key, { v: 1, marks });
+        for (const path of remove) {
+          delete marks[path];
+        }
+        if (Object.keys(marks).length === 0) {
+          await kv.delete(key);
+        } else {
+          await kv.set(key, { v: 1, marks });
+        }
         return { kind: "ok" as const };
       }).catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
     },
@@ -441,14 +473,20 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     getVideo: async ({ threadId, basis, file, side }): Promise<VideoWireResult> => {
       try {
-        if ((await environmentIdOf(bb.sdk, threadId)) !== basis.environmentId)
+        if ((await environmentIdOf(bb.sdk, threadId)) !== basis.environmentId) {
           return videoError("stale", "Environment changed. Refresh changes.");
+        }
         const path = imagePath(file, side);
-        if (path === null) return { kind: "absent" };
-        if (!isVideoPath(file.path) && !isVideoPath(file.previousPath ?? ""))
+        if (path === null) {
+          return { kind: "absent" };
+        }
+        if (!isVideoPath(file.path) && !isVideoPath(file.previousPath ?? "")) {
           return videoError("unsupported", "This file is not an MP4 or WebM video");
+        }
         const environment = await bb.sdk.environments.get({ environmentId: basis.environmentId });
-        if (!environment.path) return videoError("read", "Workspace path unavailable");
+        if (!environment.path) {
+          return videoError("read", "Workspace path unavailable");
+        }
         const target = basis.target;
         const live = side === "after" && (target.kind === "all" || target.kind === "uncommitted");
         const sha =
@@ -457,8 +495,9 @@ export default async function plugin(bb: BbPluginApi) {
             : side === "before" && target.kind !== "uncommitted"
               ? basis.mergeBaseRef
               : basis.headSha;
-        if (!live && !imageShaSchema.safeParse(sha).success)
+        if (!live && !imageShaSchema.safeParse(sha).success) {
           return videoError("stale", "Video revision unavailable. Refresh changes.");
+        }
         const result = await host.call(
           "readVideo",
           {

@@ -169,10 +169,14 @@ describe("pill tracker", () => {
       const { tracker, remove, clearResolved, hidden } = setup();
       clearResolved.mockResolvedValueOnce({ removed: [] });
       tracker.observe("thr", ["a", "b"]);
-      if (order === "after") tracker.observe("thr", [], isSubmitting);
+      if (order === "after") {
+        tracker.observe("thr", [], isSubmitting);
+      }
 
       tracker.submitted("thr");
-      if (order === "before") tracker.observe("thr", [], isSubmitting);
+      if (order === "before") {
+        tracker.observe("thr", [], isSubmitting);
+      }
       await vi.runAllTimersAsync();
 
       expect([...hidden]).toEqual(["a", "b"]);

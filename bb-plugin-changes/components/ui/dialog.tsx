@@ -6,12 +6,12 @@ import { cn } from "../../lib/utils";
 import { usePortalScopeProps } from "../../lib/portal-scope";
 import { useBrowserDimmingModal } from "../../hooks/useBrowserDimmingModal";
 import {
-  type ResponsiveOverlayContextValue,
   useResponsiveRoot,
   MobileTrigger,
   ResponsiveDrawerShell,
   stripRadixContentProps,
 } from "./responsive-overlay.js";
+import type { ResponsiveOverlayContextValue } from "./responsive-overlay.js";
 import {
   blurActiveKeyboardInputBeforeOverlayOpen,
   getOverlayTriggerClassName,

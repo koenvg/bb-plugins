@@ -2,19 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../../plugin/server.js";
 import type { HistoryRequest } from "../history-contract.js";
-import {
-  calendarReportSchema,
-  calendarUnavailable,
-  type CalendarQuery,
-  type CalendarReport,
-} from "./calendar-contract.js";
+import { calendarReportSchema, calendarUnavailable } from "./calendar-contract.js";
+import type { CalendarQuery, CalendarReport } from "./calendar-contract.js";
 import { latestStart, shiftDate, validTimezone } from "./calendar-time.js";
 import { dateTick } from "./calendar-chart-data.js";
-import { CalendarValues, reportButton, type TokenMetric } from "./calendar-view.js";
+import { CalendarValues, reportButton } from "./calendar-view.js";
+import type { TokenMetric } from "./calendar-view.js";
 import { QuotaSelect } from "../../quota/quota-select.js";
 import { useReportPreparation } from "./report-preparation.js";
 import { usePageClock } from "./page-clock.js";
 import type { PreparationRequest } from "../report-preparation-contract.js";
+
 type Props = {
   selection: { hostId: string | null; generation: number };
   selectionPending?: boolean;
@@ -55,10 +53,10 @@ export function CalendarReportPanel({
   prepare,
 }: Props) {
   const preparation = useReportPreparation(selection, selectionPending, selectionRevision, prepare);
-  const [timezone] = useState(viewerTimezone),
-    [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : null));
-  const [metric, setMetric] = useState<TokenMetric>("tokens"),
-    [attempt, setAttempt] = useState(0);
+  const [timezone] = useState(viewerTimezone);
+  const [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : null));
+  const [metric, setMetric] = useState<TokenMetric>("tokens");
+  const [attempt, setAttempt] = useState(0);
   const query: CalendarQuery | null =
     timezone && start
       ? {
@@ -69,9 +67,9 @@ export function CalendarReportPanel({
           includeUncertain: true,
         }
       : null;
-  const queryKey = query ? JSON.stringify(query) : "",
-    key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}:${queryKey}`,
-    requestKey = `${key}:${attempt}:${preparation.revision}`;
+  const queryKey = query ? JSON.stringify(query) : "";
+  const key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}:${queryKey}`;
+  const requestKey = `${key}:${attempt}:${preparation.revision}`;
   const latest = useRef(requestKey);
   latest.current = requestKey;
   const readRef = useRef(read);
@@ -83,22 +81,26 @@ export function CalendarReportPanel({
     attempt: number;
   } | null>(null);
   useEffect(() => {
-    if (selectionPending || !selection.hostId || !query) return;
-    const controller = new AbortController(),
-      frozen = {
-        hostId: selection.hostId,
-        generation: selection.generation,
-        query: structuredClone(query),
-      };
+    if (selectionPending || !selection.hostId || !query) {
+      return;
+    }
+    const controller = new AbortController();
+    const frozen = {
+      hostId: selection.hostId,
+      generation: selection.generation,
+      query: structuredClone(query),
+    };
     const valid = () => !controller.signal.aborted && latest.current === requestKey;
     const accept = (value: unknown) => {
-      if (!valid()) return;
-      const parsed = calendarReportSchema.safeParse(value),
-        view =
-          parsed.success &&
-          (parsed.data.state === "unavailable" || JSON.stringify(parsed.data.query) === queryKey)
-            ? parsed.data
-            : calendarUnavailable("unsupported");
+      if (!valid()) {
+        return;
+      }
+      const parsed = calendarReportSchema.safeParse(value);
+      const view =
+        parsed.success &&
+        (parsed.data.state === "unavailable" || JSON.stringify(parsed.data.query) === queryKey)
+          ? parsed.data
+          : calendarUnavailable("unsupported");
       setObservation((old) =>
         view.state === "unavailable" && old?.key === key && old.view.state !== "unavailable"
           ? { ...old, stale: true, attempt }
@@ -241,8 +243,9 @@ export function CalendarReportPanel({
               current.view.state === "unavailable" &&
               current.view.reason === "range-unavailable" &&
               timezone
-            )
+            ) {
               setStart(latestStart(now, timezone));
+            }
             setAttempt((n) => n + 1);
           }}
         >

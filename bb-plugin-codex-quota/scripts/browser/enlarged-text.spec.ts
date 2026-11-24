@@ -115,7 +115,7 @@ for (const coarse of [true, false]) {
         const surface = panel.getByRole("img", { name: "Daily usage chart: Tokens", exact: true });
         await surface.focus();
         await page.keyboard.press("Home");
-        for (let index = 0; index < 13; index++) {
+        for (let index = 0; index < 13; index += 1) {
           await page.evaluate(() => new Promise(requestAnimationFrame));
           await page.keyboard.press("ArrowRight");
         }
@@ -152,11 +152,17 @@ for (const coarse of [true, false]) {
         }
         const changed = await controlsFit(page, panel, coarse);
         // Repeat navigation with pointer input, after the layout has wrapped.
-        if (coarse) await previous.tap();
-        else await previous.click();
+        if (coarse) {
+          await previous.tap();
+        } else {
+          await previous.click();
+        }
         await expect(next).toBeEnabled();
-        if (coarse) await next.tap();
-        else await next.click();
+        if (coarse) {
+          await next.tap();
+        } else {
+          await next.click();
+        }
         await expect(next).toBeDisabled();
         await controlsFit(page, panel, coarse);
         await capture(page, info, `${scope}-320-text200-${coarse ? "coarse" : "fine"}`);

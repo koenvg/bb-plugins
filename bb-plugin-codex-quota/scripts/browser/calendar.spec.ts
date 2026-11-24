@@ -40,16 +40,17 @@ const matrices = {
     "loading",
   ],
 };
-for (const [suite, states] of Object.entries(matrices))
-  for (const width of sizes)
+for (const [suite, states] of Object.entries(matrices)) {
+  for (const width of sizes) {
     for (const state of states) {
       test(`${suite} ${width} ${state} tokens and cost`, async ({ page }, info) => {
         await viewport(page, width);
         await page.goto(`/calendar.html?state=${state}`);
         await expect(page.getByRole("combobox", { name: "Codex host" })).toHaveCount(0);
         await expect(page.getByLabel("Shared account allowance")).toContainText("42%");
-        for (const label of ["Report grouping", "Report comparison", "Daily detail"])
+        for (const label of ["Report grouping", "Report comparison", "Daily detail"]) {
           await expect(page.getByLabel(label)).toHaveCount(0);
+        }
         expect(await page.locator("body").innerText()).not.toContain(
           "Collection and history management",
         );
@@ -67,7 +68,9 @@ for (const [suite, states] of Object.entries(matrices))
             ),
           ).toBeVisible();
           await expect(page.locator(".ts-chart")).toHaveCount(0);
-        } else await chart(page);
+        } else {
+          await chart(page);
+        }
         await expect(
           page.getByRole("group", { name: "Usage grouping" }).getByRole("button"),
         ).toHaveText(["Threads", "Workspaces"]);
@@ -155,8 +158,9 @@ for (const [suite, states] of Object.entries(matrices))
             expect(theme.opacity).toBe(1);
             expect(theme.textContrast.length).toBeGreaterThan(0);
             expect(theme.textContrast.every((text) => text.ratio >= 4.5)).toBe(true);
-            if (!["Unavailable", "0"].includes(expected))
+            if (!["Unavailable", "0"].includes(expected)) {
               expect(measurements.y.length).toBeGreaterThanOrEqual(2);
+            }
             await expect(page.locator("[data-ts-key='y-label']")).toHaveCount(1);
             expect(await page.locator("[data-ts-key='y-label']").allTextContents()).toContain(
               metric === "cost" ? "USD estimate" : "Tokens",
@@ -210,9 +214,11 @@ for (const [suite, states] of Object.entries(matrices))
           ["machineReports", "machineReportSnapshot"].includes(call.method),
         )) {
           expect(call.input.query!.includeUncertain).toBe(call.input.query!.group === "workspace");
-          if (call.method === "machineReports")
+          if (call.method === "machineReports") {
             expect(call.input).toMatchObject({ prepare: false, refresh: false });
-          else expect(call.input).toEqual({ query: call.input.query });
+          } else {
+            expect(call.input).toEqual({ query: call.input.query });
+          }
           expect(call.input.query!.scope).toEqual({ kind: "host" });
           expect(call.input.query!.comparison).toBeFalsy();
         }
@@ -235,3 +241,5 @@ for (const [suite, states] of Object.entries(matrices))
         });
       });
     }
+  }
+}

@@ -1,11 +1,7 @@
 import type { HistoryDatabaseFactory } from "../storage/history-storage.js";
 import { withRetainedHistory, retainedHistoryReason } from "../storage/retained-history.js";
-import {
-  calendarQuerySchema,
-  calendarUnavailable,
-  type CalendarQuery,
-  type CalendarReport,
-} from "./calendar-contract.js";
+import { calendarQuerySchema, calendarUnavailable } from "./calendar-contract.js";
+import type { CalendarQuery, CalendarReport } from "./calendar-contract.js";
 import { readCalendarReport } from "./calendar-report.js";
 /** Read-only report path. Validates control but changes no collector assets/control, metadata discovery, imports or account calls. */
 export async function readHostCalendar(
@@ -13,7 +9,9 @@ export async function readHostCalendar(
   deps: { storage?: () => Promise<HistoryDatabaseFactory | null>; now?: () => number },
 ): Promise<CalendarReport> {
   const { signal } = context;
-  if (signal.aborted) return calendarUnavailable("selection-changed");
+  if (signal.aborted) {
+    return calendarUnavailable("selection-changed");
+  }
   try {
     const query = calendarQuerySchema.parse(context.calendar);
     return await withRetainedHistory(context, deps, true, (db) => {

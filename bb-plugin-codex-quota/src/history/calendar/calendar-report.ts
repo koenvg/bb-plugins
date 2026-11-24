@@ -8,13 +8,12 @@ import {
   calendarQuerySchema,
   calendarReportSchema,
   calendarUnavailable,
-  type CalendarQuery,
-  type CalendarReport,
-  type CalendarSnapshot,
 } from "./calendar-contract.js";
+import type { CalendarQuery, CalendarReport, CalendarSnapshot } from "./calendar-contract.js";
 import { queryScope, scopeFilter } from "./calendar-aggregation.js";
 import { historyObserved } from "../storage/history-projection.js";
-import { calendarMoney, moneyColumns, type MoneyAggregate } from "./calendar-money.js";
+import { calendarMoney, moneyColumns } from "./calendar-money.js";
+import type { MoneyAggregate } from "./calendar-money.js";
 import { comparisonReasons } from "./calendar-comparison.js";
 
 export function readCalendarReport(
@@ -22,16 +21,17 @@ export function readCalendarReport(
   input: CalendarQuery,
   now: number,
 ): CalendarReport {
-  const query = calendarQuerySchema.parse(input),
-    retention = effectiveRetentionState(db, now);
+  const query = calendarQuerySchema.parse(input);
+  const retention = effectiveRetentionState(db, now);
   const current = readRange(db, query, now, retention, true);
   if (current.state !== "unavailable" && query.comparison) {
     const priorQuery = { ...query, startDate: shiftDate(query.startDate, -30) };
     let prior: NonNullable<CalendarSnapshot["comparison"]>["prior"];
     try {
       const range = readRange(db, priorQuery, now, retention, false);
-      if (range.state === "unavailable") prior = range;
-      else {
+      if (range.state === "unavailable") {
+        prior = range;
+      } else {
         const boundaries = calendarDays(priorQuery.startDate, priorQuery.timezone);
         const coverage = readCoverage(db, {
           start: boundaries[0].start,
@@ -69,12 +69,15 @@ function readRange(
 ): CalendarReport {
   const latest = latestStart(now, query.timezone);
   const observedAt = new Date(now).toISOString();
-  const boundaries = calendarDays(query.startDate, query.timezone),
-    start = boundaries[0].start,
-    end = boundaries[29].end < observedAt ? boundaries[29].end : observedAt;
-  if (!retention.compact_cutoff || start < retention.compact_cutoff || query.startDate > latest)
+  const boundaries = calendarDays(query.startDate, query.timezone);
+  const start = boundaries[0].start;
+  const end = boundaries[29].end < observedAt ? boundaries[29].end : observedAt;
+  if (!retention.compact_cutoff || start < retention.compact_cutoff || query.startDate > latest) {
     return calendarUnavailable("range-unavailable");
-  if (!retention.backfill_done) return calendarUnavailable("storage-unavailable");
+  }
+  if (!retention.backfill_done) {
+    return calendarUnavailable("storage-unavailable");
+  }
   // Never expose stale exact bindings while catalog delivery or re-resolution is incomplete.
   const receipt = db
     .prepare("SELECT generation,complete,backfilled,revision FROM identity_receipt WHERE id=1")
@@ -88,10 +91,11 @@ function readRange(
     : !receipt.complete
       ? ("partial" as const)
       : ("complete" as const);
-  if (query.group === "thread" && (identity !== "complete" || identityPending))
+  if (query.group === "thread" && (identity !== "complete" || identityPending)) {
     return calendarUnavailable("identity-unavailable");
-  const scope = queryScope(query),
-    filter = scopeFilter({ ...scope, group: query.group });
+  }
+  const scope = queryScope(query);
+  const filter = scopeFilter({ ...scope, group: query.group });
   const totals = readCalendarTotals(
     db,
     { start, end, timezone: query.timezone, ...scope, group: query.group },
@@ -181,7 +185,7 @@ function readRange(
     : [];
   const ranking: CalendarSnapshot["ranking"] = ranked.map((row) => {
     checkedCount(row.totalTokens);
-    if (query.group === "workspace")
+    if (query.group === "workspace") {
       return {
         key: row.key,
         label: row.key,
@@ -200,6 +204,7 @@ function readRange(
                 : "workspace-only",
         coverage: readCoverage(db, { start, end, workspace: row.key }),
       };
+    }
     const meta = db
       .prepare("SELECT title,state FROM identity_metadata WHERE generation=? AND thread_id=?")
       .get(receipt.generation, row.key) as
@@ -217,8 +222,8 @@ function readRange(
       coverage: readCoverage(db, { start, end, verifiedThread: row.key }),
     };
   });
-  const inactive = days.every((day) => day.coverage.zero),
-    anyUsage = days.some((day) => day.activeEntities > 0 || (day.uncertain?.records ?? 0) > 0);
+  const inactive = days.every((day) => day.coverage.zero);
+  const anyUsage = days.some((day) => day.activeEntities > 0 || (day.uncertain?.records ?? 0) > 0);
   const value: CalendarSnapshot = {
     state: inactive ? "observed-inactivity" : anyUsage ? "partial" : "unknown",
     reason: "ok",

@@ -1,4 +1,5 @@
-import { createServer, type IncomingMessage } from "node:http";
+import { createServer } from "node:http";
+import type { IncomingMessage } from "node:http";
 import { fileURLToPath } from "node:url";
 import { createServer as createViteServer } from "vite";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
@@ -9,7 +10,9 @@ async function readBody(req: IncomingMessage, maxBytes: number): Promise<string>
   let bytes = 0;
   for await (const chunk of req) {
     bytes += chunk.length;
-    if (bytes > maxBytes) throw new Error("Request too large");
+    if (bytes > maxBytes) {
+      throw new Error("Request too large");
+    }
     chunks.push(chunk);
   }
   return Buffer.concat(chunks, bytes).toString("utf8");
@@ -86,8 +89,12 @@ const server = createServer(async (req, res) => {
       if (req.method === "POST") {
         const body = await readBody(req, 1024);
         await host.harness.behavior.setSettings(JSON.parse(body));
-        if (url.searchParams.get("scenario") === "refresh-failure") failedRefreshRead = true;
-      } else if (req.method !== "GET") throw new Error("GET or POST required");
+        if (url.searchParams.get("scenario") === "refresh-failure") {
+          failedRefreshRead = true;
+        }
+      } else if (req.method !== "GET") {
+        throw new Error("GET or POST required");
+      }
       const state = (await host.harness.behavior.callRpc("getProject", {
         projectId: "fixture_beta",
       })) as { enableByDefault: boolean };
@@ -112,7 +119,9 @@ const server = createServer(async (req, res) => {
   }
   if (url.pathname.startsWith("/fixture-rpc/")) {
     try {
-      if (req.method !== "POST") throw new Error("POST required");
+      if (req.method !== "POST") {
+        throw new Error("POST required");
+      }
       const method = url.pathname.slice("/fixture-rpc/".length);
       if (
         ![
@@ -122,18 +131,26 @@ const server = createServer(async (req, res) => {
           "setEnablement",
           "setPrompt",
         ].includes(method)
-      )
+      ) {
         throw new Error("Unknown fixture operation");
+      }
       // Two 4096-character strings can each expand sixfold in JSON.
       const body = await readBody(req, 64 * 1024);
       const scenario = url.searchParams.get("scenario");
       await new Promise((resolve) => setTimeout(resolve, scenario === "slow" ? 2000 : 200));
-      if (scenario === "refresh-failure" && method === "listProjectSummaries" && failedRefreshRead)
+      if (
+        scenario === "refresh-failure" &&
+        method === "listProjectSummaries" &&
+        failedRefreshRead
+      ) {
         throw new Error("Fixture refresh failure");
-      if (scenario === "load-failure" && ["getProject", "listProjectSummaries"].includes(method))
+      }
+      if (scenario === "load-failure" && ["getProject", "listProjectSummaries"].includes(method)) {
         throw new Error("Fixture load failure");
-      if (scenario === "save-failure" && ["setEnablement", "setPrompt"].includes(method))
+      }
+      if (scenario === "save-failure" && ["setEnablement", "setPrompt"].includes(method)) {
         throw new Error("Fixture save failure");
+      }
       const result =
         scenario === "empty" && ["listProjects", "listProjectSummaries"].includes(method)
           ? []
@@ -163,8 +180,9 @@ const server = createServer(async (req, res) => {
 const port = Number(process.env.PORT ?? 4888);
 server.listen(port, "127.0.0.1", () => {
   const address = server.address();
-  if (address && typeof address !== "string")
+  if (address && typeof address !== "string") {
     console.log(`Isolated Code Cleanup Settings fixture ready at http://127.0.0.1:${address.port}`);
+  }
 });
 async function stop() {
   server.close();

@@ -5,12 +5,16 @@ export function createHiddenPins() {
 
   return {
     hide(id: string) {
-      if (hidden.has(id)) return;
+      if (hidden.has(id)) {
+        return;
+      }
       hidden.add(id);
       notify();
     },
     show(id: string) {
-      if (hidden.delete(id)) notify();
+      if (hidden.delete(id)) {
+        notify();
+      }
     },
     has(id: string) {
       return hidden.has(id);

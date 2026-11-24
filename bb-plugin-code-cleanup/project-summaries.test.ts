@@ -7,7 +7,9 @@ import { settingsContract } from "./rpc";
 
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 const projects = [
   { id: "proj_z", name: "Zulu", kind: "standard" },
@@ -106,7 +108,7 @@ describe("read-only project summaries", () => {
     const config = projectConfiguration(
       host.bb,
       openProjectSettings(host.bb),
-      () => ++defaults === 1,
+      () => (defaults += 1) === 1,
     );
     const rows = await config.listProjectSummaries();
     expect(defaults).toBe(1);

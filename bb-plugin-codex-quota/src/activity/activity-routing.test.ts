@@ -4,6 +4,7 @@ import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/
 import { createQuotaHostEntry } from "../plugin/host.js";
 import plugin from "../plugin/server.js";
 import { normalizeActivity } from "./activity.js";
+
 const time = Date.UTC(2026, 3, 23, 12);
 const snapshot = normalizeActivity({ stats: { lifetime_tokens: 12 } }, time)!;
 const fresh = { state: "fresh", reason: "ok", snapshot };
@@ -57,7 +58,7 @@ describe("activity host and server boundaries", () => {
         now: () => now,
         read: async () => ({ status: "service", snapshot: null }),
         activityRead: async () => {
-          if (++calls === 2) {
+          if ((calls += 1) === 2) {
             started.resolve();
             await held.promise;
           }

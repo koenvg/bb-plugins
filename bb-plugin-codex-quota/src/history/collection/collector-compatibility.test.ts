@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { packagedCollectorAsset, readCollectorCompatibility } from "./collector-compatibility.js";
+
 const roots: string[] = [];
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp17-collector-"));
@@ -16,8 +17,9 @@ afterEach(async () => {
 
 describe("self-contained collector compatibility", () => {
   it("rejects unsafe configuration and missing/incompatible loader support", async () => {
-    for (const path of ["relative", "/x\u0000", "/x\n", "/" + "x".repeat(16_384)])
+    for (const path of ["relative", "/x\u0000", "/x\n", "/" + "x".repeat(16_384)]) {
       expect(() => packagedCollectorAsset(path)).toThrow();
+    }
     expect(await readCollectorCompatibility("/tmp", "/tmp", false)).toBe("incompatible");
   });
   it("checks only the bounded plugin-owned asset and does not follow extension symlinks", async () => {

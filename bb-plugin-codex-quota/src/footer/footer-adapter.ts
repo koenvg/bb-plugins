@@ -16,14 +16,19 @@ const styles = `
 `;
 
 function isAvailable(button: HTMLButtonElement): boolean {
-  if (!button.isConnected || button.disabled || button.getAttribute("aria-disabled") === "true")
+  if (!button.isConnected || button.disabled || button.getAttribute("aria-disabled") === "true") {
     return false;
+  }
   for (let node: HTMLElement | null = button; node; node = node.parentElement) {
     // Modal menus set aria-hidden on the background without removing the footer.
     // Keep its attachment and navigation suppression until it is actually hidden.
-    if (node.hidden || node.inert || node.hasAttribute("inert")) return false;
+    if (node.hidden || node.inert || node.hasAttribute("inert")) {
+      return false;
+    }
     const style = node.ownerDocument.defaultView?.getComputedStyle(node);
-    if (style?.display === "none" || style?.visibility === "hidden") return false;
+    if (style?.display === "none" || style?.visibility === "hidden") {
+      return false;
+    }
   }
   return true;
 }
@@ -60,24 +65,37 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     const next = new Set<Element>();
     if (navigationReady && !disposed) {
       for (const [button, target] of attached) {
-        if (!target.rendered) continue;
+        if (!target.rendered) {
+          continue;
+        }
         const sidebar = button.closest('[data-sidebar="sidebar"]');
         const rows = Array.from(
           sidebar?.querySelectorAll(
             '[data-testid="sidebar-navigation-region"] [data-sidebar-navigation-item]',
           ) ?? [],
         ).filter((row) => row.getAttribute("data-sidebar-navigation-item") === `${pluginId}/quota`);
-        if (rows.length !== 1) continue;
+        if (rows.length !== 1) {
+          continue;
+        }
         const row = rows[0]!;
-        if (row.contains(document.activeElement)) button.focus({ preventScroll: true });
+        if (row.contains(document.activeElement)) {
+          button.focus({ preventScroll: true });
+        }
         next.add(row);
-        if (!suppressed.has(row)) row.setAttribute("data-codex-quota-suppressed", "");
+        if (!suppressed.has(row)) {
+          row.setAttribute("data-codex-quota-suppressed", "");
+        }
       }
     }
-    for (const row of suppressed)
-      if (!next.has(row)) row.removeAttribute("data-codex-quota-suppressed");
+    for (const row of suppressed) {
+      if (!next.has(row)) {
+        row.removeAttribute("data-codex-quota-suppressed");
+      }
+    }
     suppressed.clear();
-    for (const row of next) suppressed.add(row);
+    for (const row of next) {
+      suppressed.add(row);
+    }
   }
 
   function release(button: HTMLButtonElement, target: Attachment) {
@@ -86,32 +104,47 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     const descriptions = (button.getAttribute("aria-describedby") ?? "")
       .split(/\s+/)
       .filter((id) => id && id !== target.descriptionId);
-    if (descriptions.length) button.setAttribute("aria-describedby", descriptions.join(" "));
-    else button.removeAttribute("aria-describedby");
+    if (descriptions.length) {
+      button.setAttribute("aria-describedby", descriptions.join(" "));
+    } else {
+      button.removeAttribute("aria-describedby");
+    }
     attached.delete(button);
   }
   const publish = () => {
     const next = [...attached.values()];
-    if (next.length === targets.length && next.every((target, i) => target === targets[i])) return;
+    if (next.length === targets.length && next.every((target, i) => target === targets[i])) {
+      return;
+    }
     targets = next;
-    for (const listener of listeners) listener();
+    for (const listener of listeners) {
+      listener();
+    }
   };
   function reconcile() {
-    if (disposed) return;
+    if (disposed) {
+      return;
+    }
     const buttons = new Set<HTMLButtonElement>();
     for (const sidebar of sidebars) {
-      if (!sidebar.isConnected || !sidebar.matches(sidebarSelector)) sidebars.delete(sidebar);
+      if (!sidebar.isConnected || !sidebar.matches(sidebarSelector)) {
+        sidebars.delete(sidebar);
+      }
     }
     observeContext();
     for (const sidebar of sidebars) {
       const items = Array.from(
         sidebar.querySelectorAll('[data-sidebar="footer"] [data-footer-item]'),
       ).filter((item) => item.getAttribute("data-footer-item") === key);
-      if (items.length !== 1) continue;
+      if (items.length !== 1) {
+        continue;
+      }
       const matches = items[0]!.querySelectorAll<HTMLButtonElement>(
         'button[data-sidebar="menu-button"]',
       );
-      if (matches.length === 1 && isAvailable(matches[0]!)) buttons.add(matches[0]!);
+      if (matches.length === 1 && isAvailable(matches[0]!)) {
+        buttons.add(matches[0]!);
+      }
     }
     for (const [button, target] of attached) {
       if (!buttons.has(button) || target.container.parentElement !== button) {
@@ -119,9 +152,11 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       }
     }
     for (const button of buttons) {
-      if (attached.has(button)) continue;
+      if (attached.has(button)) {
+        continue;
+      }
       const container = document.createElement("span");
-      container.id = `codex-quota-badge-${++nextId}`;
+      container.id = `codex-quota-badge-${(nextId += 1)}`;
       const descriptionId = `${container.id}-description`;
       container.setAttribute("data-codex-quota-badge", "");
       button.setAttribute("data-codex-quota-footer", "");
@@ -148,18 +183,23 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       const descriptions = (button.getAttribute("aria-describedby") ?? "")
         .split(/\s+/)
         .filter(Boolean);
-      if (!descriptions.includes(descriptionId))
+      if (!descriptions.includes(descriptionId)) {
         button.setAttribute("aria-describedby", [...descriptions, descriptionId].join(" "));
+      }
     }
     publish();
     updateNavigation();
   }
   function schedule() {
-    if (disposed || queued) return;
+    if (disposed || queued) {
+      return;
+    }
     queued = true;
     queueMicrotask(() => {
       queued = false;
-      if (!disposed) reconcile();
+      if (!disposed) {
+        reconcile();
+      }
     });
   }
   function owns(node: Node): boolean {
@@ -167,7 +207,9 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     return !!element?.closest("[data-codex-quota-badge], [data-codex-quota-style]");
   }
   function relevantSidebarChange(record: MutationRecord): boolean {
-    if (owns(record.target)) return false;
+    if (owns(record.target)) {
+      return false;
+    }
     if (record.type === "childList") {
       return (
         [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
@@ -187,13 +229,16 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
           .getAttribute("aria-describedby")
           ?.split(/\s+/)
           .includes(target.descriptionId)
-      )
+      ) {
         return false;
+      }
     }
     return true;
   }
   const sidebarObserver = new MutationObserver((records) => {
-    if (records.some(relevantSidebarChange)) schedule();
+    if (records.some(relevantSidebarChange)) {
+      schedule();
+    }
   });
   const ancestorObserver = new MutationObserver(schedule);
   function observeContext() {
@@ -219,23 +264,32 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
           "data-sidebar-navigation-item",
         ],
       });
-      for (let node = sidebar.parentElement; node; node = node.parentElement) ancestors.add(node);
+      for (let node = sidebar.parentElement; node; node = node.parentElement) {
+        ancestors.add(node);
+      }
     }
-    for (const ancestor of ancestors)
+    for (const ancestor of ancestors) {
       ancestorObserver.observe(ancestor, {
         attributes: true,
         attributeFilter: ["hidden", "inert", "style", "class"],
       });
+    }
   }
   // Discovery checks changed subtrees, never rescans the document.
   const lifecycleObserver = new MutationObserver((records) => {
-    if (disposed) return;
+    if (disposed) {
+      return;
+    }
     let changed = false;
     for (const record of records) {
-      if (owns(record.target)) continue;
+      if (owns(record.target)) {
+        continue;
+      }
       if (record.type === "attributes") {
         const element = record.target as Element;
-        if (sidebars.has(element)) changed = true;
+        if (sidebars.has(element)) {
+          changed = true;
+        }
         if (element.matches(sidebarSelector)) {
           sidebars.add(element);
           changed = true;
@@ -243,21 +297,31 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
         continue;
       }
       for (const node of Array.from(record.removedNodes)) {
-        if ([...sidebars].some((sidebar) => node.contains(sidebar))) changed = true;
+        if ([...sidebars].some((sidebar) => node.contains(sidebar))) {
+          changed = true;
+        }
       }
       for (const node of Array.from(record.addedNodes)) {
-        if (node.nodeType !== 1 || owns(node)) continue;
+        if (node.nodeType !== 1 || owns(node)) {
+          continue;
+        }
         const element = node as Element;
         const found = Array.from(element.querySelectorAll(sidebarSelector));
-        if (element.matches(sidebarSelector)) found.push(element);
+        if (element.matches(sidebarSelector)) {
+          found.push(element);
+        }
         for (const sidebar of found) {
-          if (!sidebar.isConnected) continue;
+          if (!sidebar.isConnected) {
+            continue;
+          }
           sidebars.add(sidebar);
           changed = true;
         }
       }
     }
-    if (changed) schedule();
+    if (changed) {
+      schedule();
+    }
   });
   lifecycleObserver.observe(document.documentElement, {
     childList: true,
@@ -283,8 +347,9 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
         record.type === "attributes" &&
         record.attributeName === "rel" &&
         (record.target as Element).tagName === "LINK"
-      )
+      ) {
         return true;
+      }
       return (
         affectsStylesheet(record.target) ||
         [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
@@ -292,7 +357,9 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
         )
       );
     });
-    if (relevant) schedule();
+    if (relevant) {
+      schedule();
+    }
   });
   stylesheetObserver.observe(document.head, {
     childList: true,
@@ -301,7 +368,9 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
     attributes: true,
   });
   const onStylesheetLoad = (event: Event) => {
-    if (event.target instanceof Element && event.target.matches(stylesheetSelector)) schedule();
+    if (event.target instanceof Element && event.target.matches(stylesheetSelector)) {
+      schedule();
+    }
   };
   document.addEventListener("load", onStylesheetLoad, true);
   document.defaultView?.addEventListener("resize", schedule);
@@ -319,7 +388,9 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       };
     },
     dispose: () => {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
       disposed = true;
       lifecycleObserver.disconnect();
       sidebarObserver.disconnect();
@@ -328,7 +399,9 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       document.removeEventListener("load", onStylesheetLoad, true);
       document.defaultView?.removeEventListener("resize", schedule);
       sidebars.clear();
-      for (const [button, target] of attached) release(button, target);
+      for (const [button, target] of attached) {
+        release(button, target);
+      }
       updateNavigation();
       style.remove();
       publish();

@@ -1,4 +1,5 @@
-import { placeLabel, type CropPlan } from "./geometry";
+import { placeLabel } from "./geometry";
+import type { CropPlan } from "./geometry";
 
 export const OUTLINE_DARK = "#111111";
 export const OUTLINE_LIGHT = "#ffffff";
@@ -87,7 +88,9 @@ export async function renderAnnotatedJpeg(
   try {
     const canvas = new OffscreenCanvas(plan.source.width, plan.source.height);
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas drawing is not available.");
+    if (!ctx) {
+      throw new Error("Canvas drawing is not available.");
+    }
     drawAnnotation(ctx as unknown as DrawingContext, image, plan, number);
     const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.9 });
     return toBase64(new Uint8Array(await blob.arrayBuffer()));

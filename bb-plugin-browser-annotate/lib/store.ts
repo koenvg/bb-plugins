@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
-import { urlKey, type Annotation, type Rect, type Viewport } from "./annotation";
+import { urlKey } from "./annotation";
+import type { Annotation, Rect, Viewport } from "./annotation";
 
 export const ANNOTATION_MIGRATIONS = [
   `CREATE TABLE annotations (
@@ -118,7 +119,9 @@ export function createAnnotationStore(db: Database.Database, now: () => number =
     const removed: StoredAnnotation[] = [];
     for (const id of ids) {
       const row = byId.get(id);
-      if (!row) continue;
+      if (!row) {
+        continue;
+      }
       deleteRow.run(id);
       removed.push(fromRow(row));
     }

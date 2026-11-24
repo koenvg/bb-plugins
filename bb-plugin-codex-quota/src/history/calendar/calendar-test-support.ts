@@ -81,8 +81,8 @@ export function calendarSnapshot(
     });
   }
   if (query.comparison) {
-    const priorQuery = { ...query, startDate: shiftDate(query.startDate, -30) },
-      range = calendarSnapshot({ ...priorQuery, comparison: false }, now);
+    const priorQuery = { ...query, startDate: shiftDate(query.startDate, -30) };
+    const range = calendarSnapshot({ ...priorQuery, comparison: false }, now);
     const prior = {
       state: range.state,
       summary: range.summary,
@@ -214,15 +214,15 @@ export function calendarEmptySnapshot(
   query: CalendarQuery,
   state: "unknown" | "observed-inactivity",
 ): CalendarSnapshot {
-  const value = calendarSnapshot(query),
-    money = {
-      state: "unavailable" as const,
-      capturedCost: null,
-      records: 0,
-      pricedRecords: 0,
-      pricedEntities: 0,
-      reason: "missing-prices" as const,
-    };
+  const value = calendarSnapshot(query);
+  const money = {
+    state: "unavailable" as const,
+    capturedCost: null,
+    records: 0,
+    pricedRecords: 0,
+    pricedEntities: 0,
+    reason: "missing-prices" as const,
+  };
   const coverage = {
     ...value.days[0].coverage,
     state:

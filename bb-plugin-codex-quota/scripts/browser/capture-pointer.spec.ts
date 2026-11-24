@@ -29,8 +29,12 @@ for (const coarse of [false, true]) {
           const identity = await page.evaluateHandle(() => {
             const media = matchMedia("(pointer:coarse)");
             const events = { resize: 0, media: 0 };
-            addEventListener("resize", () => events.resize++);
-            media.addEventListener("change", () => events.media++);
+            addEventListener("resize", () => {
+              events.resize += 1;
+            });
+            media.addEventListener("change", () => {
+              events.media += 1;
+            });
             return { document, target: document.querySelector("button"), events };
           });
           const before = {
@@ -74,8 +78,12 @@ for (const coarse of [false, true]) {
             const green = (x: number, y: number) => rgb(x, y).join(",") === "0,255,0";
             let width = 0;
             let height = 0;
-            while (green(width, 0)) width++;
-            while (green(0, height)) height++;
+            while (green(width, 0)) {
+              width += 1;
+            }
+            while (green(0, height)) {
+              height += 1;
+            }
             return {
               width: image.width,
               height: image.height,
@@ -118,7 +126,9 @@ for (const coarse of [false, true]) {
           expect(pixels.bottom).toEqual(
             pageHeight === 400 ? background : fullPage ? [0, 255, 255] : [255, 255, 0],
           );
-          if (pageHeight === 400) expect(pixels.shortEnd).toEqual([0, 255, 255]);
+          if (pageHeight === 400) {
+            expect(pixels.shortEnd).toEqual([0, 255, 255]);
+          }
           expect(facts.coverage.document).toEqual({
             width: 375,
             height: Math.max(600, pageHeight),
@@ -171,7 +181,9 @@ for (const coarse of [false, true]) {
       let failedAt = 0;
       page.screenshot = async (options) => {
         failedAt = await page.evaluate(() => scrollY);
-        if (failedAt > 0) throw new Error("Injected tile capture failure");
+        if (failedAt > 0) {
+          throw new Error("Injected tile capture failure");
+        }
         return screenshot(options);
       };
       try {

@@ -14,8 +14,9 @@ describe("default Code Cleanup guidance", () => {
     expect(text).toMatch(/single.*tracker/i);
     expect(text).toMatch(/prefix or.*ID/i);
     expect(text).toContain("never a proj_");
-    for (const status of ["backlog", "todo", "in_progress", "in_review"])
+    for (const status of ["backlog", "todo", "in_progress", "in_review"]) {
       expect(text).toContain(status);
+    }
     expect(text).toContain("nextCursor");
     expect(text).toMatch(/every.*page/i);
     expect(text).toMatch(/same filters/i);
@@ -30,8 +31,9 @@ describe("default Code Cleanup guidance", () => {
       "completion criteria",
       "source task",
       "bbthread://",
-    ])
+    ]) {
       expect(text).toContain(field);
+    }
     expect(text).toContain("label list");
     expect(text).toMatch(/existing labels/i);
     expect(text).toMatch(/required blockers.*verified.*keys/i);

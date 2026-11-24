@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { emptyActivity, type ActivityView } from "./activity-contract.js";
+import { emptyActivity } from "./activity-contract.js";
+import type { ActivityView } from "./activity-contract.js";
 import { visibleActivity } from "./activity-cache.js";
-import {
-  ActivityRequestState,
-  type ActivityApi,
-  type ActivitySelection,
-} from "./activity-request-state.js";
+import { ActivityRequestState } from "./activity-request-state.js";
+import type { ActivityApi, ActivitySelection } from "./activity-request-state.js";
 
 const count = (value: number | null) =>
   value === null ? "Unknown" : value.toLocaleString("en-US", { maximumFractionDigits: 20 });
@@ -17,14 +15,19 @@ const labels = {
   longestStreakDays: "Longest streak, days",
 };
 function diagnostic(view: ActivityView): string {
-  if (view.reason === "no-selection") return "Select a host to view account activity.";
-  if (view.reason === "expired") return "Observation expired. Account activity unavailable.";
+  if (view.reason === "no-selection") {
+    return "Select a host to view account activity.";
+  }
+  if (view.reason === "expired") {
+    return "Observation expired. Account activity unavailable.";
+  }
   if (
     view.reason.startsWith("auth") ||
     view.reason.startsWith("oauth") ||
     view.reason === "credential-store-failed"
-  )
+  ) {
     return "Pi Codex sign-in required or unavailable on this host.";
+  }
   return `Account activity ${view.state}. Status: ${view.reason}.`;
 }
 export function ActivityPanel({
@@ -169,7 +172,9 @@ function ActivityBody({ selection, read }: { selection: ActivitySelection; read:
           store.open(selection);
           timer = setInterval(synchronize, 1000);
         } else {
-          if (timer !== null) clearInterval(timer);
+          if (timer !== null) {
+            clearInterval(timer);
+          }
           timer = null;
           store.close();
         }
@@ -183,7 +188,9 @@ function ActivityBody({ selection, read }: { selection: ActivitySelection; read:
     document.addEventListener("visibilitychange", synchronize);
     window.addEventListener("focus", synchronize);
     return () => {
-      if (timer !== null) clearInterval(timer);
+      if (timer !== null) {
+        clearInterval(timer);
+      }
       document.removeEventListener("visibilitychange", synchronize);
       window.removeEventListener("focus", synchronize);
       store.close();

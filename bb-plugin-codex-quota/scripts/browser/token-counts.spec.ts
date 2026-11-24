@@ -45,8 +45,10 @@ for (const width of [375, 1280]) {
     const surface = page.locator('.ts-chart[role="img"]');
     await surface.focus();
     const date = page.locator(".calendar-tooltip time");
-    for (let step = 0; step < 30; step++) {
-      if ((await date.count()) && (await date.getAttribute("datetime")) === "2026-09-26") break;
+    for (let step = 0; step < 30; step += 1) {
+      if ((await date.count()) && (await date.getAttribute("datetime")) === "2026-09-26") {
+        break;
+      }
       await page.keyboard.press("ArrowRight");
       await page.evaluate(
         () =>

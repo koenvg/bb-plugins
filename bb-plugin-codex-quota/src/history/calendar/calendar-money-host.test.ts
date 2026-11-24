@@ -1,19 +1,22 @@
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 import { createQuotaHostEntry } from "../../plugin/host.js";
 import { createHostHistory } from "../history-host.js";
-import { openHistoryDatabase, type HistoryDatabase } from "../storage/history-storage.js";
-import { initializeHistory, projectCompactRecord } from "../storage/history-projection.js";
+import { openHistoryDatabase } from "../storage/history-storage.js";
+import type { HistoryDatabase } from "../storage/history-storage.js";
+import {
+  initializeHistory,
+  projectCompactRecord,
+  excludeCompactIdentity,
+} from "../storage/history-projection.js";
 import { maintainHistory } from "../storage/history-retention.js";
 import { usageRecordSchema } from "../collection/usage-record.js";
 import type { CalendarQuery } from "./calendar-contract.js";
 import { importedUsage } from "../import/import-parser.js";
-import { excludeCompactIdentity } from "../storage/history-projection.js";
 import { acceptIdentityBatch, reconcileIdentity } from "../identity/identity-storage.js";
-import { readFile } from "node:fs/promises";
 
 const roots: string[] = [];
 const now = Date.parse("2026-10-01T12:00:00Z");
@@ -31,8 +34,8 @@ async function fixture(clock = now) {
   roots.push(root);
   const dataDir = join(root, "data");
   await mkdir(join(dataDir, "history"), { recursive: true });
-  const path = join(dataDir, "history/usage-v1.sqlite"),
-    db = (await openHistoryDatabase(path))!;
+  const path = join(dataDir, "history/usage-v1.sqlite");
+  const db = (await openHistoryDatabase(path))!;
   initializeHistory(db, new Date(clock).toISOString(), false);
   maintainHistory(db, clock);
   const history = createHostHistory({ now: () => clock });
@@ -142,15 +145,18 @@ it("reports captured dollars by model independently of token ranking and missing
 });
 it("caps money by captured dollars, includes zero-token prices, and directly sums known overflow", async () => {
   const f = await fixture();
-  for (let n = 0; n < 10; n++)
+  for (let n = 0; n < 10; n += 1) {
     put(f.db, n + 1, "/many", n + 1, undefined, {
       model: `model-${n}`,
       totalTokens: n === 9 ? 0 : 10,
     });
+  }
   put(f.db, 11, "/many", Number.MIN_VALUE, undefined, { model: "tiny" });
   f.db.close();
   const report = await f.read();
-  if (report.state === "unavailable") throw Error(report.reason);
+  if (report.state === "unavailable") {
+    throw Error(report.reason);
+  }
   const day = report.days[14];
   expect(day.money).toMatchObject({ capturedCost: 55, records: 11, pricedRecords: 11 });
   expect(day.modelCosts?.named.map((row) => [row.model, row.money.capturedCost])).toEqual([
@@ -178,7 +184,9 @@ it("withholds model identities at logical detail expiry before maintenance", asy
   put(f.db, 1, "/old", 0.125, "2026-08-05T12:00:00.000Z", { model: "expired" });
   f.db.close();
   const report = await f.read({ ...query, startDate: "2026-08-02" });
-  if (report.state === "unavailable") throw Error(report.reason);
+  if (report.state === "unavailable") {
+    throw Error(report.reason);
+  }
   expect(report.days[3].modelCosts).toEqual({
     named: [],
     other: {
@@ -201,7 +209,9 @@ it("withholds model identities at logical detail expiry before maintenance", asy
 });
 it("does not erase subnormal Other or Unknown prices beside large named subtotals", async () => {
   const f = await fixture();
-  for (let n = 0; n < 8; n++) put(f.db, n + 1, "/large", 1e9, undefined, { model: `large-${n}` });
+  for (let n = 0; n < 8; n += 1) {
+    put(f.db, n + 1, "/large", 1e9, undefined, { model: `large-${n}` });
+  }
   put(f.db, 9, "/tiny", Number.MIN_VALUE, undefined, { model: "tiny" });
   put(f.db, 10, "/unknown", Number.MIN_VALUE);
   f.db
@@ -209,7 +219,9 @@ it("does not erase subnormal Other or Unknown prices beside large named subtotal
     .run("00000000-0000-4000-8000-000000000010");
   f.db.close();
   const report = await f.read();
-  if (report.state === "unavailable") throw Error(report.reason);
+  if (report.state === "unavailable") {
+    throw Error(report.reason);
+  }
   expect(report.days[14].money.capturedCost).toBe(8e9);
   expect(report.days[14].modelCosts?.other).toEqual({
     state: "available",
@@ -311,7 +323,9 @@ it("keeps imported tokens with missing, zero, negative, invalid and non-finite p
         `/workspace-${n}`,
         null,
       );
-      if (value.kind !== "usage") throw Error("Expected scalar import fixture");
+      if (value.kind !== "usage") {
+        throw Error("Expected scalar import fixture");
+      }
       projectCompactRecord(f.db, value.record);
     }),
   );
@@ -367,8 +381,9 @@ it("never creates a monetary zero when accepted usage has no eligible prices or 
 it("uses every accepted priced entity and record beyond the fifty-row ranking and old event cap", async () => {
   const f = await fixture();
   f.db.transaction(() => {
-    for (let n = 0; n < 12060; n++)
+    for (let n = 0; n < 12060; n += 1) {
       put(f.db, n + 1, `/workspace-${n % 60}`, n % 60 === 59 ? null : 1);
+    }
   });
   f.db.close();
   expect(await f.read()).toMatchObject({
@@ -387,7 +402,9 @@ it("uses every accepted priced entity and record beyond the fifty-row ranking an
     truncated: true,
   });
   const view = await f.read();
-  if (view.state === "unavailable") throw Error(view.reason);
+  if (view.state === "unavailable") {
+    throw Error(view.reason);
+  }
   expect(view.ranking).toHaveLength(50);
   await f.harness.experimental_dispose();
 }, 30000);
@@ -397,7 +414,9 @@ it("preserves tiny and large finite originally captured values without price loo
   put(f.db, 2, "/large", 1e9);
   f.db.close();
   const view = await f.read();
-  if (view.state === "unavailable") throw Error(view.reason);
+  if (view.state === "unavailable") {
+    throw Error(view.reason);
+  }
   expect(view.ranking.find((row) => row.key === "/tiny")?.money).toMatchObject({
     capturedCost: Number.MIN_VALUE,
     pricedRecords: 1,
@@ -680,12 +699,15 @@ it.each(["paused", "backlog", "omitted", "recovery", "unknown"])(
       end: "2026-09-01T00:00:00Z",
       kind: "observed-inactivity",
     });
-    if (mode === "paused")
+    if (mode === "paused") {
       f.db
         .prepare("INSERT INTO collector_pauses(started,ended) VALUES (?,?)")
         .run("2026-08-03T00:00:00.000Z", "2026-08-04T00:00:00.000Z");
-    if (mode === "backlog") recordReconciliation(f.db, true);
-    if (mode === "omitted")
+    }
+    if (mode === "backlog") {
+      recordReconciliation(f.db, true);
+    }
+    if (mode === "omitted") {
       recordCoverage(f.db, {
         id: "omitted",
         workspace: null,
@@ -694,12 +716,15 @@ it.each(["paused", "backlog", "omitted", "recovery", "unknown"])(
         end: "2026-08-04T00:00:00Z",
         kind: "omission",
       });
-    if (mode === "recovery")
+    }
+    if (mode === "recovery") {
       f.db
         .prepare("INSERT INTO history_recovery VALUES (1,?,?)")
         .run("2026-08-03T00:00:00.000Z", "2026-08-04T00:00:00.000Z");
-    if (mode === "unknown")
+    }
+    if (mode === "unknown") {
       f.db.prepare("DELETE FROM history_coverage WHERE id=?").run("prior-inactive");
+    }
     f.db.close();
     expect(await f.read({ ...query, comparison: true })).toMatchObject({
       summary: { totalTokens: 10, money: { capturedCost: 4 } },
