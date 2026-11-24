@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isAbsolute, basename, normalize } from "node:path";
+
 const scalar = (max: number) =>
   z
     .string()
@@ -65,11 +66,15 @@ export function parseCompact(line: string, confirmation: boolean) {
       delete input.metadata.serviceTier;
     }
     const envelope = !confirmation && input?.version === 2 ? envelopeSchema.safeParse(input) : null;
-    if (envelope && !envelope.success) return null;
+    if (envelope && !envelope.success) {
+      return null;
+    }
     const result = (confirmation ? confirmationSchema : usageRecordSchema).safeParse(
       envelope?.success ? envelope.data.usage : input,
     );
-    if (!result.success) return null;
+    if (!result.success) {
+      return null;
+    }
     if ("workspace" in result.data) {
       result.data.workspace = normalize(result.data.workspace);
       result.data.occurredAt = new Date(result.data.occurredAt).toISOString();

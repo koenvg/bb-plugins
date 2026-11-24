@@ -1,4 +1,5 @@
-import { activityViewSchema, emptyActivity, type ActivityView } from "./activity-contract.js";
+import { activityViewSchema, emptyActivity } from "./activity-contract.js";
+import type { ActivityView } from "./activity-contract.js";
 import { visibleActivity } from "./activity-cache.js";
 import { abortable } from "./activity-cancellation.js";
 import { FRESH_MS } from "../account/freshness.js";
@@ -35,7 +36,9 @@ export class ActivityRequestState {
   getSnapshot = () => this.state;
   private publish(state: State) {
     this.state = state;
-    for (const listener of this.listeners) listener();
+    for (const listener of this.listeners) {
+      listener();
+    }
   }
   open(selection: ActivitySelection): void {
     this.close();
@@ -51,7 +54,7 @@ export class ActivityRequestState {
   }
   close(): void {
     this.active = false;
-    this.sequence++;
+    this.sequence += 1;
     this.controller?.abort();
     this.controller = null;
     this.pending = null;
@@ -65,12 +68,18 @@ export class ActivityRequestState {
     });
   }
   refresh(force = false): Promise<void> {
-    if (!this.active || !this.selection.hostId) return Promise.resolve();
-    if (this.pending) return this.pending;
+    if (!this.active || !this.selection.hostId) {
+      return Promise.resolve();
+    }
+    if (this.pending) {
+      return this.pending;
+    }
     const now = this.now();
-    if (now - this.lastAttempt < 30_000 || (!force && now < this.dueAt)) return Promise.resolve();
+    if (now - this.lastAttempt < 30_000 || (!force && now < this.dueAt)) {
+      return Promise.resolve();
+    }
     this.lastAttempt = now;
-    const sequence = ++this.sequence;
+    const sequence = (this.sequence += 1);
     const input = {
       hostId: this.selection.hostId,
       generation: this.selection.generation,
@@ -83,13 +92,17 @@ export class ActivityRequestState {
     const task = (async () => {
       const result = await abortable(
         Promise.resolve().then(() => {
-          if (!this.active || sequence !== this.sequence || signal.aborted) return null;
+          if (!this.active || sequence !== this.sequence || signal.aborted) {
+            return null;
+          }
           return this.read(input, signal);
         }),
         signal,
         null,
       );
-      if (!this.active || sequence !== this.sequence || controller.signal.aborted) return;
+      if (!this.active || sequence !== this.sequence || controller.signal.aborted) {
+        return;
+      }
       const parsed = activityViewSchema.safeParse(result);
       // Only a host-confirmed stale observation can survive. A wire failure cannot confirm identity.
       const view = visibleActivity(
@@ -106,7 +119,9 @@ export class ActivityRequestState {
     })();
     this.pending = task;
     void task.then(() => {
-      if (this.pending === task) this.pending = null;
+      if (this.pending === task) {
+        this.pending = null;
+      }
     });
     return task;
   }

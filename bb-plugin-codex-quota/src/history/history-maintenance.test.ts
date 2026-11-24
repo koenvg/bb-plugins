@@ -2,7 +2,8 @@ import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "./storage/history-storage.js";
+import { openHistoryDatabase } from "./storage/history-storage.js";
+import type { HistoryDatabase } from "./storage/history-storage.js";
 import { recordHistoryExecutions, explainHistoryExecution } from "./history-sql.test-support.js";
 import {
   initializeHistory,
@@ -17,6 +18,7 @@ import {
 import { parseCompact } from "./collection/usage-record.js";
 import { reconcileCollector } from "./storage/history-ingest.js";
 import { pruneCollectorLogs, collectorLogNames } from "./collection/history-logs.js";
+
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
   for (const f of fixtures.splice(0)) {
@@ -25,15 +27,15 @@ afterEach(async () => {
   }
 });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bbp23-maintenance-")),
-    db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const root = await mkdtemp(join(tmpdir(), "bbp23-maintenance-"));
+  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
   const f = { root, db };
   fixtures.push(f);
   initializeHistory(db, "2026-08-10T00:00:00.000Z");
   return f;
 }
-const now = Date.parse("2026-10-01T12:00:00.000Z"),
-  signal = new AbortController().signal;
+const now = Date.parse("2026-10-01T12:00:00.000Z");
+const signal = new AbortController().signal;
 function event(n: number, at = "2026-08-10T00:00:00.000Z") {
   return {
     version: 1,
@@ -57,10 +59,11 @@ function event(n: number, at = "2026-08-10T00:00:00.000Z") {
 }
 it("backfills supported v1 in durable bounded transactions before pruning; original prices and ranked totals persist", async () => {
   const f = await fixture();
-  for (let i = 1; i <= 5; i++)
+  for (let i = 1; i <= 5; i += 1) {
     f.db.transaction(() =>
       projectCompactRecord(f.db, parseCompact(JSON.stringify(event(i)), false)!),
     );
+  }
   f.db.exec(
     "DROP TABLE usage_compact; DROP TABLE history_retention; DROP TABLE history_owner; PRAGMA user_version=1;",
   );
@@ -70,7 +73,9 @@ it("backfills supported v1 in durable bounded transactions before pruning; origi
   expect(collectionView(f.db, true, false).workspaces[0].totalTokens).toBe(25);
   f.db.close();
   f.db = (await openHistoryDatabase(join(f.root, "usage.sqlite")))!;
-  for (let i = 0; i < 8; i++) maintainHistory(f.db, now, 2);
+  for (let i = 0; i < 8; i += 1) {
+    maintainHistory(f.db, now, 2);
+  }
   expect(f.db.prepare("SELECT count(*) AS n FROM usage_events").get()).toMatchObject({ n: 0 });
   expect(f.db.prepare("SELECT count(*) AS n FROM usage_compact").get()).toMatchObject({ n: 5 });
   const report = readCalendarTotals(f.db, {
@@ -83,8 +88,8 @@ it("backfills supported v1 in durable bounded transactions before pruning; origi
   expect(report.days[0].capturedCost).toBeCloseTo(0.615);
 });
 it("does not prune a daily source until bounded ingestion reaches its stable complete boundary, preserves compact tokens and reports legacy limits", async () => {
-  const f = await fixture(),
-    path = join(f.root, "events-v1-2026-08-10.jsonl");
+  const f = await fixture();
+  const path = join(f.root, "events-v1-2026-08-10.jsonl");
   await writeFile(path, [1, 2, 3].map((n) => JSON.stringify(event(n)) + "\n").join(""));
   await reconcileCollector(f.db, f.root, { signal, now, rows: 2 });
   expect(await pruneCollectorLogs(f.db, f.root, now, signal)).toMatchObject({ pending: true });
@@ -139,10 +144,11 @@ it("late conflicting replay after detail expiry excludes totals without replacin
 });
 it("regroups repeated DST instants and indexes executed compact aggregate and model reads", async () => {
   const f = await fixture();
-  for (const [i, at] of ["2026-11-01T08:30:00Z", "2026-11-01T09:30:00Z"].entries())
+  for (const [i, at] of ["2026-11-01T08:30:00Z", "2026-11-01T09:30:00Z"].entries()) {
     f.db.transaction(() =>
       projectCompactRecord(f.db, parseCompact(JSON.stringify(event(i + 1, at)), false)!),
     );
+  }
   const capture = recordHistoryExecutions(f.db);
   const view = readCalendarTotals(capture.db, {
     workspace: "/original",

@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = await realpath(await mkdtemp(join(tmpdir(), "codex-native-usage-bundle-")));
-const priorHome = process.env.CODEX_HOME,
-  originalDate = Date,
-  originalFetch = globalThis.fetch;
+const priorHome = process.env.CODEX_HOME;
+const originalDate = Date;
+const originalFetch = globalThis.fetch;
 const now = Date.parse("2026-10-01T12:00:00Z");
 let bundled;
 try {
@@ -40,10 +40,12 @@ try {
   await mkdir(context.experimental_paths.dataDir);
   const identities = { hostId: "host_fixture", generation: 1, offset: 0, total: 0, rows: [] };
   async function prepare(ctx = context) {
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 100; i += 1) {
       const value = await bundled.default.handlers.reportPreparation({ identities }, ctx);
       assert.equal(value.state, "available");
-      if (!value.ingestionPending && !value.attribution.backlog) return;
+      if (!value.ingestionPending && !value.attribution.backlog) {
+        return;
+      }
     }
     throw Error("Preparation did not settle");
   }
@@ -60,8 +62,8 @@ try {
     legacyNative.days.flatMap((day) => day.models?.named ?? []),
     [{ model: "synthetic", totalTokens: 370 }],
   );
-  const directory = join(context.experimental_paths.dataDir, "history"),
-    path = join(directory, "usage-v1.sqlite");
+  const directory = join(context.experimental_paths.dataDir, "history");
+  const path = join(directory, "usage-v1.sqlite");
   let db = await bundled.openHistoryDatabase(path);
   db.prepare("INSERT INTO collector_meta VALUES (1,?)").run(new Date(now).toISOString());
   db.close();
@@ -143,7 +145,10 @@ try {
   bundled?.default.dispose?.();
   globalThis.Date = originalDate;
   globalThis.fetch = originalFetch;
-  if (priorHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = priorHome;
+  if (priorHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = priorHome;
+  }
   await rm(root, { recursive: true, force: true });
 }

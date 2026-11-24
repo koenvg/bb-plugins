@@ -3,18 +3,15 @@ import "./dialog-test-support";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  loadPluginApp,
-  renderSlot,
-  type PluginRpcTestHandlers,
-} from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import type { ProjectState, PromptResult, SettingsContract } from "./rpc";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
-const source = "  # Saved\n\nLiteral ${HOME}\n";
+const source = `  # Saved\n\nLiteral \${HOME}\n`;
 const factory = "# Factory\nRecord cleanup through BB Tasks.\n";
 function state(projectId: string, prompt: string | null = source): ProjectState {
   return {
@@ -64,7 +61,9 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
         },
         setPrompt: ({ projectId, prompt, expectedPrompt }) => {
           const current = states.get(projectId)!;
-          if (current.prompt !== expectedPrompt) return { status: "conflict", state: current };
+          if (current.prompt !== expectedPrompt) {
+            return { status: "conflict", state: current };
+          }
           const next = { ...current, prompt, effectivePrompt: prompt ?? factory };
           states.set(projectId, next);
           return { status: "saved", state: next };
@@ -89,7 +88,9 @@ async function edit(text: string) {
   const editor = await screen.findByRole("textbox", { name: "Cleanup guidance" });
   await userEvent.clear(editor);
   await userEvent.click(editor);
-  if (text) await userEvent.paste(text);
+  if (text) {
+    await userEvent.paste(text);
+  }
   return editor as HTMLTextAreaElement;
 }
 function escape(dialog: HTMLElement) {
@@ -160,8 +161,11 @@ describe("project-bound native prompt dialog", () => {
           : action === "Close"
             ? screen.getByRole("button", { name: "Close cleanup prompt for Alpha" })
             : editor;
-      if (action === "Escape") escape(modal);
-      else await userEvent.click(origin);
+      if (action === "Escape") {
+        escape(modal);
+      } else {
+        await userEvent.click(origin);
+      }
       const keep = await screen.findByRole("button", { name: "Keep editing" });
       expect(document.activeElement).toBe(keep);
       expect(screen.getAllByRole("dialog")).toHaveLength(1);
@@ -182,7 +186,9 @@ describe("project-bound native prompt dialog", () => {
     let calls = 0;
     const client = await mount({
       setPrompt: ({ projectId, prompt }) => {
-        if (++calls === 1) return pending.promise;
+        if ((calls += 1) === 1) {
+          return pending.promise;
+        }
         return { status: "saved", state: state(projectId, prompt) };
       },
     });
@@ -301,13 +307,15 @@ describe("project-bound native prompt dialog", () => {
       const client = await mount();
       const modal = await open(client.trigger);
       await screen.findByRole("textbox");
-      if (action === "Escape") escape(modal);
-      else
+      if (action === "Escape") {
+        escape(modal);
+      } else {
         await userEvent.click(
           screen.getByRole("button", {
             name: action === "Close" ? "Close cleanup prompt for Alpha" : "Cancel",
           }),
         );
+      }
       expect(screen.queryByRole("dialog")).toBeNull();
       await waitFor(() => expect(document.activeElement).toBe(client.trigger));
       expect(client.writes()).toEqual([]);
@@ -347,7 +355,7 @@ describe("project-bound native prompt dialog", () => {
       let reads = 0;
       const client = await mount({
         getProject: ({ projectId }) =>
-          ++reads === 1 ? late.promise : state(projectId, "Reopened current text"),
+          (reads += 1) === 1 ? late.promise : state(projectId, "Reopened current text"),
       });
       await open(client.trigger);
       await userEvent.click(screen.getByRole("button", { name: "Cancel" }));

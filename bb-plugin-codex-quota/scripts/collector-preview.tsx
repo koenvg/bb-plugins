@@ -5,6 +5,7 @@ import { QuotaDashboard } from "../src/quota/quota-view.js";
 import { AccountActivity } from "../src/activity/activity-view.js";
 import { HistoryReadinessPanel } from "../src/history/history-view.js";
 import type { HistoryReadiness } from "../src/history/history-contract.js";
+
 const missing: HistoryReadiness = {
   state: "not-configured",
   reason: "not-configured",
@@ -93,8 +94,9 @@ function Preview() {
               };
             }}
             control={async ({ action, confirmation }) => {
-              if (confirmation)
+              if (confirmation) {
                 document.body.dataset.legacyConfirmation = JSON.stringify(confirmation);
+              }
               document.body.dataset.collectorActions = String(
                 Number(document.body.dataset.collectorActions ?? "0") + 1,
               );
@@ -148,7 +150,7 @@ function Preview() {
                   ],
                 },
               };
-              if (previewState === "healthy" || previewState === "maintenance")
+              if (previewState === "healthy" || previewState === "maintenance") {
                 history.health = {
                   ...history.health!,
                   state: previewState,
@@ -156,6 +158,7 @@ function Preview() {
                   legacyLogsPending: previewState === "maintenance",
                   recoveryGaps: [],
                 };
+              }
               if (
                 history.health &&
                 (legacyPhase || action === "prepare-legacy" || action === "retire-legacy")
@@ -196,7 +199,7 @@ function Preview() {
                   history.health.legacyLogsPending = phase !== "complete";
                 }
               }
-              if (previewState === "unavailable" || previewState === "incompatible")
+              if (previewState === "unavailable" || previewState === "incompatible") {
                 history = {
                   state: "unavailable",
                   reason:
@@ -207,6 +210,7 @@ function Preview() {
                   collector: "compatible-v1",
                   writer: "unconfirmed",
                 };
+              }
               return history;
             }}
           />

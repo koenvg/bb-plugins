@@ -5,9 +5,11 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import type { rpcContract } from "../../plugin/server.js";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
-const app = await loadPluginApp(() => import("../../plugin/app.js"));
 import { setHistoryManagementOpen } from "../history-test-support.js";
 import { metadataFixture } from "../../machines/app.test-support.js";
+
+const app = await loadPluginApp(() => import("../../plugin/app.js"));
+
 afterEach(cleanup);
 it("uses public BB navigation and clears verified totals during a host switch", async () => {
   let selected: { hostId: string | null; generation: number } = { hostId: "host_a", generation: 1 };
@@ -31,7 +33,7 @@ it("uses public BB navigation and clears verified totals during a host switch", 
         return selected;
       },
       read: async () => {
-        quotaReads++;
+        quotaReads += 1;
         return { state: "unavailable", reason: "auth-required", snapshot: null };
       },
       historyReadiness: async ({ hostId }) => ({

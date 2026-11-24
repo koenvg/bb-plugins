@@ -28,7 +28,9 @@ it("marks each tiny positive day once without changing model, category, or fallb
   expect(
     Array.from(markers, (node) => node.getAttribute("data-ts-key")?.replace("positive:", "")),
   ).toEqual([view.days[15].date, view.days[16].date]);
-  for (const marker of Array.from(markers)) expect(marker.getAttribute("height")).toBe("2");
+  for (const marker of Array.from(markers)) {
+    expect(marker.getAttribute("height")).toBe("2");
+  }
   const rows = screen
     .getByRole("table", { name: "Daily recorded usage" })
     .querySelectorAll("tbody tr");

@@ -6,7 +6,7 @@ const OLD_10 = { path: "src/a.ts", side: "deletions", line: 10 } as const;
 
 function store() {
   let next = 0;
-  return createPendingReviewStore(() => `c${++next}`);
+  return createPendingReviewStore(() => `c${(next += 1)}`);
 }
 
 describe("pending review store", () => {
@@ -61,7 +61,9 @@ describe("pending review store", () => {
     const reviews = store();
     const before = reviews.get("thr_a");
     let calls = 0;
-    const unsubscribe = reviews.subscribe(() => calls++);
+    const unsubscribe = reviews.subscribe(() => {
+      calls += 1;
+    });
 
     reviews.addComment("thr_a", LINE_42, "x");
     unsubscribe();

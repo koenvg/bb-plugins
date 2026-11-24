@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { useRpc } from "@get-bb/plugin-sdk/app";
+import { useRpc, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../plugin/server.js";
-import {
-  historyReadinessSchema,
-  historyUnavailable,
-  type HistoryReadiness,
-  type CollectorAction,
-  type HistoryRequest,
-  type CollectorRequest,
-  type LegacyConfirmation,
+import { historyReadinessSchema, historyUnavailable } from "./history-contract.js";
+import type {
+  HistoryReadiness,
+  CollectorAction,
+  HistoryRequest,
+  CollectorRequest,
+  LegacyConfirmation,
 } from "./history-contract.js";
-
 import { ImportPanel } from "./import/import-view.js";
 import type { ImportCommand } from "./import/import-contract.js";
 import { IdentityTotals } from "./identity/identity-view.js";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+
 type Selection = { hostId: string | null; generation: number };
 type Props = {
   importCall?(input: HistoryRequest & { command: ImportCommand }): Promise<unknown>;
@@ -83,7 +81,9 @@ export function HistoryReadinessPanel({
   const latestScope = useRef(scope);
   latestScope.current = scope;
   useEffect(() => {
-    if (selectionPending || !selection.hostId) return;
+    if (selectionPending || !selection.hostId) {
+      return;
+    }
     let active = true;
     const valid = () => active && latestScope.current === scope && (activeRef.current?.() ?? true);
     const input = { hostId: selection.hostId, generation: selection.generation };
@@ -91,22 +91,27 @@ export function HistoryReadinessPanel({
       .then(() => (valid() ? readRef.current(input) : null))
       .then((value) => {
         const parsed = historyReadinessSchema.safeParse(value);
-        if (valid())
+        if (valid()) {
           setObservation({
             key,
             attempt,
             view: parsed.success ? parsed.data : historyUnavailable("unsupported"),
           });
+        }
       })
       .catch(() => {
-        if (valid()) setObservation({ key, attempt, view: historyUnavailable("unsupported") });
+        if (valid()) {
+          setObservation({ key, attempt, view: historyUnavailable("unsupported") });
+        }
       });
     return () => {
       active = false;
     };
   }, [scope, key, attempt, selection.hostId, selection.generation, selectionPending]);
   const activate = (action: CollectorAction, confirmation?: LegacyConfirmation) => {
-    if (selectionPending || !selection.hostId || controlling === key || !controlRef.current) return;
+    if (selectionPending || !selection.hostId || controlling === key || !controlRef.current) {
+      return;
+    }
     const capturedScope = latestScope.current;
     const valid = () =>
       mounted.current && latestScope.current === capturedScope && (activeRef.current?.() ?? true);
@@ -121,7 +126,9 @@ export function HistoryReadinessPanel({
     void Promise.resolve()
       .then(() => (valid() ? controlRef.current!(input) : null))
       .then((value) => {
-        if (!valid()) return;
+        if (!valid()) {
+          return;
+        }
         const parsed = historyReadinessSchema.safeParse(value);
         setObservation({
           key,
@@ -130,10 +137,14 @@ export function HistoryReadinessPanel({
         });
       })
       .catch(() => {
-        if (valid()) setObservation({ key, attempt, view: historyUnavailable("unsupported") });
+        if (valid()) {
+          setObservation({ key, attempt, view: historyUnavailable("unsupported") });
+        }
       })
       .finally(() => {
-        if (valid()) setControlling(null);
+        if (valid()) {
+          setControlling(null);
+        }
       });
   };
   const mounted = useRef(true);

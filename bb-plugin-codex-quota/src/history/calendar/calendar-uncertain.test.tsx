@@ -38,8 +38,9 @@ it("includes uncertain tokens by default without toggles, status clutter or extr
     "Preparing history. The chart remains available.",
     "Today is in progress. Values are recorded so far.",
     "Partial history",
-  ])
+  ]) {
     expect(screen.queryByText(copy)).toBeNull();
+  }
   expect(screen.getByRole("columnheader", { name: "Uncertain token estimate" })).toBeTruthy();
   const calls = read.mock.calls.length;
   fireEvent.change(screen.getByRole("combobox", { name: "Report metric" }), {

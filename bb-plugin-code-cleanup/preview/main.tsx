@@ -3,6 +3,7 @@ import { FixtureIcon } from "./icons";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { PluginAppDefinition, PluginSettingsSectionRegistration } from "@get-bb/plugin-sdk";
+
 const rpc = {
   async call(method: string, input: unknown) {
     const scenario = new URLSearchParams(location.search).get("scenario") ?? "normal";
@@ -15,7 +16,9 @@ const rpc = {
       },
     );
     const body = await response.json();
-    if (!response.ok) throw new Error(body.error);
+    if (!response.ok) {
+      throw new Error(body.error);
+    }
     return body.result;
   },
 };
@@ -29,15 +32,20 @@ function FixtureNotifications() {
         const response = await fetch(`/fixture-events?since=${cursor}`);
         if (response.ok) {
           const body = await response.json();
-          if (!current) return;
+          if (!current) {
+            return;
+          }
           cursor = body.cursor;
-          for (const signal of body.signals)
+          for (const signal of body.signals) {
             signals.dispatchEvent(new CustomEvent(signal.channel, { detail: signal.payload }));
+          }
         }
       } catch {
         // The fixture models missed notifications. Explicit Reload still uses real RPC.
       }
-      if (current) timer = setTimeout(poll, 500);
+      if (current) {
+        timer = setTimeout(poll, 500);
+      }
     }
     let timer = setTimeout(poll, 0);
     return () => {
@@ -69,10 +77,13 @@ function FixtureDefault() {
             },
       );
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error);
+      if (!response.ok) {
+        throw new Error(body.error);
+      }
       setField(body);
-      for (const signal of body.signals)
+      for (const signal of body.signals) {
         signals.dispatchEvent(new CustomEvent(signal.channel, { detail: signal.payload }));
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Default request failed");
     } finally {
@@ -143,7 +154,9 @@ const collector = {
   },
 };
 app.setup(collector as Parameters<PluginAppDefinition["setup"]>[0]);
-if (!section) throw new Error("The actual app did not register Settings");
+if (!section) {
+  throw new Error("The actual app did not register Settings");
+}
 const Component = section.component;
 createRoot(document.getElementById("app")!).render(
   <>

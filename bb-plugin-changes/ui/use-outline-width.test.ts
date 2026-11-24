@@ -13,7 +13,9 @@ describe("useOutlineWidth", () => {
     ["100", 240],
     ["wide", 320],
   ])("loads %s as %i", (stored, width) => {
-    if (stored !== null) localStorage.setItem(OUTLINE_WIDTH_KEY, stored);
+    if (stored !== null) {
+      localStorage.setItem(OUTLINE_WIDTH_KEY, stored);
+    }
 
     expect(renderHook(() => useOutlineWidth()).result.current.width).toBe(width);
   });

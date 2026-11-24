@@ -55,7 +55,9 @@ async function calendarFixture(clock = now) {
       },
     ) => {
       const value = await harness.experimental_call("calendarReport", query);
-      if (value.state === "unavailable") throw Error(value.reason);
+      if (value.state === "unavailable") {
+        throw Error(value.reason);
+      }
       return value;
     },
   };
@@ -93,7 +95,9 @@ function put(
 it("aggregates every accepted record beyond the old event cap and fifty visible entities", async () => {
   const f = await calendarFixture();
   f.db.transaction(() => {
-    for (let n = 1; n <= 12060; n++) put(f.db, n, undefined, `/workspace-${n % 60}`);
+    for (let n = 1; n <= 12060; n += 1) {
+      put(f.db, n, undefined, `/workspace-${n % 60}`);
+    }
   });
   f.db.close();
   const view = await f.read();
@@ -165,10 +169,11 @@ it.each([
     f.db.close();
     const view = await f.read({ startDate, timezone, group: "workspace", scope: { kind: "host" } });
     const expected = dates.map((date, n) => ({ date, tokens: n + 1 }));
-    for (const date of new Set(dates))
+    for (const date of new Set(dates)) {
       expect(view.days.find((day) => day.date === date)?.totalTokens).toBe(
         expected.filter((row) => row.date === date).reduce((n, row) => n + row.tokens, 0),
       );
+    }
     expect(view.days).toHaveLength(30);
     expect(view.summary.totalTokens).toBe(instants.length === 4 ? 10 : 3);
     await f.harness.experimental_dispose();
@@ -205,7 +210,7 @@ it("keeps whole-range navigation within retained bounds through today", async ()
     scope: { kind: "host" },
   });
   expect(oldest.previous).toBe(false);
-  for (const startDate of ["2026-06-04", "2026-09-03"])
+  for (const startDate of ["2026-06-04", "2026-09-03"]) {
     expect(
       await f.harness.experimental_call("calendarReport", {
         startDate,
@@ -214,6 +219,7 @@ it("keeps whole-range navigation within retained bounds through today", async ()
         scope: { kind: "host" },
       }),
     ).toEqual({ state: "unavailable", reason: "range-unavailable" });
+  }
   await f.harness.experimental_dispose();
 });
 it("uses scoped evidence for reliable zero and keeps paused, recovery and uncovered days as gaps", async () => {
@@ -358,9 +364,9 @@ it("returns exact safe totals but refuses unsafe aggregate overflow", async () =
   await f.harness.experimental_dispose();
 });
 it("uses durable unfinished and canceled import evidence to prevent a false scoped zero", async () => {
-  const f = await calendarFixture(),
-    source = join(f.root, "source"),
-    workspace = join(f.root, "workspace");
+  const f = await calendarFixture();
+  const source = join(f.root, "source");
+  const workspace = join(f.root, "workspace");
   await mkdir(source);
   await mkdir(workspace);
   recordCoverage(f.db, {
@@ -614,7 +620,9 @@ it("reports retained import-only usage independently of collector assets without
       },
     ]),
   });
-  if (result.state === "unavailable") throw Error(result.reason);
+  if (result.state === "unavailable") {
+    throw Error(result.reason);
+  }
   expect(result.days).toHaveLength(30);
   expect(result.ranking).toMatchObject([{ key: "/original", totalTokens: 10 }]);
   await harness.experimental_dispose();
@@ -629,14 +637,17 @@ it.each(["missing", "malformed", "symlink", "oversized"] as const)(
       await f.harness.experimental_call("collectorControl", { action: "install" }),
     ).toMatchObject({ state: "available" });
     expect((await f.read()).summary.totalTokens).toBe(10);
-    const controlPath = join(f.dataDir, "history/collector-control-v1.json"),
-      control = await readFile(controlPath),
-      database = await readFile(f.path),
-      target = join(f.root, "owned-control-target");
-    if (mode === "missing") await rm(controlPath);
-    else if (mode === "malformed") await writeFile(controlPath, "{");
-    else if (mode === "oversized") await writeFile(controlPath, " ".repeat(1025));
-    else {
+    const controlPath = join(f.dataDir, "history/collector-control-v1.json");
+    const control = await readFile(controlPath);
+    const database = await readFile(f.path);
+    const target = join(f.root, "owned-control-target");
+    if (mode === "missing") {
+      await rm(controlPath);
+    } else if (mode === "malformed") {
+      await writeFile(controlPath, "{");
+    } else if (mode === "oversized") {
+      await writeFile(controlPath, " ".repeat(1025));
+    } else {
       await writeFile(target, control);
       await rm(controlPath);
       await symlink(target, controlPath);
@@ -651,9 +662,11 @@ it.each(["missing", "malformed", "symlink", "oversized"] as const)(
       }),
     ).toEqual({ state: "unavailable", reason: "storage-unavailable" });
     expect((await readFile(f.path)).equals(database)).toBe(true);
-    if (mode === "missing")
+    if (mode === "missing") {
       await expect(lstat(controlPath)).rejects.toMatchObject({ code: "ENOENT" });
-    else expect(await readFile(controlPath)).toEqual(before);
+    } else {
+      expect(await readFile(controlPath)).toEqual(before);
+    }
     if (mode === "symlink") {
       expect((await lstat(controlPath)).isSymbolicLink()).toBe(true);
       expect(await readFile(target)).toEqual(control);
@@ -832,8 +845,9 @@ it("does not certify today as a full-day zero even with inactivity evidence", as
 
 it("bounds model attribution without losing unknown totals or including excluded scopes", async () => {
   const f = await calendarFixture();
-  for (let n = 1; n <= 10; n++)
+  for (let n = 1; n <= 10; n += 1) {
     put(f.db, n, undefined, "/original", 10, null, `model-${String(n).padStart(2, "0")}`);
+  }
   put(f.db, 11, undefined, "/original", 5, null, "expired");
   f.db.prepare("UPDATE usage_compact SET detail_available=0 WHERE total=5").run();
   put(f.db, 12, undefined, "/excluded", 7, null, "excluded");

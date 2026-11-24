@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { HistoryReadinessPanel } from "../history-view.js";
 import type { HistoryReadiness, CollectorRequest } from "../history-contract.js";
+
 afterEach(cleanup);
 const token = "00000000-0000-4000-8000-000000000001";
 function view(

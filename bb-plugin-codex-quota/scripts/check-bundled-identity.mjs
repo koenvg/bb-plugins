@@ -10,10 +10,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+
 assert.ok(Number(process.versions.node.split(".")[0]) >= 22);
 const root = mkdtempSync(join(tmpdir(), "bbp19-bundle-"));
-const previousAgentDir = process.env.PI_CODING_AGENT_DIR,
-  previousFetch = globalThis.fetch;
+const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+const previousFetch = globalThis.fetch;
 const previousCodexHome = process.env.CODEX_HOME;
 const RealDate = globalThis.Date;
 const occurredAt = "2026-10-01T00:00:00.000Z";
@@ -29,8 +30,8 @@ try {
   };
   // Native input is absent unless this check creates its own fixture.
   process.env.CODEX_HOME = join(root, "absent-codex");
-  const agent = join(root, "agent"),
-    dataDir = join(root, "host-data");
+  const agent = join(root, "agent");
+  const dataDir = join(root, "host-data");
   mkdirSync(agent);
   mkdirSync(dataDir);
   process.env.PI_CODING_AGENT_DIR = agent;
@@ -40,12 +41,12 @@ try {
   const artifact = join(root, "host.mjs");
   copyFileSync(new URL("../dist/host.js", import.meta.url), artifact);
   const bundled = await import(pathToFileURL(artifact).href);
-  const signal = new AbortController().signal,
-    context = {
-      signal,
-      lifecycle: { signal },
-      experimental_paths: { dataDir, tempDir: join(root, "temp") },
-    };
+  const signal = new AbortController().signal;
+  const context = {
+    signal,
+    lifecycle: { signal },
+    experimental_paths: { dataDir, tempDir: join(root, "temp") },
+  };
   assert.equal(
     (await bundled.default.handlers.collectorControl({ action: "install" }, context)).state,
     "available",
@@ -152,17 +153,18 @@ try {
     { ...rows[0], threadId: "thr_b" },
     { ...rows[0], threadId: "thr_c", providerIdentity: "provider-c" },
   ];
-  for (let generation = 4; generation <= 10; generation++)
+  for (let generation = 4; generation <= 10; generation += 1) {
     view = await reopened.default.handlers.historyReadiness(
       { identities: batch(generation, stable) },
       context,
     );
+  }
   assert.equal(view.collection.attribution.backlog, false);
   assert.equal(
     view.collection.attribution.threads.find((r) => r.threadId === "thr_c").totalTokens,
     3000,
   );
-  for (let generation = 11; generation <= 16; generation++) {
+  for (let generation = 11; generation <= 16; generation += 1) {
     view = await reopened.default.handlers.historyReadiness(
       {
         identities: batch(
@@ -201,7 +203,7 @@ try {
     },
     context,
   );
-  for (let n = 0; view.collection.attribution.backlog && n < 10; n++)
+  for (let n = 0; view.collection.attribution.backlog && n < 10; n += 1) {
     view = await reopened.default.handlers.historyReadiness(
       {
         identities: batch(17, [
@@ -217,6 +219,7 @@ try {
       },
       context,
     );
+  }
   assert.equal(view.collection.attribution.backlog, false);
   assert.ok(
     !view.collection.attribution.threads.some(
@@ -239,9 +242,15 @@ try {
 } finally {
   globalThis.Date = RealDate;
   globalThis.fetch = previousFetch;
-  if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (previousAgentDir === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+  }
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
   rmSync(root, { recursive: true, force: true });
 }

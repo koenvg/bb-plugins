@@ -5,8 +5,13 @@ import {
   comparisonReasonCodes,
   comparisonReasons,
 } from "./calendar-comparison.js";
+import { dayModelsSchema, modelTotal } from "./calendar-models.js";
+import { dayModelCostsSchema, validModelCosts } from "./calendar-model-costs.js";
+
 export function checkedCount(n: number): number {
-  if (!Number.isSafeInteger(n) || n < 0) throw Error("Calendar total unavailable");
+  if (!Number.isSafeInteger(n) || n < 0) {
+    throw Error("Calendar total unavailable");
+  }
   return n;
 }
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -92,8 +97,9 @@ export const calendarMoneySchema = z
           (value.state === "available"
             ? value.pricedRecords === value.records && value.reason === "ok"
             : value.pricedRecords < value.records && value.reason === "missing-prices");
-    if (!validCounts || !validState)
+    if (!validCounts || !validState) {
       ctx.addIssue({ code: "custom", message: "Calendar pricing mismatch" });
+    }
   });
 export type CalendarMoney = z.infer<typeof calendarMoneySchema>;
 const classes = z.discriminatedUnion("state", [
@@ -109,8 +115,7 @@ const classes = z.discriminatedUnion("state", [
     })
     .strict(),
 ]);
-import { dayModelsSchema, modelTotal } from "./calendar-models.js";
-import { dayModelCostsSchema, validModelCosts } from "./calendar-model-costs.js";
+
 export const calendarDaySchema = z
   .object({
     date: z.string().refine(validDate),
@@ -248,8 +253,9 @@ export const calendarReportSchema = z
     if (
       value.state !== "unavailable" &&
       value.days.some((day, n) => day.date !== shiftDate(value.query.startDate, n))
-    )
+    ) {
       ctx.addIssue({ code: "custom", message: "Calendar response range mismatch" });
+    }
     if (value.state !== "unavailable") {
       const totals = [value.summary, ...value.days];
       if (
@@ -259,8 +265,9 @@ export const calendarReportSchema = z
             total.activeEntities > total.money.records,
         ) ||
         value.ranking.some((row) => row.money.pricedEntities > 1)
-      )
+      ) {
         ctx.addIssue({ code: "custom", message: "Calendar entity denominator mismatch" });
+      }
       if (
         totals.some(
           (total) =>
@@ -268,11 +275,13 @@ export const calendarReportSchema = z
             (total.uncertain &&
               !Number.isSafeInteger(total.totalTokens + total.uncertain.totalTokens)),
         )
-      )
+      ) {
         ctx.addIssue({ code: "custom", message: "Calendar uncertain totals mismatch" });
+      }
       const comparison = value.comparison;
-      if (!!value.query.comparison !== !!comparison)
+      if (!!value.query.comparison !== !!comparison) {
         ctx.addIssue({ code: "custom", message: "Calendar comparison presence mismatch" });
+      }
       if (
         value.state === "observed-inactivity" &&
         (value.summary.money.records !== 0 ||
@@ -280,30 +289,34 @@ export const calendarReportSchema = z
           value.summary.activeEntities !== 0 ||
           value.summary.excludedTokens !== 0 ||
           value.days.some((day) => !day.coverage.zero))
-      )
+      ) {
         ctx.addIssue({ code: "custom", message: "Calendar inactivity mismatch" });
+      }
       if (comparison) {
         const expected = { ...value.query, startDate: shiftDate(value.query.startDate, -30) };
         if (
           JSON.stringify(comparison.query) !== JSON.stringify(expected) ||
           comparison.observedAt !== value.observedAt
-        )
+        ) {
           ctx.addIssue({ code: "custom", message: "Calendar prior identity mismatch" });
+        }
         if (
           comparisonMetrics.some(
             (metric) =>
               comparison.reasons[metric] !== comparisonReasons(value, comparison.prior)[metric],
           )
-        )
+        ) {
           ctx.addIssue({ code: "custom", message: "Calendar comparison reason mismatch" });
+        }
         if (comparison.prior.state !== "unavailable") {
-          const prior = comparison.prior,
-            summary = prior.summary;
+          const prior = comparison.prior;
+          const summary = prior.summary;
           if (
             summary.money.pricedEntities > summary.activeEntities ||
             summary.activeEntities > summary.money.records
-          )
+          ) {
             ctx.addIssue({ code: "custom", message: "Calendar prior denominator mismatch" });
+          }
           if (
             (prior.state === "observed-inactivity") !== prior.coverage.zero ||
             (prior.coverage.zero &&
@@ -311,8 +324,9 @@ export const calendarReportSchema = z
                 summary.activeEntities !== 0 ||
                 summary.excludedTokens !== 0 ||
                 summary.money.records !== 0))
-          )
+          ) {
             ctx.addIssue({ code: "custom", message: "Calendar prior inactivity mismatch" });
+          }
         }
       }
     }

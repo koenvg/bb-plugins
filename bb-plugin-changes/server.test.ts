@@ -139,7 +139,9 @@ async function setup(
           }),
         send: async (args) => {
           calls.send.push(args);
-          if (options.send instanceof Error) throw options.send;
+          if (options.send instanceof Error) {
+            throw options.send;
+          }
           return options.send ?? { ok: true as const, delivery: "sent" as const };
         },
       },
@@ -196,7 +198,9 @@ async function setup(
                 })
                 .parse(input);
               calls.diffFiles.push(args);
-              if (options.diffFiles instanceof Error) throw options.diffFiles;
+              if (options.diffFiles instanceof Error) {
+                throw options.diffFiles;
+              }
               output =
                 typeof options.diffFiles === "function"
                   ? await options.diffFiles()
@@ -251,13 +255,17 @@ async function setup(
               throw new Error(`Unexpected Git RPC: ${method}`);
           }
           const parsed = await outputSchema["~standard"].validate(output);
-          if (parsed.issues) throw new Error(JSON.stringify(parsed.issues));
+          if (parsed.issues) {
+            throw new Error(JSON.stringify(parsed.issues));
+          }
           return parsed.value;
         },
       },
     },
   });
-  for (const [key, value] of Object.entries(options.kv ?? {})) await bb.storage.kv.set(key, value);
+  for (const [key, value] of Object.entries(options.kv ?? {})) {
+    await bb.storage.kv.set(key, value);
+  }
   await plugin(bb);
   dispose = () => harness.dispose();
   return { harness, calls, kv: bb.storage.kv };
@@ -320,7 +328,9 @@ describe("getTextContext", () => {
         await harness.callRpc("getTextContext", { ...request, basis: { ...basis, target } }),
       );
       expect(result.kind).toBe("ready");
-      if (result.kind !== "ready") throw new Error(result.message);
+      if (result.kind !== "ready") {
+        throw new Error(result.message);
+      }
       expect(result.new.kind === "text" ? result.new.contents : "absent").toBe(
         "prefix\nnew\nsuffix\n",
       );
@@ -375,7 +385,9 @@ describe("getTextContext", () => {
       await harness.callRpc("getTextContext", { ...request, file: { ...file, status }, patch: p }),
     );
     expect(result.kind).toBe("ready");
-    if (result.kind !== "ready") throw new Error(result.message);
+    if (result.kind !== "ready") {
+      throw new Error(result.message);
+    }
     expect(result[status === "deleted" ? "new" : "old"]).toEqual({ kind: "absent" });
     expect(readArgs).toHaveLength(1);
   });
@@ -592,7 +604,9 @@ describe("getChanges", () => {
           events.push("commits");
           return commits.promise;
         }
-        if (++statusReads > 1) events.push("head");
+        if ((statusReads += 1) > 1) {
+          events.push("head");
+        }
         return {
           ...status(null),
           workspace: {
@@ -675,7 +689,7 @@ describe("getChanges", () => {
     const { harness, calls } = await setup({
       status: ({ mergeBaseBranch }) => {
         const sha =
-          mergeBaseBranch === undefined && ++read >= 3
+          mergeBaseBranch === undefined && (read += 1) >= 3
             ? "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
             : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         const base = status(null);
@@ -727,7 +741,7 @@ describe("getChanges", () => {
           outcome: "available",
           workspace: {
             branch: { currentBranch: "feature", defaultBranch: "main" },
-            checkout: { kind: "detached", headSha: String(++read).padStart(40, "0") },
+            checkout: { kind: "detached", headSha: String((read += 1)).padStart(40, "0") },
             mergeBase: null,
           },
         }) as StatusResult,
@@ -863,7 +877,9 @@ describe("getChanges", () => {
   it("still returns the diff when bb fails to list the branch commits", async () => {
     const { harness } = await setup({
       status: (query) => {
-        if (query.mergeBaseBranch !== undefined) throw new Error("HTTP 502: invalid commits");
+        if (query.mergeBaseBranch !== undefined) {
+          throw new Error("HTTP 502: invalid commits");
+        }
         return status(null);
       },
     });

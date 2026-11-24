@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { HistoryRequest } from "../history-contract.js";
-import { preparationSchema, type PreparationRequest } from "../report-preparation-contract.js";
+import { preparationSchema } from "../report-preparation-contract.js";
+import type { PreparationRequest } from "../report-preparation-contract.js";
 
 // One visible page owns one sequential loop. Quota, dates and metrics do not drive it.
 const DELAY = 250;
@@ -25,16 +26,18 @@ export function useReportPreparation(
   );
   const enabled = !!prepare && !!selection.hostId && !selectionPending;
   useEffect(() => {
-    if (!enabled || !selection.hostId) return;
+    if (!enabled || !selection.hostId) {
+      return;
+    }
     let disposed = false;
     let visibilityEpoch = 0;
     let inFlight = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let phase: State = "pending";
     let refreshAt = 0;
-    let batches = 0,
-      failures = 0,
-      stalls = 0;
+    let batches = 0;
+    let failures = 0;
+    let stalls = 0;
     let previous = "";
     const frozen = { hostId: selection.hostId, generation: selection.generation };
     const valid = () =>
@@ -49,13 +52,16 @@ export function useReportPreparation(
     };
     const schedule = (delay: number) => {
       clearTimeout(timer);
-      if (valid() && phase !== "stopped")
+      if (valid() && phase !== "stopped") {
         timer = setTimeout(() => {
           void run();
         }, delay);
+      }
     };
     const run = async () => {
-      if (!valid() || inFlight || phase === "stopped") return;
+      if (!valid() || inFlight || phase === "stopped") {
+        return;
+      }
       if (phase === "settled") {
         const remaining = refreshAt - Date.now();
         if (remaining > 0) {
@@ -73,8 +79,12 @@ export function useReportPreparation(
       const epoch = visibilityEpoch;
       inFlight = true;
       try {
-        const value = await api.current!({ ...frozen, refresh: batches++ === 0 });
-        if (!valid() || epoch !== visibilityEpoch) return;
+        const refresh = batches === 0;
+        batches += 1;
+        const value = await api.current!({ ...frozen, refresh });
+        if (!valid() || epoch !== visibilityEpoch) {
+          return;
+        }
         const parsed = preparationSchema.safeParse(value);
         if (!parsed.success || parsed.data.state === "unavailable") {
           publish("stopped");
@@ -95,8 +105,10 @@ export function useReportPreparation(
         }
         schedule(DELAY);
       } catch {
-        if (!valid() || epoch !== visibilityEpoch) return;
-        if (++failures >= MAX_FAILURES || batches >= MAX_BATCHES) {
+        if (!valid() || epoch !== visibilityEpoch) {
+          return;
+        }
+        if ((failures += 1) >= MAX_FAILURES || batches >= MAX_BATCHES) {
           publish("stopped");
           return;
         }
@@ -104,13 +116,17 @@ export function useReportPreparation(
       } finally {
         inFlight = false;
         // A resumed page waits for its retired request before continuing through durable cursors.
-        if (epoch !== visibilityEpoch) schedule(0);
+        if (epoch !== visibilityEpoch) {
+          schedule(0);
+        }
       }
     };
     const visibility = () => {
-      visibilityEpoch++;
+      visibilityEpoch += 1;
       clearTimeout(timer);
-      if (valid()) schedule(0);
+      if (valid()) {
+        schedule(0);
+      }
     };
     document.addEventListener("visibilitychange", visibility);
     publish("pending");

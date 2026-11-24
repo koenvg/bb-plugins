@@ -72,33 +72,42 @@ function mismatch(): never {
 }
 
 function validateContextFile(file: ChangedFile): void {
-  if (file.binary || file.loadMode === "too_large" || file.status === "type_changed")
+  if (file.binary || file.loadMode === "too_large" || file.status === "type_changed") {
     throw new ContextError("unsupported", "Context is unavailable for this file.");
-  for (const path of [file.path, ...(file.previousPath === null ? [] : [file.previousPath])]) {
-    if (!imagePathSchema.safeParse(path).success)
-      throw new ContextError("unsupported", "Context requires a safe relative file path.");
-    if (/[^!-~]|["\\]/.test(path))
-      throw new ContextError("unsupported", "Context is unavailable for quoted file paths.");
   }
-  if (["renamed", "copied"].includes(file.status) !== (file.previousPath !== null)) mismatch();
+  for (const path of [file.path, ...(file.previousPath === null ? [] : [file.previousPath])]) {
+    if (!imagePathSchema.safeParse(path).success) {
+      throw new ContextError("unsupported", "Context requires a safe relative file path.");
+    }
+    if (/[^!-~]|["\\]/.test(path)) {
+      throw new ContextError("unsupported", "Context is unavailable for quoted file paths.");
+    }
+  }
+  if (["renamed", "copied"].includes(file.status) !== (file.previousPath !== null)) {
+    mismatch();
+  }
 }
 
 export function textRevisions(basis: ChangesBasis, file: ChangedFile): TextRevisionPair {
   validateContextFile(file);
   const revision = (side: "before" | "after"): TextRevision => {
     const path = imagePath(file, side);
-    if (path === null) return { kind: "absent" };
+    if (path === null) {
+      return { kind: "absent" };
+    }
     const target = basis.target;
-    if (side === "after" && (target.kind === "all" || target.kind === "uncommitted"))
+    if (side === "after" && (target.kind === "all" || target.kind === "uncommitted")) {
       return { kind: "working_tree", path };
+    }
     const sha =
       target.kind === "commit"
         ? target.sha
         : side === "before" && target.kind !== "uncommitted"
           ? basis.mergeBaseRef
           : basis.headSha;
-    if (!imageShaSchema.safeParse(sha).success)
+    if (!imageShaSchema.safeParse(sha).success) {
       throw new ContextError("stale", "Context revision unavailable. Refresh changes.");
+    }
     return {
       kind: "commit",
       path,
@@ -115,15 +124,17 @@ export function validateText(contents: string, sizeBytes: number): void {
     bytes.length > MAX_CONTEXT_BYTES ||
     sizeBytes > MAX_CONTEXT_BYTES ||
     splitLines(contents).length > MAX_CONTEXT_LINES
-  )
+  ) {
     throw new ContextError("too_large", "Context exceeds the 1 MiB or 20,000 line limit.");
+  }
   if (
     !Number.isInteger(sizeBytes) ||
     bytes.length !== sizeBytes ||
     new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes) !== contents ||
     contents.includes("\0")
-  )
+  ) {
     throw new ContextError("unsupported", "Context is not valid UTF-8 text.");
+  }
 }
 function splitLines(text: string): string[] {
   return text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
@@ -131,18 +142,25 @@ function splitLines(text: string): string[] {
 
 export function validateContext(snapshot: Snapshot, input: unknown): { old: string; new: string } {
   const parsed = textContextResultSchema.safeParse(input);
-  if (!parsed.success)
+  if (!parsed.success) {
     throw new ContextError("unsupported", "Invalid context response. Refresh changes.");
-  if (parsed.data.kind === "error") throw new ContextError(parsed.data.code, parsed.data.message);
+  }
+  if (parsed.data.kind === "error") {
+    throw new ContextError(parsed.data.code, parsed.data.message);
+  }
   const revisions = textRevisions(snapshot.basis, snapshot.file);
   const contents = (side: "old" | "new") => {
     const value = parsed.data.kind === "ready" ? parsed.data[side] : mismatch();
     const expected = revisions[side];
     if (value.kind === "absent") {
-      if (expected.kind !== "absent") mismatch();
+      if (expected.kind !== "absent") {
+        mismatch();
+      }
       return "";
     }
-    if (JSON.stringify(value.revision) !== JSON.stringify(expected)) mismatch();
+    if (JSON.stringify(value.revision) !== JSON.stringify(expected)) {
+      mismatch();
+    }
     validateText(value.contents, value.sizeBytes);
     return value.contents;
   };
@@ -159,12 +177,15 @@ export function validatePatch(
   newText: string,
 ): void {
   validateContextFile(file);
-  if (patch.startsWith('diff --git "'))
+  if (patch.startsWith('diff --git "')) {
     throw new ContextError("unsupported", "Context is unavailable for quoted file paths.");
+  }
   validateText(patch, new TextEncoder().encode(patch).length);
   const rows = splitLines(patch);
   const firstHunk = rows.findIndex((row) => row.startsWith("@@ "));
-  if (firstHunk < 0) mismatch();
+  if (firstHunk < 0) {
+    mismatch();
+  }
   const header = rows.slice(0, firstHunk).map((row) => row.replace(/\n$/, ""));
   const oldPath = file.previousPath ?? file.path;
   const added = file.status === "added" || file.status === "untracked";
@@ -175,29 +196,43 @@ export function validatePatch(
     header[0] !== `diff --git a/${oldPath} b/${file.path}` ||
     header.filter((row) => row.startsWith("--- ")).join() !== oldHeader ||
     header.filter((row) => row.startsWith("+++ ")).join() !== newHeader
-  )
+  ) {
     mismatch();
+  }
   for (const row of header.slice(1)) {
-    if (row === oldHeader || row === newHeader) continue;
-    if (/^index [a-f\d]+\.\.[a-f\d]+(?: 100(?:644|755))?$/.test(row)) continue;
-    if (/^new file mode 100(?:644|755)$/.test(row) && added) continue;
-    if (/^deleted file mode 100(?:644|755)$/.test(row) && deleted) continue;
-    if (/^(old|new) mode 100(?:644|755)$/.test(row) && !added && !deleted) continue;
+    if (row === oldHeader || row === newHeader) {
+      continue;
+    }
+    if (/^index [a-f\d]+\.\.[a-f\d]+(?: 100(?:644|755))?$/.test(row)) {
+      continue;
+    }
+    if (/^new file mode 100(?:644|755)$/.test(row) && added) {
+      continue;
+    }
+    if (/^deleted file mode 100(?:644|755)$/.test(row) && deleted) {
+      continue;
+    }
+    if (/^(old|new) mode 100(?:644|755)$/.test(row) && !added && !deleted) {
+      continue;
+    }
     if (
       /^similarity index (?:100|\d{1,2})%$/.test(row) &&
       ["renamed", "copied"].includes(file.status)
-    )
+    ) {
       continue;
+    }
     if (
       row === `${file.status === "copied" ? "copy" : "rename"} from ${oldPath}` &&
       ["renamed", "copied"].includes(file.status)
-    )
+    ) {
       continue;
+    }
     if (
       row === `${file.status === "copied" ? "copy" : "rename"} to ${file.path}` &&
       ["renamed", "copied"].includes(file.status)
-    )
+    ) {
       continue;
+    }
     mismatch();
   }
   const oldLines = splitLines(oldText);
@@ -207,8 +242,12 @@ export function validatePatch(
   let newIndex = 0;
   let i = firstHunk;
   while (i < rows.length) {
-    const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@[^\n]*\n$/.exec(rows[i++]!);
-    if (!match) mismatch();
+    const headerIndex = i;
+    i += 1;
+    const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@[^\n]*\n$/.exec(rows[headerIndex]!);
+    if (!match) {
+      mismatch();
+    }
     const oldCount = Number(match[2] ?? 1);
     const newCount = Number(match[4] ?? 1);
     const oldStart = Number(match[1]) - (oldCount === 0 ? 0 : 1);
@@ -219,39 +258,57 @@ export function validatePatch(
       oldStart > oldLines.length ||
       newStart < newIndex ||
       oldCount + newCount === 0
-    )
+    ) {
       mismatch();
+    }
     const gap = oldLines.slice(oldIndex, oldStart);
-    if (newIndex + gap.length !== newStart) mismatch();
+    if (newIndex + gap.length !== newStart) {
+      mismatch();
+    }
     output.push(...gap);
     oldIndex = oldStart;
     newIndex = newStart;
     let usedOld = 0;
     let usedNew = 0;
     while (i < rows.length && !rows[i]!.startsWith("@@ ")) {
-      const row = rows[i++]!;
+      const row = rows[i]!;
+      i += 1;
       const sign = row[0];
-      if (![" ", "-", "+"].includes(sign!) || !row.endsWith("\n")) mismatch();
+      if (![" ", "-", "+"].includes(sign!) || !row.endsWith("\n")) {
+        mismatch();
+      }
       let text = row.slice(1);
       if (
         rows[i] === "\\ No newline at end of file\n" ||
         rows[i] === "\\ No newline at end of file"
       ) {
         text = text.slice(0, -1);
-        i++;
+        i += 1;
       }
       if (sign !== "+") {
-        if (oldLines[oldIndex++] !== text) mismatch();
-        usedOld++;
+        const oldLine = oldLines[oldIndex];
+        oldIndex += 1;
+        if (oldLine !== text) {
+          mismatch();
+        }
+        usedOld += 1;
       }
       if (sign !== "-") {
-        if (newLines[newIndex++] !== text) mismatch();
+        const newLine = newLines[newIndex];
+        newIndex += 1;
+        if (newLine !== text) {
+          mismatch();
+        }
         output.push(text);
-        usedNew++;
+        usedNew += 1;
       }
     }
-    if (usedOld !== oldCount || usedNew !== newCount) mismatch();
+    if (usedOld !== oldCount || usedNew !== newCount) {
+      mismatch();
+    }
   }
   output.push(...oldLines.slice(oldIndex));
-  if (output.join("") !== newText) mismatch();
+  if (output.join("") !== newText) {
+    mismatch();
+  }
 }

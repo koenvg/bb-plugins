@@ -73,8 +73,9 @@ try {
     port: 0,
     async fetch(request) {
       const url = new URL(request.url);
-      if (url.pathname === "/fixture.js")
+      if (url.pathname === "/fixture.js") {
         return new Response(bundle, { headers: { "content-type": "text/javascript" } });
+      }
       if (url.pathname === "/content") {
         const side = url.searchParams.get("side");
         assert(side === "before" || side === "after");
@@ -92,7 +93,9 @@ try {
           ),
         );
       }
-      if (url.pathname !== "/") return new Response("Not found", { status: 404 });
+      if (url.pathname !== "/") {
+        return new Response("Not found", { status: 404 });
+      }
       return new Response(
         '<!doctype html><html><head><style>body{margin:0;background:#fafafa;color:#171717;font:13px system-ui}figure{margin:0;min-width:0}figcaption{display:flex;flex-direction:column;gap:4px;padding:8px}button{min-height:36px;cursor:pointer}video{display:block;max-width:100%}</style></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>',
         { headers: { "content-type": "text/html" } },
@@ -119,7 +122,7 @@ try {
       await page.close();
     }
   })();
-  for (const width of [960, 320])
+  for (const width of [960, 320]) {
     for (const codec of ["vp9", "vp8"]) {
       const context = await browser.newContext({ viewport: { width, height: 900 } });
       const page = await context.newPage();
@@ -139,7 +142,7 @@ try {
         const videos = page.locator("video");
         await expect(videos).toHaveCount(2);
         const colors = [];
-        for (let index = 0; index < 2; index++) {
+        for (let index = 0; index < 2; index += 1) {
           const video = videos.nth(index);
           assert(
             await video.evaluate(
@@ -174,8 +177,12 @@ try {
             x: node.getBoundingClientRect().x,
           })),
         );
-        if (width === 960) assert(boxes[1].x > boxes[0].x, "Wide preview sides share a row");
-        if (width === 320) assert.equal(boxes[0].x, boxes[1].x, "Narrow preview sides stack");
+        if (width === 960) {
+          assert(boxes[1].x > boxes[0].x, "Wide preview sides share a row");
+        }
+        if (width === 320) {
+          assert.equal(boxes[0].x, boxes[1].x, "Narrow preview sides stack");
+        }
         await page.screenshot({ path: join(evidence, `${width}-${codec}.png`), fullPage: true });
         await page.getByRole("button", { name: "Unload before video" }).click();
         await expect(videos).toHaveCount(1);
@@ -185,6 +192,7 @@ try {
         await context.close();
       }
     }
+  }
 } catch (error) {
   failure = error;
   report.error = String(error);
@@ -195,7 +203,9 @@ try {
   report.cleanup = true;
   await Bun.write(join(evidence, "report.json"), JSON.stringify(report, null, 2));
 }
-if (failure) throw failure;
+if (failure) {
+  throw failure;
+}
 console.log(
   `Passed ${report.cases.length} local video playback cases. ${join(evidence, "report.json")}`,
 );

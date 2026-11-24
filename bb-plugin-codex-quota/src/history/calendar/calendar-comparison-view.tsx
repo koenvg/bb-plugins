@@ -1,7 +1,9 @@
 import type { CalendarSnapshot } from "./calendar-contract.js";
-import { comparisonExplanation, type ComparisonMetric } from "./calendar-comparison.js";
+import { comparisonExplanation } from "./calendar-comparison.js";
+import type { ComparisonMetric } from "./calendar-comparison.js";
 import { MoneyValues, capturedEstimate, pricedAverage } from "./calendar-money-view.js";
 import { shiftDate } from "./calendar-time.js";
+
 type Summary = CalendarSnapshot["summary"];
 function tokenSubtotal(summary: Summary, state: string): string {
   return summary.activeEntities || state === "observed-inactivity"
@@ -14,15 +16,19 @@ function activeValue(summary: Summary, state: string): string {
     : "Unknown, no accepted records";
 }
 function selectedValue(summary: Summary, state: string, metric: ComparisonMetric): string {
-  if (metric === "cost")
+  if (metric === "cost") {
     return summary.money.capturedCost === null
       ? "Unavailable"
       : capturedEstimate(summary.money.capturedCost);
-  if (metric === "cost-per-entity") return pricedAverage(summary.money);
-  if (metric === "per-entity")
+  }
+  if (metric === "cost-per-entity") {
+    return pricedAverage(summary.money);
+  }
+  if (metric === "per-entity") {
     return summary.activeEntities
       ? `${summary.totalTokens} / ${summary.activeEntities} = ${(summary.totalTokens / summary.activeEntities).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
       : "Unavailable, no active entities";
+  }
   return metric === "tokens" ? tokenSubtotal(summary, state) : activeValue(summary, state);
 }
 export function CalendarComparison({
@@ -35,9 +41,11 @@ export function CalendarComparison({
   blocked: boolean;
 }) {
   const comparison = view.comparison;
-  if (!comparison) return null;
-  const prior = comparison.prior,
-    entities = view.query.group === "workspace" ? "workspaces" : "verified threads";
+  if (!comparison) {
+    return null;
+  }
+  const prior = comparison.prior;
+  const entities = view.query.group === "workspace" ? "workspaces" : "verified threads";
   const period = (name: string, summary: Summary, state: string) => (
     <div className="min-w-0 rounded-md border border-border p-2 [overflow-wrap:anywhere]">
       <h4 className="font-semibold">{name}</h4>

@@ -3,9 +3,8 @@ import {
   maintenanceRequestSchema,
   maintenanceUnavailable,
   repairResultSchema,
-  type MaintenanceRequest,
-  type MaintenanceResult,
 } from "./collector-maintenance-contract.js";
+import type { MaintenanceRequest, MaintenanceResult } from "./collector-maintenance-contract.js";
 
 type Dependencies = {
   get(
@@ -29,8 +28,9 @@ export function createCollectorMaintenance(deps: Dependencies) {
         host.id !== hostId ||
         host.type !== "persistent" ||
         host.lifecycle.phase !== "active"
-      )
+      ) {
         return "host-unapproved" as const;
+      }
       return host.status === "connected" ? null : ("host-offline" as const);
     } catch {
       return "host-unapproved" as const;
@@ -51,19 +51,29 @@ export function createCollectorMaintenance(deps: Dependencies) {
         signal.throwIfAborted();
         dispatchFailure = await eligibility(hostId);
         signal.throwIfAborted();
-        if (dispatchFailure) throw Error("Collector maintenance target unavailable");
+        if (dispatchFailure) {
+          throw Error("Collector maintenance target unavailable");
+        }
         dispatched = true;
       };
       const unavailable = (reason: Parameters<typeof maintenanceUnavailable>[0]) =>
         maintenanceUnavailable(reason, dispatched ? "may-have-run" : "not-started");
       const work = (async (): Promise<MaintenanceResult> => {
         try {
-          if (signal.aborted) return unavailable("canceled");
+          if (signal.aborted) {
+            return unavailable("canceled");
+          }
           const denied = await eligibility(hostId);
-          if (signal.aborted) return unavailable("canceled");
-          if (denied) return unavailable(denied);
+          if (signal.aborted) {
+            return unavailable("canceled");
+          }
+          if (denied) {
+            return unavailable(denied);
+          }
           const result = await deps.mutate(hostId, async (): Promise<MaintenanceResult> => {
-            if (signal.aborted) return unavailable("canceled");
+            if (signal.aborted) {
+              return unavailable("canceled");
+            }
             if (operation === "repair-existing") {
               await beforeDispatch();
               signal.throwIfAborted();
@@ -81,10 +91,16 @@ export function createCollectorMaintenance(deps: Dependencies) {
             const parsed = repairResultSchema.safeParse(raw);
             return parsed.success ? parsed.data : unavailable("unsupported");
           });
-          if (signal.aborted) return unavailable("canceled");
+          if (signal.aborted) {
+            return unavailable("canceled");
+          }
           const lost = await eligibility(hostId);
-          if (signal.aborted) return unavailable("canceled");
-          if (lost) return unavailable(lost);
+          if (signal.aborted) {
+            return unavailable("canceled");
+          }
+          if (lost) {
+            return unavailable(lost);
+          }
           return result;
         } catch {
           return unavailable(signal.aborted ? "canceled" : (dispatchFailure ?? "unsupported"));
@@ -98,7 +114,9 @@ export function createCollectorMaintenance(deps: Dependencies) {
           signal.removeEventListener("abort", canceled);
           resolve(result);
         });
-        if (signal.aborted) canceled();
+        if (signal.aborted) {
+          canceled();
+        }
       });
     },
   };

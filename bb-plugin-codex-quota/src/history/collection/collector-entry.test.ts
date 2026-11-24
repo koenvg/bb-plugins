@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { COLLECTOR_ENTRY } from "./collector-entry.js";
 import { usageRecordSchema, confirmationSchema } from "./usage-record.js";
+
 const roots: string[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -27,8 +28,8 @@ async function fixture() {
     { on: (name: string, handler: Function) => handlers.set(name, handler) },
     { dataDir: root, protocol: 2 },
   );
-  let leaf: string | null = null,
-    entryReads = 0;
+  let leaf: string | null = null;
+  let entryReads = 0;
   const entries = new Map<string, unknown>();
   const ctx = {
     cwd: join(root, "workspace"),
@@ -37,7 +38,7 @@ async function fixture() {
       getSessionFile: () => "/bounded/provider.jsonl",
       getLeafId: () => leaf,
       getEntry: (id: string) => {
-        entryReads++;
+        entryReads += 1;
         return entries.get(id);
       },
     },
@@ -95,8 +96,8 @@ it.each(["gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol"])(
   },
 );
 it("serializes actual compact writes, validates metadata, preserves original price/time, confirms only object identity and drains on shutdown", async () => {
-  const f = await fixture(),
-    messages = [f.message(0.125), f.message(0), f.message()];
+  const f = await fixture();
+  const messages = [f.message(0.125), f.message(0), f.message()];
   const prior = process.env.BB_THREAD_ID;
   process.env.BB_THREAD_ID = "thr_claim";
   try {
@@ -106,14 +107,17 @@ it("serializes actual compact writes, validates metadata, preserves original pri
     }
     await f.handlers.get("session_shutdown")!({}, f.ctx);
   } finally {
-    if (prior === undefined) delete process.env.BB_THREAD_ID;
-    else process.env.BB_THREAD_ID = prior;
+    if (prior === undefined) {
+      delete process.env.BB_THREAD_ID;
+    } else {
+      process.env.BB_THREAD_ID = prior;
+    }
   }
-  const text = await readFile(f.log, "utf8"),
-    records = text
-      .trim()
-      .split("\n")
-      .map((line) => usageRecordSchema.parse(JSON.parse(line)));
+  const text = await readFile(f.log, "utf8");
+  const records = text
+    .trim()
+    .split("\n")
+    .map((line) => usageRecordSchema.parse(JSON.parse(line)));
   expect(records).toHaveLength(3);
   expect(new Set(records.map((r) => r.eventId)).size).toBe(3);
   expect(records.map((r) => r.capturedCost)).toEqual([0.125, null, null]);
@@ -143,8 +147,9 @@ it("ignores non-Codex and invalid fields, paused or incompatible controls; no ra
     { ...f.message(), model: "" },
     { ...f.message(), timestamp: NaN },
     { ...f.message(), usage: { ...f.message().usage, input: -1 } },
-  ])
+  ]) {
     await f.handlers.get("message_end")!({ message }, f.ctx);
+  }
   await expect(readFile(f.log)).rejects.toThrow();
   await writeFile(
     join(f.root, "history/collector-control-v1.json"),
@@ -169,7 +174,9 @@ it("bounds confirmation traversal, does not match equal message values, and reso
     readFile(join(f.root, "history/confirmations-v1-2009-02-13.jsonl")),
   ).rejects.toMatchObject({ code: "ENOENT" });
   const readsBeforeBoundedScan = f.reads();
-  for (let i = 0; i < 200; i++) f.persist({}, `ancestor-${i}`);
+  for (let i = 0; i < 200; i += 1) {
+    f.persist({}, `ancestor-${i}`);
+  }
   await f.handlers.get("agent_end")!({}, f.ctx);
   expect(f.reads() - readsBeforeBoundedScan).toBe(128);
   await expect(

@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { chromium, expect, type Browser, type Page } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
 import {
   DELETED_PATH,
   CONTEXT_PATH,
@@ -125,11 +126,13 @@ async function candidate(browser: Browser, code: string) {
           assert(item.app.bundle);
           item.app.bundle.jsUrl = "/__bbp215/candidate.js";
           item.app.bundle.cssUrl = "/__bbp215/candidate.css";
-        } else if (item.app) item.app = { ...item.app, hasApp: false, bundle: null };
+        } else if (item.app) {
+          item.app = { ...item.app, hasApp: false, bundle: null };
+        }
       }
       await route.fulfill({ json: list });
     } else if (url.pathname === "/__bbp215/candidate.js") {
-      loads++;
+      loads += 1;
       await route.fulfill({ contentType: "text/javascript", body: code });
     } else if (url.pathname === "/__bbp215/candidate.css") {
       await route.fulfill({ contentType: "text/css", body: css });
@@ -153,8 +156,9 @@ async function candidate(browser: Browser, code: string) {
       await route.abort();
     } else {
       const decoded = decodeURIComponent(url.pathname + url.search);
-      if (decoded.includes(WORKSPACE_PATH) || decoded.includes(RENAMED_PATH))
+      if (decoded.includes(WORKSPACE_PATH) || decoded.includes(RENAMED_PATH)) {
         fileReads.push(url.pathname + url.search);
+      }
       await route.continue();
     }
   });
@@ -213,8 +217,9 @@ try {
     checks.push("The negative candidate does not replace the positive candidate's controls.");
 
     for (const action of ["mouse", "Enter", "Space"] as const) {
-      if (action === "mouse") await open.click();
-      else {
+      if (action === "mouse") {
+        await open.click();
+      } else {
         await open.focus();
         await good.page.keyboard.press(action);
       }
@@ -224,11 +229,12 @@ try {
           .getByText(WORKSPACE_TEXT, { exact: true }),
       ).toBeVisible();
       checks.push(`${action} opens actual current workspace content in BB's native file viewer.`);
-      if (action === "mouse")
+      if (action === "mouse") {
         await good.page
           .locator("[data-file-preview-scroll-container]")
           .getByText(WORKSPACE_TEXT, { exact: true })
           .screenshot({ path: resolve(evidenceDir, "native-file-content.png") });
+      }
       await good.page.getByRole("button", { name: "Changes", exact: true }).click();
       await expect(
         good.section.getByRole("button", {
@@ -486,5 +492,7 @@ try {
     console.log(`BB renderer evidence: ${evidenceDir}`);
   }
 }
-if (failure !== null) throw failure;
+if (failure !== null) {
+  throw failure;
+}
 console.log(`Passed ${checks.length} BB renderer checks.`);

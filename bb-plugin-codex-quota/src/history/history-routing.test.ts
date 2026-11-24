@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../plugin/server.js";
 import { historyReadinessSchema, historyRequestSchema } from "./history-contract.js";
+
 const readiness = {
   state: "not-configured",
   reason: "not-configured",
@@ -38,8 +39,9 @@ describe("bounded selected-host history routing", () => {
       { hostId: "host_a", generation: 1.5 },
       { hostId: "host_a", generation: 1_000_000_001 },
       { hostId: "host_a", generation: 0, filename: "/secret" },
-    ])
+    ]) {
       expect(historyRequestSchema.safeParse(input).success).toBe(false);
+    }
     expect(historyReadinessSchema.safeParse({ ...readiness, raw: "credential" }).success).toBe(
       false,
     );
@@ -191,20 +193,21 @@ describe("bounded selected-host history routing", () => {
     await harness.lifecycle.dispose();
   });
   it("routes explicit controls with strict selected-host guards and excludes late results", async () => {
-    let finish!: (value: unknown) => void, start!: () => void;
+    let finish!: (value: unknown) => void;
+    let start!: () => void;
     const delayed = new Promise((resolve) => {
-        finish = resolve;
-      }),
-      entered = new Promise<void>((resolve) => {
-        start = resolve;
-      });
+      finish = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      start = resolve;
+    });
     const harness = await setup(async ({ hostId, method }) => {
       expect(hostId).toBe("host_a");
       expect(method).toBe("collectorControl");
       start();
       return delayed;
     });
-    for (const action of ["install", "repair", "pause", "resume"])
+    for (const action of ["install", "repair", "pause", "resume"]) {
       expect(
         await harness.behavior.callRpc("collectorControl", {
           hostId: "host_a",
@@ -212,6 +215,7 @@ describe("bounded selected-host history routing", () => {
           action,
         }),
       ).toMatchObject({ reason: "no-selection" });
+    }
     const selected = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
       generation: number;
     };
@@ -247,13 +251,14 @@ describe("bounded selected-host history routing", () => {
     const selected = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
       generation: number;
     };
-    let finish!: () => void, start!: () => void;
+    let finish!: () => void;
+    let start!: () => void;
     const delayed = new Promise<void>((resolve) => {
-        finish = resolve;
-      }),
-      entered = new Promise<void>((resolve) => {
-        start = resolve;
-      });
+      finish = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      start = resolve;
+    });
     harness.inspection.sdk.stub("hosts.get", async () => {
       start();
       await delayed;

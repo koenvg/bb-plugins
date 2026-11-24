@@ -9,9 +9,9 @@ import {
   metricName,
   recordedValue,
   tokenBreakdown,
-  type CalendarDay,
-  type TokenMetric,
 } from "./calendar-chart-data.js";
+import type { CalendarDay, TokenMetric } from "./calendar-chart-data.js";
+
 const exact = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 export function displayValue(day: CalendarDay, metric: TokenMetric) {
   const value = recordedValue(day, metric);
@@ -44,8 +44,9 @@ export function UsageTooltip({
   const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = card.current;
-    if (pinned && element && element.scrollHeight > element.clientHeight)
+    if (pinned && element && element.scrollHeight > element.clientHeight) {
       element.focus({ preventScroll: true });
+    }
   }, [pinned]);
   const recorded = recordedValue(day, metric);
   const projection = modelView ? null : chartData([day], metric);

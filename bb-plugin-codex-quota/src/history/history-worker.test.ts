@@ -4,7 +4,8 @@ import { createQuotaHostEntry } from "../plugin/host.js";
 import { createHostHistory } from "./history-host.js";
 
 it("disposal settles active and queued history calls without opening queued storage", async () => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   let opens = 0;
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -14,7 +15,7 @@ it("disposal settles active and queued history calls without opening queued stor
   });
   const history = createHostHistory({
     storage: async () => {
-      opens++;
+      opens += 1;
       entered();
       await held;
       return null;
@@ -57,7 +58,8 @@ it("disposal settles active and queued history calls without opening queued stor
 });
 
 it("retains an import worker until canceled storage work has actually drained", async () => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -102,7 +104,8 @@ it("retains an import worker until canceled storage work has actually drained", 
 });
 
 it("caller cancellation does not let the next history operation enter storage early", async () => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   let opens = 0;
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -112,7 +115,7 @@ it("caller cancellation does not let the next history operation enter storage ea
   });
   const history = createHostHistory({
     storage: async () => {
-      if (++opens === 1) {
+      if ((opens += 1) === 1) {
         entered();
         await held;
       }

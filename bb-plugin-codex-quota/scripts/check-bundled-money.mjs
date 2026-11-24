@@ -6,9 +6,9 @@ import { pathToFileURL } from "node:url";
 
 // Owned synthetic package proof. No installed source, real capture, account or transcript access.
 const root = mkdtempSync(join(tmpdir(), "bbp21-money-bundle-"));
-const oldAgent = process.env.PI_CODING_AGENT_DIR,
-  oldFetch = globalThis.fetch,
-  NativeDate = globalThis.Date;
+const oldAgent = process.env.PI_CODING_AGENT_DIR;
+const oldFetch = globalThis.fetch;
+const NativeDate = globalThis.Date;
 let clock = NativeDate.parse("2026-10-01T12:00:00Z");
 class FixtureDate extends NativeDate {
   constructor(...args) {
@@ -66,8 +66,8 @@ try {
     experimental_paths: { dataDir, tempDir: join(root, "temp") },
   };
   await bundled.default.handlers.collectorControl({ action: "install" }, context);
-  const historyDir = join(dataDir, "history"),
-    path = join(historyDir, "usage-v1.sqlite");
+  const historyDir = join(dataDir, "history");
+  const path = join(historyDir, "usage-v1.sqlite");
   writeFileSync(
     join(historyDir, "events-v1.jsonl"),
     [
@@ -78,13 +78,15 @@ try {
       .join("\n") + "\n",
   );
   let ready;
-  for (let n = 0; n < 80; n++) {
+  for (let n = 0; n < 80; n += 1) {
     ready = await bundled.default.handlers.historyReadiness(null, context);
-    if (!ready.collection.backlog) break;
+    if (!ready.collection.backlog) {
+      break;
+    }
   }
   assert.equal(ready.collection.backlog, false);
-  const bytes = readFileSync(path),
-    control = readFileSync(join(historyDir, "collector-control-v1.json"));
+  const bytes = readFileSync(path);
+  const control = readFileSync(join(historyDir, "collector-control-v1.json"));
   const report = await bundled.default.handlers.calendarReport(query, context);
   assert.equal(report.summary.totalTokens, 120600);
   assert.equal(report.summary.activeEntities, 60);
@@ -162,12 +164,12 @@ try {
   clock = NativeDate.parse("2026-10-01T12:00:00Z");
 
   // Original import prices, including invalid/zero prices, enter the canonical index through real packaged handlers.
-  const importedDir = join(root, "import-only"),
-    source = join(root, "ordinary-source"),
-    bbRoot = join(root, "bb-source");
+  const importedDir = join(root, "import-only");
+  const source = join(root, "ordinary-source");
+  const bbRoot = join(root, "bb-source");
   [importedDir, source, bbRoot].forEach((path) => mkdirSync(path));
-  const prices = [4, 6, 0, -1, "invalid", null],
-    workspaces = prices.map((_, n) => join(root, `owned-workspace-${n}`));
+  const prices = [4, 6, 0, -1, "invalid", null];
+  const workspaces = prices.map((_, n) => join(root, `owned-workspace-${n}`));
   workspaces.forEach((path) => mkdirSync(path));
   const importedContext = {
     ...context,
@@ -225,11 +227,12 @@ try {
     command({ action: "start" }),
     importedContext,
   );
-  for (let n = 0; n < 15 && imported.generation.state !== "completed"; n++)
+  for (let n = 0; n < 15 && imported.generation.state !== "completed"; n += 1) {
     imported = await bundled.default.handlers.historicalImport(
       command({ action: "resume" }),
       importedContext,
     );
+  }
   assert.equal(imported.generation.state, "completed");
   const known = await bundled.default.handlers.calendarReport(query, importedContext);
   assert.equal(known.summary.totalTokens, 60);
@@ -272,9 +275,15 @@ try {
 } finally {
   globalThis.Date = NativeDate;
   globalThis.fetch = oldFetch;
-  if (oldAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = oldAgent;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (oldAgent === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = oldAgent;
+  }
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
   rmSync(root, { recursive: true, force: true });
 }

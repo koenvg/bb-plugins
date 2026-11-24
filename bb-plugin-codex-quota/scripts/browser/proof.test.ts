@@ -1,11 +1,6 @@
 import { test, expect } from "vitest";
-import {
-  accessibleFacts,
-  tooltipDefinitions,
-  verifyTooltip,
-  type AxNode,
-  type Metric,
-} from "./proof.js";
+import { accessibleFacts, tooltipDefinitions, verifyTooltip } from "./proof.js";
+import type { AxNode, Metric } from "./proof.js";
 
 function table(metric: Metric = "cost") {
   const node = (nodeId: string, role: string, name = "", childIds: string[] = []): AxNode => ({
@@ -45,8 +40,9 @@ function table(metric: Metric = "cost") {
     "Coverage",
     "Recorded exclusions",
   ];
-  if (metric === "cost") headers.push("Pricing");
-  else
+  if (metric === "cost") {
+    headers.push("Pricing");
+  } else {
     headers.splice(
       2,
       0,
@@ -58,6 +54,7 @@ function table(metric: Metric = "cost") {
       "Unclassified tokens",
       "Uncertain token estimate",
     );
+  }
   const nodes = [
     node("table", "table", "Daily recorded usage", ["caption", "head", "body"]),
     node("caption", "caption", "", ["caption-text"]),
@@ -136,11 +133,13 @@ for (const kind of ["misplaced", "hidden", "missing", "incomplete"]) {
   test(`AX ${kind} cell fails`, () => {
     const { rows, nodes } = table();
     const cell = nodes.find((node) => node.nodeId === "c-14-1")!;
-    if (kind === "hidden") cell.ignored = true;
-    else if (kind === "missing")
+    if (kind === "hidden") {
+      cell.ignored = true;
+    } else if (kind === "missing") {
       nodes.find((node) => node.nodeId === "r-14")!.childIds!.splice(1, 1);
-    else if (kind === "incomplete") nodes.splice(nodes.indexOf(cell), 1);
-    else {
+    } else if (kind === "incomplete") {
+      nodes.splice(nodes.indexOf(cell), 1);
+    } else {
       cell.name!.value = "Unavailable";
       nodes.push({
         nodeId: "unrelated",

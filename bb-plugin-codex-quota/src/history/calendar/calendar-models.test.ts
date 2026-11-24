@@ -24,8 +24,9 @@ it("rejects duplicate, unsafe, malformed, and excessive model attribution at the
       named: Array.from({ length: 9 }, (_, n) => ({ model: String(n), totalTokens: 1 })),
       otherTokens: 0,
     },
-  ])
+  ]) {
     expect(dayModelsSchema.safeParse(models).success).toBe(false);
+  }
   const value = calendarSnapshot({
     startDate: "2026-09-01",
     timezone: "UTC",

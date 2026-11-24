@@ -31,7 +31,9 @@ export function openProjectSettings(bb: BbPluginApi) {
   const comparePrompt = db.transaction(
     (projectId: string, prompt: string | null, expectedPrompt: string | null) => {
       const current = (getRow.get(projectId) as Row | undefined)?.prompt ?? null;
-      if (current !== expectedPrompt) return false;
+      if (current !== expectedPrompt) {
+        return false;
+      }
       setPrompt.run(projectId, prompt);
       return true;
     },
@@ -47,8 +49,11 @@ export function openProjectSettings(bb: BbPluginApi) {
       };
     },
     setEnabled(projectId: string, enabled: boolean | null): void {
-      if (enabled === null) clearEnabled.run(projectId);
-      else setEnabled.run(projectId, enabled ? 1 : 0, enabled ? 1 : 0);
+      if (enabled === null) {
+        clearEnabled.run(projectId);
+      } else {
+        setEnabled.run(projectId, enabled ? 1 : 0, enabled ? 1 : 0);
+      }
     },
     setPrompt(projectId: string, prompt: string): void {
       setPrompt.run(projectId, prompt);

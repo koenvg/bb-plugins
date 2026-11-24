@@ -89,7 +89,9 @@ describe("host-local readiness", () => {
     await mkdir(join(paths.dataDir, "history"), { recursive: true });
     const path = join(paths.dataDir, "history/usage-v1.sqlite");
     const db = await openHistoryDatabase(path);
-    if (!db) throw Error("test SQLite required");
+    if (!db) {
+      throw Error("test SQLite required");
+    }
     db.exec("PRAGMA user_version = 99");
     db.close();
     const bytes = await readFile(path);

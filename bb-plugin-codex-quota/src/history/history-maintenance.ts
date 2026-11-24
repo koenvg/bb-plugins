@@ -5,15 +5,10 @@ import {
   collectionSchema,
   historyReadinessSchema,
   historyUnavailable,
-  type HistoryReadiness,
-  type CollectorAction,
-  type LegacyConfirmation,
 } from "./history-contract.js";
-import {
-  loadHistoryStorage,
-  inspectHistoryStorage,
-  type HistoryDatabaseFactory,
-} from "./storage/history-storage.js";
+import type { HistoryReadiness, CollectorAction, LegacyConfirmation } from "./history-contract.js";
+import { loadHistoryStorage, inspectHistoryStorage } from "./storage/history-storage.js";
+import type { HistoryDatabaseFactory } from "./storage/history-storage.js";
 import {
   inspectCollectorAsset,
   readCollectorCompatibility,
@@ -45,11 +40,9 @@ import {
   identityView,
 } from "./identity/identity-storage.js";
 
-import {
-  maintenanceUnavailable,
-  repairResultSchema,
-  type RepairResult,
-} from "./collector-maintenance-contract.js";
+import { maintenanceUnavailable, repairResultSchema } from "./collector-maintenance-contract.js";
+import type { RepairResult } from "./collector-maintenance-contract.js";
+
 export type HistoryReadContext = {
   signal: AbortSignal;
   dataDir: string;
@@ -83,39 +76,50 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
     confirmation?: LegacyConfirmation,
   ): Promise<HistoryReadiness> {
     const { signal, dataDir, identities } = context;
-    if (signal.aborted) return historyUnavailable("selection-changed");
+    if (signal.aborted) {
+      return historyUnavailable("selection-changed");
+    }
     let factory: HistoryDatabaseFactory | null = null;
-    const directory = join(dataDir, "history"),
-      path = join(directory, "usage-v1.sqlite"),
-      now = (deps.now ?? Date.now)();
+    const directory = join(dataDir, "history");
+    const path = join(directory, "usage-v1.sqlite");
+    const now = (deps.now ?? Date.now)();
     let storage: HistoryReadiness["storage"] = "unavailable";
     try {
       factory = await (deps.storage ?? loadHistoryStorage)();
       signal.throwIfAborted();
-      if (!factory || !validHostDataDir(dataDir))
+      if (!factory || !validHostDataDir(dataDir)) {
         return { ...historyUnavailable("storage-unavailable"), storage };
+      }
       storage = "unconfigured";
       try {
         const folder = await lstat(directory);
-        if (!folder.isDirectory() || folder.isSymbolicLink()) storage = "incompatible";
-        else {
+        if (!folder.isDirectory() || folder.isSymbolicLink()) {
+          storage = "incompatible";
+        } else {
           const file = await lstat(path);
-          if (!file.isFile() || file.isSymbolicLink()) storage = "incompatible";
-          else {
+          if (!file.isFile() || file.isSymbolicLink()) {
+            storage = "incompatible";
+          } else {
             storage = await inspectHistoryStorage(factory, path);
-            if (storage === "unavailable")
+            if (storage === "unavailable") {
               return { ...historyUnavailable("storage-unavailable"), storage };
+            }
           }
         }
       } catch (error) {
-        if (!missing(error)) throw error;
+        if (!missing(error)) {
+          throw error;
+        }
       }
       signal.throwIfAborted();
       // Check versions before consulting a saved recovery receipt or opening for write.
-      if (storage === "incompatible")
+      if (storage === "incompatible") {
         return { ...historyUnavailable("storage-incompatible"), storage };
-      if (await recoverHistory(factory, directory, now, signal)) storage = "compatible";
-      if (action && action !== "install" && storage === "unconfigured")
+      }
+      if (await recoverHistory(factory, directory, now, signal)) {
+        storage = "compatible";
+      }
+      if (action && action !== "install" && storage === "unconfigured") {
         return {
           state: "not-configured",
           reason: "not-configured",
@@ -123,6 +127,7 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
           collector: "missing",
           writer: "unconfirmed",
         };
+      }
       if (storage === "compatible") {
         const db = factory(path);
         try {
@@ -144,8 +149,12 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='collector_meta'",
               )
               .get() || !db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
-          if (initialSetup && action !== "install") throw Error("Collector control unavailable");
-          if (initialSetup) initializeHistory(db, new Date(now).toISOString());
+          if (initialSetup && action !== "install") {
+            throw Error("Collector control unavailable");
+          }
+          if (initialSetup) {
+            initializeHistory(db, new Date(now).toISOString());
+          }
           await controlCollector(
             action,
             db,
@@ -193,7 +202,9 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
           signal.throwIfAborted();
           if (enabled !== null) {
             initializeIdentityStorage(db);
-            if (identities) acceptIdentityBatch(db, identities);
+            if (identities) {
+              acceptIdentityBatch(db, identities);
+            }
             // A v1 migration must finish before replay decisions use the new compact index.
             const maintenance = maintainHistory(db, now, deps.maintenanceRows);
             const backfilling = !retentionState(db).backfill_done;
@@ -240,7 +251,9 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
                 : await pruneCollectorLogs(db, directory, now, signal);
             await saveBoundary(db, directory, now, signal);
             const latestEnabled = await readControl(directory);
-            if (latestEnabled === null) throw Error("Collector control unavailable");
+            if (latestEnabled === null) {
+              throw Error("Collector control unavailable");
+            }
             view.collection = collectionView(db, latestEnabled, backlog);
             reconcileIdentity(db, signal);
             view.collection.attribution =
@@ -288,7 +301,9 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
               recoveryGaps: [],
               legacyLogsPending: false,
             };
-            if (identities) acceptIdentityBatch(db, identities);
+            if (identities) {
+              acceptIdentityBatch(db, identities);
+            }
             reconcileIdentity(db, signal);
             view.attribution = identities
               ? identityView(db)
@@ -324,25 +339,41 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
     const unavailable = () =>
       maintenanceUnavailable(signal.aborted ? "canceled" : "verification-failed", "may-have-run");
     const preflight = await perform(context);
-    if (signal.aborted) return unavailable();
+    if (signal.aborted) {
+      return unavailable();
+    }
     const parsed = historyReadinessSchema.safeParse(preflight);
     const readiness = parsed.success ? parsed.data : historyUnavailable("unsupported");
     const refuse = (
       reason: Extract<RepairResult, { kind: "refused" }>["reason"],
     ): RepairResult => ({ kind: "refused", reason, readiness });
-    if (!parsed.success) return refuse("collection-invalid");
-    if (readiness.storage !== "compatible") return refuse("storage-ineligible");
+    if (!parsed.success) {
+      return refuse("collection-invalid");
+    }
+    if (readiness.storage !== "compatible") {
+      return refuse("storage-ineligible");
+    }
     const agentDir = agent();
     const asset = await inspectCollectorAsset(
       agentDir,
       dataDir,
       Number(process.versions.node.split(".")[0]) >= 22,
     );
-    if (signal.aborted) return unavailable();
-    if (asset === "missing") return refuse("collector-missing");
-    if (asset === "unsafe") return refuse("unsafe-collector");
-    if (asset === "runtime-unsupported") return refuse("runtime-unsupported");
-    if (!readiness.collection) return refuse("collection-invalid");
+    if (signal.aborted) {
+      return unavailable();
+    }
+    if (asset === "missing") {
+      return refuse("collector-missing");
+    }
+    if (asset === "unsafe") {
+      return refuse("unsafe-collector");
+    }
+    if (asset === "runtime-unsupported") {
+      return refuse("runtime-unsupported");
+    }
+    if (!readiness.collection) {
+      return refuse("collection-invalid");
+    }
     if (asset === "compatible") {
       const result = repairResultSchema.safeParse({
         kind: "unchanged",
@@ -355,38 +386,47 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
       readiness.state !== "unavailable" ||
       readiness.reason !== "collector-incompatible" ||
       readiness.collector !== "incompatible"
-    )
+    ) {
       return refuse("readiness-ineligible");
+    }
     const { enabled, firstObservedAt, pauseCount } = readiness.collection;
     const preserved = { enabled, firstObservedAt, pauseCount };
-    const directory = join(dataDir, "history"),
-      path = join(directory, "usage-v1.sqlite");
+    const directory = join(dataDir, "history");
+    const path = join(directory, "usage-v1.sqlite");
     try {
       const factory = await (deps.storage ?? loadHistoryStorage)();
-      if (!factory) return refuse("storage-ineligible");
+      if (!factory) {
+        return refuse("storage-ineligible");
+      }
       for (const target of [dataDir, directory]) {
         const stat = await lstat(target);
-        if (!stat.isDirectory() || stat.isSymbolicLink()) return refuse("storage-ineligible");
+        if (!stat.isDirectory() || stat.isSymbolicLink()) {
+          return refuse("storage-ineligible");
+        }
       }
       const file = await lstat(path);
       if (
         !file.isFile() ||
         file.isSymbolicLink() ||
         (await inspectHistoryStorage(factory, path)) !== "compatible"
-      )
+      ) {
         return refuse("storage-ineligible");
+      }
       const db = factory(path, true);
       try {
         const currentEnabled = await readHistoryControl(db, directory);
-        if (currentEnabled === null) return refuse("collection-invalid");
+        if (currentEnabled === null) {
+          return refuse("collection-invalid");
+        }
         const current = collectionView(db, currentEnabled, readiness.collection.backlog);
         if (
           !collectionSchema.safeParse(current).success ||
           current.enabled !== enabled ||
           current.firstObservedAt !== firstObservedAt ||
           current.pauseCount !== pauseCount
-        )
+        ) {
           return refuse("collection-invalid");
+        }
       } finally {
         db.close();
       }
@@ -398,12 +438,15 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
         (await inspectHistoryStorage(factory, path)) !== "compatible" ||
         (await inspectCollectorAsset(agentDir, dataDir, true)) !== "compatible" ||
         JSON.stringify(await readControlRecord(directory)) !== JSON.stringify(published)
-      )
+      ) {
         return unavailable();
+      }
       const verified = factory(path, true);
       try {
         const actualEnabled = await readHistoryControl(verified, directory);
-        if (actualEnabled === null) return unavailable();
+        if (actualEnabled === null) {
+          return unavailable();
+        }
         const collection = collectionView(verified, actualEnabled, readiness.collection.backlog);
         const result = repairResultSchema.safeParse({
           kind: "repaired",

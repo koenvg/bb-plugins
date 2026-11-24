@@ -1,4 +1,5 @@
-import { ANNOTATOR_GLOBAL, installAnnotator, type AnnotatorApi } from "./annotator";
+import { ANNOTATOR_GLOBAL, installAnnotator } from "./annotator";
+import type { AnnotatorApi } from "./annotator";
 
 export function annotatorInstallScript(): string {
   return `((${installAnnotator.toString()})(window, (message) => bb.postMessage(message)), true)`;

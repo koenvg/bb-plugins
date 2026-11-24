@@ -7,7 +7,9 @@ const ACTIVITY_URL = "https://chatgpt.com/backend-api/wham/profiles/me";
 const MAX_RESPONSE_BYTES = 64 * 1024;
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 function accountClaim(token: string): string | null {
-  if (token.length > 32 * 1024) return null;
+  if (token.length > 32 * 1024) {
+    return null;
+  }
   try {
     const jwt = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"));
     const id = jwt?.["https://api.openai.com/auth"]?.chatgpt_account_id;
@@ -18,7 +20,9 @@ function accountClaim(token: string): string | null {
 }
 async function boundedJson(response: Response, signal: AbortSignal): Promise<unknown> {
   const body = response.body;
-  if (!body) throw new Error("unsupported");
+  if (!body) {
+    throw new Error("unsupported");
+  }
   if (Number(response.headers.get("content-length")) > MAX_RESPONSE_BYTES) {
     void body.cancel().catch(() => undefined);
     throw new Error("unsupported");
@@ -32,12 +36,20 @@ async function boundedJson(response: Response, signal: AbortSignal): Promise<unk
   const chunks: Uint8Array[] = [];
   try {
     while (true) {
-      if (signal.aborted) throw new Error("unsupported");
+      if (signal.aborted) {
+        throw new Error("unsupported");
+      }
       const result = await abortable(reader.read(), signal, null);
-      if (result === null || signal.aborted) throw new Error("unsupported");
-      if (result.done) break;
+      if (result === null || signal.aborted) {
+        throw new Error("unsupported");
+      }
+      if (result.done) {
+        break;
+      }
       bytes += result.value.byteLength;
-      if (bytes > MAX_RESPONSE_BYTES) throw new Error("unsupported");
+      if (bytes > MAX_RESPONSE_BYTES) {
+        throw new Error("unsupported");
+      }
       chunks.push(result.value);
     }
     return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
@@ -57,10 +69,14 @@ export async function fetchNormalizedActivity(
     Authorization: `Bearer ${token}`,
   };
   const id = accountClaim(token);
-  if (id) headers["ChatGPT-Account-Id"] = id;
+  if (id) {
+    headers["ChatGPT-Account-Id"] = id;
+  }
   let response: Response | null;
   try {
-    if (signal.aborted) return { status: "network", snapshot: null };
+    if (signal.aborted) {
+      return { status: "network", snapshot: null };
+    }
     response = await abortable(
       fetchImpl(ACTIVITY_URL, { method: "GET", headers, redirect: "error", signal }),
       signal,
@@ -69,7 +85,9 @@ export async function fetchNormalizedActivity(
   } catch {
     return { status: "network", snapshot: null };
   }
-  if (!response) return { status: "network", snapshot: null };
+  if (!response) {
+    return { status: "network", snapshot: null };
+  }
   if (!response.ok) {
     void response.body?.cancel().catch(() => undefined);
     return {

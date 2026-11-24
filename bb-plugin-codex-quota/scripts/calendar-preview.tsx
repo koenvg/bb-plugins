@@ -48,20 +48,27 @@ const emptySnapshot = (query: CalendarQuery) => {
   );
   view.previous = query.startDate > shiftDate(latestRange, -60);
   view.next = query.startDate < latestRange;
-  if (state === "filter-edges")
+  if (state === "filter-edges") {
     view.days[0].coverage = { ...view.days[0].coverage, state: "observed-inactivity", zero: true };
+  }
   return view;
 };
 function snapshot(query: CalendarQuery) {
-  if (state === "mixed-magnitude") return calendarMixedMagnitudeSnapshot(query);
-  if (state === "cost-distilled") return calendarModelCostSnapshot(query);
+  if (state === "mixed-magnitude") {
+    return calendarMixedMagnitudeSnapshot(query);
+  }
+  if (state === "cost-distilled") {
+    return calendarModelCostSnapshot(query);
+  }
   if (state === "filter-uncertain-only") {
     const view = emptySnapshot(query);
     view.days[14].uncertain = { totalTokens: 300, records: 1 };
     view.summary.uncertain = { totalTokens: 300, records: 1 };
     return view;
   }
-  if (state === "unknown" || state === "inactive") return emptySnapshot(query);
+  if (state === "unknown" || state === "inactive") {
+    return emptySnapshot(query);
+  }
   const view = calendarSnapshot(query, state === "stale" ? now - 600000 : now);
   if (query.includeUncertain && state === "partial") {
     view.days[14].uncertain = { totalTokens: 300, records: 3 };
@@ -95,9 +102,12 @@ function snapshot(query: CalendarQuery) {
     view.summary.totalTokens = 1200;
     view.summary.money = { ...view.summary.money, records: 120, pricedRecords: 2 };
   }
-  if (state === "expired") view.days[14].classes = { state: "unavailable" };
-  if (state === "huge")
+  if (state === "expired") {
+    view.days[14].classes = { state: "unavailable" };
+  }
+  if (state === "huge") {
     view.days[14].totalTokens = view.summary.totalTokens = Number.MAX_SAFE_INTEGER;
+  }
   if (query.group === "thread") {
     view.days[14].totalTokens = view.summary.totalTokens = 500;
     view.days[14].activeEntities = view.summary.activeEntities = 50;
@@ -124,9 +134,9 @@ function snapshot(query: CalendarQuery) {
       day.activeEntities = total > 0 ? 1 : 0;
       day.uncertain = { totalTokens: 0, records: 0 };
       if (total > 0) {
-        const input = Math.floor(total * 0.032),
-          output = Math.floor(total * 0.008),
-          cacheWrite = Math.floor(total * 0.0005);
+        const input = Math.floor(total * 0.032);
+        const output = Math.floor(total * 0.008);
+        const cacheWrite = Math.floor(total * 0.0005);
         day.classes = {
           state: "available",
           input,
@@ -172,11 +182,12 @@ function snapshot(query: CalendarQuery) {
       },
     };
   }
-  if (state === "cache-heavy")
+  if (state === "cache-heavy") {
     view.ranking = [745_920_001, 301_550_001, 301_550_002].map((totalTokens, index) => ({
       ...view.ranking[index],
       totalTokens,
     }));
+  }
   view.previous = query.startDate > shiftDate(latestRange, -60);
   view.next = query.startDate < latestRange;
   if (state === "models" || state === "cache-heavy") {
@@ -213,7 +224,11 @@ function snapshot(query: CalendarQuery) {
       };
     }
   }
-  if (state === "unknown-models") for (const day of view.days) delete day.models;
+  if (state === "unknown-models") {
+    for (const day of view.days) {
+      delete day.models;
+    }
+  }
   if (state === "filter-edges") {
     const day = view.days[14];
     day.models = {
@@ -350,12 +365,18 @@ const options = {
     machineReports: async (input: unknown): Promise<MachineReports> => {
       record("machineReports", input);
       const { query } = input as { query: CalendarQuery };
-      if (query.group === "workspace") reportCalls++;
-      if (state === "loading") return new Promise(() => {});
-      if (state === "stale" && query.group === "workspace" && reportCalls > 1)
+      if (query.group === "workspace") {
+        reportCalls += 1;
+      }
+      if (state === "loading") {
+        return new Promise(() => {});
+      }
+      if (state === "stale" && query.group === "workspace" && reportCalls > 1) {
         throw Error("Synthetic failed refresh");
-      if (state === "cancel" && query.startDate === shiftDate(latestRange, -30))
+      }
+      if (state === "cancel" && query.startDate === shiftDate(latestRange, -30)) {
         await new Promise<void>((resolve) => pending.push(resolve));
+      }
       const unavailable =
         state === "unavailable" ||
         (state === "retry" && reportCalls === 1) ||
@@ -391,19 +412,24 @@ const options = {
       record("selectHost", input);
       return (selection = {
         hostId: (input as { hostId: string | null }).hostId,
-        generation: ++generation,
+        generation: (generation += 1),
       });
     },
     historyReadiness: async (input: unknown) => {
       record("historyReadiness", input);
-      if (state === "settings") await new Promise<void>((resolve) => pending.push(resolve));
+      if (state === "settings") {
+        await new Promise<void>((resolve) => pending.push(resolve));
+      }
       return missing;
     },
     historicalImport: async (input: unknown) => {
       record("historicalImport", input);
-      if ((input as { command: { action: string } }).command.action !== "status")
+      if ((input as { command: { action: string } }).command.action !== "status") {
         throw Error("Only synthetic import status is allowed");
-      if (state === "settings") await new Promise<void>((resolve) => pending.push(resolve));
+      }
+      if (state === "settings") {
+        await new Promise<void>((resolve) => pending.push(resolve));
+      }
       return importUnavailable("not-configured");
     },
   },

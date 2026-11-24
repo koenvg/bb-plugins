@@ -1,5 +1,7 @@
-import { textRevisions, type ContextFailure, type Snapshot } from "../../core/text-context";
-import { diffQuery, type ChangedFile, type DiffTarget } from "../../core/changes";
+import { textRevisions } from "../../core/text-context";
+import type { ContextFailure, Snapshot } from "../../core/text-context";
+import { diffQuery } from "../../core/changes";
+import type { ChangedFile, DiffTarget } from "../../core/changes";
 
 export const WORKSPACE_PATH = "bb-plugin-changes/tests/bb-renderer/files/workspace.txt";
 export const RENAMED_PATH = "bb-plugin-changes/tests/bb-renderer/files/renamed.txt";
@@ -100,14 +102,19 @@ export function rendererFixture(threadId: string, environmentId: string) {
       return () => release();
     },
     tabs(method: string, input?: { expectedRevision: number; tabs: unknown[] }) {
-      if (method === "GET") return tabs;
-      if (method !== "PUT" || input?.expectedRevision !== tabs.revision)
+      if (method === "GET") {
+        return tabs;
+      }
+      if (method !== "PUT" || input?.expectedRevision !== tabs.revision) {
         throw new Error("Unexpected tab write");
+      }
       tabs = { revision: tabs.revision + 1, tabs: input.tabs };
       return tabs;
     },
     rpc(method: string, input: Record<string, unknown>): unknown {
-      if (input.threadId !== threadId) throw new Error("Unexpected RPC thread");
+      if (input.threadId !== threadId) {
+        throw new Error("Unexpected RPC thread");
+      }
       calls.push({ method, input });
       const target = input.target as DiffTarget;
       switch (method) {
@@ -132,8 +139,9 @@ export function rendererFixture(threadId: string, environmentId: string) {
             snapshot.file.path !== CONTEXT_PATH ||
             snapshot.patch !== CONTEXT_PATCH ||
             snapshot.basis.environmentId !== environmentId
-          )
+          ) {
             throw new Error("Unexpected context snapshot");
+          }
           const revisions = textRevisions(snapshot.basis, snapshot.file);
           const result = nextContextError ?? {
             kind: "ready",
@@ -162,7 +170,9 @@ export function rendererFixture(threadId: string, environmentId: string) {
         case "updateViewed": {
           const key = JSON.stringify(target);
           const next = { ...marks.get(key), ...(input.set as Record<string, string>) };
-          for (const path of input.remove as string[]) delete next[path];
+          for (const path of input.remove as string[]) {
+            delete next[path];
+          }
           marks.set(key, next);
           return { kind: "ok" };
         }

@@ -34,20 +34,30 @@ export function useViewed(
   const { marks } = entry;
 
   useEffect(() => {
-    if (key === null || target === null || marks !== null) return;
+    if (key === null || target === null || marks !== null) {
+      return;
+    }
     void rpc
       .call("getViewed", { threadId, target })
       .catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }))
       .then((result) => {
-        if (result.kind === "ok") viewedFiles.loaded(key, result.marks);
-        else viewedFiles.failed(key, `Could not load viewed state: ${result.message}`);
+        if (result.kind === "ok") {
+          viewedFiles.loaded(key, result.marks);
+        } else {
+          viewedFiles.failed(key, `Could not load viewed state: ${result.message}`);
+        }
       });
   }, [rpc, threadId, target, key, marks]);
 
   useEffect(() => {
-    if (changes === null || marks === null) return;
-    for (const file of changes.files)
-      if (marks[file.path] !== undefined && canMark(file)) patches.load(file.path);
+    if (changes === null || marks === null) {
+      return;
+    }
+    for (const file of changes.files) {
+      if (marks[file.path] !== undefined && canMark(file)) {
+        patches.load(file.path);
+      }
+    }
   }, [changes, marks, patches]);
 
   const summary = useMemo(
@@ -59,7 +69,9 @@ export function useViewed(
   );
 
   useEffect(() => {
-    if (key === null || target === null || summary === null || summary.stale.length === 0) return;
+    if (key === null || target === null || summary === null || summary.stale.length === 0) {
+      return;
+    }
     const remove = [...summary.stale];
     void viewedFiles.prune(key, remove, () =>
       rpc.call("updateViewed", { threadId, target, set: {}, remove }),
@@ -68,7 +80,9 @@ export function useViewed(
 
   function setViewed(path: string, viewed: boolean) {
     const patch = patches.currentPatch(path);
-    if (key === null || target === null || marks === null || patch === null) return;
+    if (key === null || target === null || marks === null || patch === null) {
+      return;
+    }
     const identity = viewed ? patchIdentity(patch) : null;
     void viewedFiles.setViewed(key, path, identity, () =>
       rpc.call("updateViewed", {
@@ -92,7 +106,9 @@ export function useViewed(
         canToggleViewed: marks !== null && patches.currentPatch(path) !== null,
         toggleViewed: () => setViewed(path, !viewed),
         toggleCollapsed: () => {
-          if (key !== null) viewedFiles.setCollapsed(key, path, !collapsed);
+          if (key !== null) {
+            viewedFiles.setCollapsed(key, path, !collapsed);
+          }
         },
       };
     },

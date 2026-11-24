@@ -1,23 +1,22 @@
 import { metadataColumns } from "../storage/usage-metadata.js";
 import type { HistoryDatabase } from "../storage/history-storage.js";
-import { MODEL_LIMIT, dayModelsSchema, type DayModels } from "./calendar-models.js";
+import { MODEL_LIMIT, dayModelsSchema } from "./calendar-models.js";
+import type { DayModels } from "./calendar-models.js";
 import { calendarDays, localDate } from "./calendar-time.js";
-import { checkedCount, type CalendarQuery } from "./calendar-contract.js";
+import { checkedCount } from "./calendar-contract.js";
+import type { CalendarQuery } from "./calendar-contract.js";
 import { canonicalInterval } from "../collection/history-coverage.js";
 import { moneyColumns, safeCapturedSum, eligiblePrice } from "./calendar-money.js";
-import {
-  capturedSubtotal,
-  dayModelCostsSchema,
-  type DayModelCosts,
-} from "./calendar-model-costs.js";
+import { capturedSubtotal, dayModelCostsSchema } from "./calendar-model-costs.js";
+import type { DayModelCosts } from "./calendar-model-costs.js";
 
 export function scopeFilter(query: {
   workspace?: string;
   verifiedThread?: string;
   group?: "workspace" | "thread";
 }) {
-  const clauses = [],
-    values: string[] = [];
+  const clauses = [];
+  const values: string[] = [];
   if (query.workspace) {
     clauses.push("c.workspace=?");
     values.push(query.workspace);
@@ -26,7 +25,9 @@ export function scopeFilter(query: {
     clauses.push("c.verified_thread=?");
     values.push(query.verifiedThread);
   }
-  if (query.group === "thread") clauses.push("c.verified_thread IS NOT NULL");
+  if (query.group === "thread") {
+    clauses.push("c.verified_thread IS NOT NULL");
+  }
   return { sql: clauses.length ? clauses.join(" AND ") : "1=1", values };
 }
 export function queryScope(query: CalendarQuery) {
@@ -66,10 +67,10 @@ export function aggregateDays(
   },
   detailCutoff: string,
 ) {
-  const interval = canonicalInterval(query.start, query.end, 32),
-    filter = scopeFilter(query);
-  const first = localDate(Date.parse(interval.start), query.timezone),
-    last = localDate(Date.parse(interval.end) - 1, query.timezone);
+  const interval = canonicalInterval(query.start, query.end, 32);
+  const filter = scopeFilter(query);
+  const first = localDate(Date.parse(interval.start), query.timezone);
+  const last = localDate(Date.parse(interval.end) - 1, query.timezone);
   const count =
     Math.round((Date.parse(last + "T00:00:00Z") - Date.parse(first + "T00:00:00Z")) / 86400000) + 1;
   const entity = query.group === "thread" ? "c.verified_thread" : "c.workspace";
@@ -141,8 +142,11 @@ export function aggregateDays(
     };
     for (const cost of costRows) {
       const money = capturedSubtotal(cost.capturedCost, cost.records, cost.pricedRecords);
-      if (cost.bucket === "named") modelCosts.named.push({ model: cost.model!, money });
-      else modelCosts[cost.bucket] = money;
+      if (cost.bucket === "named") {
+        modelCosts.named.push({ model: cost.model!, money });
+      } else {
+        modelCosts[cost.bucket] = money;
+      }
     }
     dayModelCostsSchema.parse(modelCosts);
     const knownTokens = checkedCount(modelRows[0]?.knownTokens ?? 0);
@@ -159,11 +163,14 @@ export function aggregateDays(
       "pricedEntities",
       "activeEntities",
       "detailMissing",
-    ] as const)
+    ] as const) {
       checkedCount(row[key]);
-    if (!row.detailMissing)
-      for (const key of ["input", "output", "reasoning", "cacheRead", "cacheWrite"] as const)
+    }
+    if (!row.detailMissing) {
+      for (const key of ["input", "output", "reasoning", "cacheRead", "cacheWrite"] as const) {
         checkedCount(row[key]);
+      }
+    }
     row.capturedCost = safeCapturedSum(row.capturedCost);
     return {
       date: day.date,

@@ -18,7 +18,9 @@ export function ProjectOverview({
   const { rows, reading, readError, pending, writeError, saved } = overview;
   const disabled = blocked || !!pending || !!readError;
   function persist(row: ProjectSummary, value: boolean | null) {
-    if (disabled) return;
+    if (disabled) {
+      return;
+    }
     void overview.persist(row, value);
   }
   return (

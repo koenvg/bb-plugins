@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 const scalar = (max: number) =>
   z
     .string()

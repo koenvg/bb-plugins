@@ -36,12 +36,15 @@ try {
   let switchDuringRead = false;
   globalThis.fetch = async (url, init) => {
     assert.equal(init.method, "GET");
-    if (url === "https://chatgpt.com/backend-api/wham/usage")
+    if (url === "https://chatgpt.com/backend-api/wham/usage") {
       return new Response(JSON.stringify({ rate_limit: { primary_window: { used_percent: 20 } } }));
+    }
     assert.equal(url, "https://chatgpt.com/backend-api/wham/profiles/me");
     assert.equal(init.redirect, "error");
-    calls++;
-    if (switchDuringRead) writeAuth("synthetic-account-b");
+    calls += 1;
+    if (switchDuringRead) {
+      writeAuth("synthetic-account-b");
+    }
     return fail
       ? new Response("synthetic-private-error", { status: 500 })
       : new Response(
@@ -85,10 +88,16 @@ try {
   );
 } finally {
   await harness?.experimental_dispose();
-  if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = previousDir;
+  if (previousDir === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = previousDir;
+  }
   globalThis.fetch = previousFetch;
   Date.now = previousNow;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
 }

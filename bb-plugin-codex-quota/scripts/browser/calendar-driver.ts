@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect } from "./fixtures.js";
-import { accessibleFacts, verifyTooltip, type Metric, type AxNode } from "./proof.js";
+import { accessibleFacts, verifyTooltip } from "./proof.js";
+import type { Metric, AxNode } from "./proof.js";
 
 export type Call = {
   method: string;
@@ -102,7 +103,7 @@ export async function tooltip(page: Page, metric: Metric, dailyRows: string[][])
   await page.keyboard.press("Home");
   const date = page.locator(".calendar-tooltip time");
   await expect(date).toHaveAttribute("datetime", dailyRows[0][0]);
-  for (let step = 0; step < 14; step++) {
+  for (let step = 0; step < 14; step += 1) {
     await renderedInputFrames(page);
     await page.keyboard.press("ArrowRight");
     await expect(date).toHaveAttribute("datetime", dailyRows[step + 1][0]);
@@ -179,11 +180,13 @@ export async function interactions(page: Page, state: string, suite: string) {
     await click("Previous 30 days");
     await expect.poll(chartReads).toBe(start + 1);
     await expect(daily).toHaveCount(0);
-    if (state === "latest")
+    if (state === "latest") {
       await expect(
         page.getByText("No usable recorded history for this range.", { exact: false }),
       ).toBeVisible();
-    else await page.waitForFunction(() => window.calendarFixture.pending() > 0);
+    } else {
+      await page.waitForFunction(() => window.calendarFixture.pending() > 0);
+    }
     await click("Latest");
     await chart(page);
     expect((await rows(page))[0][0]).toBe("2026-09-02");

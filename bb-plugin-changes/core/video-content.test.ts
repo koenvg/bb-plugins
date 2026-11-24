@@ -29,8 +29,9 @@ describe("video preview boundary", () => {
       Buffer.alloc(0),
       Buffer.from("not a video"),
       Buffer.from("1a45dfa36d6174726f736b61", "hex"),
-    ])
+    ]) {
       expect(videoBytes(bytes)).toMatchObject({ kind: "error", code: "unsupported" });
+    }
     expect(videoBytes(Buffer.alloc(MAX_VIDEO_BYTES + 1))).toMatchObject({
       kind: "error",
       code: "too_large",

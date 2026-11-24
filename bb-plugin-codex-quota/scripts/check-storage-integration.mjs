@@ -12,9 +12,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-const root = mkdtempSync(join(tmpdir(), "bbp16-storage-proof-")),
-  oldAgent = process.env.PI_CODING_AGENT_DIR,
-  oldFetch = globalThis.fetch;
+
+const root = mkdtempSync(join(tmpdir(), "bbp16-storage-proof-"));
+const oldAgent = process.env.PI_CODING_AGENT_DIR;
+const oldFetch = globalThis.fetch;
 let leases = 0;
 const previousCodexHome = process.env.CODEX_HOME;
 try {
@@ -37,13 +38,13 @@ try {
       lifecycle: { signal },
       experimental_paths: { dataDir, tempDir: join(root, "temp") },
       experimental_retainWorker() {
-        leases++;
+        leases += 1;
         let released = false;
         return {
           async dispose() {
             if (!released) {
               released = true;
-              leases--;
+              leases -= 1;
             }
           },
         };
@@ -60,21 +61,27 @@ try {
     return ctx;
   };
   const pathFor = (ctx) => join(ctx.experimental_paths.dataDir, "history/usage-v1.sqlite");
-  if (!process.argv[3] || process.argv[3] === "partial")
-    for (const version of [2, 3, 4])
+  if (!process.argv[3] || process.argv[3] === "partial") {
+    for (const version of [2, 3, 4]) {
       for (const damage of ["compact", "owner", "retention"]) {
-        const ctx = await setup(`partial-${version}-${damage}`),
-          path = pathFor(ctx),
-          db = await bundle.openHistoryDatabase(path);
-        if (damage === "compact") db.exec("DROP TABLE usage_compact");
-        if (damage === "owner") db.exec("DELETE FROM history_owner");
-        if (damage === "retention") db.exec("DELETE FROM history_retention");
+        const ctx = await setup(`partial-${version}-${damage}`);
+        const path = pathFor(ctx);
+        const db = await bundle.openHistoryDatabase(path);
+        if (damage === "compact") {
+          db.exec("DROP TABLE usage_compact");
+        }
+        if (damage === "owner") {
+          db.exec("DELETE FROM history_owner");
+        }
+        if (damage === "retention") {
+          db.exec("DELETE FROM history_retention");
+        }
         db.exec(`PRAGMA user_version=${version}`);
         db.close();
-        const before = readFileSync(path),
-          directory = join(ctx.experimental_paths.dataDir, "history"),
-          files = readdirSync(directory),
-          control = readFileSync(join(directory, "collector-control-v1.json"));
+        const before = readFileSync(path);
+        const directory = join(ctx.experimental_paths.dataDir, "history");
+        const files = readdirSync(directory);
+        const control = readFileSync(join(directory, "collector-control-v1.json"));
         assert.equal(
           (await bundle.default.handlers.historyReadiness(null, ctx)).storage,
           "incompatible",
@@ -92,23 +99,29 @@ try {
         assert.deepEqual(readdirSync(directory), files);
         assert.deepEqual(readFileSync(join(directory, "collector-control-v1.json")), control);
       }
-  if (!process.argv[3] || process.argv[3] === "wal")
-    for (const mode of ["absent", "empty"])
+    }
+  }
+  if (!process.argv[3] || process.argv[3] === "wal") {
+    for (const mode of ["absent", "empty"]) {
       for (const layout of ["valid", "foreign"]) {
-        const ctx = await setup(`wal-${mode}-${layout}`),
-          path = pathFor(ctx),
-          db = await bundle.openHistoryDatabase(path);
+        const ctx = await setup(`wal-${mode}-${layout}`);
+        const path = pathFor(ctx);
+        const db = await bundle.openHistoryDatabase(path);
         if (layout === "foreign") {
           const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-          for (const { name } of tables) db.exec(`DROP TABLE ${name}`);
+          for (const { name } of tables) {
+            db.exec(`DROP TABLE ${name}`);
+          }
           db.exec("CREATE TABLE foreign_records(value TEXT); PRAGMA user_version=1");
         }
         db.exec("PRAGMA journal_mode=WAL");
         db.close();
-        if (mode === "empty") writeFileSync(path + "-wal", "");
-        const before = readFileSync(path),
-          directory = join(ctx.experimental_paths.dataDir, "history"),
-          files = readdirSync(directory);
+        if (mode === "empty") {
+          writeFileSync(path + "-wal", "");
+        }
+        const before = readFileSync(path);
+        const directory = join(ctx.experimental_paths.dataDir, "history");
+        const files = readdirSync(directory);
         assert.equal(
           (await bundle.default.handlers.historyReadiness(null, ctx)).storage,
           "unavailable",
@@ -125,15 +138,17 @@ try {
         assert.deepEqual(readFileSync(path), before);
         assert.deepEqual(readdirSync(directory), files);
       }
+    }
+  }
   if (!process.argv[3] || process.argv[3] === "overlap") {
-    const ctx = await setup("overlap"),
-      directory = join(ctx.experimental_paths.dataDir, "history"),
-      workspace = join(root, "workspace"),
-      source = join(root, "sources");
+    const ctx = await setup("overlap");
+    const directory = join(ctx.experimental_paths.dataDir, "history");
+    const workspace = join(root, "workspace");
+    const source = join(root, "sources");
     mkdirSync(workspace);
     mkdirSync(source);
-    const time = new Date(Date.now() - 60 * 86400000).toISOString(),
-      eventId = "00000000-0000-4000-8000-000000000001";
+    const time = new Date(Date.now() - 60 * 86400000).toISOString();
+    const eventId = "00000000-0000-4000-8000-000000000001";
     const event = {
       version: 1,
       eventId,
@@ -221,8 +236,9 @@ try {
       "ok",
     );
     let view = await call({ action: "start" });
-    for (let n = 0; view.generation?.state === "stopped" && n < 12; n++)
+    for (let n = 0; view.generation?.state === "stopped" && n < 12; n += 1) {
       view = await call({ action: "resume" });
+    }
     assert.equal(view.generation.state, "completed");
     assert.equal(view.generation.records, 0);
     assert.equal(view.generation.omissions, 1);
@@ -244,10 +260,16 @@ try {
     process.versions.node,
   );
 } finally {
-  if (oldAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = oldAgent;
+  if (oldAgent === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = oldAgent;
+  }
   globalThis.fetch = oldFetch;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
   rmSync(root, { recursive: true, force: true });
 }

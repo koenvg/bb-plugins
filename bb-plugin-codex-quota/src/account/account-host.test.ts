@@ -5,7 +5,8 @@ import { createQuotaHostEntry } from "../plugin/host.js";
 it.each(["auth", "quota"])(
   "settles a quota read on disposal during a noncooperative %s call",
   async (phase) => {
-    let release!: () => void, entered!: () => void;
+    let release!: () => void;
+    let entered!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ActivityCache } from "./activity-cache.js";
 import { normalizeActivity } from "./activity.js";
 import type { ActivityRead } from "./activity-contract.js";
+
 const time = Date.UTC(2026, 3, 23, 12);
 const snapshot = normalizeActivity({ stats: { lifetime_tokens: 12 } }, time)!;
 const ok = async (): Promise<ActivityRead> => ({ status: "ok", snapshot });
@@ -35,11 +36,11 @@ describe("independent host-private activity cache", () => {
     const cache = new ActivityCache(() => now);
     const delayed = deferred<ActivityRead>();
     const load = async () => {
-      calls++;
+      calls += 1;
       return delayed.promise;
     };
     const recheck = async () => {
-      checks++;
+      checks += 1;
       return "a";
     };
     const first = cache.read("a", load, recheck, true);
@@ -54,7 +55,7 @@ describe("independent host-private activity cache", () => {
     await cache.read(
       "a",
       async () => {
-        calls++;
+        calls += 1;
         return { status: "network", snapshot: null };
       },
       recheck,

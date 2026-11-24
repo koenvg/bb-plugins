@@ -1,6 +1,7 @@
 import { lstat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { HistoryDatabase } from "../storage/history-storage.js";
+
 const DAY = 86400000;
 const day = (at: number) => new Date(at).toISOString().slice(0, 10);
 const names = (date: string) => [`events-v1-${date}.jsonl`, `confirmations-v1-${date}.jsonl`];
@@ -12,7 +13,9 @@ export function collectorDiscoveryProgress(db: HistoryDatabase) {
   const saved = db.prepare("SELECT stamp FROM collector_sources WHERE name=?").get(DISCOVERY) as
     | { stamp: string }
     | undefined;
-  if (saved) return saved.stamp;
+  if (saved) {
+    return saved.stamp;
+  }
   return (
     db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get() as {
       first_observed: string;
@@ -70,10 +73,10 @@ export async function pruneCollectorLogs(
   now: number,
   signal: AbortSignal,
 ) {
-  let date = retentionCursor(db),
-    pending = false;
+  let date = retentionCursor(db);
+  let pending = false;
   const cutoff = day(now - 45 * DAY);
-  for (let dates = 0; date < cutoff && dates < 14; dates++) {
+  for (let dates = 0; date < cutoff && dates < 14; dates += 1) {
     let ready = true;
     for (const name of names(date)) {
       signal.throwIfAborted();
@@ -82,10 +85,14 @@ export async function pruneCollectorLogs(
       try {
         stat = await lstat(path);
       } catch (e) {
-        if (absent(e)) continue;
+        if (absent(e)) {
+          continue;
+        }
         throw e;
       }
-      if (!stat.isFile() || stat.isSymbolicLink()) throw Error("Collector source unavailable");
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        throw Error("Collector source unavailable");
+      }
       const source = db.prepare("SELECT * FROM collector_sources WHERE name=?").get(name) as
         | { identity: string; stamp: string; offset: number; dropping: number; invalid: number }
         | undefined;
@@ -121,10 +128,14 @@ export async function pruneCollectorLogs(
   for (const name of ["events-v1.jsonl", "confirmations-v1.jsonl"]) {
     try {
       const stat = await lstat(join(directory, name));
-      if (!stat.isFile() || stat.isSymbolicLink()) throw Error("Collector source unavailable");
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        throw Error("Collector source unavailable");
+      }
       legacyLogsPending = true;
     } catch (e) {
-      if (!absent(e)) throw e;
+      if (!absent(e)) {
+        throw e;
+      }
     }
   }
   return { pending, legacyLogsPending };

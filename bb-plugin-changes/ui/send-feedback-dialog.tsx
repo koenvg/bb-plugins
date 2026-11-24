@@ -1,4 +1,5 @@
-import { useState, type KeyboardEvent } from "react";
+import { useState } from "react";
+import type { KeyboardEvent } from "react";
 import { PRIMARY_BUTTON, QUIET_BUTTON, TEXTAREA } from "../../review-ui/styles";
 import {
   Dialog,

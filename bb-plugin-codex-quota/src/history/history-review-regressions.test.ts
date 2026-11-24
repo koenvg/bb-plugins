@@ -2,7 +2,8 @@ import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "./storage/history-storage.js";
+import { openHistoryDatabase } from "./storage/history-storage.js";
+import type { HistoryDatabase } from "./storage/history-storage.js";
 import { initializeHistory, projectCompactRecord } from "./storage/history-projection.js";
 import { readCalendarTotals } from "./storage/history-retention.js";
 import { recordCoverage, readCoverage } from "./collection/history-coverage.js";
@@ -140,15 +141,15 @@ it("clears completed ingestion backlog, but invalid unknown-scope records remain
   ).toMatchObject({ zero: true, uncertain: false });
 });
 it("does not record maintenance work for an already-aborted ingestion", async () => {
-  const f = await fixture(),
-    abort = new AbortController();
+  const f = await fixture();
+  const abort = new AbortController();
   abort.abort();
   await expect(reconcileCollector(f.db, f.root, { signal: abort.signal, now })).rejects.toThrow();
   expect(f.db.prepare("SELECT id FROM history_reconciliation").all()).toEqual([]);
 });
 it("keeps interrupted reconciliation uncertain until an explicit bounded retry completes", async () => {
-  const f = await fixture(),
-    abort = new AbortController();
+  const f = await fixture();
+  const abort = new AbortController();
   inactivity(f.db);
   await writeFile(
     join(f.root, "events-v1-2026-09-30.jsonl"),
@@ -269,9 +270,9 @@ it("normalizes equivalent UTC precision and offsets for reports and evidence", a
 it("keeps a conservative open pause after corrupt recovery, reopen and later explicit resume", async () => {
   const root = await mkdtemp(join(tmpdir(), "bbp23-paused-recovery-"));
   fixtures.push({ root });
-  const dataDir = join(root, "data"),
-    agentDir = join(root, "agent"),
-    directory = join(dataDir, "history");
+  const dataDir = join(root, "data");
+  const agentDir = join(root, "agent");
+  const directory = join(dataDir, "history");
   const context = { dataDir, signal: new AbortController().signal };
   let clock = Date.parse("2026-10-01T00:00:00.000Z");
   let history = createHostHistory({ now: () => clock, agentDir: () => agentDir });

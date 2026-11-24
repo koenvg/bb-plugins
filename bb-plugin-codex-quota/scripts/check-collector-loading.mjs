@@ -56,22 +56,28 @@ const logs = join(dataDir, `history/events-v1-${new Date().toISOString().slice(0
 // Verify the exact asset fails closed without control, even when installed explicitly.
 const { unlinkSync } = await import("node:fs");
 unlinkSync(control);
-for (const handler of collector.handlers.get("message_end")) await handler(event, context);
+for (const handler of collector.handlers.get("message_end")) {
+  await handler(event, context);
+}
 assert.equal(existsSync(logs), false, "Missing control must not start a writer");
 writeFileSync(
   control,
   JSON.stringify({ protocol: 2, revision: "00000000-0000-4000-8000-000000000001", enabled: true }),
 );
-for (let i = 0; i < 3; i++) {
+for (let i = 0; i < 3; i += 1) {
   const message = {
     ...event.message,
     usage: { ...event.message.usage, cost: { total: i === 0 ? 0.125 : 0 } },
   };
-  for (const handler of collector.handlers.get("message_end")) handler({ message }, context);
+  for (const handler of collector.handlers.get("message_end")) {
+    handler({ message }, context);
+  }
   entries.set("entry-" + i, { type: "message", id: "entry-" + i, parentId: leaf, message });
   leaf = "entry-" + i;
 }
-for (const handler of collector.handlers.get("session_shutdown")) await handler({}, context);
+for (const handler of collector.handlers.get("session_shutdown")) {
+  await handler({}, context);
+}
 const text = readFileSync(logs, "utf8");
 const records = text
   .trim()
@@ -103,7 +109,9 @@ writeFileSync(
   control,
   JSON.stringify({ protocol: 2, revision: "00000000-0000-4000-8000-000000000001", enabled: false }),
 );
-for (const handler of collector.handlers.get("message_end")) await handler(event, context);
+for (const handler of collector.handlers.get("message_end")) {
+  await handler(event, context);
+}
 assert.equal(readFileSync(logs, "utf8"), text);
 console.log(
   "Actual packaged writer: serialized capture, original time/price, missing prices, object-identity confirmation, pause, and shutdown draining passed.",

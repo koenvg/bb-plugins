@@ -13,8 +13,8 @@ afterEach(async () => {
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp18-"));
   roots.push(root);
-  const agent = join(root, "agent"),
-    dataDir = join(root, "data");
+  const agent = join(root, "agent");
+  const dataDir = join(root, "data");
   await mkdir(join(agent, "extensions"), { recursive: true });
   await writeFile(join(agent, "settings.json"), "unrelated-settings");
   await writeFile(join(agent, "extensions/other.js"), "unrelated-extension");
@@ -22,7 +22,7 @@ async function fixture() {
   const history = createHostHistory({
     agentDir: () => agent,
     bodyRead: () => {
-      reads++;
+      reads += 1;
     },
     now,
     ingestBytes: 65536,
@@ -140,8 +140,8 @@ it("does not activate after cancellation or overwrite unsupported storage", asyn
     await f.history.control("install", { ...f.context, signal: AbortSignal.abort() }),
   ).toMatchObject({ reason: "selection-changed" });
   await mkdir(join(f.dataDir, "history"), { recursive: true });
-  const path = join(f.dataDir, "history/usage-v1.sqlite"),
-    db = await openHistoryDatabase(path);
+  const path = join(f.dataDir, "history/usage-v1.sqlite");
+  const db = await openHistoryDatabase(path);
   db!.exec("PRAGMA user_version = 99");
   db!.close();
   const before = await readFile(path);
@@ -155,7 +155,9 @@ it("handles oversized and partial UTF-8 lines without storing body fragments or 
   await f.history.control("install", f.context);
   const id = "00000000-0000-4000-8000-000000000009";
   await writeFile(f.log, "x".repeat(300000) + "\n" + line(id));
-  for (let i = 0; i < 8; i++) await f.history.read(f.context);
+  for (let i = 0; i < 8; i += 1) {
+    await f.history.read(f.context);
+  }
   expect((await f.history.read(f.context)).collection).toMatchObject({
     invalidRecords: 1,
     backlog: false,
@@ -172,8 +174,8 @@ it("handles oversized and partial UTF-8 lines without storing body fragments or 
   expect((await f.history.read(f.context)).collection!.workspaces[0].totalTokens).toBe(12);
 });
 it("keeps identical paths on different hosts separate and never uses claims as per-thread totals", async () => {
-  const a = await fixture(),
-    b = await fixture();
+  const a = await fixture();
+  const b = await fixture();
   await a.history.control("install", a.context);
   await b.history.control("install", b.context);
   await writeFile(a.log, line("00000000-0000-4000-8000-000000000011"));
@@ -188,8 +190,9 @@ it("fails closed on lost control after pause, including repair and reinstall", a
   const control = join(f.dataDir, "history/collector-control-v1.json");
   await unlink(control);
   const asset = await readFile(join(f.agent, "extensions/bb-codex-usage/index.js"));
-  for (const action of ["repair", "install", "resume"] as const)
+  for (const action of ["repair", "install", "resume"] as const) {
     expect(await f.history.control(action, f.context)).toMatchObject({ state: "unavailable" });
+  }
   await expect(readFile(control)).rejects.toThrow();
   expect(await readFile(join(f.agent, "extensions/bb-codex-usage/index.js"))).toEqual(asset);
   expect(await f.history.read(f.context)).toMatchObject({ state: "unavailable" });
@@ -197,9 +200,9 @@ it("fails closed on lost control after pause, including repair and reinstall", a
 it("keeps first capture ownership on lower-UUID replay and excludes conflicting entry evidence", async () => {
   const f = await fixture();
   await f.history.control("install", f.context);
-  const first = "ffffffff-ffff-4fff-8fff-ffffffffffff",
-    replay = "00000000-0000-4000-8000-000000000012",
-    conflict = "00000000-0000-4000-8000-000000000013";
+  const first = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  const replay = "00000000-0000-4000-8000-000000000012";
+  const conflict = "00000000-0000-4000-8000-000000000013";
   const confirmation = (eventId: string) =>
     JSON.stringify({ version: 1, eventId, sessionId: "session", entryId: "same-entry" }) + "\n";
   const confirmations = join(f.dataDir, "history/confirmations-v1.jsonl");

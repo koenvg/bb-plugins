@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { calendarReportSchema } from "./calendar/calendar-contract.js";
 import { attributionViewSchema } from "./identity/identity-contract.js";
+
 export const historyRequestSchema = z
   .object({
     hostId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),

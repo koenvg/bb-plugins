@@ -15,14 +15,17 @@ export const capturedSubtotalSchema = z
   })
   .strict()
   .refine((value) => {
-    if (value.pricedRecords > value.records) return false;
-    if (value.state === "unavailable")
+    if (value.pricedRecords > value.records) {
+      return false;
+    }
+    if (value.state === "unavailable") {
       return (
         value.capturedCost === null &&
         (value.reason === "missing-prices"
           ? value.pricedRecords === 0
           : value.reason === "unsafe-sum" && value.pricedRecords > 0)
       );
+    }
     return (
       value.capturedCost !== null &&
       value.pricedRecords > 0 &&
@@ -62,7 +65,9 @@ export function capturedSubtotal(
 }
 const empty = () => capturedSubtotal(null, 0, 0);
 function partition(day: CostDay): DayModelCosts {
-  if (day.modelCosts) return day.modelCosts;
+  if (day.modelCosts) {
+    return day.modelCosts;
+  }
   const { pricedEntities: _, ...unknown } = day.money;
   return { named: [], other: empty(), unknown };
 }
@@ -76,8 +81,8 @@ function sum(values: readonly CapturedSubtotal[]): CapturedSubtotal {
 }
 function ranked(rows: DayModelCosts["named"]) {
   return rows.sort((a, b) => {
-    const left = a.money.capturedCost,
-      right = b.money.capturedCost;
+    const left = a.money.capturedCost;
+    const right = b.money.capturedCost;
     return (
       (left === null ? (right === null ? 0 : 1) : right === null ? -1 : right - left) ||
       compareId(a.model, b.model)
@@ -85,7 +90,9 @@ function ranked(rows: DayModelCosts["named"]) {
   });
 }
 export function validModelCosts(day: CostDay): boolean {
-  if (!day.modelCosts) return true;
+  if (!day.modelCosts) {
+    return true;
+  }
   const parts = [
     ...day.modelCosts.named.map((row) => row.money),
     day.modelCosts.other,
@@ -95,19 +102,25 @@ export function validModelCosts(day: CostDay): boolean {
     parts.reduce((n, part) => n + BigInt(part.records), 0n) !== BigInt(day.money.records) ||
     parts.reduce((n, part) => n + BigInt(part.pricedRecords), 0n) !==
       BigInt(day.money.pricedRecords)
-  )
+  ) {
     return false;
+  }
   if (day.money.capturedCost === null) {
-    if (day.money.reason === "missing-prices")
+    if (day.money.reason === "missing-prices") {
       return parts.every((part) => part.capturedCost === null);
-    if (parts.some((part) => part.reason === "unsafe-sum")) return true;
+    }
+    if (parts.some((part) => part.reason === "unsafe-sum")) {
+      return true;
+    }
     const total = parts.reduce((n, part) => n + (part.capturedCost ?? 0), 0);
     return (
       total >=
       Number.MAX_SAFE_INTEGER * (1 - Math.min(1e-8, Number.EPSILON * day.money.pricedRecords * 4))
     );
   }
-  if (parts.some((part) => part.reason === "unsafe-sum")) return false;
+  if (parts.some((part) => part.reason === "unsafe-sum")) {
+    return false;
+  }
   const total = parts.reduce((n, part) => n + (part.capturedCost ?? 0), 0);
   // Regrouping nonnegative prices changes rounding, not captured facts. Cap relative tolerance at 1e-8.
   const tolerance =
@@ -118,12 +131,13 @@ export function validModelCosts(day: CostDay): boolean {
 export function mergeModelCosts(days: readonly CostDay[]): DayModelCosts {
   const partitions = days.map(partition);
   const names = new Map<string, CapturedSubtotal[]>();
-  for (const value of partitions)
+  for (const value of partitions) {
     for (const row of value.named) {
       const values = names.get(row.model) ?? [];
       values.push(row.money);
       names.set(row.model, values);
     }
+  }
   const rows = ranked([...names].map(([model, values]) => ({ model, money: sum(values) })));
   return {
     named: rows.slice(0, MODEL_LIMIT),
@@ -157,8 +171,9 @@ export function projectCostModels(days: readonly CostDay[]) {
   }));
   const facts = partitions.map((value) => {
     const result: Record<string, CapturedSubtotal> = {};
-    for (const item of series)
+    for (const item of series) {
       result[item.key] = value.named.find((row) => row.model === item.model)?.money ?? empty();
+    }
     result.other = sum([
       value.other,
       ...value.named.filter((row) => !selected.includes(row.model)).map((row) => row.money),
@@ -166,8 +181,8 @@ export function projectCostModels(days: readonly CostDay[]) {
     result.unknown = value.unknown;
     return result;
   });
-  for (const kind of ["other", "unknown"] as const)
-    if (facts.some((day) => day[kind].records > 0))
+  for (const kind of ["other", "unknown"] as const) {
+    if (facts.some((day) => day[kind].records > 0)) {
       series.push({
         key: kind,
         selectionId: JSON.stringify(["cost", kind]),
@@ -175,5 +190,7 @@ export function projectCostModels(days: readonly CostDay[]) {
         bucket: { kind },
         color: modelColor(kind),
       });
+    }
+  }
   return { series, facts };
 }

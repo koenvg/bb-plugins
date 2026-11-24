@@ -19,13 +19,15 @@ export function useChanges(threadId: string, target: DiffTarget): ChangesState {
   const [generation, setGeneration] = useState(0);
 
   const load = useCallback(async () => {
-    const request = ++latestRequest.current;
+    const request = (latestRequest.current += 1);
     setGeneration(request);
     setLoading(true);
     const next = await rpc
       .call("getChanges", { threadId, target })
       .catch((error: unknown): ChangesResult => ({ kind: "error", message: messageOf(error) }));
-    if (request !== latestRequest.current) return;
+    if (request !== latestRequest.current) {
+      return;
+    }
     setResult(next);
     setLoading(false);
   }, [rpc, threadId, target]);
@@ -33,7 +35,7 @@ export function useChanges(threadId: string, target: DiffTarget): ChangesState {
   useEffect(() => {
     void load();
     return () => {
-      latestRequest.current++;
+      latestRequest.current += 1;
     };
   }, [load]);
 

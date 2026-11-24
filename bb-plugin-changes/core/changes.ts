@@ -104,8 +104,12 @@ export type PatchTarget =
   | { type: "commit"; sha: string };
 
 export function patchTarget(query: DiffQuery): PatchTarget {
-  if (query.target === "uncommitted") return { type: "uncommitted" };
-  if (query.target === "commit") return { type: "commit", sha: query.sha };
+  if (query.target === "uncommitted") {
+    return { type: "uncommitted" };
+  }
+  if (query.target === "commit") {
+    return { type: "commit", sha: query.sha };
+  }
   return { type: query.target, mergeBaseBranch: query.mergeBaseBranch };
 }
 

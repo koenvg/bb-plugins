@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchNormalizedActivity } from "./activity-fetch.js";
+
 const time = Date.UTC(2026, 3, 23, 12);
 const signal = () => new AbortController().signal;
 describe("bounded profile endpoint", () => {
@@ -55,7 +56,7 @@ describe("bounded profile endpoint", () => {
     let pulls = 0;
     const body = new ReadableStream<Uint8Array>({
       pull(controller) {
-        pulls++;
+        pulls += 1;
         controller.enqueue(new Uint8Array(16384));
       },
       cancel,

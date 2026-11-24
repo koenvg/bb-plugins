@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../../plugin/server.js";
+
 const query = {
   startDate: "2026-09-01",
   timezone: "UTC",
@@ -75,13 +76,14 @@ it.each([
   await harness.lifecycle.dispose();
 });
 it.each(["switch", "dispose"])("suppresses a late report after %s", async (action) => {
-  let finish!: (value: unknown) => void, entered!: () => void;
+  let finish!: (value: unknown) => void;
+  let entered!: () => void;
   const pendingResult = new Promise((resolve) => {
-      finish = resolve;
-    }),
-    started = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
+    finish = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
   const { bb, harness } = createFakePluginHost({
     pluginId: "codex-quota",
     sdk: {
@@ -102,21 +104,27 @@ it.each(["switch", "dispose"])("suppresses a late report after %s", async (actio
     query,
   });
   await started;
-  if (action === "switch") await harness.behavior.callRpc("selectHost", { hostId: "host_b" });
-  else await harness.lifecycle.dispose();
+  if (action === "switch") {
+    await harness.behavior.callRpc("selectHost", { hostId: "host_b" });
+  } else {
+    await harness.lifecycle.dispose();
+  }
   finish({ state: "unavailable", reason: "not-configured" });
   expect(await pending).toEqual({ state: "unavailable", reason: "selection-changed" });
   expect(harness.experimental_hostRpcCalls[0]?.signal?.aborted).toBe(true);
-  if (action === "switch") await harness.lifecycle.dispose();
+  if (action === "switch") {
+    await harness.lifecycle.dispose();
+  }
 });
 it("cancels immediately before dispatch when enrollment preparation is disposed", async () => {
-  let finish!: () => void, entered!: () => void;
+  let finish!: () => void;
+  let entered!: () => void;
   const prepared = new Promise<void>((resolve) => {
-      finish = resolve;
-    }),
-    started = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
+    finish = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
   const { bb, harness } = createFakePluginHost({
     pluginId: "codex-quota",
     sdk: {
@@ -318,11 +326,14 @@ it.each([
     v.comparison!.reasons.tokens = "zero-baseline";
   },
   (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    if (v.comparison!.prior.state !== "unavailable")
+    if (v.comparison!.prior.state !== "unavailable") {
       v.comparison!.prior.summary.money.pricedEntities = 61;
+    }
   },
   (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    if (v.comparison!.prior.state !== "unavailable") v.comparison!.prior.coverage.zero = true;
+    if (v.comparison!.prior.state !== "unavailable") {
+      v.comparison!.prior.coverage.zero = true;
+    }
   },
 ])("rejects incompatible, stale, absent or contradictory prior DTOs %#", async (change) => {
   const { calendarSnapshot } = await import("./calendar-test-support.js");
@@ -358,13 +369,14 @@ it.each([
   await harness.lifecycle.dispose();
 });
 it("routes a frozen comparison once and cancels it before dispatch after enrollment disposal", async () => {
-  let finish!: () => void, entered!: () => void;
+  let finish!: () => void;
+  let entered!: () => void;
   const prepared = new Promise<void>((resolve) => {
-      finish = resolve;
-    }),
-    started = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
+    finish = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
   const { bb, harness } = createFakePluginHost({
     pluginId: "codex-quota",
     sdk: {
@@ -458,9 +470,11 @@ it.each(
     },
     experimental_callHostRpc: async () => {
       const value = calendarEmptySnapshot(input, "observed-inactivity");
-      if (location === "day") value.days[14].coverage = { ...value.days[14].coverage, ...change };
-      else if (value.comparison!.prior.state !== "unavailable")
+      if (location === "day") {
+        value.days[14].coverage = { ...value.days[14].coverage, ...change };
+      } else if (value.comparison!.prior.state !== "unavailable") {
         value.comparison!.prior.coverage = { ...value.comparison!.prior.coverage, ...change };
+      }
       return value;
     },
   });

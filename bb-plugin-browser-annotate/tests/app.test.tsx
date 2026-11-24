@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { ExperimentalPluginBrowserToolbarActionProps } from "@get-bb/plugin-sdk/app";
-import { loadPluginApp, renderSlot, type RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 import definition from "../app";
 import type { rpcContract } from "../lib/contract";
 
@@ -15,7 +16,9 @@ function fakePage() {
   let listener: ((data: unknown) => void) | null = null;
   return {
     evaluate: vi.fn(async (script: string) => {
-      if (script.includes("bb.postMessage")) installed = true;
+      if (script.includes("bb.postMessage")) {
+        installed = true;
+      }
       return installed;
     }),
     onMessage: vi.fn((next: (data: unknown) => void) => {

@@ -2,7 +2,7 @@ import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ModelSeries } from "./calendar-models.js";
 import type { CostSeries } from "./calendar-model-costs.js";
 import { displayValue, subtotalText } from "./calendar-tooltip.js";
-export { UsageTooltip } from "./calendar-tooltip.js";
+
 import { CalendarChart } from "./calendar-tanstack.js";
 import type { CalendarSnapshot } from "./calendar-contract.js";
 import { pricingLabel } from "./calendar-money-view.js";
@@ -13,9 +13,10 @@ import {
   recordedValue,
   tokenCategories,
   tokenBreakdown,
-  type CalendarDay,
-  type TokenMetric,
 } from "./calendar-chart-data.js";
+import type { CalendarDay, TokenMetric } from "./calendar-chart-data.js";
+
+export { UsageTooltip } from "./calendar-tooltip.js";
 export type { TokenMetric } from "./calendar-chart-data.js";
 export { coverageLabel } from "./calendar-chart-data.js";
 export const reportControl =
@@ -34,10 +35,15 @@ function usageFacts(day: CalendarDay, metric: TokenMetric) {
 }
 type SeriesSelection = { query: string; hidden: ReadonlySet<string> };
 function seriesId(series: ModelSeries | CostSeries): string {
-  if ("selectionId" in series) return series.selectionId;
-  if (series.model !== undefined) return JSON.stringify(["tokens", "model", series.model]);
-  if (series.key === "other" || series.key === "unknown")
+  if ("selectionId" in series) {
+    return series.selectionId;
+  }
+  if (series.model !== undefined) {
+    return JSON.stringify(["tokens", "model", series.model]);
+  }
+  if (series.key === "other" || series.key === "unknown") {
     return JSON.stringify(["tokens", series.key]);
+  }
   throw Error("Unrecognized model bucket");
 }
 const graphFilterHelp =
@@ -59,19 +65,25 @@ export function CalendarValues({
   const restoreButton = useRef<HTMLButtonElement | null>(null);
   const removedFocusedRestore = useRef(false);
   const restoreRef = useCallback((node: HTMLButtonElement | null) => {
-    if (!node && restoreButton.current === document.activeElement)
+    if (!node && restoreButton.current === document.activeElement) {
       removedFocusedRestore.current = true;
+    }
     restoreButton.current = node;
   }, []);
   const [selection, setSelection] = useState<SeriesSelection>(() => ({ query, hidden: new Set() }));
   const hidden = selection.query === query ? selection.hidden : new Set<string>();
-  if (selection.query !== query) setSelection({ query, hidden: new Set() });
+  if (selection.query !== query) {
+    setSelection({ query, hidden: new Set() });
+  }
   const toggle = (id: string) => {
     lastToggled.current = id;
     setSelection((previous) => {
       const next = new Set(previous.query === query ? previous.hidden : []);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return { query, hidden: next };
     });
   };
@@ -131,8 +143,11 @@ export function CalendarValues({
                 type="button"
                 key={id}
                 ref={(node) => {
-                  if (node) buttons.current.set(id, node);
-                  else buttons.current.delete(id);
+                  if (node) {
+                    buttons.current.set(id, node);
+                  } else {
+                    buttons.current.delete(id);
+                  }
                 }}
                 aria-pressed={!hidden}
                 aria-label={
@@ -168,7 +183,9 @@ export function CalendarValues({
                 ref={restoreRef}
                 className={legendButton}
                 onClick={() => {
-                  if (restoreButton.current === document.activeElement) focusSeries();
+                  if (restoreButton.current === document.activeElement) {
+                    focusSeries();
+                  }
                   setSelection({
                     query,
                     hidden: new Set([...hidden].filter((id) => !id.startsWith(metricPrefix))),

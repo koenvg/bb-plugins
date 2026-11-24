@@ -56,7 +56,9 @@ it.each([null, "host_other", "host_target"])(
   "maintains an exact host with selection %s unchanged",
   async (selected) => {
     const h = await fixture();
-    if (selected) await h.behavior.callRpc("selectHost", { hostId: selected });
+    if (selected) {
+      await h.behavior.callRpc("selectHost", { hostId: selected });
+    }
     const before = await h.behavior.callRpc("selection", null);
     expect(
       await h.behavior.callRpc("collectorMaintenance", {
@@ -76,7 +78,8 @@ it.each([null, "host_other", "host_target"])(
   },
 );
 it("does not cancel maintenance when dashboard selection changes", async () => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -113,7 +116,9 @@ it.each(["mismatch", "ephemeral", "inactive", "offline", "throws"])(
   async (state) => {
     const h = await fixture();
     h.inspection.sdk.stub("hosts.get", async () => {
-      if (state === "throws") throw Error("private-sentinel");
+      if (state === "throws") {
+        throw Error("private-sentinel");
+      }
       const host = makeHostResponse({
         id: state === "mismatch" ? "host_wrong" : "host_target",
         status: state === "offline" ? "disconnected" : "connected",
@@ -168,7 +173,9 @@ it.each([
 it.each(["revoked", "offline"])("suppresses a late result after %s target loss", async (state) => {
   const h = await fixture(async () => {
     h.inspection.sdk.stub("hosts.get", async () => {
-      if (state === "revoked") throw Error("private-sentinel");
+      if (state === "revoked") {
+        throw Error("private-sentinel");
+      }
       return makeHostResponse({ id: "host_a", status: "disconnected" });
     });
     return { kind: "refused", reason: "collector-missing", readiness };
@@ -186,7 +193,8 @@ it.each(["revoked", "offline"])("suppresses a late result after %s target loss",
   await h.lifecycle.dispose();
 });
 it("disposal settles an uncooperative host call and suppresses late publication", async () => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -219,7 +227,8 @@ it("disposal settles an uncooperative host call and suppresses late publication"
 it.each(["revoked", "offline", "canceled"])(
   "rechecks %s after pending identity discovery, before host dispatch",
   async (state) => {
-    let release!: () => void, entered!: () => void;
+    let release!: () => void;
+    let entered!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
@@ -238,14 +247,16 @@ it.each(["revoked", "offline", "canceled"])(
       operation: "readiness",
     });
     await started;
-    if (state === "canceled") await h.lifecycle.dispose();
-    else
+    if (state === "canceled") {
+      await h.lifecycle.dispose();
+    } else {
       h.inspection.sdk.stub("hosts.get", async () =>
         makeHostResponse({
           id: state === "revoked" ? "wrong" : "host_target",
           status: state === "offline" ? "disconnected" : "connected",
         }),
       );
+    }
     release();
     expect(await pending).toEqual({
       kind: "unavailable",
@@ -254,7 +265,9 @@ it.each(["revoked", "offline", "canceled"])(
       hostWork: "not-started",
     });
     expect(h.experimental_hostRpcCalls).toHaveLength(0);
-    if (state !== "canceled") expect(await h.behavior.callRpc("selection", null)).toEqual(before);
+    if (state !== "canceled") {
+      expect(await h.behavior.callRpc("selection", null)).toEqual(before);
+    }
     await h.lifecycle.dispose();
   },
 );
@@ -299,7 +312,8 @@ it.each(
     ["checked", "unchanged", "repaired", "refused"].map((kind) => ({ state, kind })),
   ),
 )("suppresses $kind after $state during final cache invalidation", async ({ state, kind }) => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -334,8 +348,12 @@ it.each(
     experimental_callHostRpc: async () => {
       expect(await bb.storage.kv.list("machine-summary-v1/host_a/")).toEqual([]);
       await bb.storage.kv.set("machine-summary-v1/host_a/late", { stale: true });
-      if (kind === "checked") return readiness;
-      if (kind === "refused") return { kind, reason: "collector-missing", readiness };
+      if (kind === "checked") {
+        return readiness;
+      }
+      if (kind === "refused") {
+        return { kind, reason: "collector-missing", readiness };
+      }
       return kind === "unchanged"
         ? { kind, reason: "collector-compatible", readiness: compatible }
         : { kind, preserved, readiness: compatible };
@@ -351,7 +369,7 @@ it.each(
       kv: {
         ...bb.storage.kv,
         list: async (prefix?: string) => {
-          if (prefix === "machine-summary-v1/host_a/" && ++invalidations === 2) {
+          if (prefix === "machine-summary-v1/host_a/" && (invalidations += 1) === 2) {
             entered();
             await held;
           }
@@ -391,17 +409,18 @@ it.each(
 
 it("does not dispatch repair when canceled in the awaited guard continuation gap", async () => {
   const controller = new AbortController();
-  let checks = 0,
-    repairCalls = 0;
+  let checks = 0;
+  let repairCalls = 0;
   const maintenance = createCollectorMaintenance({
     get: async (hostId) => {
-      if (++checks === 2)
+      if ((checks += 1) === 2) {
         queueMicrotask(() => queueMicrotask(() => queueMicrotask(() => controller.abort())));
+      }
       return makeHostResponse({ id: hostId });
     },
     readiness: async () => readiness,
     repair: async () => {
-      repairCalls++;
+      repairCalls += 1;
       return { kind: "refused", reason: "collector-missing", readiness };
     },
     mutate: (_hostId, work) => work(),
@@ -456,7 +475,7 @@ it("delivers and acknowledges public identity metadata through maintenance readi
     },
   ]);
   let delivered: unknown;
-  for (let step = 0; step < 40; step++) {
+  for (let step = 0; step < 40; step += 1) {
     expect(
       await h.behavior.callRpc("collectorMaintenance", {
         hostId: "host_target",
@@ -505,7 +524,8 @@ it("delivers and acknowledges public identity metadata through maintenance readi
 it.each(["throw", "cancel"])(
   "invalidates the target finally after %s and late host work",
   async (mode) => {
-    let release!: () => void, entered!: () => void;
+    let release!: () => void;
+    let entered!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
@@ -530,7 +550,9 @@ it.each(["throw", "cancel"])(
       repair: async () => {
         expect(await bb.storage.kv.list("machine-summary-v1/host_a/")).toEqual([]);
         entered();
-        if (mode === "cancel") await held;
+        if (mode === "cancel") {
+          await held;
+        }
         await bb.storage.kv.set("machine-summary-v1/host_a/late", { stale: true });
         throw Error("private-sentinel");
       },
@@ -544,7 +566,9 @@ it.each(["throw", "cancel"])(
       controller.signal,
     );
     await started;
-    if (mode === "cancel") controller.abort();
+    if (mode === "cancel") {
+      controller.abort();
+    }
     try {
       expect(await pending).toEqual({
         kind: "unavailable",

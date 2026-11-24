@@ -27,15 +27,17 @@ function gate() {
   });
   return { promise, release };
 }
-const live = gate(),
-  preparation = gate(),
-  saved = gate(),
-  threads = gate();
+const live = gate();
+const preparation = gate();
+const saved = gate();
+const threads = gate();
 function observation(query: CalendarQuery, tokens: number, cached: boolean) {
   const value = reportsFixture(query, now);
   for (const row of value.machines) {
     row.cached = cached;
-    if (row.report.state === "unavailable") throw Error("Synthetic history missing");
+    if (row.report.state === "unavailable") {
+      throw Error("Synthetic history missing");
+    }
     const report = row.report;
     report.summary.totalTokens = report.days[14].totalTokens = tokens / 2;
     report.days[14].classes = { state: "unavailable" };
@@ -111,8 +113,12 @@ const options = {
     machineReportSnapshot: async (input: unknown) => {
       const { query } = input as { query: CalendarQuery };
       events.push({ event: "saved-request", query });
-      if (query.group === "thread") await threads.promise;
-      if (cold) await saved.promise;
+      if (query.group === "thread") {
+        await threads.promise;
+      }
+      if (cold) {
+        await saved.promise;
+      }
       events.push({ event: "saved-response", query });
       return observation(query, 1200, true);
     },

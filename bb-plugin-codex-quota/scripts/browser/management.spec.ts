@@ -48,10 +48,11 @@ for (const width of sizes) {
     await page.getByRole("button", { name: "Open thread thr_archived", exact: true }).focus();
     await page.keyboard.press("Space");
     await expect(page.locator("body")).toHaveAttribute("data-opened-thread", "thr_archived");
-    for (const id of ["deleted", "missing"])
+    for (const id of ["deleted", "missing"]) {
       await expect(
         page.getByRole("button", { name: `Open thread thr_${id}`, exact: true }),
       ).toHaveCount(0);
+    }
     await officialLink(page);
     await capture(page, info, `final-${width}-complete`);
     await page.getByRole("combobox", { name: "Codex host" }).selectOption("partial-host");
@@ -109,8 +110,9 @@ for (const width of sizes) {
         await expect(
           page.getByText("Older token classes are unavailable, not zero.", { exact: false }),
         ).toBeVisible();
-        if (state === "recovered")
+        if (state === "recovered") {
           await expect(page.getByText("Recovery gap:", { exact: false })).toBeVisible();
+        }
         await page.getByRole("button", { name: "Pause capture" }).click();
         await expect(page.getByText("Capture paused.", { exact: false })).toBeVisible();
         await expect(page.getByRole("button", { name: "Pause capture" })).toBeDisabled();
@@ -156,20 +158,24 @@ for (const width of sizes) {
       await page.keyboard.press("Enter");
       await expect(page.getByText(`Legacy retirement: ${phase}.`, { exact: false })).toBeVisible();
       const retire = page.getByRole("button", { name: "Retire stopped legacy logs" });
-      if (phase === "awaiting-confirmation") await expect(retire).toBeDisabled();
-      else await expect(retire).toHaveCount(0);
+      if (phase === "awaiting-confirmation") {
+        await expect(retire).toBeDisabled();
+      } else {
+        await expect(retire).toHaveCount(0);
+      }
       await expect(
         page.getByText("Quiet files, repair and one new event are not stop proof.", {
           exact: false,
         }),
       ).toBeVisible();
-      if (phase === "blocked")
+      if (phase === "blocked") {
         await expect(
           page.getByText(
             "Legacy retirement is incomplete. Check the stop confirmation and storage status. Quota still works.",
             { exact: true },
           ),
         ).toBeVisible();
+      }
       if (phase === "required") {
         await page.getByRole("button", { name: "Prepare legacy stop proof" }).click();
         await expect(retire).toBeDisabled();
@@ -223,14 +229,16 @@ for (const width of sizes) {
       if (!["unavailable", "incompatible"].includes(state)) {
         await page.getByText("Storage health and retention", { exact: true }).focus();
         await page.keyboard.press("Enter");
-        if (legacy)
+        if (legacy) {
           await expect(
             page.getByText(`Legacy retirement: ${legacy}.`, { exact: false }),
           ).toBeVisible();
-        if (legacy === "awaiting-confirmation")
+        }
+        if (legacy === "awaiting-confirmation") {
           await expect(
             page.getByRole("button", { name: "Retire stopped legacy logs" }),
           ).toBeDisabled();
+        }
       }
       await page.getByText(`Historical import`, { exact: true }).focus();
       await page.keyboard.press("Enter");

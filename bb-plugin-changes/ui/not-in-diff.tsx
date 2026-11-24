@@ -1,12 +1,7 @@
 import { InlineCommentForm } from "../../review-ui/inline-comment-form";
 import { PendingCommentCard } from "../../review-ui/pending-comment-card";
-import {
-  anchorKey,
-  pendingReviews,
-  type CommentAnchor,
-  type OpenForm,
-  type PendingComment,
-} from "../core/pending-review";
+import { anchorKey, pendingReviews } from "../core/pending-review";
+import type { CommentAnchor, OpenForm, PendingComment } from "../core/pending-review";
 import { sortComments } from "../core/review-prompt";
 
 interface NotInDiffProps {
@@ -16,7 +11,9 @@ interface NotInDiffProps {
 }
 
 export function NotInDiff({ threadId, comments, forms }: NotInDiffProps) {
-  if (comments.length === 0 && forms.length === 0) return null;
+  if (comments.length === 0 && forms.length === 0) {
+    return null;
+  }
   return (
     <section aria-label="Not in this diff" className="border-b border-border py-1">
       <h2 className="px-3 pt-1.5 text-xs font-medium text-muted-foreground">Not in this diff</h2>

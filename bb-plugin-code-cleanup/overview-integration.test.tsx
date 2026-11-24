@@ -4,18 +4,17 @@ import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
-import {
-  loadPluginApp,
-  renderSlot,
-  type PluginRpcTestHandlers,
-} from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import type { ProjectState, ProjectSummary, PromptResult, SettingsContract } from "./rpc";
 import plugin from "./server";
 
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
   cleanup();
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 const choices = [
   { id: "proj_c", name: "Charlie" },
@@ -39,7 +38,9 @@ async function setup() {
     sdk: {
       projects: {
         list: async () => {
-          if (unavailable) throw new Error("project service unavailable");
+          if (unavailable) {
+            throw new Error("project service unavailable");
+          }
           return choices.map((p) => ({ ...p, kind: "standard" })) as never;
         },
       },
@@ -50,8 +51,9 @@ async function setup() {
   const call = host.harness.behavior.callRpc;
   await call("setEnablement", { projectId: "proj_a", enabledOverride: true });
   await call("setEnablement", { projectId: "proj_c", enabledOverride: false });
-  for (const projectId of ["proj_a", "proj_c"])
+  for (const projectId of ["proj_a", "proj_c"]) {
     await call("setPrompt", { projectId, prompt: exact, expectedPrompt: null });
+  }
   const handlers: PluginRpcTestHandlers<SettingsContract> = {
     listProjects: async (input) => (await call("listProjects", input)) as typeof choices,
     listProjectSummaries: async (input) =>
@@ -279,7 +281,9 @@ describe("registered-host overview integration", () => {
       ...server.handlers,
       listProjectSummaries: async (input) => {
         const result = await server.handlers.listProjectSummaries!(input);
-        if (++reads === 2) await gate.promise;
+        if ((reads += 1) === 2) {
+          await gate.promise;
+        }
         return result;
       },
     });
@@ -305,7 +309,9 @@ describe("registered-host overview integration", () => {
         ...server.handlers,
         listProjectSummaries: async (input) => {
           const result = await server.handlers.listProjectSummaries!(input);
-          if (++reads === 2) await gate.promise;
+          if ((reads += 1) === 2) {
+            await gate.promise;
+          }
           return result;
         },
       });
@@ -336,13 +342,17 @@ describe("registered-host overview integration", () => {
       const client = await mount({
         ...server.handlers,
         listProjectSummaries: async (input) => {
-          ++summaryCalls;
-          if (summaryCalls === 2) return summaryGate.promise;
+          summaryCalls += 1;
+          if (summaryCalls === 2) {
+            return summaryGate.promise;
+          }
           return server.handlers.listProjectSummaries!(input);
         },
         setPrompt: async (input) => {
           await writeGate.promise;
-          if (outcome === "conflicting Save") return server.handlers.setPrompt!(input);
+          if (outcome === "conflicting Save") {
+            return server.handlers.setPrompt!(input);
+          }
           throw new Error("write transport failed");
         },
       });
@@ -369,8 +379,9 @@ describe("registered-host overview integration", () => {
           name: outcome === "failed Reset" ? "Reset to plugin default" : "Save",
         }),
       );
-      if (outcome === "failed Reset")
+      if (outcome === "failed Reset") {
         await userEvent.click(client.ui.getByRole("button", { name: "Confirm reset" }));
+      }
       expect(client.ui.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
       await act(async () => {
         writeGate.resolve();

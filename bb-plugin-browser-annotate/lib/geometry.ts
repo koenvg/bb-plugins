@@ -70,12 +70,20 @@ export function placeLabel(
   const clampX = (x: number) => Math.min(Math.max(0, x), Math.max(0, canvas.width - label.width));
   const clampY = (y: number) => Math.min(Math.max(0, y), Math.max(0, canvas.height - label.height));
   const above = box.y - gap - label.height;
-  if (above >= 0) return { x: clampX(box.x), y: above };
+  if (above >= 0) {
+    return { x: clampX(box.x), y: above };
+  }
   const below = box.y + box.height + gap;
-  if (below + label.height <= canvas.height) return { x: clampX(box.x), y: below };
+  if (below + label.height <= canvas.height) {
+    return { x: clampX(box.x), y: below };
+  }
   const right = box.x + box.width + gap;
-  if (right + label.width <= canvas.width) return { x: right, y: clampY(box.y) };
+  if (right + label.width <= canvas.width) {
+    return { x: right, y: clampY(box.y) };
+  }
   const left = box.x - gap - label.width;
-  if (left >= 0) return { x: left, y: clampY(box.y) };
+  if (left >= 0) {
+    return { x: left, y: clampY(box.y) };
+  }
   return { x: clampX(box.x + gap), y: clampY(box.y + gap) };
 }

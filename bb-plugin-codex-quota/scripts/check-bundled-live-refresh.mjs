@@ -36,8 +36,8 @@ try {
   globalThis.fetch = async () => {
     throw Error("Network forbidden");
   };
-  const agent = join(root, "agent"),
-    dataDir = join(root, "data");
+  const agent = join(root, "agent");
+  const dataDir = join(root, "data");
   mkdirSync(agent);
   mkdirSync(dataDir);
   process.env.PI_CODING_AGENT_DIR = agent;
@@ -53,8 +53,8 @@ try {
   // Fixture bootstrap only. Graph checks below never call management or install anything.
   const setup = await bundled.default.handlers.collectorControl({ action: "install" }, context);
   assert.equal(setup.state, "available");
-  const directory = join(dataDir, "history"),
-    path = join(directory, "usage-v1.sqlite");
+  const directory = join(dataDir, "history");
+  const path = join(directory, "usage-v1.sqlite");
   const control = readFileSync(join(directory, "collector-control-v1.json"));
   const identities = { hostId: "host_synthetic", generation: 1, offset: 0, total: 0, rows: [] };
   const query = {
@@ -115,8 +115,10 @@ try {
     assert.match(result.progress, /^[a-f0-9]{64}$/);
     assert.ok(!JSON.stringify(result).includes(records[0].eventId));
     progress.add(result.progress);
-    batches++;
-    if (!result.ingestionPending && !result.attribution.backlog) break;
+    batches += 1;
+    if (!result.ingestionPending && !result.attribution.backlog) {
+      break;
+    }
     assert.ok(batches < 10, "Bounded preparation must settle this fixture");
   }
   assert.ok(batches >= 3);
@@ -191,13 +193,17 @@ try {
   const historyAlias = join(root, "outside-alias");
   symlinkSync(directory, historyAlias);
   for (const parent of ["new-backups", "existing-backups"]) {
-    if (parent === "existing-backups") mkdirSync(join(directory, parent), { mode: 0o700 });
+    if (parent === "existing-backups") {
+      mkdirSync(join(directory, parent), { mode: 0o700 });
+    }
     const aliasBackup = join(historyAlias, parent, "before.sqlite");
     applied = upgrade("--apply", "--backup", aliasBackup);
     assert.equal(applied.status, 1, "Reject a symlink ancestor into live history");
     assert.deepEqual(readFileSync(path), beforeUpgrade);
     assert.equal(existsSync(aliasBackup), false);
-    if (parent === "new-backups") assert.equal(existsSync(join(directory, parent)), false);
+    if (parent === "new-backups") {
+      assert.equal(existsSync(join(directory, parent)), false);
+    }
   }
   mkdirSync(join(root, "private-backup"), { mode: 0o700 });
   const existingBackup = join(root, "private-backup", "existing.sqlite");
@@ -223,10 +229,12 @@ try {
   assert.equal(applied.status, 0, applied.stderr);
   assert.equal(JSON.parse(applied.stdout).state, "current");
   assert.deepEqual(readFileSync(backupPath), savedBytes);
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 5; i += 1) {
     const result = await prepare();
     assert.equal(result.state, "available");
-    if (!result.attribution.backlog && !result.ingestionPending) break;
+    if (!result.attribution.backlog && !result.ingestionPending) {
+      break;
+    }
     assert.ok(i < 4, "Upgraded preparation must settle");
   }
   assert.deepEqual((await read()).summary, report.summary);
@@ -239,9 +247,15 @@ try {
   await bundled?.default.dispose();
   globalThis.Date = NativeDate;
   globalThis.fetch = oldFetch;
-  if (oldAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = oldAgent;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (oldAgent === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = oldAgent;
+  }
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
   rmSync(root, { recursive: true, force: true });
 }

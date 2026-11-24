@@ -37,7 +37,7 @@ describe("quota footer work isolation", () => {
     await settle();
     const target = adapter.getSnapshot()[0];
     const counters = workCounters(sidebar);
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 4; i += 1) {
       task.innerHTML = `<h2 class="selected">Task ${i}</h2><section><p>Description</p></section><div>Activity</div>`;
       task.className = `task-${i}`;
       task.style.visibility = "visible";
@@ -100,10 +100,18 @@ describe("quota footer work isolation", () => {
       adapter.getSnapshot()[0]!.commit();
       await settle();
       const hide = () => {
-        if (mode === "hidden") ancestor.hidden = true;
-        if (mode === "inert") ancestor.setAttribute("inert", "");
-        if (mode === "style") ancestor.style.display = "none";
-        if (mode === "class") ancestor.className = "quota-test-hidden";
+        if (mode === "hidden") {
+          ancestor.hidden = true;
+        }
+        if (mode === "inert") {
+          ancestor.setAttribute("inert", "");
+        }
+        if (mode === "style") {
+          ancestor.style.display = "none";
+        }
+        if (mode === "class") {
+          ancestor.className = "quota-test-hidden";
+        }
       };
       hide();
       await settle();

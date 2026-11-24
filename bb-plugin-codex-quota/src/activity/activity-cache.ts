@@ -1,17 +1,16 @@
-import {
-  activitySnapshotSchema,
-  emptyActivity,
-  type ActivityRead,
-  type ActivitySnapshot,
-  type ActivityView,
-} from "./activity-contract.js";
+import { activitySnapshotSchema, emptyActivity } from "./activity-contract.js";
+import type { ActivityRead, ActivitySnapshot, ActivityView } from "./activity-contract.js";
 import { abortable } from "./activity-cancellation.js";
 import { FRESH_MS, MAX_AGE_MS } from "../account/freshness.js";
 
 export function visibleActivity(view: ActivityView, now: number): ActivityView {
-  if (!view.snapshot) return view;
+  if (!view.snapshot) {
+    return view;
+  }
   const age = now - Date.parse(view.snapshot.observedAt);
-  if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS) return emptyActivity("expired");
+  if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS) {
+    return emptyActivity("expired");
+  }
   return age >= FRESH_MS && view.state === "fresh"
     ? { ...view, state: "stale", reason: "aged" }
     : view;
@@ -28,7 +27,7 @@ export class ActivityCache {
   private disposed = false;
   constructor(private readonly now: () => number = Date.now) {}
   invalidate(): void {
-    this.generation++;
+    this.generation += 1;
     this.epoch.abort();
     this.epoch = new AbortController();
     this.pending?.controller.abort();
@@ -42,7 +41,9 @@ export class ActivityCache {
     this.invalidate();
   }
   peek(identity: string): ActivityView {
-    if (this.identity !== identity || !this.snapshot) return emptyActivity();
+    if (this.identity !== identity || !this.snapshot) {
+      return emptyActivity();
+    }
     const view = visibleActivity(
       {
         state: this.failure ? "stale" : "fresh",
@@ -64,7 +65,9 @@ export class ActivityCache {
     force = false,
     signal?: AbortSignal,
   ): Promise<ActivityView> {
-    if (this.disposed || signal?.aborted) return emptyActivity("selection-changed");
+    if (this.disposed || signal?.aborted) {
+      return emptyActivity("selection-changed");
+    }
     if (this.identity !== identity) {
       this.invalidate();
       this.identity = identity;
@@ -91,7 +94,9 @@ export class ActivityCache {
       const pending = { promise, controller };
       this.pending = pending;
       void promise.then(() => {
-        if (this.pending === pending) this.pending = null;
+        if (this.pending === pending) {
+          this.pending = null;
+        }
       });
     }
     const waitSignal = AbortSignal.any([
@@ -100,11 +105,13 @@ export class ActivityCache {
       AbortSignal.timeout(12_000),
     ]);
     const result = this.pending ? await abortable(this.pending.promise, waitSignal, null) : null;
-    if (waitSignal.aborted || this.disposed || generation !== this.generation)
+    if (waitSignal.aborted || this.disposed || generation !== this.generation) {
       return emptyActivity("selection-changed");
+    }
     const checked = await abortable(Promise.resolve().then(recheck), waitSignal, null);
-    if (waitSignal.aborted || this.disposed || generation !== this.generation)
+    if (waitSignal.aborted || this.disposed || generation !== this.generation) {
       return emptyActivity("selection-changed");
+    }
     if (checked !== identity) {
       this.invalidate();
       return emptyActivity(checked === null ? "identity-unavailable" : "identity-changed");
@@ -115,7 +122,9 @@ export class ActivityCache {
       if (parsed?.success) {
         this.snapshot = parsed.data;
         this.failure = null;
-      } else this.failure = result.status === "ok" ? "unsupported" : result.status;
+      } else {
+        this.failure = result.status === "ok" ? "unsupported" : result.status;
+      }
     }
     const retained = this.peek(identity);
     return retained.snapshot ? retained : emptyActivity(this.failure ?? retained.reason);

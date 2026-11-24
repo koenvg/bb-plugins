@@ -33,7 +33,9 @@ export function createPendingReviewStore(newId: () => string = () => crypto.rand
 
   function update(threadId: string, change: (review: PendingReview) => PendingReview) {
     reviews.set(threadId, change(reviews.get(threadId) ?? EMPTY_REVIEW));
-    for (const listener of listeners) listener();
+    for (const listener of listeners) {
+      listener();
+    }
   }
 
   function withForms(
@@ -53,7 +55,9 @@ export function createPendingReviewStore(newId: () => string = () => crypto.rand
     },
     openForm(threadId: string, anchor: CommentAnchor) {
       const key = anchorKey(anchor);
-      if (reviews.get(threadId)?.openForms.has(key)) return;
+      if (reviews.get(threadId)?.openForms.has(key)) {
+        return;
+      }
       update(threadId, (review) =>
         withForms(review, (forms) => forms.set(key, { anchor, text: "" })),
       );

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAnnotateController } from "../lib/controller";
 import type { AnnotationsRpc } from "../lib/contract";
-import { installAnnotator, type AnnotatorApi, type PagePin } from "../lib/page/annotator";
+import { installAnnotator } from "../lib/page/annotator";
+import type { AnnotatorApi, PagePin } from "../lib/page/annotator";
 import { annotatorCallScript, annotatorInstallScript } from "../lib/page/script";
 import type { Annotation, CreateInput } from "../lib/annotation";
 import { createHiddenPins } from "../lib/hidden-pins";

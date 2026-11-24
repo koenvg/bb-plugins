@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryReadinessPanel } from "./history-view.js";
 import { QuotaDashboard } from "../quota/quota-view.js";
 import type { HistoryReadiness, HistoryRequest } from "./history-contract.js";
+
 const missing: HistoryReadiness = {
   state: "not-configured",
   reason: "not-configured",
@@ -151,9 +152,12 @@ describe("visible history readiness independent from quota", () => {
       expect(
         screen.getByText(/Quiet files, repair and one new event are not stop proof/),
       ).toBeTruthy();
-      if (state === "recovered") expect(screen.getByText(/Recovery gap:/)).toBeTruthy();
-      if (state === "maintenance")
+      if (state === "recovered") {
+        expect(screen.getByText(/Recovery gap:/)).toBeTruthy();
+      }
+      if (state === "maintenance") {
         expect(screen.getByText(/Bounded retention or backfill work remains/)).toBeTruthy();
+      }
       expect(read).toHaveBeenCalledOnce();
     },
   );

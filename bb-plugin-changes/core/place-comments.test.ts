@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { diffLines } from "../../review-ui/diff-lines";
 import type { CommentAnchor } from "./pending-review";
-import { placeByAnchor, type FileLines } from "./place-comments";
+import { placeByAnchor } from "./place-comments";
+import type { FileLines } from "./place-comments";
 
 const LINES = diffLines("@@ -10,3 +40,3 @@\n keep\n-old\n+new\n keep\n");
 

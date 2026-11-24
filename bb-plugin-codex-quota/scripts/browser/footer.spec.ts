@@ -34,8 +34,12 @@ for (const width of sizes) {
       const tooltip = page.getByRole("tooltip");
       await expect(tooltip.getByText(observation, { exact: true })).toBeVisible();
       await expect(tooltip.getByText(retained, { exact: true })).toBeVisible();
-      if (scenario === "fresh") await expect(tooltip).not.toContainText(/\bok\b|refresh failed/);
-      if (retained === "Unavailable") await expect(tooltip).not.toContainText("63%");
+      if (scenario === "fresh") {
+        await expect(tooltip).not.toContainText(/\bok\b|refresh failed/);
+      }
+      if (retained === "Unavailable") {
+        await expect(tooltip).not.toContainText("63%");
+      }
       await page.keyboard.press("Escape");
       await expect(tooltip).toHaveCount(0);
       await page.mouse.move(width - 1, 1);

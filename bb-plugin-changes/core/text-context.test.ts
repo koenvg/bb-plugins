@@ -6,8 +6,8 @@ import {
   validateContext,
   validatePatch,
   validateText,
-  type Snapshot,
 } from "./text-context";
+import type { Snapshot } from "./text-context";
 import type { ChangedFile } from "./changes";
 
 const file: ChangedFile = {

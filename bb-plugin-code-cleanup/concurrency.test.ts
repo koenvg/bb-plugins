@@ -9,7 +9,9 @@ import type { ProjectState } from "./rpc";
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
   vi.restoreAllMocks();
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 async function setup() {
   const host = createFakePluginHost({
@@ -46,7 +48,7 @@ describe("concurrent public configuration writes", () => {
     ]);
     await cli(["enable", "--project", "proj_a"]);
     const before = (await rpc("getProject", { projectId: "proj_a" })) as ProjectState;
-    const exact = "  # CLI\r\n\n`$(name)` and ${HOME}\n ";
+    const exact = `  # CLI\r\n\n\`$(name)\` and \${HOME}\n `;
     await cli(["prompt", "set", "--project", "proj_a", "--text", exact]);
     const signals = host.harness.inspection.realtimeSignals.length;
     for (const prompt of ["Stale save", null]) {

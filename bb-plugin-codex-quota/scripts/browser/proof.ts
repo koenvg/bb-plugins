@@ -37,8 +37,9 @@ export function accessibleFacts(
     .map(name)
     .join("");
   assert(caption.includes(`Daily recorded usage in ${timezone}.`), caption);
-  if (metric === "cost")
+  if (metric === "cost") {
     assert(caption.includes("Captured estimate, not billed charges."), caption);
+  }
   const axRows = children.filter((node) => role(node) === "row");
   assert.equal(rows.length, 30);
   assert.equal(axRows.length, 31, "Need header and 30 AX daily rows");
@@ -48,7 +49,7 @@ export function accessibleFacts(
     "Coverage",
     "Recorded exclusions",
   ];
-  if (metric === "tokens")
+  if (metric === "tokens") {
     headers.splice(
       2,
       0,
@@ -60,7 +61,9 @@ export function accessibleFacts(
       "Unclassified tokens",
       "Uncertain token estimate",
     );
-  else headers.push("Pricing");
+  } else {
+    headers.push("Pricing");
+  }
   headers.push(...modelHeaders);
   assert.deepEqual(
     descendants(axRows[0])
@@ -93,13 +96,17 @@ export function tooltipDefinitions(row: string[], metric: Metric) {
     ],
   ];
   if (metric === "tokens") {
-    if (row[7] !== "0" && row[7] !== "Unavailable")
+    if (row[7] !== "0" && row[7] !== "Unavailable") {
       definitions.push(["Unclassified tokens", readableTokens(row[7])]);
-    if (row[8] !== "0")
+    }
+    if (row[8] !== "0") {
       definitions.push(["Uncertain estimate", `${readableTokens(row[8])} tokens`]);
+    }
   }
   const exclusions = row[metric === "tokens" ? 10 : 3].replace(/ excluded tokens$/, "");
-  if (exclusions !== "0") definitions.push(["Excluded tokens", readableTokens(exclusions)]);
+  if (exclusions !== "0") {
+    definitions.push(["Excluded tokens", readableTokens(exclusions)]);
+  }
   return definitions;
 }
 export function verifyTooltip(
@@ -110,8 +117,9 @@ export function verifyTooltip(
   lines: string[],
   fromDate?: string | null,
 ) {
-  if (fromDate !== undefined)
+  if (fromDate !== undefined) {
     assert.notEqual(fromDate, row[0], "Hover must start from a different keyboard date");
+  }
   assert.equal(date, row[0], "Pointer did not restore the target date");
   assert.deepEqual(definitions, tooltipDefinitions(row, metric));
   assert.deepEqual(lines, []);

@@ -7,15 +7,17 @@ export function createImageStore(root: string) {
   const absoluteRoot = resolve(root);
 
   function pathFor(threadId: string, id: string): string {
-    if (!SEGMENT.test(threadId) || !SEGMENT.test(id))
+    if (!SEGMENT.test(threadId) || !SEGMENT.test(id)) {
       throw new Error("Invalid annotation image path.");
+    }
     return join(absoluteRoot, threadId, `${id}.jpg`);
   }
 
   function inside(path: string): string {
     const absolute = resolve(path);
-    if (!absolute.startsWith(`${absoluteRoot}${sep}`))
+    if (!absolute.startsWith(`${absoluteRoot}${sep}`)) {
       throw new Error("Annotation image path escapes the image directory.");
+    }
     return absolute;
   }
 
@@ -32,13 +34,19 @@ export function createImageStore(root: string) {
     async sweep(keep: ReadonlySet<string>, olderThan: number): Promise<void> {
       const threads = await readdir(absoluteRoot, { withFileTypes: true }).catch(() => []);
       for (const thread of threads) {
-        if (!thread.isDirectory() || !SEGMENT.test(thread.name)) continue;
+        if (!thread.isDirectory() || !SEGMENT.test(thread.name)) {
+          continue;
+        }
         const directory = join(absoluteRoot, thread.name);
         for (const file of await readdir(directory).catch(() => [])) {
           const path = join(directory, file);
-          if (keep.has(path)) continue;
+          if (keep.has(path)) {
+            continue;
+          }
           const info = await stat(path).catch(() => null);
-          if (info?.isFile() && info.mtimeMs < olderThan) await rm(path, { force: true });
+          if (info?.isFile() && info.mtimeMs < olderThan) {
+            await rm(path, { force: true });
+          }
         }
       }
     },

@@ -1,4 +1,5 @@
-import { FILE_ICON_SVGS, type FileIconName } from "./svgs";
+import { FILE_ICON_SVGS } from "./svgs";
+import type { FileIconName } from "./svgs";
 
 export function FileTypeIcon({ name }: { name: FileIconName }) {
   return (

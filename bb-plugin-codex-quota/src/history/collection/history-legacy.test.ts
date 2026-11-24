@@ -13,7 +13,9 @@ import { writeFileSync } from "node:fs";
 
 const roots: string[] = [];
 afterEach(async () => {
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 const initial = Date.parse("2026-10-01T12:00:00.000Z");
 const record = (n: number, occurredAt = "2026-09-30T00:00:00.000Z") => ({
@@ -41,9 +43,9 @@ const status = (view: HistoryReadiness) =>
 async function fixture(hook?: (step: string) => void) {
   const root = await mkdtemp(join(tmpdir(), "bbp23-legacy-"));
   roots.push(root);
-  const dataDir = join(root, "data"),
-    agentDir = join(root, "agent"),
-    directory = join(dataDir, "history");
+  const dataDir = join(root, "data");
+  const agentDir = join(root, "agent");
+  const directory = join(dataDir, "history");
   const context = { dataDir, signal: new AbortController().signal };
   let now = initial;
   const make = () =>
@@ -90,7 +92,9 @@ async function fixture(hook?: (step: string) => void) {
     control("retire-legacy", { token, legacyWritersStopped: stopped });
   const finish = async () => {
     let view = await read();
-    for (let n = 0; n < 100 && status(view)?.phase !== "complete"; n++) view = await read();
+    for (let n = 0; n < 100 && status(view)?.phase !== "complete"; n += 1) {
+      view = await read();
+    }
     expect(status(view)?.phase).toBe("complete");
     return view;
   };
@@ -114,14 +118,16 @@ async function fixture(hook?: (step: string) => void) {
   };
 }
 it("requires paused capture and a fresh explicit stopped-writer confirmation, never quiet-file guesses", async () => {
-  const f = await fixture(),
-    path = join(f.directory, "collector-control-v1.json"),
-    before = await readFile(path);
+  const f = await fixture();
+  const path = join(f.directory, "collector-control-v1.json");
+  const before = await readFile(path);
   expect((await f.control("prepare-legacy")).reason).toBe("retirement-incomplete");
   expect(await readFile(path)).toEqual(before);
   const token = await f.prepare();
   expect(JSON.parse(await readFile(path, "utf8"))).toMatchObject({ protocol: 2, enabled: false });
-  for (let n = 0; n < 4; n++) expect(status(await f.read())?.phase).toBe("awaiting-confirmation");
+  for (let n = 0; n < 4; n += 1) {
+    expect(status(await f.read())?.phase).toBe("awaiting-confirmation");
+  }
   expect((await f.confirm(token, false)).reason).toBe("retirement-incomplete");
   expect((await f.confirm("00000000-0000-4000-8000-000000000099")).reason).toBe(
     "retirement-incomplete",
@@ -130,8 +136,8 @@ it("requires paused capture and a fresh explicit stopped-writer confirmation, ne
   expect((await f.read()).collection?.enabled).toBe(false);
 });
 it("reconciles the final tail and retains original in-window bodies, prices, ownership and observation", async () => {
-  const f = await fixture(),
-    token = await f.prepare();
+  const f = await fixture();
+  const token = await f.prepare();
   await f.confirm(token);
   const view = await f.finish();
   expect(view.collection).toMatchObject({
@@ -172,19 +178,23 @@ it("reconciles the final tail and retains original in-window bodies, prices, own
 it.each(["append", "replace", "control", "expired"])(
   "rejects %s changes to the confirmation boundary",
   async (kind) => {
-    const f = await fixture(),
-      token = await f.prepare();
-    if (kind === "append")
+    const f = await fixture();
+    const token = await f.prepare();
+    if (kind === "append") {
       await writeFile(join(f.directory, "events-v1.jsonl"), JSON.stringify(record(3)) + "\n", {
         flag: "a",
       });
-    if (kind === "replace")
+    }
+    if (kind === "replace") {
       await writeFile(join(f.directory, "events-v1.jsonl"), JSON.stringify(record(3)) + "\n");
+    }
     if (kind === "control") {
       await f.control("resume");
       await f.pause();
     }
-    if (kind === "expired") f.setNow(initial + 16 * 60000);
+    if (kind === "expired") {
+      f.setNow(initial + 16 * 60000);
+    }
     expect((await f.confirm(token)).reason).toBe("retirement-incomplete");
     await access(join(f.directory, "events-v1.jsonl"));
   },
@@ -192,8 +202,8 @@ it.each(["append", "replace", "control", "expired"])(
 it.each(["output-written", "published", "source-removed"])(
   "resumes bounded retirement after interruption at %s",
   async (step) => {
-    let armed = false,
-      fired = false;
+    let armed = false;
+    let fired = false;
     const f = await fixture((point) => {
       if (armed && !fired && point === step) {
         fired = true;
@@ -203,7 +213,9 @@ it.each(["output-written", "published", "source-removed"])(
     const token = await f.prepare();
     armed = true;
     let failed = await f.confirm(token);
-    for (let n = 0; n < 100 && !fired; n++) failed = await f.read();
+    for (let n = 0; n < 100 && !fired; n += 1) {
+      failed = await f.read();
+    }
     expect(fired).toBe(true);
     expect(failed.reason).toBe("retirement-incomplete");
     expect(JSON.stringify(failed)).not.toContain("private-secret");
@@ -272,7 +284,9 @@ it("fails closed on symlinks and partial final records, without retiring unrelat
   const token = await f.prepare();
   await f.confirm(token);
   let view = await f.read();
-  for (let n = 0; n < 10 && view.reason !== "retirement-incomplete"; n++) view = await f.read();
+  for (let n = 0; n < 10 && view.reason !== "retirement-incomplete"; n += 1) {
+    view = await f.read();
+  }
   expect(view.reason).toBe("retirement-incomplete");
   expect(await readFile(join(f.directory, "events-v1.jsonl"), "utf8")).toBe("partial");
 });
@@ -331,8 +345,8 @@ it("fences actual obsolete writer handlers before retirement and after explicit 
   await expect(access(join(f.directory, "events-v1.jsonl"))).rejects.toThrow();
 });
 it("requires fresh consent for a changed source and merges already retained bodies without loss", async () => {
-  const f = await fixture(),
-    token = await f.prepare();
+  const f = await fixture();
+  const token = await f.prepare();
   await f.confirm(token);
   await f.finish();
   await writeFile(join(f.directory, "events-v1.jsonl"), JSON.stringify(record(3)) + "\n");
@@ -349,8 +363,8 @@ it("requires fresh consent for a changed source and merges already retained bodi
   );
 });
 it("rebuilds retained legacy detail after corruption without enabling capture or guessing older compact history", async () => {
-  const f = await fixture(),
-    token = await f.prepare();
+  const f = await fixture();
+  const token = await f.prepare();
   await f.confirm(token);
   await f.finish();
   await writeFile(join(f.directory, "usage-v1.sqlite"), "confirmed-corruption");
@@ -371,8 +385,8 @@ it("rebuilds retained legacy detail after corruption without enabling capture or
   }
 });
 it("reconciles retained sources before resuming a copy after mid-retirement corruption", async () => {
-  const f = await fixture(),
-    token = await f.prepare();
+  const f = await fixture();
+  const token = await f.prepare();
   const active = await f.confirm(token);
   expect(status(active)?.phase).toBe("retaining");
   await writeFile(join(f.directory, "usage-v1.sqlite"), "confirmed-corruption");
@@ -386,9 +400,9 @@ it("reconciles retained sources before resuming a copy after mid-retirement corr
   ).toContain(record(2).eventId);
 });
 it("does not mutate source or control for an already-cancelled retirement dispatch", async () => {
-  const f = await fixture(),
-    before = await readFile(join(f.directory, "collector-control-v1.json")),
-    abort = new AbortController();
+  const f = await fixture();
+  const before = await readFile(join(f.directory, "collector-control-v1.json"));
+  const abort = new AbortController();
   abort.abort();
   const history = createHostHistory({ now: () => initial });
   expect(
@@ -410,8 +424,8 @@ it("preserves unrelated source backlog during legacy-only tail reconciliation", 
   );
 });
 it("blocks publication when control changes during a bounded copy and reports its actual enabled state", async () => {
-  let directory = "",
-    changed = false;
+  let directory = "";
+  let changed = false;
   const f = await fixture((stage) => {
     if (stage === "output-written" && !changed) {
       changed = true;
@@ -426,8 +440,8 @@ it("blocks publication when control changes during a bounded copy and reports it
     }
   });
   directory = f.directory;
-  const token = await f.prepare(),
-    view = await f.confirm(token);
+  const token = await f.prepare();
+  const view = await f.confirm(token);
   expect(view.reason).toBe("retirement-incomplete");
   expect(status(view)).toMatchObject({ phase: "blocked", reason: "control-changed" });
   expect(view.collection?.enabled).toBe(true);
@@ -435,8 +449,8 @@ it("blocks publication when control changes during a bounded copy and reports it
   await expect(access(join(directory, "events-legacy-retained-v1.jsonl"))).rejects.toThrow();
 });
 it("does not adopt an unowned spool or a symlink operation lock", async () => {
-  const f = await fixture(),
-    spool = join(f.directory, ".events-legacy-retained-v1.tmp");
+  const f = await fixture();
+  const spool = join(f.directory, ".events-legacy-retained-v1.tmp");
   await writeFile(spool, "unrelated-owned-fixture");
   await f.control("pause");
   expect((await f.control("prepare-legacy")).reason).toBe("retirement-incomplete");
@@ -449,8 +463,8 @@ it("does not adopt an unowned spool or a symlink operation lock", async () => {
   expect(await readFile(target, "utf8")).toBe("unrelated-owned-fixture");
 });
 it("rejects sealed source metadata changes even when modification time and size stay unchanged", async () => {
-  const f = await fixture(),
-    token = await f.prepare();
+  const f = await fixture();
+  const token = await f.prepare();
   await f.confirm(token);
   await f.finish();
   await chmod(join(f.directory, "events-legacy-retained-v1.jsonl"), 0o640);

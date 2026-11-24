@@ -1,7 +1,7 @@
 import { test, expect, capture, jsonEvidence, reportTheme } from "./fixtures.js";
 import { chart, rows, pointAtDate } from "./calendar-driver.js";
 
-for (const width of [375, 1280])
+for (const width of [375, 1280]) {
   for (const theme of ["light", "dark"] as const) {
     test(`tiny recorded days remain visible and reachable at ${width}px ${theme}`, async ({
       page,
@@ -40,9 +40,11 @@ for (const width of [375, 1280])
         await page.mouse.move(0, 0);
         await surface.focus();
         await page.keyboard.press("ArrowRight");
-        for (let step = 0; step < 30; step++) {
+        for (let step = 0; step < 30; step += 1) {
           const current = await date.getAttribute("datetime");
-          if (current === daily[index][0]) break;
+          if (current === daily[index][0]) {
+            break;
+          }
           const currentIndex = daily.findIndex((row) => row[0] === current);
           expect(currentIndex).toBeGreaterThanOrEqual(0);
           await page.keyboard.press(currentIndex > index ? "ArrowLeft" : "ArrowRight");
@@ -85,9 +87,10 @@ for (const width of [375, 1280])
       });
     });
   }
+}
 
-for (const width of [375, 1280])
-  for (const theme of ["light", "dark"] as const)
+for (const width of [375, 1280]) {
+  for (const theme of ["light", "dark"] as const) {
     test(`underflowed captured cost remains visible ${width}px ${theme}`, async ({
       page,
     }, info) => {
@@ -130,3 +133,5 @@ for (const width of [375, 1280])
       await capture(page, info, `cost-underflow-${width}-${theme}`);
       await jsonEvidence(info, "underflow.json", { daily, marker: await marker.boundingBox() });
     });
+  }
+}

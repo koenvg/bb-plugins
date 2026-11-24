@@ -18,20 +18,24 @@ globalThis.Date = class extends RealDate {
   }
 } as DateConstructor;
 const state = new URLSearchParams(location.search).get("state");
-const calls: string[] = [],
-  pending: (() => void)[] = [];
+const calls: string[] = [];
+const pending: (() => void)[] = [];
 let first = true;
 let retryBlocked = state === "retry";
 function report(query: CalendarQuery) {
   const value = reports.find(
     (value) => value.query.startDate === query.startDate && value.query.group === query.group,
   );
-  if (!value) throw Error("Fixture query unavailable");
+  if (!value) {
+    throw Error("Fixture query unavailable");
+  }
   return structuredClone(value);
 }
 async function read(query: CalendarQuery) {
   calls.push(JSON.stringify(query));
-  if (first && state === "loading") await new Promise<void>((resolve) => pending.push(resolve));
+  if (first && state === "loading") {
+    await new Promise<void>((resolve) => pending.push(resolve));
+  }
   if (retryBlocked) {
     first = false;
     return { state: "unavailable" as const, reason: "host-offline" as const };

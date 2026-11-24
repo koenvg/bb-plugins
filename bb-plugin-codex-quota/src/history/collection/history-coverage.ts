@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 
 import { readImportCoverage } from "../import/import-coverage.js";
+
 const kinds = [
   "writer-active",
   "observed-inactivity",
@@ -13,8 +14,8 @@ const kinds = [
 const negativeKinds = new Set<string>(["omission", "uncertain", "backlog"]);
 const utcInstant = z.iso.datetime({ offset: true });
 export function canonicalInterval(start: string, end: string, maximumDays?: number) {
-  const first = Date.parse(utcInstant.parse(start)),
-    last = Date.parse(utcInstant.parse(end));
+  const first = Date.parse(utcInstant.parse(start));
+  const last = Date.parse(utcInstant.parse(end));
   if (last <= first || (maximumDays !== undefined && last - first > maximumDays * 86400000)) {
     throw Error("History range unavailable");
   }
@@ -37,8 +38,8 @@ export const coverageEvidenceSchema = z
 export type CoverageEvidence = z.infer<typeof coverageEvidenceSchema>;
 /** Verified adapters and typed fixtures only. No discovery or transcript access. */
 export function recordCoverage(db: HistoryDatabase, input: CoverageEvidence) {
-  const value = coverageEvidenceSchema.parse(input),
-    interval = canonicalInterval(value.start, value.end);
+  const value = coverageEvidenceSchema.parse(input);
+  const interval = canonicalInterval(value.start, value.end);
   db.prepare("INSERT OR IGNORE INTO history_coverage VALUES (?,?,?,?,?,?)").run(
     value.id,
     value.workspace,
@@ -62,8 +63,9 @@ export type CoverageQuery = {
 export function historyScope(
   query: Pick<CoverageQuery, "workspace" | "verifiedThread">,
 ): HistoryScope {
-  if (query.verifiedThread)
+  if (query.verifiedThread) {
     return { kind: "thread", verifiedThread: query.verifiedThread, workspace: query.workspace };
+  }
   return query.workspace ? { kind: "workspace", workspace: query.workspace } : { kind: "host" };
 }
 type EvidenceRow = {
@@ -90,19 +92,24 @@ export function recordSourceUncertainty(db: HistoryDatabase, id: string, observe
   const retention = db.prepare("SELECT compact_cutoff FROM history_retention WHERE id=1").get() as {
     compact_cutoff: string;
   };
-  const start = retention.compact_cutoff || "0000-01-01T00:00:00.000Z",
-    end = new Date(observedAt).toISOString();
-  if (start >= end) return;
+  const start = retention.compact_cutoff || "0000-01-01T00:00:00.000Z";
+  const end = new Date(observedAt).toISOString();
+  if (start >= end) {
+    return;
+  }
   recordCoverage(db, { id, workspace: null, threadId: null, start, end, kind: "uncertain" });
 }
 
 function evidenceScope(scope: HistoryScope) {
-  if (scope.kind === "host") return { sql: "1=1", values: [] as string[] };
-  if (scope.kind === "workspace")
+  if (scope.kind === "host") {
+    return { sql: "1=1", values: [] as string[] };
+  }
+  if (scope.kind === "workspace") {
     return {
       sql: "thread_id IS NULL AND (workspace IS NULL OR workspace=?)",
       values: [scope.workspace],
     };
+  }
   // If original workspace is not established, broader negative evidence remains uncertain.
   // It must not certify zero by guessing that this thread belongs to a different workspace.
   return scope.workspace
@@ -113,15 +120,18 @@ function evidenceScope(scope: HistoryScope) {
     : { sql: "thread_id=? OR thread_id IS NULL", values: [scope.verifiedThread] };
 }
 function positiveApplies(row: EvidenceRow, scope: HistoryScope) {
-  if (scope.kind === "host") return row.workspace === null && row.thread_id === null;
-  if (scope.kind === "workspace")
+  if (scope.kind === "host") {
+    return row.workspace === null && row.thread_id === null;
+  }
+  if (scope.kind === "workspace") {
     return row.workspace === scope.workspace && row.thread_id === null;
+  }
   return row.thread_id === scope.verifiedThread;
 }
 /** Single coverage authority: evidence, source progress, pauses and recovery are read together. */
 export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
-  const { start, end } = canonicalInterval(query.start, query.end, 32),
-    scope = historyScope(query);
+  const { start, end } = canonicalInterval(query.start, query.end, 32);
+  const scope = historyScope(query);
   const filter = evidenceScope(scope);
   const rows = db
     .prepare(`SELECT workspace,thread_id,started,ended,kind FROM history_coverage
@@ -202,10 +212,18 @@ export function readCoverage(db: HistoryDatabase, query: CoverageQuery) {
   const covers = (kind: string) => {
     let cursor = start;
     for (const row of rows) {
-      if (row.kind !== kind || !positiveApplies(row, scope)) continue;
-      if (row.started > cursor) return false;
-      if (row.ended > cursor) cursor = row.ended;
-      if (cursor >= end) return true;
+      if (row.kind !== kind || !positiveApplies(row, scope)) {
+        continue;
+      }
+      if (row.started > cursor) {
+        return false;
+      }
+      if (row.ended > cursor) {
+        cursor = row.ended;
+      }
+      if (cursor >= end) {
+        return true;
+      }
     }
     return false;
   };

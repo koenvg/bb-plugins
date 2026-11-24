@@ -55,8 +55,9 @@ it("removes secondary reports and instruction text from the primary view", async
     "Report options",
     "Select a day. Dashed bars mean missing data.",
     "Inspect a date",
-  ])
+  ]) {
     expect(screen.queryByText(label)).toBeNull();
+  }
   expect(screen.queryByRole("combobox", { name: "Report grouping" })).toBeNull();
   expect(screen.queryByRole("combobox", { name: "Report comparison" })).toBeNull();
   expect(screen.queryByLabelText("Range summary")).toBeNull();
@@ -85,8 +86,8 @@ it("puts a background-free refresh icon after the allowance heading", () => {
 });
 
 it("gives both native dropdowns inset, centred decorative arrows without changing selection", async () => {
-  const onHostChange = vi.fn(),
-    read = vi.fn(async ({ query }: { query: CalendarQuery }) => calendarSnapshot(query));
+  const onHostChange = vi.fn();
+  const read = vi.fn(async ({ query }: { query: CalendarQuery }) => calendarSnapshot(query));
   render(
     <>
       <QuotaDashboard
@@ -104,12 +105,13 @@ it("gives both native dropdowns inset, centred decorative arrows without changin
     </>,
   );
   await screen.findByRole("group", { name: "Daily recorded values" });
-  const host = screen.getByRole("combobox", { name: "Codex host" }),
-    metric = screen.getByRole("combobox", { name: "Report metric" });
+  const host = screen.getByRole("combobox", { name: "Codex host" });
+  const metric = screen.getByRole("combobox", { name: "Report metric" });
   for (const select of [host, metric]) {
     expect(select.tagName).toBe("SELECT");
-    for (const token of ["appearance-none", "h-9", "pr-8", "py-0"])
+    for (const token of ["appearance-none", "h-9", "pr-8", "py-0"]) {
       expect(select.classList.contains(token)).toBe(true);
+    }
     const arrow = select.parentElement!.querySelector('svg[aria-hidden="true"]')!;
     expect(arrow).not.toBeNull();
     for (const token of [
@@ -120,8 +122,9 @@ it("gives both native dropdowns inset, centred decorative arrows without changin
       "-translate-y-1/2",
       "h-4",
       "w-4",
-    ])
+    ]) {
       expect(arrow.classList.contains(token)).toBe(true);
+    }
     expect(arrow.getAttribute("focusable")).toBe("false");
   }
   expect(host.parentElement!.classList.contains("@[32rem]:w-44")).toBe(true);

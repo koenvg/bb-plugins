@@ -96,10 +96,18 @@ export function getFileIconName(filename: string): FileIconName {
   const base = (filename.split("/").pop() ?? filename).toLowerCase();
 
   const byName = FILENAME_ICONS[base];
-  if (byName !== undefined) return byName;
-  if (base.endsWith(".d.ts")) return "typescript-def";
-  if (base === "readme" || /^readme\.[^.]+$/.test(base)) return "readme";
-  if (base === ".env" || base.startsWith(".env.")) return "tune";
+  if (byName !== undefined) {
+    return byName;
+  }
+  if (base.endsWith(".d.ts")) {
+    return "typescript-def";
+  }
+  if (base === "readme" || /^readme\.[^.]+$/.test(base)) {
+    return "readme";
+  }
+  if (base === ".env" || base.startsWith(".env.")) {
+    return "tune";
+  }
 
   const extension = base.includes(".") ? (base.split(".").pop() ?? "") : "";
   return EXTENSION_ICONS[extension] ?? "file";

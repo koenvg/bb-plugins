@@ -16,14 +16,17 @@ function loaded(snapshot: ProjectState): View {
 }
 /** Keep the prompt baseline until the user saves or explicitly reloads it. */
 function reconcile(view: View | null, next: ProjectState, holdBaseline = false): View {
-  if (!view) return loaded(next);
+  if (!view) {
+    return loaded(next);
+  }
   if (
     !holdBaseline &&
     !view.changed &&
     !view.conflict &&
     view.draft === view.snapshot.effectivePrompt
-  )
+  ) {
     return loaded(next);
+  }
   const old = view.snapshot;
   return {
     ...view,
@@ -72,22 +75,29 @@ export function useProjectSettings(
   const discardOnRead = useRef(false);
 
   function refresh(discard = false) {
-    ++generation.current; // Invalidate responses before React starts the next effect.
-    if (discard) discardOnRead.current = true;
+    generation.current += 1; // Invalidate responses before React starts the next effect.
+    if (discard) {
+      discardOnRead.current = true;
+    }
     setAttempt((n) => n + 1);
   }
   useRealtime("settings.changed", (payload) => {
-    if (!payload || typeof payload !== "object" || !("kind" in payload)) return;
+    if (!payload || typeof payload !== "object" || !("kind" in payload)) {
+      return;
+    }
     if (
       payload.kind === "default" ||
       (payload.kind === "project" &&
         "projectId" in payload &&
         payload.projectId === selection.current)
-    )
+    ) {
       refresh();
+    }
   });
   useEffect(() => {
-    if (connection === "connected" && previousConnection.current !== "connected") refresh();
+    if (connection === "connected" && previousConnection.current !== "connected") {
+      refresh();
+    }
     previousConnection.current = connection;
   }, [connection]);
   useEffect(() => {
@@ -95,7 +105,7 @@ export function useProjectSettings(
     readKey.current = "";
     return () => {
       alive.current = false;
-      ++generation.current;
+      generation.current += 1;
     };
   }, []);
   useEffect(() => {
@@ -104,14 +114,18 @@ export function useProjectSettings(
     setWriteError(null);
     setSaved(null);
     discardOnRead.current = false;
-    ++generation.current;
+    generation.current += 1;
   }, [projectId]);
   useEffect(() => {
-    if (!projectId || pending) return;
+    if (!projectId || pending) {
+      return;
+    }
     const key = `${projectId}/${attempt}`;
-    if (readKey.current === key) return;
+    if (readKey.current === key) {
+      return;
+    }
     readKey.current = key;
-    const request = ++generation.current;
+    const request = (generation.current += 1);
     let current = true;
     activeRead.current = true;
     setReading(true);
@@ -121,9 +135,12 @@ export function useProjectSettings(
     rpc
       .call("getProject", { projectId })
       .then((result) => {
-        if (!valid()) return;
-        if (result.projectId !== projectId)
+        if (!valid()) {
+          return;
+        }
+        if (result.projectId !== projectId) {
           throw new Error("Project response did not match the selection.");
+        }
         const discard = discardOnRead.current;
         discardOnRead.current = false;
         if (discard) {
@@ -157,10 +174,12 @@ export function useProjectSettings(
     prompt: string | null,
     expected?: { prompt: string | null },
   ) {
-    if (!state || writeLock.current || view?.conflict) return;
+    if (!state || writeLock.current || view?.conflict) {
+      return;
+    }
     const target = state.projectId;
     const refreshAfter = activeRead.current;
-    const request = ++generation.current;
+    const request = (generation.current += 1);
     writeLock.current = true;
     setReading(false);
     activeRead.current = false;
@@ -176,9 +195,12 @@ export function useProjectSettings(
         prompt,
         expectedPrompt: expected ? expected.prompt : state.prompt,
       });
-      if (response.state.projectId !== target)
+      if (response.state.projectId !== target) {
         throw new Error("Project response did not match the save target.");
-      if (!valid()) return;
+      }
+      if (!valid()) {
+        return;
+      }
       if (response.status === "conflict") {
         setView((old) =>
           old
@@ -199,17 +221,23 @@ export function useProjectSettings(
       );
       return response.state;
     } catch (error) {
-      if (valid()) setWriteError(message(error));
+      if (valid()) {
+        setWriteError(message(error));
+      }
     } finally {
       writeLock.current = false;
       if (alive.current) {
         setPending(false);
-        if (refreshAfter || generation.current !== request) refresh();
+        if (refreshAfter || generation.current !== request) {
+          refresh();
+        }
       }
     }
   }
   function edit(text: string) {
-    if (writeLock.current || discardOnRead.current) return;
+    if (writeLock.current || discardOnRead.current) {
+      return;
+    }
     setView((old) => (old ? { ...old, draft: text } : old));
     setSaved(null);
     setWriteError(null);

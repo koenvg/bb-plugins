@@ -2,18 +2,19 @@ import { test, expect, jsonEvidence, reportTheme } from "./fixtures.js";
 import { chart, calls, rows } from "./calendar-driver.js";
 import { layout } from "./chart-layout.js";
 
-for (const theme of ["light", "dark"] as const)
-  for (const portalMode of ["popover", "fallback"] as const)
-    for (const state of ["model-totals", "tooltip-max"])
-      for (const metric of ["tokens", "cost"] as const)
+for (const theme of ["light", "dark"] as const) {
+  for (const portalMode of ["popover", "fallback"] as const) {
+    for (const state of ["model-totals", "tooltip-max"]) {
+      for (const metric of ["tokens", "cost"] as const) {
         test(`viewport tooltip ${state} ${metric} ${portalMode} ${theme}`, async ({
           page,
         }, info) => {
           await page.setViewportSize({ width: 375, height: 812 });
-          if (portalMode === "fallback")
+          if (portalMode === "fallback") {
             await page.addInitScript(() => {
               Object.defineProperty(HTMLElement.prototype, "showPopover", { value: undefined });
             });
+          }
           await page.goto(`/calendar.html?state=${state}`);
           await reportTheme(page, theme);
           await chart(page);
@@ -50,7 +51,7 @@ for (const theme of ["light", "dark"] as const)
           await expect(native).toBeHidden();
           await surface.focus();
           await page.keyboard.press("Home");
-          for (let index = 0; index < 14; index++) {
+          for (let index = 0; index < 14; index += 1) {
             await page.evaluate(() => new Promise(requestAnimationFrame));
             await page.keyboard.press("ArrowRight");
           }
@@ -59,9 +60,11 @@ for (const theme of ["light", "dark"] as const)
           await expect(native).toHaveAttribute("data-sticky", "true");
           const expected =
             metric === "cost" ? "$0.40" : state === "tooltip-max" ? "3,000 tokens" : "600 tokens";
-          if (metric === "tokens")
+          if (metric === "tokens") {
             await expect(card.locator("dd").first()).toHaveAttribute("title", expected);
-          else await expect(card.locator("dd").first()).toHaveText(expected);
+          } else {
+            await expect(card.locator("dd").first()).toHaveText(expected);
+          }
           if (metric === "tokens") {
             await expect(card.locator("dl dt")).toHaveText(
               state === "tooltip-max"
@@ -74,9 +77,9 @@ for (const theme of ["light", "dark"] as const)
                 : ["Recorded tokens", "Excluded tokens"],
             );
             const detail = card.getByLabel("Tokens by model").locator("li");
-            if (state === "model-totals")
+            if (state === "model-totals") {
               await expect(detail).toHaveText(["gpt-6.1100", "gpt-6.1-sol500"]);
-            else {
+            } else {
               await expect(detail).toHaveCount(10);
               await expect(detail.locator("span.tabular-nums")).toHaveText(Array(10).fill("300"));
               await expect(detail.first()).toHaveText(`model-0-${"x".repeat(120)}300`);
@@ -107,8 +110,9 @@ for (const theme of ["light", "dark"] as const)
           const themeFacts = (await layout(page)).tooltipTheme;
           expect(themeFacts.backgroundAlpha).toBe(1);
           expect(themeFacts.opacity).toBe(1);
-          for (const text of themeFacts.textContrast)
+          for (const text of themeFacts.textContrast) {
             expect(text.ratio).toBeGreaterThanOrEqual(4.5);
+          }
           await jsonEvidence(info, "theme.json", themeFacts);
           expect(geometry.card.top).toBeGreaterThanOrEqual(8);
           expect(geometry.card.bottom).toBeLessThanOrEqual(804);
@@ -133,11 +137,12 @@ for (const theme of ["light", "dark"] as const)
                 type: "touchStart",
                 touchPoints: [{ x: 180, y: 500 }],
               });
-              for (const y of [450, 350, 250, 150, 50])
+              for (const y of [450, 350, 250, 150, 50]) {
                 await session.send("Input.dispatchTouchEvent", {
                   type: "touchMove",
                   touchPoints: [{ x: 180, y }],
                 });
+              }
               await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
               await expect
                 .poll(() => card.evaluate((element) => element.scrollTop))
@@ -153,8 +158,11 @@ for (const theme of ["light", "dark"] as const)
                   const settled = () => {
                     stableFrames = element.scrollTop === previous ? stableFrames + 1 : 0;
                     previous = element.scrollTop;
-                    if (stableFrames === 12) resolve();
-                    else requestAnimationFrame(settled);
+                    if (stableFrames === 12) {
+                      resolve();
+                    } else {
+                      requestAnimationFrame(settled);
+                    }
                   };
                   requestAnimationFrame(settled);
                 }),
@@ -218,7 +226,7 @@ for (const theme of ["light", "dark"] as const)
             await expect(filter).toHaveAttribute("aria-pressed", "false");
             await surface.focus();
             await page.keyboard.press("Home");
-            for (let index = 0; index < 14; index++) {
+            for (let index = 0; index < 14; index += 1) {
               await page.evaluate(() => new Promise(requestAnimationFrame));
               await page.keyboard.press("ArrowRight");
             }
@@ -230,21 +238,27 @@ for (const theme of ["light", "dark"] as const)
           expect(await rows(page)).toEqual(beforeRows);
           expect(await calls(page)).toEqual(beforeCalls);
         });
+      }
+    }
+  }
+}
 
 for (const portalMode of ["popover", "fallback"] as const) {
   for (const textSize of ["default", "larger"] as const) {
     test(`keyboard tall content ${portalMode} ${textSize}`, async ({ page }, info) => {
       await page.setViewportSize({ width: 375, height: 600 });
-      if (portalMode === "fallback")
+      if (portalMode === "fallback") {
         await page.addInitScript(() => {
           Object.defineProperty(HTMLElement.prototype, "showPopover", { value: undefined });
         });
+      }
       await page.goto("/calendar.html?state=tooltip-max");
       await chart(page);
-      if (textSize === "larger")
+      if (textSize === "larger") {
         await page.addStyleTag({
           content: '.calendar-tooltip [role="tooltip"] { font-size:14px; line-height:1.8; }',
         });
+      }
       await page.evaluate(() => {
         const shell = document.createElement("div");
         shell.id = "scrolling-shell";
@@ -259,7 +273,7 @@ for (const portalMode of ["popover", "fallback"] as const) {
       await expect.poll(async () => (await surface.boundingBox())!.y).toBe(300);
       await surface.focus();
       await page.keyboard.press("Home");
-      for (let index = 0; index < 14; index++) {
+      for (let index = 0; index < 14; index += 1) {
         await page.evaluate(() => new Promise(requestAnimationFrame));
         await page.keyboard.press("ArrowRight");
       }
@@ -271,8 +285,10 @@ for (const portalMode of ["popover", "fallback"] as const) {
       await expect(native).toHaveAttribute("data-sticky", "true");
       await expect(native).toHaveAttribute("data-ts-chart-tooltip-portal", portalMode);
       const trace = [];
-      for (let tabs = 0; tabs < 70; tabs++) {
-        if (await card.evaluate((element) => element === document.activeElement)) break;
+      for (let tabs = 0; tabs < 70; tabs += 1) {
+        if (await card.evaluate((element) => element === document.activeElement)) {
+          break;
+        }
         await page.keyboard.press("Tab");
         trace.push(
           await page.evaluate(() => ({
@@ -290,12 +306,14 @@ for (const portalMode of ["popover", "fallback"] as const) {
       await expect(detail.locator("span.tabular-nums")).toHaveText(Array(10).fill("300"));
       await expect(card.locator("dd").first()).toHaveAttribute("title", "3,000 tokens");
       const scroll = [];
-      for (let pages = 0; pages < 32; pages++) {
+      for (let pages = 0; pages < 32; pages += 1) {
         const before = await card.evaluate((element) => ({
           top: element.scrollTop,
           remaining: element.scrollHeight - element.clientHeight - element.scrollTop,
         }));
-        if (before.remaining <= 1) break;
+        if (before.remaining <= 1) {
+          break;
+        }
         await page.keyboard.press("PageDown");
         await expect
           .poll(() => card.evaluate((element) => element.scrollTop))
@@ -334,7 +352,7 @@ for (const portalMode of ["popover", "fallback"] as const) {
       await expect(native).toBeHidden();
       await expect(surface).toBeFocused();
       await page.keyboard.press("Home");
-      for (let index = 0; index < 14; index++) {
+      for (let index = 0; index < 14; index += 1) {
         await page.evaluate(() => new Promise(requestAnimationFrame));
         await page.keyboard.press("ArrowRight");
       }
@@ -353,10 +371,11 @@ for (const portalMode of ["popover", "fallback"] as const) {
   }
 
   test(`transient hover preserves external focus ${portalMode}`, async ({ page }) => {
-    if (portalMode === "fallback")
+    if (portalMode === "fallback") {
       await page.addInitScript(() => {
         Object.defineProperty(HTMLElement.prototype, "showPopover", { value: undefined });
       });
+    }
     await page.goto("/calendar.html?state=model-totals");
     await chart(page);
     const metric = page.getByRole("button", { name: "Tokens", exact: true });

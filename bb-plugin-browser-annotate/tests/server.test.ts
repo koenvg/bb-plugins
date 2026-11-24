@@ -8,7 +8,9 @@ import plugin from "../server";
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString("base64");
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  for (const dispose of disposers.splice(0)) await dispose();
+  for (const dispose of disposers.splice(0)) {
+    await dispose();
+  }
 });
 
 function setup() {
@@ -145,7 +147,9 @@ describe("annotation mention provider", () => {
     const { id } = await call("create", createInput);
     const first = await provider.resolve(id);
     const image = first.experimental_images![0]!;
-    if (image.type !== "localImage") throw new Error("Expected a local image.");
+    if (image.type !== "localImage") {
+      throw new Error("Expected a local image.");
+    }
     await rm(image.path);
 
     const resolved = await provider.resolve(id);
@@ -174,7 +178,9 @@ describe("annotation mention provider", () => {
       const resolved = await provider.resolve(sent.id);
       expect(resolved.context).toContain("Too much padding");
       const image = resolved.experimental_images![0]!;
-      if (image.type !== "localImage") throw new Error("Expected a local image.");
+      if (image.type !== "localImage") {
+        throw new Error("Expected a local image.");
+      }
 
       expect(await call("clearResolved", { threadId: "thr" })).toEqual({ removed: [sent.id] });
       expect(
@@ -189,7 +195,9 @@ describe("annotation mention provider", () => {
     const unsent = await call("create", createInput);
     const probe = await call("create", { ...createInput, number: 2 });
     const image = (await provider.resolve(probe.id)).experimental_images![0]!;
-    if (image.type !== "localImage") throw new Error("Expected a local image.");
+    if (image.type !== "localImage") {
+      throw new Error("Expected a local image.");
+    }
     const unsentPath = image.path.replace(probe.id, unsent.id);
     expect(existsSync(unsentPath)).toBe(true);
 

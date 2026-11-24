@@ -25,11 +25,13 @@ export function calendarMoney(row: MoneyAggregate): CalendarMoney {
     records: row.events,
     pricedEntities: row.pricedEntities,
   };
-  if (!row.pricedEvents)
+  if (!row.pricedEvents) {
     return { ...counts, state: "unavailable", capturedCost: null, reason: "missing-prices" };
+  }
   const capturedCost = safeCapturedSum(row.capturedCost);
-  if (capturedCost === null || capturedCost === 0)
+  if (capturedCost === null || capturedCost === 0) {
     return { ...counts, state: "unavailable", capturedCost: null, reason: "unsafe-sum" };
+  }
   return {
     ...counts,
     state: row.pricedEvents === row.events ? "available" : "partial",

@@ -25,10 +25,16 @@ export type SaveMessage = Extract<PageMessage, { type: "save" }>;
 
 export function parsePageMessage(data: unknown): PageMessage | null {
   const parsed = pageMessageSchema.safeParse(data);
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    return null;
+  }
   const message = parsed.data;
-  if (message.type !== "save") return message;
+  if (message.type !== "save") {
+    return message;
+  }
   const rect = clipRect(message.rect, message.viewport);
-  if (rect.width <= 0 || rect.height <= 0) return null;
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
   return { ...message, rect };
 }

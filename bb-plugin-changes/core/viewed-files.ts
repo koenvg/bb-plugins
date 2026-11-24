@@ -50,9 +50,14 @@ export function viewedSummary(
       continue;
     }
     const patch = currentPatch(path);
-    if (patch === null) continue;
-    if (patchIdentity(patch) === identity) viewed.add(path);
-    else stale.push(path);
+    if (patch === null) {
+      continue;
+    }
+    if (patchIdentity(patch) === identity) {
+      viewed.add(path);
+    } else {
+      stale.push(path);
+    }
   }
   return { viewed, markable: files.filter(canMark).length, stale };
 }

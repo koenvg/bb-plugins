@@ -40,7 +40,7 @@ try {
       assert.equal(init?.method, "POST");
       assert.equal(init?.body?.get("grant_type"), "refresh_token");
       assert.equal(init?.body?.get("refresh_token"), "synthetic-refresh-token");
-      refreshCalls++;
+      refreshCalls += 1;
       return new Response(
         JSON.stringify({
           access_token: refreshedAccess,
@@ -52,7 +52,7 @@ try {
     assert.equal(url, "https://chatgpt.com/backend-api/wham/usage");
     assert.equal(init?.method, "GET");
     assert.equal(init?.headers?.Authorization, `Bearer ${refresh ? refreshedAccess : access}`);
-    quotaCalls++;
+    quotaCalls += 1;
     return new Response(
       JSON.stringify({
         rate_limit: { primary_window: { used_percent: 20 } },
@@ -63,7 +63,7 @@ try {
   const { default: entry } = await import("../dist/host.js");
   harness = experimental_createHostEntryHarness(entry);
   const result = await harness.experimental_call("quota", { refresh: false });
-  if (result.state !== "fresh")
+  if (result.state !== "fresh") {
     console.log(
       "Synthetic failure:",
       result.reason,
@@ -72,6 +72,7 @@ try {
       "quota calls:",
       quotaCalls,
     );
+  }
   assert.equal(result.state, "fresh");
   assert.equal(result.snapshot?.general.length, 1);
   assert.equal(result.snapshot?.general[0]?.remainingPercent, 80);
@@ -85,9 +86,15 @@ try {
   );
 } finally {
   await harness?.experimental_dispose();
-  if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = previousDir;
+  if (previousDir === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = previousDir;
+  }
   globalThis.fetch = previousFetch;
-  if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
-  else process.env.CODEX_HOME = previousCodexHome;
+  if (previousCodexHome === undefined) {
+    delete process.env.CODEX_HOME;
+  } else {
+    process.env.CODEX_HOME = previousCodexHome;
+  }
 }

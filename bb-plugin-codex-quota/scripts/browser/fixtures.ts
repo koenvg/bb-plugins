@@ -1,4 +1,5 @@
-import { test as base, expect, type Page, type TestInfo } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 
@@ -9,7 +10,9 @@ export const test = base.extend<{ localOnly: void }>({
       const external: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await context.route("**/*", (route) => {
-        if (new URL(route.request().url()).origin === baseURL) return route.continue();
+        if (new URL(route.request().url()).origin === baseURL) {
+          return route.continue();
+        }
         external.push(route.request().url());
         return route.abort();
       });
@@ -38,8 +41,9 @@ export async function reportTheme(page: Page, theme: "light" | "dark") {
         ring: "oklch(27% 0 0)",
         popover: "#ffffff",
         "popover-foreground": "oklch(32.11% 0 0)",
-      }))
+      })) {
         root.setProperty("--" + name, value);
+      }
     }
     document.body.style.backgroundColor = "var(--background)";
   }, theme);
@@ -109,10 +113,11 @@ export async function capture(page: Page, info: TestInfo, name: string, fullPage
       innerHeight,
     ),
   }));
-  if (fullPage)
+  if (fullPage) {
     expect(content.width, "Full-page evidence must not clip horizontal content").toBe(
       viewport.width,
     );
+  }
   const tiled = fullPage && content.height > viewport.height;
   const tiles: CaptureTile[] = [];
   let data: Buffer;
@@ -132,7 +137,9 @@ export async function capture(page: Page, info: TestInfo, name: string, fullPage
         });
         const tile = await page.screenshot({ fullPage: false, scale: "css" });
         tiles.push({ ...position, data: tile.toString("base64") });
-        if (top + viewport.height >= content.height) break;
+        if (top + viewport.height >= content.height) {
+          break;
+        }
       }
       const base64 = await page.evaluate(
         async ({ tiles, width, height }) => {

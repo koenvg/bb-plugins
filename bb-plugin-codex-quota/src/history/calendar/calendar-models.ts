@@ -33,29 +33,37 @@ export function modelTotal(value: {
 }
 export const compareId = (a: string, b: string) => {
   const encoder = new TextEncoder();
-  const left = encoder.encode(a),
-    right = encoder.encode(b);
-  for (let n = 0; n < Math.min(left.length, right.length); n++) {
-    if (left[n] !== right[n]) return left[n] - right[n];
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  for (let n = 0; n < Math.min(left.length, right.length); n += 1) {
+    if (left[n] !== right[n]) {
+      return left[n] - right[n];
+    }
   }
   return left.length - right.length;
 };
 function safeTotal(value: number) {
-  if (!Number.isSafeInteger(value) || value < 0) throw Error("Model total unavailable");
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw Error("Model total unavailable");
+  }
   return value;
 }
 export function mergeDayModels(days: readonly ModelDay[]): DayModels {
   const totals = new Map<string, number>();
   let otherTokens = 0;
   for (const day of days) {
-    if (day.models && modelTotal(day.models) > day.totalTokens)
+    if (day.models && modelTotal(day.models) > day.totalTokens) {
       throw Error("Model attribution exceeds recorded tokens");
+    }
     otherTokens = safeTotal(otherTokens + (day.models?.otherTokens ?? 0));
-    for (const row of day.models?.named ?? [])
+    for (const row of day.models?.named ?? []) {
       totals.set(row.model, safeTotal((totals.get(row.model) ?? 0) + row.totalTokens));
+    }
   }
   const ranked = [...totals].sort((a, b) => b[1] - a[1] || compareId(a[0], b[0]));
-  for (const [, tokens] of ranked.slice(MODEL_LIMIT)) otherTokens = safeTotal(otherTokens + tokens);
+  for (const [, tokens] of ranked.slice(MODEL_LIMIT)) {
+    otherTokens = safeTotal(otherTokens + tokens);
+  }
   return dayModelsSchema.parse({
     named: ranked.slice(0, MODEL_LIMIT).map(([model, totalTokens]) => ({ model, totalTokens })),
     otherTokens,
@@ -71,15 +79,19 @@ const palette = [
 ];
 export function modelColor(model: string): string {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(model)) hash = Math.imul(hash ^ byte, 16777619);
+  for (const byte of new TextEncoder().encode(model)) {
+    hash = Math.imul(hash ^ byte, 16777619);
+  }
   return palette[(hash >>> 0) % palette.length];
 }
 export type ModelSeries = { key: string; label: string; color: string; model?: string };
 export function projectTokenModels(days: readonly ModelDay[]) {
   const totals = new Map<string, bigint>();
-  for (const day of days)
-    for (const row of day.models?.named ?? [])
+  for (const day of days) {
+    for (const row of day.models?.named ?? []) {
       totals.set(row.model, (totals.get(row.model) ?? 0n) + BigInt(row.totalTokens));
+    }
+  }
   const selected = [...totals]
     .sort((a, b) => (a[1] === b[1] ? compareId(a[0], b[0]) : a[1] > b[1] ? -1 : 1))
     .slice(0, MODEL_LIMIT)
@@ -95,27 +107,42 @@ export function projectTokenModels(days: readonly ModelDay[]) {
     const values: Record<string, number | null> = {};
     let other = day.models?.otherTokens ?? 0;
     const known = safeTotal(day.models ? modelTotal(day.models) : 0);
-    if (known > day.totalTokens) throw Error("Model attribution exceeds recorded tokens");
-    for (const row of day.models?.named ?? [])
-      if (!selected.includes(row.model)) other = safeTotal(other + row.totalTokens);
-    for (const item of series)
+    if (known > day.totalTokens) {
+      throw Error("Model attribution exceeds recorded tokens");
+    }
+    for (const row of day.models?.named ?? []) {
+      if (!selected.includes(row.model)) {
+        other = safeTotal(other + row.totalTokens);
+      }
+    }
+    for (const item of series) {
       values[item.key] =
         day.models?.named.find((row) => row.model === item.model)?.totalTokens ?? 0;
+    }
     values.other = other;
     values.unknown = day.totalTokens - known;
-    if (!day.totalTokens && !day.coverage?.zero)
-      for (const name of Object.keys(values)) values[name] = null;
+    if (!day.totalTokens && !day.coverage?.zero) {
+      for (const name of Object.keys(values)) {
+        values[name] = null;
+      }
+    }
     return values;
   });
-  for (const base of ["other", "unknown"] as const)
-    if (facts.some((day) => (day[base] ?? 0) > 0))
+  for (const base of ["other", "unknown"] as const) {
+    if (facts.some((day) => (day[base] ?? 0) > 0)) {
       series.push({
         key: base,
         label: base === "other" ? "Other models" : "Unknown model",
         color: modelColor(base),
       });
-  for (const values of facts)
-    for (const name of Object.keys(values))
-      if (!series.some((item) => item.key === name)) delete values[name];
+    }
+  }
+  for (const values of facts) {
+    for (const name of Object.keys(values)) {
+      if (!series.some((item) => item.key === name)) {
+        delete values[name];
+      }
+    }
+  }
   return { series, facts };
 }

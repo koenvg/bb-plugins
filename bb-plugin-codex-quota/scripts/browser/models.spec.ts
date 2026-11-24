@@ -2,7 +2,7 @@ import { test, expect, noOverflow, capture, jsonEvidence, reportTheme } from "./
 import { chart, rows, axFacts, tooltip, calls } from "./calendar-driver.js";
 import { layout } from "./chart-layout.js";
 
-for (const width of [375, 1280])
+for (const width of [375, 1280]) {
   for (const theme of ["light", "dark"] as const) {
     test(`model stacks and exact facts at ${width}px ${theme}`, async ({ page }, info) => {
       await page.setViewportSize({ width, height: 1100 });
@@ -32,9 +32,10 @@ for (const width of [375, 1280])
       await capture(page, info, `models-${width}-${theme}`);
     });
   }
+}
 
-for (const width of [375, 1280])
-  for (const theme of ["light", "dark"] as const)
+for (const width of [375, 1280]) {
+  for (const theme of ["light", "dark"] as const) {
     test(`captured model cost stacks and filters at ${width}px ${theme}`, async ({
       page,
     }, info) => {
@@ -135,9 +136,11 @@ for (const width of [375, 1280])
       });
       await capture(page, info, `model-costs-${width}-${theme}`);
     });
+  }
+}
 
-for (const width of [375, 1280])
-  for (const theme of ["light", "dark"] as const)
+for (const width of [375, 1280]) {
+  for (const theme of ["light", "dark"] as const) {
     test(`distilled captured model prices at ${width}px ${theme}`, async ({ page }, info) => {
       await page.setViewportSize({ width, height: 1100 });
       await page.emulateMedia({ colorScheme: theme });
@@ -183,3 +186,5 @@ for (const width of [375, 1280])
       await jsonEvidence(info, "distilled-prices.json", { daily, facts, measurements, priceEdges });
       await capture(page, info, `distilled-prices-${width}-${theme}`);
     });
+  }
+}

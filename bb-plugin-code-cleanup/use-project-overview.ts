@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { useRealtime, useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { ProjectState, ProjectSummary, SettingsContract } from "./rpc";
 import { message } from "./use-project-settings";
@@ -22,7 +23,7 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
   const previousConnection = useRef(connection);
 
   function refresh() {
-    ++generation.current;
+    generation.current += 1;
     setAttempt((n) => n + 1);
   }
   useRealtime("settings.changed", (payload) => {
@@ -31,11 +32,14 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
       typeof payload === "object" &&
       "kind" in payload &&
       (payload.kind === "default" || payload.kind === "project")
-    )
+    ) {
       refresh();
+    }
   });
   useEffect(() => {
-    if (connection === "connected" && previousConnection.current !== "connected") refresh();
+    if (connection === "connected" && previousConnection.current !== "connected") {
+      refresh();
+    }
     previousConnection.current = connection;
   }, [connection]);
   useEffect(() => {
@@ -43,13 +47,15 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
     readAttempt.current = -1;
     return () => {
       alive.current = false;
-      ++generation.current;
+      generation.current += 1;
     };
   }, []);
   useEffect(() => {
-    if (pending || editorPending || readAttempt.current === attempt) return;
+    if (pending || editorPending || readAttempt.current === attempt) {
+      return;
+    }
     readAttempt.current = attempt;
-    const request = ++generation.current;
+    const request = (generation.current += 1);
     let current = true;
     let settled = false;
     activeRead.current = true;
@@ -58,12 +64,16 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
     rpc
       .call("listProjectSummaries", {})
       .then((result) => {
-        if (!valid()) return;
+        if (!valid()) {
+          return;
+        }
         setRows(result);
         setReadError(null);
       })
       .catch((error) => {
-        if (valid()) setReadError(message(error));
+        if (valid()) {
+          setReadError(message(error));
+        }
       })
       .finally(() => {
         settled = true;
@@ -74,14 +84,18 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
       });
     return () => {
       current = false;
-      if (!settled && readAttempt.current === attempt) readAttempt.current = -1;
+      if (!settled && readAttempt.current === attempt) {
+        readAttempt.current = -1;
+      }
     };
   }, [rpc, attempt, pending, editorPending]);
 
   async function persist(row: ProjectSummary, enabledOverride: boolean | null) {
-    if (writeLock.current || editorLock.current || readError || !rows) return;
+    if (writeLock.current || editorLock.current || readError || !rows) {
+      return;
+    }
     const refreshAfter = activeRead.current;
-    ++generation.current;
+    generation.current += 1;
     writeLock.current = true;
     activeRead.current = false;
     setReading(false);
@@ -90,10 +104,13 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
     setSaved(null);
     try {
       const state = await rpc.call("setEnablement", { projectId: row.id, enabledOverride });
-      if (state.projectId !== row.id)
+      if (state.projectId !== row.id) {
         throw new Error("Project response did not match the save target.");
-      if (!alive.current) return;
-      ++generation.current;
+      }
+      if (!alive.current) {
+        return;
+      }
+      generation.current += 1;
       setRows(
         (old) =>
           old?.map((item) =>
@@ -109,17 +126,21 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
       );
       setSaved(`Saved settings for ${row.name}.`);
     } catch (error) {
-      if (alive.current) setWriteError({ id: row.id, message: message(error) });
+      if (alive.current) {
+        setWriteError({ id: row.id, message: message(error) });
+      }
     } finally {
       writeLock.current = false;
       if (alive.current) {
         setPending(null);
-        if (refreshAfter) refresh();
+        if (refreshAfter) {
+          refresh();
+        }
       }
     }
   }
   function confirmPrompt(state: ProjectState) {
-    ++generation.current;
+    generation.current += 1;
     setRows(
       (old) =>
         old?.map((row) =>

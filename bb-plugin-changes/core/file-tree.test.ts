@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ChangedFile } from "./changes";
 import { compareFilePaths } from "./file-order";
-import { buildFileTree, visibleRows, type FileTreeRow } from "./file-tree";
+import { buildFileTree, visibleRows } from "./file-tree";
+import type { FileTreeRow } from "./file-tree";
 
 function file(path: string, previousPath: string | null = null): ChangedFile {
   return {

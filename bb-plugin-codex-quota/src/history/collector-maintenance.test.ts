@@ -3,10 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { createHostHistory } from "./history-host.js";
-import { openHistoryDatabase } from "./storage/history-storage.js";
+import { openHistoryDatabase, loadHistoryStorage } from "./storage/history-storage.js";
 import { packagedCollectorAsset } from "./collection/collector-compatibility.js";
 import { readFileSync } from "node:fs";
-import { loadHistoryStorage } from "./storage/history-storage.js";
 
 const publicationFailure = vi.hoisted(() => ({ control: "" }));
 vi.mock("node:fs/promises", async (original) => {
@@ -17,7 +16,9 @@ vi.mock("node:fs/promises", async (original) => {
       from: Parameters<typeof filesystem.rename>[0],
       to: Parameters<typeof filesystem.rename>[1],
     ) => {
-      if (to === publicationFailure.control) throw Error("private-publication-failure");
+      if (to === publicationFailure.control) {
+        throw Error("private-publication-failure");
+      }
       return filesystem.rename(from, to);
     },
   };
@@ -30,8 +31,8 @@ afterEach(async () => {
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp235-"));
   roots.push(root);
-  const agent = join(root, "agent"),
-    dataDir = join(root, "data");
+  const agent = join(root, "agent");
+  const dataDir = join(root, "data");
   await mkdir(agent);
   await writeFile(join(agent, "settings.json"), "unrelated-settings");
   const history = createHostHistory({ agentDir: () => agent, now: () => Date.UTC(2026, 9, 1) });
@@ -46,7 +47,9 @@ it.each([true, false])(
   "repairs existing bytes preserving capture enabled=%s and retained SQLite totals",
   async (enabled) => {
     const f = await fixture();
-    if (!enabled) await f.history.control("pause", f.context);
+    if (!enabled) {
+      await f.history.control("pause", f.context);
+    }
     const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"));
     db!.prepare("INSERT INTO workspace_totals VALUES (?,?,?)").run("/retained", 42, 2);
     db!.close();
@@ -100,12 +103,15 @@ it.each(["missing", "parent-missing", "symlink", "oversized"])(
   async (state) => {
     const f = await fixture();
     const before = await readFile(f.control);
-    if (state === "parent-missing")
+    if (state === "parent-missing") {
       await rm(join(f.agent, "extensions/bb-codex-usage"), { recursive: true });
-    else if (state === "oversized") await writeFile(f.asset, "x".repeat(65537));
-    else {
+    } else if (state === "oversized") {
+      await writeFile(f.asset, "x".repeat(65537));
+    } else {
       await rm(f.asset);
-      if (state === "symlink") await symlink(join(f.agent, "settings.json"), f.asset);
+      if (state === "symlink") {
+        await symlink(join(f.agent, "settings.json"), f.asset);
+      }
     }
     const result = await f.history.repairExisting(f.context);
     expect(result).toMatchObject({
@@ -113,12 +119,13 @@ it.each(["missing", "parent-missing", "symlink", "oversized"])(
       reason: state.includes("missing") ? "collector-missing" : "unsafe-collector",
     });
     expect(await readFile(f.control)).toEqual(before);
-    if (state.includes("missing"))
+    if (state.includes("missing")) {
       await expect(readFile(f.asset)).rejects.toMatchObject({ code: "ENOENT" });
-    else
+    } else {
       expect(await readFile(f.asset, "utf8")).toBe(
         state === "symlink" ? "unrelated-settings" : "x".repeat(65537),
       );
+    }
     f.history.dispose();
   },
 );
@@ -128,10 +135,18 @@ it.each(["missing", "malformed", "symlink", "oversized"])(
   async (state) => {
     const f = await fixture();
     await writeFile(f.asset, "old");
-    if (state === "missing" || state === "symlink") await rm(f.control);
-    if (state === "symlink") await symlink(join(f.agent, "settings.json"), f.control);
-    if (state === "malformed") await writeFile(f.control, '{"enabled":true}');
-    if (state === "oversized") await writeFile(f.control, "x".repeat(1025));
+    if (state === "missing" || state === "symlink") {
+      await rm(f.control);
+    }
+    if (state === "symlink") {
+      await symlink(join(f.agent, "settings.json"), f.control);
+    }
+    if (state === "malformed") {
+      await writeFile(f.control, '{"enabled":true}');
+    }
+    if (state === "oversized") {
+      await writeFile(f.control, "x".repeat(1025));
+    }
     expect(await f.history.repairExisting(f.context)).toMatchObject({ kind: "refused" });
     expect(await readFile(f.asset, "utf8")).toBe("old");
     expect(await readdir(join(f.agent, "extensions/bb-codex-usage"))).toEqual(["index.js"]);
@@ -159,7 +174,8 @@ it("uses queued eligibility rather than an earlier readiness, including a queued
 });
 
 it("cancellation settles the caller but retains the real queue turn", async () => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -169,7 +185,7 @@ it("cancellation settles the caller but retains the real queue turn", async () =
   let opens = 0;
   const history = createHostHistory({
     storage: async () => {
-      if (++opens === 1) {
+      if ((opens += 1) === 1) {
         entered();
         await held;
       }
@@ -288,9 +304,12 @@ it.each(["unsupported-storage", "invalid-collection", "import-only"])(
     const f = await fixture();
     await writeFile(f.asset, "old");
     const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"));
-    if (state === "unsupported-storage") db!.exec("PRAGMA user_version=99");
-    if (state === "invalid-collection")
+    if (state === "unsupported-storage") {
+      db!.exec("PRAGMA user_version=99");
+    }
+    if (state === "invalid-collection") {
       db!.exec("UPDATE collector_meta SET first_observed='invalid'");
+    }
     if (state === "import-only") {
       db!.exec("DELETE FROM collector_meta");
       await rm(f.control);
@@ -302,8 +321,11 @@ it.each(["unsupported-storage", "invalid-collection", "import-only"])(
       reason: state !== "import-only" ? "storage-ineligible" : "collection-invalid",
     });
     expect(await readFile(f.asset, "utf8")).toBe("old");
-    if (control) expect(await readFile(f.control)).toEqual(control);
-    else await expect(readFile(f.control)).rejects.toMatchObject({ code: "ENOENT" });
+    if (control) {
+      expect(await readFile(f.control)).toEqual(control);
+    } else {
+      await expect(readFile(f.control)).rejects.toMatchObject({ code: "ENOENT" });
+    }
     f.history.dispose();
   },
 );
@@ -337,7 +359,9 @@ it("does not report success when read-back fails after both durable publications
     agentDir: () => f.agent,
     now: () => Date.UTC(2026, 9, 1),
     storage: async () => (path, readonly) => {
-      if (readFileSync(f.asset, "utf8") !== "old") throw Error("private-readback-failure");
+      if (readFileSync(f.asset, "utf8") !== "old") {
+        throw Error("private-readback-failure");
+      }
       return factory(path, readonly);
     },
   });
@@ -363,9 +387,9 @@ it("rechecks missing eligibility after waiting behind uncooperative queued work"
   expect(await f.history.read(f.context)).toMatchObject({ reason: "collector-incompatible" });
   f.history.dispose();
   const factory = (await loadHistoryStorage())!;
-  let release!: () => void,
-    entered!: () => void,
-    loads = 0;
+  let release!: () => void;
+  let entered!: () => void;
+  let loads = 0;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -376,7 +400,7 @@ it("rechecks missing eligibility after waiting behind uncooperative queued work"
     agentDir: () => f.agent,
     now: () => Date.UTC(2026, 9, 1),
     storage: async () => {
-      if (++loads === 1) {
+      if ((loads += 1) === 1) {
         entered();
         await held;
       }

@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequire, syncBuiltinESMExports } from "node:module";
+
 const source = process.argv[2];
 assert.ok(source, "Pass the preserved schema-3 host artifact path");
 assert.equal(
@@ -22,10 +23,10 @@ assert.equal(
   "Use the exact pre-integration schema-3 artifact",
 );
 const root = mkdtempSync(join(tmpdir(), "bbp16-prior-"));
-const previousAgent = process.env.PI_CODING_AGENT_DIR,
-  previousFetch = globalThis.fetch;
-const sqlite = createRequire(import.meta.url)("node:sqlite"),
-  Original = sqlite.DatabaseSync;
+const previousAgent = process.env.PI_CODING_AGENT_DIR;
+const previousFetch = globalThis.fetch;
+const sqlite = createRequire(import.meta.url)("node:sqlite");
+const Original = sqlite.DatabaseSync;
 const load = (path) => import(pathToFileURL(path).href);
 function snapshot(path) {
   return readdirSync(path, { withFileTypes: true }).flatMap((entry) =>
@@ -35,10 +36,10 @@ function snapshot(path) {
   );
 }
 try {
-  const dataDir = join(root, "data"),
-    agent = join(root, "agent"),
-    directory = join(dataDir, "history"),
-    path = join(directory, "usage-v1.sqlite");
+  const dataDir = join(root, "data");
+  const agent = join(root, "agent");
+  const directory = join(dataDir, "history");
+  const path = join(directory, "usage-v1.sqlite");
   mkdirSync(dataDir);
   mkdirSync(agent);
   process.env.PI_CODING_AGENT_DIR = agent;
@@ -47,14 +48,14 @@ try {
   };
   const currentPath = join(root, "current-host.mjs");
   copyFileSync(new URL("../dist/host.js", import.meta.url), currentPath);
-  const current = await load(currentPath),
-    prior = await load(source);
-  const signal = new AbortController().signal,
-    context = {
-      signal,
-      lifecycle: { signal },
-      experimental_paths: { dataDir, tempDir: join(root, "temp") },
-    };
+  const current = await load(currentPath);
+  const prior = await load(source);
+  const signal = new AbortController().signal;
+  const context = {
+    signal,
+    lifecycle: { signal },
+    experimental_paths: { dataDir, tempDir: join(root, "temp") },
+  };
   // Public handler installs and pauses only this isolated fixture. No Pi session runs.
   assert.equal(
     (await current.default.handlers.collectorControl({ action: "install" }, context)).state,
@@ -74,21 +75,24 @@ try {
     "history_writer_observation",
     "identity_receipt",
     "import_generations",
-  ])
+  ]) {
     assert.ok(
       db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table),
     );
+  }
   db.exec(
     "CREATE TABLE owned_proof(id INTEGER PRIMARY KEY,value TEXT NOT NULL); INSERT INTO owned_proof VALUES(1,'preserved')",
   );
   db.close();
-  const database = readFileSync(path),
-    control = readFileSync(join(directory, "collector-control-v1.json")),
-    agentFiles = snapshot(agent);
+  const database = readFileSync(path);
+  const control = readFileSync(join(directory, "collector-control-v1.json"));
+  const agentFiles = snapshot(agent);
   const opens = [];
   sqlite.DatabaseSync = new Proxy(Original, {
     construct(target, args, newTarget) {
-      if (args[0] !== ":memory:") opens.push(args[0]);
+      if (args[0] !== ":memory:") {
+        opens.push(args[0]);
+      }
       return Reflect.construct(target, args, newTarget);
     },
   });
@@ -125,7 +129,10 @@ try {
   sqlite.DatabaseSync = Original;
   syncBuiltinESMExports();
   globalThis.fetch = previousFetch;
-  if (previousAgent === undefined) delete process.env.PI_CODING_AGENT_DIR;
-  else process.env.PI_CODING_AGENT_DIR = previousAgent;
+  if (previousAgent === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = previousAgent;
+  }
   rmSync(root, { recursive: true, force: true });
 }

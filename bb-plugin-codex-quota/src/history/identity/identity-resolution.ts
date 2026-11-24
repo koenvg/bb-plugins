@@ -24,7 +24,9 @@ export function resolveIdentity(
       .filter((row) => row.sessionId === record.sessionId && row.workspace === record.workspace)
       .map((row) => row.providerIdentity),
   );
-  if (record.providerSessionKey) keys.add(record.providerSessionKey.slice(0, -6));
+  if (record.providerSessionKey) {
+    keys.add(record.providerSessionKey.slice(0, -6));
+  }
   return resolveCandidates(
     record,
     edges.filter((row) => keys.has(row.providerIdentity)).map((row) => row.threadId),
@@ -40,15 +42,19 @@ export function resolveCandidates(
     grade: record.workspace ? "workspace-only" : "unattributed",
     threadId: null,
   } as const;
-  if (record.claimedThreadId && !validThreadId(record.claimedThreadId))
+  if (record.claimedThreadId && !validThreadId(record.claimedThreadId)) {
     return { grade: "ambiguous", threadId: null };
+  }
   const candidates = new Set(threadIds);
   if (
     candidates.size > 1 ||
     (candidates.size && record.claimedThreadId && !candidates.has(record.claimedThreadId))
-  )
+  ) {
     return { grade: "ambiguous", threadId: null };
-  if (!complete || candidates.size !== 1) return fallback;
+  }
+  if (!complete || candidates.size !== 1) {
+    return fallback;
+  }
   const threadId = [...candidates][0]!;
   return validThreadId(threadId)
     ? { grade: "exact-thread", threadId }

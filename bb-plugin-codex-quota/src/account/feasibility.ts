@@ -10,7 +10,9 @@ export function accountClaim(token: string): string | null {
       Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"),
     ) as Record<string, unknown>;
     const claim = jwt["https://api.openai.com/auth"];
-    if (!claim || typeof claim !== "object" || Array.isArray(claim)) return null;
+    if (!claim || typeof claim !== "object" || Array.isArray(claim)) {
+      return null;
+    }
     const id = (claim as Record<string, unknown>).chatgpt_account_id;
     return typeof id === "string" && id.length > 0 && id.length <= 256 ? id : null;
   } catch {
@@ -20,17 +22,25 @@ export function accountClaim(token: string): string | null {
 
 async function boundedJson(response: Response): Promise<unknown> {
   const size = Number(response.headers.get("content-length"));
-  if (Number.isFinite(size) && size > MAX_RESPONSE_BYTES) throw new Error("oversize");
-  if (!response.body) throw new Error("missing-body");
+  if (Number.isFinite(size) && size > MAX_RESPONSE_BYTES) {
+    throw new Error("oversize");
+  }
+  if (!response.body) {
+    throw new Error("missing-body");
+  }
   const reader = response.body.getReader();
   let sizeRead = 0;
   const chunks: Uint8Array[] = [];
   try {
     while (true) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done) {
+        break;
+      }
       sizeRead += value.byteLength;
-      if (sizeRead > MAX_RESPONSE_BYTES) throw new Error("oversize");
+      if (sizeRead > MAX_RESPONSE_BYTES) {
+        throw new Error("oversize");
+      }
       chunks.push(value);
     }
   } finally {
@@ -53,15 +63,21 @@ async function quotaPayload(
     Authorization: `Bearer ${token}`,
   };
   const id = accountClaim(token);
-  if (id) headers["ChatGPT-Account-Id"] = id;
+  if (id) {
+    headers["ChatGPT-Account-Id"] = id;
+  }
   let response: Response;
   try {
     response = await fetchImpl(QUOTA_URL, { method: "GET", headers, signal });
   } catch {
     return { status: "network" };
   }
-  if (response.status === 401 || response.status === 403) return { status: "auth-expired" };
-  if (!response.ok) return { status: "service" };
+  if (response.status === 401 || response.status === 403) {
+    return { status: "auth-expired" };
+  }
+  if (!response.ok) {
+    return { status: "service" };
+  }
   try {
     return { status: "ok", payload: await boundedJson(response) };
   } catch {
@@ -79,7 +95,9 @@ export async function fetchNormalizedQuota(
   | { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null }
 > {
   const read = await quotaPayload(token, signal, fetchImpl);
-  if (read.status !== "ok") return { status: read.status, snapshot: null };
+  if (read.status !== "ok") {
+    return { status: read.status, snapshot: null };
+  }
   const snapshot = normalizeQuota(read.payload, observedAtMs);
   return snapshot ? { status: "ok", snapshot } : { status: "unsupported", snapshot: null };
 }

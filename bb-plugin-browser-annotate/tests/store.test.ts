@@ -2,11 +2,14 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { urlKey } from "../lib/annotation";
-import { ANNOTATION_MIGRATIONS, createAnnotationStore, type NewAnnotation } from "../lib/store";
+import { ANNOTATION_MIGRATIONS, createAnnotationStore } from "../lib/store";
+import type { NewAnnotation } from "../lib/store";
 
 function setup() {
   const db = new Database(":memory:");
-  for (const statement of ANNOTATION_MIGRATIONS) db.exec(statement);
+  for (const statement of ANNOTATION_MIGRATIONS) {
+    db.exec(statement);
+  }
   return createAnnotationStore(db, () => 1000);
 }
 

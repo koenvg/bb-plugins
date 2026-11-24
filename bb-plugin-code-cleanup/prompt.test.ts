@@ -8,7 +8,9 @@ import { defaultGuidance } from "./guidance";
 
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 async function setup() {
   const host = createFakePluginHost({
@@ -41,8 +43,7 @@ describe("prompt Settings through public RPC and real storage", () => {
     });
     const db = host.bb.storage.database();
     const other = db.prepare("SELECT * FROM project_settings WHERE project_id = ?").get("proj_b");
-    const text =
-      '  # Guidance\r\n\n- `$(name)` and ${HOME} <script>literal</script>\n```sh\necho "$HOME"\n```\n\n ';
+    const text = `  # Guidance\r\n\n- \`$(name)\` and \${HOME} <script>literal</script>\n\`\`\`sh\necho "$HOME"\n\`\`\`\n\n `;
     expect(
       await call("setPrompt", { projectId: "proj_a", prompt: text, expectedPrompt: null }),
     ).toEqual({
@@ -105,7 +106,7 @@ describe("prompt Settings through public RPC and real storage", () => {
       "INSERT INTO project_settings (project_id, enabled, prompt, enabled_override) VALUES (?, ?, ?, ?)",
     ).run("proj_b", 0, "Disabled\n", 0);
     const rows = db.prepare("SELECT * FROM project_settings ORDER BY project_id").all();
-    for (let n = 0; n < 2; n++) {
+    for (let n = 0; n < 2; n += 1) {
       host = await host.harness.lifecycle.reload(plugin);
       hosts.pop();
       hosts.push(host.harness);
@@ -145,12 +146,13 @@ describe("prompt Settings through public RPC and real storage", () => {
         ).exitCode,
       ).toBe(1);
     }
-    for (const projectId of ["missing", "personal", ""])
+    for (const projectId of ["missing", "personal", ""]) {
       for (const prompt of [null, "valid"]) {
         await expect(
           call("setPrompt", { projectId, prompt, expectedPrompt: null }),
         ).rejects.toThrow();
       }
+    }
     for (const input of [
       { projectId: "proj_a" },
       { projectId: "proj_a", prompt: 1 },
@@ -172,10 +174,11 @@ describe("prompt Settings through public RPC and real storage", () => {
     db.exec(
       "CREATE TRIGGER reject_prompt_write BEFORE UPDATE ON project_settings BEGIN SELECT RAISE(ABORT, 'fixture storage failure'); END",
     );
-    for (const prompt of ["Draft\n", null])
+    for (const prompt of ["Draft\n", null]) {
       await expect(
         call("setPrompt", { projectId: "proj_a", prompt, expectedPrompt: "Saved\n" }),
       ).rejects.toThrow("fixture storage failure");
+    }
     expect(db.prepare("SELECT * FROM project_settings").all()).toEqual(before);
   });
 });

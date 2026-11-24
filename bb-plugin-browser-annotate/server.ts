@@ -1,13 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import {
-  CHANGED_CHANNEL,
-  MAX_IMAGE_BYTES,
-  MENTION_PROVIDER_ID,
-  pillLabel,
-  type Annotation,
-} from "./lib/annotation";
+import { CHANGED_CHANNEL, MAX_IMAGE_BYTES, MENTION_PROVIDER_ID, pillLabel } from "./lib/annotation";
+import type { Annotation } from "./lib/annotation";
 import {
   annotationContext,
   MISSING_ANNOTATION_CONTEXT,
@@ -15,7 +10,8 @@ import {
 } from "./lib/agent-context";
 import { rpcContract } from "./lib/contract";
 import { createImageStore } from "./lib/images";
-import { ANNOTATION_MIGRATIONS, createAnnotationStore, type StoredAnnotation } from "./lib/store";
+import { ANNOTATION_MIGRATIONS, createAnnotationStore } from "./lib/store";
+import type { StoredAnnotation } from "./lib/store";
 
 // BB may read a sent image after the send, for example for a queued message,
 // so the files of sent annotations outlive their rows.
@@ -31,7 +27,9 @@ function toAnnotation({
 
 function decodeJpeg(base64: string): Uint8Array {
   const bytes = Buffer.from(base64, "base64");
-  if (bytes.length > MAX_IMAGE_BYTES) throw new Error("The annotation image is too large.");
+  if (bytes.length > MAX_IMAGE_BYTES) {
+    throw new Error("The annotation image is too large.");
+  }
   if (bytes.length < 3 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
     throw new Error("The annotation image must be a JPEG.");
   }
@@ -46,7 +44,9 @@ function imageRoot(bb: BbPluginApi): string {
     .prepare<[], DatabaseListRow>("PRAGMA database_list")
     .all()
     .find((database) => database.name === "main");
-  if (!main?.file) throw new Error("Browser annotation images need a file-backed plugin database.");
+  if (!main?.file) {
+    throw new Error("Browser annotation images need a file-backed plugin database.");
+  }
   return join(dirname(main.file), "annotations");
 }
 
@@ -80,16 +80,22 @@ export default function plugin(bb: BbPluginApi) {
       }
     },
     update({ threadId, id, comment }) {
-      if (!owned(threadId, id)) throw new Error("Unknown annotation.");
+      if (!owned(threadId, id)) {
+        throw new Error("Unknown annotation.");
+      }
       store.updateComment(id, comment);
       changed(threadId);
       return toAnnotation(store.get(id)!);
     },
     async remove({ threadId, id }) {
       const annotation = owned(threadId, id);
-      if (!annotation) return { removed: [] };
+      if (!annotation) {
+        return { removed: [] };
+      }
       store.remove(id);
-      if (annotation.resolvedAt === null) await images.remove(annotation.imagePath);
+      if (annotation.resolvedAt === null) {
+        await images.remove(annotation.imagePath);
+      }
       changed(threadId);
       return { removed: [id] };
     },
@@ -101,7 +107,9 @@ export default function plugin(bb: BbPluginApi) {
     },
     clearResolved({ threadId }) {
       const removed = store.removeResolved(threadId);
-      if (removed.length > 0) changed(threadId);
+      if (removed.length > 0) {
+        changed(threadId);
+      }
       void sweep();
       return { removed: removed.map((annotation) => annotation.id) };
     },
@@ -114,7 +122,9 @@ export default function plugin(bb: BbPluginApi) {
     async resolve(id) {
       try {
         const annotation = store.get(id);
-        if (!annotation) return { context: MISSING_ANNOTATION_CONTEXT };
+        if (!annotation) {
+          return { context: MISSING_ANNOTATION_CONTEXT };
+        }
         store.markResolved(id);
         const hasImage = await images.exists(annotation.imagePath);
         return {

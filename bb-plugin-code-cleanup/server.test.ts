@@ -4,7 +4,9 @@ import plugin from "./server";
 
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 
 async function setup() {

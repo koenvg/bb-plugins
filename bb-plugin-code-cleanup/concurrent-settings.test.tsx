@@ -12,7 +12,9 @@ import plugin from "./server";
 const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
 afterEach(async () => {
   cleanup();
-  while (hosts.length) await hosts.pop()!.lifecycle.dispose();
+  while (hosts.length) {
+    await hosts.pop()!.lifecycle.dispose();
+  }
 });
 const choices = [
   { id: "proj_a", name: "Alpha" },
@@ -68,7 +70,9 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
 }
 async function select(view: Awaited<ReturnType<typeof mount>>, name = "Alpha") {
   const ui = within(view.container);
-  if (ui.queryByRole("dialog")) await userEvent.click(ui.getByRole("button", { name: "Cancel" }));
+  if (ui.queryByRole("dialog")) {
+    await userEvent.click(ui.getByRole("button", { name: "Cancel" }));
+  }
   await userEvent.click(await ui.findByRole("button", { name: `Edit prompt for ${name}` }));
   await ui.findByRole("textbox");
   return ui;
@@ -224,7 +228,7 @@ describe("Settings invalidation and conflict recovery", () => {
     let reads = 0;
     const view = await mount({
       getProject: ({ projectId }) =>
-        ++reads === 2 ? late.promise : state(projectId, `Read ${reads}`),
+        (reads += 1) === 2 ? late.promise : state(projectId, `Read ${reads}`),
     });
     const ui = await select(view);
     await view.behavior.emitRealtime("settings.changed", { kind: "project", projectId: "proj_b" });
@@ -242,7 +246,7 @@ describe("Settings invalidation and conflict recovery", () => {
     const late = deferred<ProjectState>();
     let reads = 0;
     const view = await mount({
-      getProject: ({ projectId }) => (++reads === 1 ? state(projectId) : late.promise),
+      getProject: ({ projectId }) => ((reads += 1) === 1 ? state(projectId) : late.promise),
     });
     const ui = await select(view);
     await view.behavior.emitRealtime("settings.changed", { kind: "project", projectId: "proj_a" });
@@ -264,7 +268,9 @@ describe("Settings invalidation and conflict recovery", () => {
     let reads = 0;
     const view = await mount({
       getProject: ({ projectId }) =>
-        ++reads === 2 ? oldRead.promise : state(projectId, reads === 1 ? "Loaded\n" : "Newest"),
+        (reads += 1) === 2
+          ? oldRead.promise
+          : state(projectId, reads === 1 ? "Loaded\n" : "Newest"),
       setPrompt: () => saved.promise,
     });
     const ui = await select(view);
@@ -289,7 +295,9 @@ describe("Settings invalidation and conflict recovery", () => {
     let fail = false;
     const view = await mount({
       getProject: ({ projectId }) => {
-        if (fail) throw new Error("offline");
+        if (fail) {
+          throw new Error("offline");
+        }
         return state(projectId, "Saved value");
       },
     });
@@ -317,7 +325,8 @@ describe("Settings invalidation and conflict recovery", () => {
     const late = deferred<ProjectState>();
     let reads = 0;
     const view = await mount({
-      getProject: ({ projectId }) => (++reads === 2 ? late.promise : state(projectId, projectId)),
+      getProject: ({ projectId }) =>
+        (reads += 1) === 2 ? late.promise : state(projectId, projectId),
     });
     const ui = await select(view);
     await view.behavior.emitRealtime("settings.changed", { kind: "project", projectId: "proj_a" });
@@ -380,9 +389,11 @@ describe("Settings invalidation and conflict recovery", () => {
     let writes = 0;
     const view = await mount({
       getProject: ({ projectId }) =>
-        state(projectId, ++reads === 1 ? "Loaded\n" : "Changed externally"),
+        state(projectId, (reads += 1) === 1 ? "Loaded\n" : "Changed externally"),
       setPrompt: () => {
-        if (++writes === 1) return late.promise;
+        if ((writes += 1) === 1) {
+          return late.promise;
+        }
         return { status: "conflict", state: state("proj_a", "Changed externally") };
       },
     });
@@ -449,18 +460,23 @@ describe("Settings invalidation and conflict recovery", () => {
       let failRead = false;
       const view = await mount({
         getProject: ({ projectId }) => {
-          if (failRead) throw new Error("Reload offline");
+          if (failRead) {
+            throw new Error("Reload offline");
+          }
           return state(projectId, "Current saved text");
         },
         setPrompt: ({ projectId, prompt }) => {
-          if (outcome === "failed") throw new Error("Save offline");
+          if (outcome === "failed") {
+            throw new Error("Save offline");
+          }
           return { status: "saved", state: state(projectId, prompt) };
         },
       });
       const ui = await select(view);
       const editor = await edit(ui, "Written draft");
-      if (outcome === "failed") await userEvent.click(ui.getByRole("button", { name: "Save" }));
-      else {
+      if (outcome === "failed") {
+        await userEvent.click(ui.getByRole("button", { name: "Save" }));
+      } else {
         await userEvent.click(ui.getByRole("button", { name: "Reset to plugin default" }));
         await userEvent.click(ui.getByRole("button", { name: "Confirm reset" }));
       }
@@ -469,8 +485,9 @@ describe("Settings invalidation and conflict recovery", () => {
       await ui.findByText(feedback);
       async function reload() {
         await userEvent.click(ui.getByRole("button", { name: "Reload saved settings" }));
-        if (outcome === "failed")
+        if (outcome === "failed") {
           await userEvent.click(ui.getByRole("button", { name: "Discard and reload" }));
+        }
       }
       failRead = true;
       await reload();

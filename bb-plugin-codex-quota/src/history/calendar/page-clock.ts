@@ -6,12 +6,16 @@ export function usePageClock() {
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
     const tick = () => {
-      if (document.visibilityState === "visible") setNow(Date.now());
+      if (document.visibilityState === "visible") {
+        setNow(Date.now());
+      }
     };
     const visibility = () => {
       clearInterval(timer);
       tick();
-      if (document.visibilityState === "visible") timer = setInterval(tick, 1000);
+      if (document.visibilityState === "visible") {
+        timer = setInterval(tick, 1000);
+      }
     };
     visibility();
     document.addEventListener("visibilitychange", visibility);

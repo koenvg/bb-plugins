@@ -1,5 +1,27 @@
 import { videoResultSchema } from "./core/video-content";
-import { imagePathSchema, imageShaSchema } from "./core/image-content";
+import {
+  imagePathSchema,
+  imageShaSchema,
+  imageResultSchema,
+  imageSideSchema,
+} from "./core/image-content";
+import { MAX_CONTEXT_BYTES, textContextResultSchema } from "./core/text-context";
+import {
+  changedFileSchema,
+  changesBasisSchema,
+  changesResultSchema,
+  diffQuerySchema,
+  diffTargetSchema,
+  patchesResultSchema,
+  sendFeedbackResultSchema,
+} from "./core/changes";
+import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { z } from "zod";
+import {
+  getViewedResultSchema,
+  updateViewedResultSchema,
+  viewedMarksSchema,
+} from "./core/viewed-files";
 
 export const workspaceVideoRequestSchema = z
   .object({
@@ -14,23 +36,6 @@ export const workspaceVideoRequestSchema = z
 export const hostContract = defineRpcContract({
   readVideo: { input: workspaceVideoRequestSchema, output: videoResultSchema },
 });
-import { MAX_CONTEXT_BYTES, textContextResultSchema } from "./core/text-context";
-import { imageResultSchema, imageSideSchema } from "./core/image-content";
-import { changedFileSchema, changesBasisSchema } from "./core/changes";
-import { defineRpcContract } from "@get-bb/plugin-sdk";
-import { z } from "zod";
-import {
-  changesResultSchema,
-  diffQuerySchema,
-  diffTargetSchema,
-  patchesResultSchema,
-  sendFeedbackResultSchema,
-} from "./core/changes";
-import {
-  getViewedResultSchema,
-  updateViewedResultSchema,
-  viewedMarksSchema,
-} from "./core/viewed-files";
 
 export const rpcContract = defineRpcContract({
   getVideo: {

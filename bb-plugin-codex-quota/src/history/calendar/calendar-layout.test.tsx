@@ -62,8 +62,8 @@ it("keeps just date navigation and two local metrics", async () => {
   expect(screen.queryByText("Report options")).toBeNull();
 });
 it("keeps missing data null rather than drawing invented usage", () => {
-  const view = calendarSnapshot(query),
-    data = chartData(view.days, "tokens");
+  const view = calendarSnapshot(query);
+  const data = chartData(view.days, "tokens");
   expect(data.rows[0].value).toBeNull();
   expect(data.rows[0].height).toBeNull();
   expect(data.rows[14].value).toBe(600);
@@ -131,15 +131,17 @@ it.each([
 ])(
   "preserves $total recorded tokens with $state category detail",
   ({ state, total, available, remainder }) => {
-    const view = calendarSnapshot(query),
-      day = view.days[14];
+    const view = calendarSnapshot(query);
+    const day = view.days[14];
     day.totalTokens = total;
     view.summary.totalTokens = total;
-    if (state === "missing") day.classes = { state: "unavailable" };
+    if (state === "missing") {
+      day.classes = { state: "unavailable" };
+    }
     // Otherwise retain the recorded example: 40 input + 360 output + 200 cache read.
     // Its 100 reasoning tokens are part of output, not another contribution to the total.
-    const data = chartData(view.days, "tokens"),
-      row = data.rows[14];
+    const data = chartData(view.days, "tokens");
+    const row = data.rows[14];
     expect(data.maximum).toBe(total);
     expect(row.value).toBe(total);
     expect(row.height).toBe(1);
@@ -203,8 +205,8 @@ it("keeps the total and unclassified caveat without unavailable category detail"
   ]);
 });
 it("rounds captured prices and keeps model pricing details in the title", () => {
-  const view = calendarSnapshot(query),
-    day = view.days[14];
+  const view = calendarSnapshot(query);
+  const day = view.days[14];
   day.money = {
     state: "partial",
     capturedCost: 0.39813160000000003,
@@ -282,8 +284,8 @@ it.each([
   expect(captured).toContain(displayed);
 });
 it("keeps billing limits and daily attribution exclusions in the screen-reader table", () => {
-  const view = calendarSnapshot(query),
-    day = view.days[14];
+  const view = calendarSnapshot(query);
+  const day = view.days[14];
   day.money = {
     state: "partial",
     capturedCost: 0.39813160000000003,
@@ -324,10 +326,12 @@ it("keeps date arrows visually compact with larger coarse-pointer hit areas", as
       "items-center",
       "justify-center",
       "shrink-0",
-    ])
+    ]) {
       expect(button.classList.contains(token)).toBe(true);
-    for (const token of ["h-8", "px-3", "py-2"])
+    }
+    for (const token of ["h-8", "px-3", "py-2"]) {
       expect(button.classList.contains(token)).toBe(false);
+    }
     expect(button.querySelector("svg")?.classList.contains("shrink-0")).toBe(true);
     expect(button.querySelector("span")?.classList.contains("size-8")).toBe(true);
     expect(button.classList.contains("text-muted-foreground")).toBe(true);
