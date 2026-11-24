@@ -30,11 +30,14 @@ function signedMediaOf(html: string): Map<string, SignedMedia> {
   const media = new Map<string, SignedMedia>();
   for (const [, tag, src] of html.matchAll(MEDIA_TAG)) {
     const url = src.replaceAll("&amp;", "&");
-    if (!url.startsWith(SIGNED_HOST)) continue;
+    if (!url.startsWith(SIGNED_HOST)) {
+      continue;
+    }
     const parsed = new URL(url);
     const assetId = parsed.pathname.match(ASSET_ID)?.[0];
-    if (assetId !== undefined)
+    if (assetId !== undefined) {
       media.set(assetId, { url, video: tag === "video", expiresAt: expiresAt(parsed) });
+    }
   }
   return media;
 }
@@ -55,12 +58,21 @@ export function createMediaSigner(now: () => number): SignMedia {
   const isFresh = (media: SignedMedia) => media.expiresAt - EXPIRY_MARGIN_MS > now();
   return (markdown, html) => {
     const media = signedMediaOf(html);
-    if (media.size === 0) return markdown;
-    for (const [assetId, kept] of known) if (!isFresh(kept)) known.delete(assetId);
+    if (media.size === 0) {
+      return markdown;
+    }
+    for (const [assetId, kept] of known) {
+      if (!isFresh(kept)) {
+        known.delete(assetId);
+      }
+    }
     for (const [assetId, signed] of media) {
       const kept = known.get(assetId);
-      if (kept !== undefined) media.set(assetId, kept);
-      else known.set(assetId, signed);
+      if (kept !== undefined) {
+        media.set(assetId, kept);
+      } else {
+        known.set(assetId, signed);
+      }
     }
     return withMedia(markdown, media);
   };

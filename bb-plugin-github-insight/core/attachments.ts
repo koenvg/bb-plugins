@@ -62,7 +62,9 @@ export function attachmentTag({ alt, url }: Attachment): string {
 }
 
 export function withAttachments(body: string, images: readonly Attachment[]): string {
-  if (images.length === 0) return body;
+  if (images.length === 0) {
+    return body;
+  }
   const tags = images.map(attachmentTag).join("\n");
   const text = body.trimEnd();
   return text === "" ? tags : `${text}\n\n${tags}`;
@@ -79,7 +81,9 @@ export function draftAttachments(body: string): Attachment[] {
       [...tag.matchAll(ATTRIBUTE)].map(([, name, value]) => [name!.toLowerCase(), value!]),
     );
     const url = attributes.get("src");
-    if (url === undefined || !isAttachmentUrl(url)) continue;
+    if (url === undefined || !isAttachmentUrl(url)) {
+      continue;
+    }
     attachments.push({ alt: unescapeHtml(attributes.get("alt") ?? ""), url });
   }
   return attachments;

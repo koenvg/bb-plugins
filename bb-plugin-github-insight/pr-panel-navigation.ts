@@ -35,10 +35,14 @@ export function receivePrPanel(
       delete client[PENDING];
       return;
     }
-    if (!request || request.threadId !== threadId || request.opening) return;
+    if (!request || request.threadId !== threadId || request.opening) {
+      return;
+    }
     request.opening = true;
     try {
-      if (open() && client[PENDING]?.token === request.token) delete client[PENDING];
+      if (open() && client[PENDING]?.token === request.token) {
+        delete client[PENDING];
+      }
     } catch (error) {
       console.warn("github-insight: unable to open the requested PR panel", error);
     } finally {

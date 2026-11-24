@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -10,8 +10,8 @@ import plugin from "../../plugin/server.js";
 import { hostContract } from "../../quota/contract.js";
 import { openHistoryDatabase } from "../storage/history-storage.js";
 import { execFileSync } from "node:child_process";
-import { unlink } from "node:fs/promises";
 import { chartData } from "../calendar/calendar-chart-data.js";
+
 const roots: string[] = [];
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((p) => rm(p, { recursive: true, force: true })));
@@ -19,8 +19,8 @@ afterEach(async () => {
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp22-host-"));
   roots.push(root);
-  const source = join(root, "source"),
-    workspace = join(root, "workspace");
+  const source = join(root, "source");
+  const workspace = join(root, "workspace");
   await mkdir(source);
   await mkdir(workspace);
   const paths = { dataDir: join(root, "data"), tempDir: join(root, "temp") };
@@ -28,7 +28,7 @@ async function fixture() {
   const history = createHostHistory({
     agentDir: () => join(root, "agent"),
     now: () => Date.parse("2026-10-03T00:00:00.000Z"),
-    bodyRead: () => reads++,
+    bodyRead: () => (reads += 1) - 1,
   });
   const entry = createQuotaHostEntry({
     history,
@@ -153,8 +153,9 @@ it.each([
         "historicalImport",
         f.input({ action: "start" }),
       );
-      for (let i = 0; i < 10 && view.generation?.state === "stopped"; i++)
+      for (let i = 0; i < 10 && view.generation?.state === "stopped"; i += 1) {
         view = await f.harness.experimental_call("historicalImport", f.input({ action: "resume" }));
+      }
       expect(view.generation).toMatchObject({ state: "completed", records: 2 });
       const report = await f.harness.experimental_call("calendarReport", {
         startDate: "2026-09-04",
@@ -162,7 +163,9 @@ it.each([
         group: "workspace",
         scope: { kind: "host" },
       });
-      if (report.state === "unavailable") throw Error(report.reason);
+      if (report.state === "unavailable") {
+        throw Error(report.reason);
+      }
       const day = report.days[27];
       expect(day.models).toEqual({
         named: [
@@ -218,8 +221,9 @@ it("opens status without setup, supports import-only storage, persists reload an
     expect(saved.generation?.state).toBe("stopped");
     expect(saved.generation?.bytes).toBe(0);
     let view = saved;
-    for (let i = 0; i < 10 && view.generation?.state === "stopped"; i++)
+    for (let i = 0; i < 10 && view.generation?.state === "stopped"; i += 1) {
       view = await history.controlImport!({ action: "resume" }, context);
+    }
     expect(view.generation?.state).toBe("completed");
     const db = (await openHistoryDatabase(join(f.paths.dataDir, "history/usage-v1.sqlite"), true))!;
     try {
@@ -298,12 +302,15 @@ it.each([
       const ready = await f.harness.experimental_call("historyReadiness", {
         identities: f.identities,
       });
-      if (action === "resume")
+      if (action === "resume") {
         await f.harness.experimental_call("historicalImport", f.input({ action: "start" }));
-      let release!: () => void, entered!: () => void;
-      const wait = new Promise<void>((r) => (release = r)),
-        blocked = new Promise<void>((r) => (entered = r));
-      let releaseAccount!: () => void, enteredAccount!: () => void;
+      }
+      let release!: () => void;
+      let entered!: () => void;
+      const wait = new Promise<void>((r) => (release = r));
+      const blocked = new Promise<void>((r) => (entered = r));
+      let releaseAccount!: () => void;
+      let enteredAccount!: () => void;
       const accountHeld = new Promise<void>((resolve) => {
         releaseAccount = resolve;
       });
@@ -334,7 +341,9 @@ it.each([
             }
             return ready;
           }
-          if (method !== "historicalImport") throw Error("unexpected dispatch");
+          if (method !== "historicalImport") {
+            throw Error("unexpected dispatch");
+          }
           dispatches.push((input as { command: { action: string } }).command.action);
           signal?.throwIfAborted();
           return f.harness.experimental_call(
@@ -345,8 +354,9 @@ it.each([
       });
       await plugin(server.bb);
       server.harness.inspection.sdk.stub("environments.list", async () => {
-        if (++pages === 1)
+        if ((pages += 1) === 1) {
           return Array.from({ length: 50 }, () => ({ hostId: "host-a", path: f.workspace }));
+        }
         entered();
         await wait;
         return [];

@@ -7,8 +7,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
+import type { ReactNode } from "react";
 import { Markdown, useRpc } from "@get-bb/plugin-sdk/app";
 import type { DisplayedDrafts, rpcContract } from "../contract";
 import { attachmentTag, draftAttachments } from "../core/attachments";
@@ -159,13 +159,17 @@ export function CommentDraftsProvider({
 
 export function useCommentDrafts(): CommentDrafts {
   const drafts = useContext(CommentDraftsContext);
-  if (drafts === null) throw new Error("useCommentDrafts needs a CommentDraftsProvider");
+  if (drafts === null) {
+    throw new Error("useCommentDrafts needs a CommentDraftsProvider");
+  }
   return drafts;
 }
 
 export function useNewComments(): NewComments {
   const newComments = useContext(NewCommentsContext);
-  if (newComments === null) throw new Error("useNewComments needs a CommentDraftsProvider");
+  if (newComments === null) {
+    throw new Error("useNewComments needs a CommentDraftsProvider");
+  }
   return newComments;
 }
 
@@ -182,7 +186,9 @@ export function CommentDraftCard({
   const box = useRef<HTMLTextAreaElement>(null);
   const { focusDraftId, clearFocus } = useNewComments();
   useEffect(() => {
-    if (focusDraftId !== draft.id) return;
+    if (focusDraftId !== draft.id) {
+      return;
+    }
     box.current?.focus();
     clearFocus();
   }, [focusDraftId, clearFocus, draft.id]);
@@ -255,7 +261,9 @@ function DraftImages({
         .join("\n"),
     [text, draftMedia],
   );
-  if (content === "") return null;
+  if (content === "") {
+    return null;
+  }
   return (
     <div className="leading-relaxed [&_img]:max-h-80 [&_img]:rounded-md">
       <Markdown content={content} />

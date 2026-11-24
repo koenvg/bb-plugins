@@ -1,5 +1,6 @@
 import type { PrAction } from "../contract";
-import { AUTO_MERGE_METHOD_LABEL, type AutoMergeAction } from "../core/auto-merge";
+import { AUTO_MERGE_METHOD_LABEL } from "../core/auto-merge";
+import type { AutoMergeAction } from "../core/auto-merge";
 import type { PrInsight } from "../core/overview";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";

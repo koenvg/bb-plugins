@@ -1,13 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, renderHook } from "@testing-library/react";
-import {
-  peekIntent,
-  postIntent,
-  useCommandIntent,
-  type CommandTab,
-  type IntentOf,
-} from "./command-intents";
+import { peekIntent, postIntent, useCommandIntent } from "./command-intents";
+import type { CommandTab, IntentOf } from "./command-intents";
 
 afterEach(() => {
   cleanup();

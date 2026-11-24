@@ -47,7 +47,9 @@ function actorKind(actor: z.infer<typeof loginActorSchema>): Reviewer["kind"] {
 
 function requestedReviewer(request: ReviewRequestNode): Reviewer | null {
   const reviewer = request.requestedReviewer;
-  if (reviewer === null) return null;
+  if (reviewer === null) {
+    return null;
+  }
   const identity =
     reviewer.__typename === "Team"
       ? { name: reviewer.slug, kind: "team" as const }
@@ -56,7 +58,9 @@ function requestedReviewer(request: ReviewRequestNode): Reviewer | null {
 }
 
 function reviewedReviewer(review: ReviewNode): Reviewer | null {
-  if (review.author === null || review.state === "PENDING") return null;
+  if (review.author === null || review.state === "PENDING") {
+    return null;
+  }
   return {
     name: review.author.login,
     kind: actorKind(review.author),
@@ -72,9 +76,13 @@ export function buildReviewers(
   const byKey = new Map<string, Reviewer>();
   const candidates = [...requests.map(requestedReviewer), ...reviews.map(reviewedReviewer)];
   for (const reviewer of candidates) {
-    if (reviewer === null) continue;
+    if (reviewer === null) {
+      continue;
+    }
     const key = reviewerKey(reviewer);
-    if (!byKey.has(key)) byKey.set(key, reviewer);
+    if (!byKey.has(key)) {
+      byKey.set(key, reviewer);
+    }
   }
   return [...byKey.values()];
 }

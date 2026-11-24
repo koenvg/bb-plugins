@@ -10,8 +10,11 @@ it.each([false, true])(
     const root = await mkdtemp(join(tmpdir(), "bbp22-fifo-"));
     const path = join(root, "pipe.jsonl");
     try {
-      if (race) await writeFile(path, "owned regular source\n");
-      else execFileSync("mkfifo", [path]);
+      if (race) {
+        await writeFile(path, "owned regular source\n");
+      } else {
+        execFileSync("mkfifo", [path]);
+      }
       // A separate process makes a regression's blocking open bounded even when cancellation cannot reach it.
       const program = `
       import promises from 'node:fs/promises';

@@ -1,5 +1,6 @@
 import type { PrImageBasis } from "../core/pr-image-basis";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, SendToAgentResult } from "../contract";
 import { commentStops } from "../core/comment-stops";
@@ -19,9 +20,8 @@ import {
   openThreads,
   threadsWithComments,
   visibleThreads,
-  type PlacedThread,
-  type ThreadPlacement,
 } from "../core/thread-placement";
+import type { PlacedThread, ThreadPlacement } from "../core/thread-placement";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { useCommandIntent } from "./command-intents";
@@ -37,11 +37,8 @@ import { OutdatedThreads } from "./outdated-threads";
 import { SubmitPanel, SubmitReviewToggle } from "./submit-panel";
 import { ThreadActionsProvider } from "./thread-actions";
 import { ThreadSelectionContext, useThreadSelectionState } from "./thread-selection";
-import {
-  useCommentNavigation,
-  type CommentNavigation,
-  type StepDirection,
-} from "./use-comment-navigation";
+import { useCommentNavigation } from "./use-comment-navigation";
+import type { CommentNavigation, StepDirection } from "./use-comment-navigation";
 import { usePrViewed } from "./use-pr-viewed";
 import { useThreadResult } from "./use-thread-result";
 import { ViewerReviewBadge } from "./viewer-review-badge";
@@ -54,15 +51,22 @@ function useReview(threadId: string) {
   const latestDraftsRequest = useRef(0);
 
   const reloadDrafts = useCallback(() => {
-    const request = ++latestDraftsRequest.current;
+    const request = (latestDraftsRequest.current += 1);
     void rpc.call("getDrafts", { threadId }).then(
       (drafts) => {
-        if (request !== latestDraftsRequest.current) return;
-        if (drafts.kind !== "ok") reload();
-        else patch((result) => (result.kind === "ok" ? { ...result, ...drafts } : result));
+        if (request !== latestDraftsRequest.current) {
+          return;
+        }
+        if (drafts.kind !== "ok") {
+          reload();
+        } else {
+          patch((result) => (result.kind === "ok" ? { ...result, ...drafts } : result));
+        }
       },
       () => {
-        if (request === latestDraftsRequest.current) reload();
+        if (request === latestDraftsRequest.current) {
+          reload();
+        }
       },
     );
   }, [rpc, threadId, reload, patch]);
@@ -78,10 +82,14 @@ function useReview(threadId: string) {
   );
 
   useRealtime(REVIEW_UPDATED_CHANNEL, (payload) => {
-    if (isReviewUpdateFor(payload, threadId)) reload();
+    if (isReviewUpdateFor(payload, threadId)) {
+      reload();
+    }
   });
   useRealtime(REVIEW_DRAFTS_UPDATED_CHANNEL, (payload) => {
-    if (isReviewUpdateFor(payload, threadId)) reloadDrafts();
+    if (isReviewUpdateFor(payload, threadId)) {
+      reloadDrafts();
+    }
   });
 
   return { ...state, reloadDrafts, removeCommentDraft };
@@ -110,13 +118,18 @@ function useReviewCommands(
   const [submitRequested, setSubmitRequested] = useState(false);
   const [stepRequested, setStepRequested] = useState<StepDirection | null>(null);
   useCommandIntent(threadId, "files", (intent) => {
-    if (intent === "submit") setSubmitRequested(true);
-    else setStepRequested(STEP_OF_INTENT[intent]);
+    if (intent === "submit") {
+      setSubmitRequested(true);
+    } else {
+      setStepRequested(STEP_OF_INTENT[intent]);
+    }
   });
 
   const loadedWithoutReview = result !== null && result.kind !== "ok";
   useEffect(() => {
-    if (!loadedWithoutReview) return;
+    if (!loadedWithoutReview) {
+      return;
+    }
     setSubmitRequested(false);
     setStepRequested(null);
   }, [loadedWithoutReview, submitRequested, stepRequested]);
@@ -156,12 +169,13 @@ function FilesTabContent({ threadId, jump }: FilesTabProps) {
     removeCommentDraft,
   } = useReview(threadId);
   const requests = useReviewCommands(threadId, result);
-  if (result === null)
+  if (result === null) {
     return (
       <Padded>
         <Notice>Loading pull request…</Notice>
       </Padded>
     );
+  }
   if (result.kind === "no_pr") {
     return (
       <Padded>
@@ -261,7 +275,9 @@ function ReviewContent({
   );
   const submitRequest = requests.submit;
   useEffect(() => {
-    if (!submitRequest) return;
+    if (!submitRequest) {
+      return;
+    }
     setSubmitOpen(true);
     submitRequest.onHandled();
   }, [submitRequest]);
@@ -308,13 +324,17 @@ function ReviewContent({
   const commentStep = requests.commentStep;
   const step = navigation.step;
   useEffect(() => {
-    if (!commentStep) return;
+    if (!commentStep) {
+      return;
+    }
     step(commentStep.direction);
     commentStep.onHandled();
   }, [commentStep, step]);
   const jumpToFirstThread = navigation.jumpToFirstThread;
   useEffect(() => {
-    if (jump === null) return;
+    if (jump === null) {
+      return;
+    }
     const targets = threadsWithComments(threads, jump.commentIds);
     if (!showResolved && targets.length > 0 && targets.every(({ resolved }) => resolved)) {
       setShowResolved(true);
@@ -429,7 +449,9 @@ function useSendToAgent(threadId: string, onSent: (reviewThreadIds: readonly str
     } catch (error) {
       result = { kind: "error", message: error instanceof Error ? error.message : String(error) };
     }
-    if (result.kind === "sent") onSent(reviewThreadIds);
+    if (result.kind === "sent") {
+      onSent(reviewThreadIds);
+    }
     setOutcome({ result, requested: reviewThreadIds.length });
     setSending(false);
   }
@@ -451,8 +473,11 @@ function groupByPath<T>(entries: readonly T[], pathOf: (entry: T) => string): Ma
   const byPath = new Map<string, T[]>();
   for (const entry of entries) {
     const group = byPath.get(pathOf(entry));
-    if (group === undefined) byPath.set(pathOf(entry), [entry]);
-    else group.push(entry);
+    if (group === undefined) {
+      byPath.set(pathOf(entry), [entry]);
+    } else {
+      group.push(entry);
+    }
   }
   return byPath;
 }
@@ -477,7 +502,9 @@ function CountPill({ emphasis, children }: { emphasis: boolean; children: ReactN
 }
 
 function CommentStepper({ navigation }: { navigation: CommentNavigation }) {
-  if (navigation.position === null) return null;
+  if (navigation.position === null) {
+    return null;
+  }
   return (
     <div role="group" aria-label="Comment navigation" className="flex items-center gap-0.5">
       <StepButton label="Previous comment" icon="ChevronUp" onClick={() => navigation.step(-1)} />

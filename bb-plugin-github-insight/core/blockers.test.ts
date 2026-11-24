@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildBlockers, type BlockerInput } from "./blockers";
+import { buildBlockers } from "./blockers";
+import type { BlockerInput } from "./blockers";
 import type { Check } from "./checks";
 
 function input(overrides: Partial<BlockerInput> = {}): BlockerInput {

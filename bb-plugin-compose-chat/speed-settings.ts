@@ -50,6 +50,8 @@ export const speedSettings = {
 
 export type SpeedEffect = "Glow" | "Electric" | "Off";
 export function readSpeedEffect(value: unknown): SpeedEffect {
-  if (value === undefined) return "Glow";
+  if (value === undefined) {
+    return "Glow";
+  }
   return value === "Glow" || value === "Electric" ? value : "Off";
 }

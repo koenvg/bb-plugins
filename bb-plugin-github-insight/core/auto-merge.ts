@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Blocker } from "./blockers";
-import { mergeMethodSchema, type MergeMethod } from "./merge-action";
+import { mergeMethodSchema } from "./merge-action";
+import type { MergeMethod } from "./merge-action";
 
 export const autoMergeActionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("none") }),
@@ -36,10 +37,18 @@ export function buildAutoMergeAction(input: AutoMergeActionInput): AutoMergeActi
   if (live && input.autoMergeMethod !== null) {
     return { kind: "disable", method: input.autoMergeMethod };
   }
-  if (input.prState !== "open") return { kind: "none" };
-  if (input.isMergeQueueEnabled || !input.autoMergeAllowed) return { kind: "none" };
-  if (!input.allowedMethods[input.defaultMethod]) return { kind: "none" };
-  if (input.blockers.length === 0) return { kind: "none" };
+  if (input.prState !== "open") {
+    return { kind: "none" };
+  }
+  if (input.isMergeQueueEnabled || !input.autoMergeAllowed) {
+    return { kind: "none" };
+  }
+  if (!input.allowedMethods[input.defaultMethod]) {
+    return { kind: "none" };
+  }
+  if (input.blockers.length === 0) {
+    return { kind: "none" };
+  }
   if (!input.blockers.every((blocker) => WAITING_BLOCKERS.has(blocker.code))) {
     return { kind: "none" };
   }

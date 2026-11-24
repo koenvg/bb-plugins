@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildReviewers, type ReviewNode, type ReviewRequestNode } from "./reviewers";
+import { buildReviewers } from "./reviewers";
+import type { ReviewNode, ReviewRequestNode } from "./reviewers";
 
 function teamRequest(slug: string, asCodeOwner = true): ReviewRequestNode {
   return { asCodeOwner, requestedReviewer: { __typename: "Team", slug } };

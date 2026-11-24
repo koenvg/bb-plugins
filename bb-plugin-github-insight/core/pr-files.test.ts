@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import recordedFiles from "../test/fixtures/pr-1-files.json";
-import { collectPrFiles, gitPatch, parsePrFiles, type ReviewFile } from "./pr-files";
+import { collectPrFiles, gitPatch, parsePrFiles } from "./pr-files";
+import type { ReviewFile } from "./pr-files";
 
 function restFile(fields: Record<string, unknown>) {
   return {

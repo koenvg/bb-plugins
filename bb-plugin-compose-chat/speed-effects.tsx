@@ -1,20 +1,14 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useSettings } from "@get-bb/plugin-sdk/app";
 import ElectricBorder from "./effects/react-bits/ElectricBorder.js";
 import BorderGlow from "./effects/react-bits/BorderGlow.js";
 import { reactBitsNotice } from "./react-bits-notice.js";
-import {
-  readSpeedEffect,
-  lightSpeedPreset,
-  speedPreset,
-  type SpeedEffect,
-} from "./speed-settings.js";
-import {
-  observeSpeedTargets,
-  speedLayerMargin as margin,
-  type SpeedTarget,
-} from "./speed-targets.js";
+import { readSpeedEffect, lightSpeedPreset, speedPreset } from "./speed-settings.js";
+import type { SpeedEffect } from "./speed-settings.js";
+import { observeSpeedTargets, speedLayerMargin as margin } from "./speed-targets.js";
+import type { SpeedTarget } from "./speed-targets.js";
 
 // Exact HSL conversions of the approved dark/light glow hex colors.
 const glowHslByTheme = {
@@ -38,9 +32,13 @@ function SpeedBorder({
   const factor = target.mode === "Ultrafast" ? 1 : 0.75;
   const angle = target.mode === "Ultrafast" ? target.cornerAngle : 45;
   useEffect(() => {
-    if (effect !== "Glow" || !target.visible) return;
+    if (effect !== "Glow" || !target.visible) {
+      return;
+    }
     const card = ref.current?.querySelector<HTMLElement>(".border-glow-card");
-    if (!card) return;
+    if (!card) {
+      return;
+    }
     let raf = 0;
     let point: { x: number; y: number } | undefined;
     const reset = () => {
@@ -64,7 +62,9 @@ function SpeedBorder({
     };
     const move = (event: PointerEvent) => {
       point = { x: event.clientX, y: event.clientY };
-      if (!raf) raf = requestAnimationFrame(paint);
+      if (!raf) {
+        raf = requestAnimationFrame(paint);
+      }
     };
     const leave = () => {
       point = undefined;
@@ -174,7 +174,9 @@ export function SpeedBorders({ effect, motion = true }: { effect: SpeedEffect; m
     }
     return observeSpeedTargets(setTargets);
   }, [effect]);
-  if (effect === "Off") return null;
+  if (effect === "Off") {
+    return null;
+  }
   return createPortal(
     targets.map((target) => (
       <SpeedBorder key={`${effect}-${target.id}`} target={target} effect={effect} motion={motion} />

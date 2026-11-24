@@ -38,9 +38,13 @@ export function ghProcessError(error: unknown): GhProcessError {
 }
 
 export function classifyGhFailure(error: GhProcessError): GhFailure {
-  if (error.code === "ENOENT") return { kind: "gh_missing" };
+  if (error.code === "ENOENT") {
+    return { kind: "gh_missing" };
+  }
   const stderr = error.stderr.trim();
-  if (RATE_LIMITED.test(stderr)) return { kind: "rate_limited", resetAt: null };
+  if (RATE_LIMITED.test(stderr)) {
+    return { kind: "rate_limited", resetAt: null };
+  }
   if (error.code === EXIT_AUTH_REQUIRED || LOGGED_OUT.test(stderr)) {
     return { kind: "gh_logged_out" };
   }
@@ -78,7 +82,9 @@ const rateLimitSchema = z.object({
 
 export function parseGraphqlRateLimitReset(response: unknown): number | null {
   const parsed = rateLimitSchema.safeParse(response);
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    return null;
+  }
   const { remaining, reset } = parsed.data.resources.graphql;
   return remaining === 0 ? reset * 1000 : null;
 }

@@ -1,19 +1,10 @@
-import { isVideoPath, type VideoWireResult } from "../core/video-content";
+import { isVideoPath } from "../core/video-content";
+import type { VideoWireResult } from "../core/video-content";
 import { z } from "zod";
-import {
-  imageBasisKey,
-  parseImageRefs,
-  type PrImageBasis,
-  type PrImageRefs,
-} from "../core/pr-image-basis";
-import {
-  imageError,
-  imagePath,
-  isRasterPath,
-  imageShaSchema,
-  type ImageSide,
-  type ImageWireResult,
-} from "../core/image-content";
+import { imageBasisKey, parseImageRefs } from "../core/pr-image-basis";
+import type { PrImageBasis, PrImageRefs } from "../core/pr-image-basis";
+import { imageError, imagePath, isRasterPath, imageShaSchema } from "../core/image-content";
+import type { ImageSide, ImageWireResult } from "../core/image-content";
 import type {
   ActionResult,
   DisplayedDrafts,
@@ -25,29 +16,28 @@ import type {
 import { buildAgentPrompt } from "../core/agent-prompt";
 import { attachmentTag, draftAttachments } from "../core/attachments";
 import type { Draft, Drafts } from "../core/drafts";
-import { checkAnchor, type Anchor } from "../core/diff-lines";
+import { checkAnchor } from "../core/diff-lines";
+import type { Anchor } from "../core/diff-lines";
 import { checkOneCommit } from "../core/draft-commits";
 import { newCommentIds } from "../core/new-comments";
-import { collectPrFiles, type ReviewFile } from "../core/pr-files";
-import { parsePrHead, type PrHead } from "../core/pr-head";
-import { prKey, type PullRequestRef } from "../core/pr-ref";
-import {
-  hasText,
-  type CommentDraft,
-  type ListedCommentDraft,
-  type SummaryDraft,
-} from "../core/review-drafts";
-import {
-  collectReviewThreads,
-  type CollectedReviewThreads,
-  type ReviewThread,
-} from "../core/review-threads";
+import { collectPrFiles } from "../core/pr-files";
+import type { ReviewFile } from "../core/pr-files";
+import { parsePrHead } from "../core/pr-head";
+import type { PrHead } from "../core/pr-head";
+import { prKey } from "../core/pr-ref";
+import type { PullRequestRef } from "../core/pr-ref";
+import { hasText } from "../core/review-drafts";
+import type { CommentDraft, ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
+import { collectReviewThreads } from "../core/review-threads";
+import type { CollectedReviewThreads, ReviewThread } from "../core/review-threads";
 import type { SignMedia } from "../core/signed-media";
 import type { ReviewUpdated } from "../core/review-updated";
-import { openThreads, placeThreads, type ThreadPlacement } from "../core/thread-placement";
+import { openThreads, placeThreads } from "../core/thread-placement";
+import type { ThreadPlacement } from "../core/thread-placement";
 import type { ViewedMarks } from "../core/viewed-marks";
 import { GhFailureError, ghFailureText } from "../github/gh-failure";
-import { RECHECK_NO_PR, type LookupOptions, type PrResolution, type PrTarget } from "../pr-lookup";
+import { RECHECK_NO_PR } from "../pr-lookup";
+import type { LookupOptions, PrResolution, PrTarget } from "../pr-lookup";
 import type { CommentEdit, DraftStore } from "./draft-store";
 import type { ViewedMarksStore } from "./viewed-marks-store";
 
@@ -133,7 +123,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
     read: (target: PrTarget) => Promise<T>,
   ): Promise<PrLoad<T>> {
     const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
-    if (resolution.kind !== "pr") return resolution;
+    if (resolution.kind !== "pr") {
+      return resolution;
+    }
     try {
       return { kind: "ok", target: resolution.target, ...(await read(resolution.target)) };
     } catch (error) {
@@ -153,7 +145,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
         let refs = parseImageRefs(rawHead);
         let files = await collectPrFiles((page) => deps.fetchPrFilesPage(target, page));
         let imageBasis: PrImageBasis | null = null;
-        for (let attempt = 0; attempt < 2 && refs !== null; attempt++) {
+        for (let attempt = 0; attempt < 2 && refs !== null; attempt += 1) {
           if (
             !files.some(
               (file) =>
@@ -162,8 +154,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
                 isVideoPath(file.path) ||
                 isVideoPath(file.previousPath ?? ""),
             )
-          )
+          ) {
             break;
+          }
           const nextRaw = await deps.fetchPrHead(target).catch(() => null);
           const nextRefs = parseImageRefs(nextRaw);
           if (JSON.stringify(refs) === JSON.stringify(nextRefs)) {
@@ -178,7 +171,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
             }
             break;
           }
-          if (attempt === 1 || nextRefs === null) break;
+          if (attempt === 1 || nextRefs === null) {
+            break;
+          }
           rawHead = nextRaw;
           refs = nextRefs;
           files = await collectPrFiles((page) => deps.fetchPrFilesPage(target, page));
@@ -194,7 +189,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
       imageBasis,
       hostId: target.hostId,
     };
-    if (loadedPrs.get(prKey(target.ref)) === slot) slot.value = loaded;
+    if (loadedPrs.get(prKey(target.ref)) === slot) {
+      slot.value = loaded;
+    }
     return loaded;
   }
 
@@ -228,7 +225,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
     const urls = [
       ...new Set(commentDrafts.flatMap(({ body }) => draftAttachments(body).map(({ url }) => url))),
     ];
-    if (urls.length === 0) return {};
+    if (urls.length === 0) {
+      return {};
+    }
     try {
       const tags = urls.map((url) => attachmentTag({ alt: "", url })).join("\n");
       const signed = deps.signMedia(urls.join("\n"), await deps.renderMarkdown(target, tags));
@@ -249,7 +248,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
 
   async function loadForDisplay(threadId: string): Promise<DisplayedReviewLoad> {
     const load = await loadReview(threadId, signedThreads);
-    if (load.kind !== "ok") return load;
+    if (load.kind !== "ok") {
+      return load;
+    }
     const media = await draftMedia(load.target, load.review.commentDrafts);
     return { ...load, review: { ...load.review, draftMedia: media } };
   }
@@ -309,9 +310,13 @@ export function createReviewService(deps: ReviewServiceDeps) {
     input: NewCommentDraft,
   ): Promise<CommentDraftCreation> {
     const placed = checkAnchor(basis.files, input.anchor);
-    if (!placed.ok) return { kind: "error", reason: "anchor", message: placed.reason };
+    if (!placed.ok) {
+      return { kind: "error", reason: "anchor", message: placed.reason };
+    }
     const oneCommit = checkOneCommit(basis.commentDrafts, basis.head.oid);
-    if (!oneCommit.ok) return { kind: "error", reason: "commit", message: oneCommit.message };
+    if (!oneCommit.ok) {
+      return { kind: "error", reason: "commit", message: oneCommit.message };
+    }
     const body = input.source === "agent" ? await input.readBody() : "";
     if (input.source === "agent" && !hasText(body)) {
       return { kind: "error", reason: "empty", message: "Comment is empty" };
@@ -339,7 +344,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
     edit: CommentEdit,
   ): Promise<boolean> {
     const edited = await deps.drafts.editComment(pr, draftId, edit);
-    if (edited) deps.publishDrafts({ threadId });
+    if (edited) {
+      deps.publishDrafts({ threadId });
+    }
     return edited;
   }
 
@@ -352,7 +359,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
     pr: PullRequestRef,
     draftId: string,
   ): Promise<boolean> {
-    if ((await deps.drafts.comment(pr, draftId)) === null) return false;
+    if ((await deps.drafts.comment(pr, draftId)) === null) {
+      return false;
+    }
     await deps.drafts.deleteComment(pr, draftId);
     deps.publishDrafts({ threadId });
     return true;
@@ -368,9 +377,12 @@ export function createReviewService(deps: ReviewServiceDeps) {
     write: (pr: PullRequestRef) => Promise<ActionResult>,
   ): Promise<ActionResult> {
     const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
-    if (resolution.kind === "error") return resolution;
-    if (resolution.kind === "no_pr")
+    if (resolution.kind === "error") {
+      return resolution;
+    }
+    if (resolution.kind === "no_pr") {
       return { kind: "error", message: "No pull request for this thread" };
+    }
     return write(resolution.target.ref);
   }
 
@@ -394,9 +406,12 @@ export function createReviewService(deps: ReviewServiceDeps) {
     reviewThreadIds: readonly string[],
   ): Promise<SendToAgentResult> {
     const loaded = await load(threadId);
-    if (loaded.kind === "no_pr")
+    if (loaded.kind === "no_pr") {
       return { kind: "error", message: "No pull request for this thread" };
-    if (loaded.kind === "error") return loaded;
+    }
+    if (loaded.kind === "error") {
+      return loaded;
+    }
     const selected = new Set(reviewThreadIds);
     const threads = openThreads(loaded.review.threads).filter(({ thread }) =>
       selected.has(thread.id),
@@ -430,8 +445,9 @@ export function createReviewService(deps: ReviewServiceDeps) {
     side: ImageSide,
   ): Promise<ImageWireResult | VideoWireResult> {
     const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
-    if (resolution.kind !== "pr")
+    if (resolution.kind !== "pr") {
       return imageError("stale", "Pull request changed. Refresh the review.");
+    }
     const target = resolution.target;
     const slot = loadedPrs.get(prKey(target.ref));
     const loaded = slot?.value;
@@ -442,17 +458,23 @@ export function createReviewService(deps: ReviewServiceDeps) {
       imageBasisKey(basis) !== expectedBasisKey ||
       basis.baseRepo.owner.toLowerCase() !== target.ref.owner.toLowerCase() ||
       basis.baseRepo.repo.toLowerCase() !== target.ref.repo.toLowerCase()
-    )
+    ) {
       return imageError("stale", "Preview revisions changed. Refresh the review.");
+    }
     const file = loaded.files.find((file) => file.path === path);
-    if (!file) return imageError("stale", "File changed. Refresh the review.");
+    if (!file) {
+      return imageError("stale", "File changed. Refresh the review.");
+    }
     try {
       const sidePath = imagePath(file, side);
-      if (sidePath === null) return { kind: "absent" };
+      if (sidePath === null) {
+        return { kind: "absent" };
+      }
       const repo = side === "before" ? basis.baseRepo : basis.headRepo;
       const sha = side === "before" ? basis.mergeBaseSha : basis.headSha;
-      if (kind === "video" && !isVideoPath(file.path) && !isVideoPath(file.previousPath ?? ""))
+      if (kind === "video" && !isVideoPath(file.path) && !isVideoPath(file.previousPath ?? "")) {
         return imageError("unsupported", "This side is not an MP4 or WebM video");
+      }
       const reader = kind === "video" ? deps.readPrVideo : deps.readPrImage;
       const result =
         (await reader?.(target, { ...repo, sha, path: sidePath })) ??

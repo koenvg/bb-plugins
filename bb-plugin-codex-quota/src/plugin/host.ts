@@ -2,9 +2,11 @@ import { experimental_defineHostEntry } from "@get-bb/plugin-sdk";
 import { hostContract } from "../quota/contract.js";
 import { fetchNormalizedQuota } from "../account/feasibility.js";
 import { fetchNormalizedActivity } from "../activity/activity-fetch.js";
-import { createAccount, type AccountDependencies } from "../account/account.js";
+import { createAccount } from "../account/account.js";
+import type { AccountDependencies } from "../account/account.js";
 import { resolvePiAuth } from "../account/pi-auth.js";
-import { createHostHistory, type HostHistory } from "../history/history-host.js";
+import { createHostHistory } from "../history/history-host.js";
+import type { HostHistory } from "../history/history-host.js";
 import { importUnavailable } from "../history/import/import-contract.js";
 
 // Packaged checks exercise the real SQLite adapter and exact collector asset.
@@ -39,8 +41,9 @@ export function createQuotaHostEntry(deps: Dependencies) {
         }),
       historicalImport: async ({ hostId, command, knownWorkspaces }, context) => {
         const signal = AbortSignal.any([context.signal, context.lifecycle.signal]);
-        if (signal.aborted || !history.controlImport)
+        if (signal.aborted || !history.controlImport) {
           return importUnavailable(signal.aborted ? "selection-changed" : "unsupported");
+        }
         const lease =
           command.action === "start" || command.action === "resume"
             ? context.experimental_retainWorker()

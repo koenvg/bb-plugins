@@ -30,8 +30,9 @@ export function readImportCoverage(
     !db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='import_generations'")
       .get()
-  )
+  ) {
     return result;
+  }
   const rows = db
     .prepare(`SELECT g.state,g.records,g.replayed,g.omissions,g.diagnostics,
     CASE WHEN json_valid(g.frozen) THEN json_extract(g.frozen,'$.workspaces') END AS workspaces,
@@ -51,8 +52,9 @@ export function readImportCoverage(
         values.some(
           (value) => typeof value?.recorded !== "string" || !value.recorded.startsWith("/"),
         )
-      )
+      ) {
         throw Error();
+      }
       workspaces = values.map((value) => value.recorded);
     } catch {
       /* Unknown original scope is not absence of evidence. */
@@ -62,7 +64,9 @@ export function readImportCoverage(
       !!row.unknown ||
       (row.omissions > 0 && /"(?:source-changed|discovery-limit)"/.test(row.diagnostics));
     const workspace = scope.kind === "host" ? undefined : scope.workspace;
-    if (!unknown && workspace && !workspaces.includes(workspace)) continue;
+    if (!unknown && workspace && !workspaces.includes(workspace)) {
+      continue;
+    }
     result.pending ||= row.state === "stopped";
     result.uncertain ||=
       unknown || row.omissions > 0 || row.state !== "completed" || row.records + row.replayed === 0;

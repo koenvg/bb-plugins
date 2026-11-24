@@ -1,13 +1,13 @@
 import { pruneUncertainHistory } from "../import/import-uncertain.js";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { HistoryDatabase } from "./history-storage.js";
 import { usageEvidence, usageDigest } from "../collection/usage-evidence.js";
 import { usageRecordSchema } from "../collection/usage-record.js";
 import { retireIdentityUsage } from "../identity/identity-storage.js";
-import { randomUUID } from "node:crypto";
 import { canonicalInterval, readCoverage } from "../collection/history-coverage.js";
 
 import { aggregateDays } from "../calendar/calendar-aggregation.js";
+
 export const HISTORY_VERSION = 5;
 export type CompactRow = {
   event_id: string;
@@ -94,8 +94,8 @@ export function insertCompact(
   ).run(usageEvidence(payload), value.eventId);
 }
 export function retentionCutoffs(now: number) {
-  const today = new Date(now),
-    day = today.getUTCDate();
+  const today = new Date(now);
+  const day = today.getUTCDate();
   const month = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 3, 1));
   const last = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0)).getUTCDate();
   month.setUTCDate(Math.min(day, last) - 9);
@@ -112,8 +112,8 @@ export function retentionState(db: HistoryDatabase) {
 }
 /** Logical expiry does not wait for physical maintenance and never precedes saved cutoffs. */
 export function effectiveRetentionState(db: HistoryDatabase, now: number) {
-  const state = retentionState(db),
-    cutoffs = retentionCutoffs(now);
+  const state = retentionState(db);
+  const cutoffs = retentionCutoffs(now);
   return {
     ...state,
     detail_cutoff: state.detail_cutoff > cutoffs.detail ? state.detail_cutoff : cutoffs.detail,
@@ -121,8 +121,8 @@ export function effectiveRetentionState(db: HistoryDatabase, now: number) {
   };
 }
 export function maintainHistory(db: HistoryDatabase, now: number, budget = 500) {
-  const limit = Math.max(1, Math.min(500, Math.floor(budget))),
-    cutoffs = retentionCutoffs(now);
+  const limit = Math.max(1, Math.min(500, Math.floor(budget)));
+  const cutoffs = retentionCutoffs(now);
   return db.transaction(() => {
     let state = retentionState(db);
     db.prepare(
@@ -139,7 +139,9 @@ export function maintainHistory(db: HistoryDatabase, now: number, budget = 500) 
         accepted: number;
         confirmed: number;
       }[];
-      for (const row of rows) insertCompact(db, row.payload, row.accepted, row.confirmed);
+      for (const row of rows) {
+        insertCompact(db, row.payload, row.accepted, row.confirmed);
+      }
       db.prepare("UPDATE history_retention SET backfill_cursor=?,backfill_done=? WHERE id=1").run(
         rows.at(-1)?.event_id ?? state.backfill_cursor,
         rows.length < limit ? 1 : 0,
@@ -161,10 +163,11 @@ export function maintainHistory(db: HistoryDatabase, now: number, budget = 500) 
           row.workspace,
         );
       }
-      if (!row.confirmed)
+      if (!row.confirmed) {
         db.prepare(
           "UPDATE history_counters SET unconfirmed_events=unconfirmed_events-1 WHERE id=1",
         ).run();
+      }
       db.prepare("INSERT OR IGNORE INTO usage_expired VALUES (?)").run(row.event_id);
       db.prepare("DELETE FROM usage_events WHERE event_id=?").run(row.event_id);
       retireIdentityUsage(db, row.event_id);
@@ -238,8 +241,8 @@ export function readCalendarTotals(
   }[];
 };
 export function readCalendarTotals(db: HistoryDatabase, query: CalendarQuery, now?: number) {
-  const interval = canonicalInterval(query.start, query.end, 32),
-    state = now === undefined ? retentionState(db) : effectiveRetentionState(db, now);
+  const interval = canonicalInterval(query.start, query.end, 32);
+  const state = now === undefined ? retentionState(db) : effectiveRetentionState(db, now);
   const start = interval.start < state.compact_cutoff ? state.compact_cutoff : interval.start;
   const days =
     start < interval.end

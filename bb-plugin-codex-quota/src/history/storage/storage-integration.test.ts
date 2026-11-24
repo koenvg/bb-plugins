@@ -2,22 +2,28 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, test } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "./history-storage.js";
+import { openHistoryDatabase } from "./history-storage.js";
+import type { HistoryDatabase } from "./history-storage.js";
 import { createHostHistory } from "../history-host.js";
-import { readCalendarTotals } from "./history-retention.js";
+import {
+  readCalendarTotals,
+  maintainHistory,
+  createRetentionSchema,
+  insertCompact,
+  retentionCutoffs,
+} from "./history-retention.js";
 import { initializeIdentityStorage } from "../identity/identity-storage.js";
 import { initializeImport } from "../import/import-state.js";
-import { initializeWriterObservation } from "./history-projection.js";
 import {
+  initializeWriterObservation,
   initializeHistory,
   projectCompactRecord,
   projectImportedUsage,
   confirmedReplay,
   historyObserved,
 } from "./history-projection.js";
-import { maintainHistory } from "./history-retention.js";
+
 import { readCoverage } from "../collection/history-coverage.js";
-import { createRetentionSchema, insertCompact, retentionCutoffs } from "./history-retention.js";
 import { legacyUsage } from "./fixtures/legacy-usage.js";
 import type { z } from "zod";
 import type { usageRecordSchema } from "../collection/usage-record.js";
@@ -26,7 +32,9 @@ type UsageRecord = z.infer<typeof usageRecordSchema>;
 
 const roots: string[] = [];
 afterEach(async () => {
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 const now = Date.parse("2026-10-01T12:00:00.000Z");
 const record = (n = 1, provenance: "observed" | "imported" = "observed") => ({
@@ -94,8 +102,8 @@ function seedCollectorV1(db: HistoryDatabase, r: UsageRecord = record()) {
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp16-storage-"));
   roots.push(root);
-  const directory = join(root, "history"),
-    path = join(directory, "usage-v1.sqlite");
+  const directory = join(root, "history");
+  const path = join(directory, "usage-v1.sqlite");
   await mkdir(directory);
   const db = (await openHistoryDatabase(path))!;
   await writeFile(
@@ -115,7 +123,7 @@ async function fixture() {
       collector: async () => "compatible-v1",
       maintenanceRows: 1,
       bodyRead: () => {
-        reads++;
+        reads += 1;
       },
     });
   return { root, directory, path, db, context, make, reads: () => reads };
@@ -227,7 +235,9 @@ test.each([1, 2, 3])(
           "UPDATE history_retention SET detail_cutoff=?,compact_cutoff=?,backfill_cursor='completed-before-upgrade',backfill_done=1",
         )
         .run(cutoffs.detail, cutoffs.compact);
-      if (version === 2) f.db.exec("DROP TABLE history_legacy_pending");
+      if (version === 2) {
+        f.db.exec("DROP TABLE history_legacy_pending");
+      }
     }
     f.db.exec(`PRAGMA user_version=${version}`);
     f.db.close();
@@ -291,16 +301,18 @@ test.each(["newer", "wal"] as const)(
     seedCollectorV1(f.db);
     f.db.exec(`PRAGMA user_version=${kind === "newer" ? 6 : 4}`);
     f.db.close();
-    if (kind === "wal") await writeFile(f.path + "-wal", "owned-unsettled-wal");
+    if (kind === "wal") {
+      await writeFile(f.path + "-wal", "owned-unsettled-wal");
+    }
     const { readFile, readdir } = await import("node:fs/promises");
-    const before = await readFile(f.path),
-      control = await readFile(join(f.directory, "collector-control-v1.json"));
+    const before = await readFile(f.path);
+    const control = await readFile(join(f.directory, "collector-control-v1.json"));
     const factory = (await import("./history-storage.js")).loadHistoryStorage;
     let opens = 0;
     const real = (await factory())!;
     const host = createHostHistory({
       storage: async () => (path, readonly) => {
-        opens++;
+        opens += 1;
         return real(path, readonly);
       },
       now: () => now,
@@ -316,7 +328,9 @@ test.each(["newer", "wal"] as const)(
     expect(opens).toBe(0);
     expect(await readFile(f.path)).toEqual(before);
     expect(await readFile(join(f.directory, "collector-control-v1.json"))).toEqual(control);
-    if (kind === "wal") expect(await readFile(f.path + "-wal", "utf8")).toBe("owned-unsettled-wal");
+    if (kind === "wal") {
+      expect(await readFile(f.path + "-wal", "utf8")).toBe("owned-unsettled-wal");
+    }
     expect((await readdir(f.directory)).some((name) => name.includes("quarantine"))).toBe(false);
   },
 );
@@ -464,7 +478,8 @@ test.each(
     seedCollectorV1(f.db, original);
     initializeHistory(f.db, "2026-08-01T00:00:00.000Z", false);
     insertCompact(f.db, JSON.stringify(original), 1, 1);
-    let evidence: string, uuidProof: string;
+    let evidence: string;
+    let uuidProof: string;
     if (proofSource === "frozen legacy fixture") {
       ({ evidence, uuidProof } = legacyUsage);
     } else {
@@ -545,7 +560,7 @@ it("does not start transcript work while a version-1 ownership backfill is incom
   seedCollectorV1(f.db);
   f.db.transaction(() => {
     const insert = f.db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,1,0)");
-    for (let n = 2; n <= 502; n++) {
+    for (let n = 2; n <= 502; n += 1) {
       const r = record(n);
       insert.run(r.eventId, r.sessionId, r.workspace, r.totalTokens, JSON.stringify(r));
     }
@@ -553,16 +568,16 @@ it("does not start transcript work while a version-1 ownership backfill is incom
     f.db.prepare("UPDATE workspace_totals SET total_tokens=2510,events=502").run();
   });
   f.db.close();
-  const source = join(f.root, "source"),
-    workspace = join(f.root, "workspace");
+  const source = join(f.root, "source");
+  const workspace = join(f.root, "workspace");
   await mkdir(source);
   await mkdir(workspace);
   await writeFile(
     join(source, "provider-one.jsonl"),
     JSON.stringify({ type: "session", version: 3, id: "import-session", cwd: workspace }) + "\n",
   );
-  const host = f.make(),
-    context = { ...f.context, hostId: "host-one", knownWorkspaces: [workspace] };
+  const host = f.make();
+  const context = { ...f.context, hostId: "host-one", knownWorkspaces: [workspace] };
   await host.read({
     ...f.context,
     identities: {
@@ -615,8 +630,8 @@ test.each(["foreign-table", "partial-history"] as const)(
     );
     f.db.exec("PRAGMA user_version=1");
     f.db.close();
-    const { readFile } = await import("node:fs/promises"),
-      before = await readFile(f.path);
+    const { readFile } = await import("node:fs/promises");
+    const before = await readFile(f.path);
     const real = (await (await import("./history-storage.js")).loadHistoryStorage())!;
     const opens: boolean[] = [];
     const host = createHostHistory({
@@ -665,8 +680,8 @@ it("rebuilds only retained observed collector records, not imported records or u
   initializeHistory(f.db, "2026-09-01T00:00:00.000Z");
   projectImportedUsage(f.db, record(1, "imported"), "import-entry");
   f.db.close();
-  const observed = record(2),
-    imported = record(3, "imported");
+  const observed = record(2);
+  const imported = record(3, "imported");
   await writeFile(
     join(f.directory, "events-v1-2026-09-30.jsonl"),
     JSON.stringify(observed) + "\n" + JSON.stringify(imported) + "\n",
@@ -716,7 +731,7 @@ it("expires import-only storage on status and readiness checks without capture c
   const history = createHostHistory({
     now: () => Date.parse("2027-01-01T00:00:00Z"),
     agentDir: () => join(f.root, "agent"),
-    bodyRead: () => reads++,
+    bodyRead: () => (reads += 1) - 1,
   });
   const view = await history.read(f.context);
   expect(view.writer).toBe("unconfirmed");
@@ -757,19 +772,33 @@ test.each(
     const f = await fixture();
     initializeHistory(f.db, "2026-09-01T00:00:00.000Z");
     projectImportedUsage(f.db, record(1, "imported"), "entry-one");
-    if (damage === "compact") f.db.exec("DROP TABLE usage_compact");
-    if (damage === "owner-table") f.db.exec("DROP TABLE history_owner");
-    if (damage === "owner-row") f.db.exec("DELETE FROM history_owner");
-    if (damage === "retention-row") f.db.exec("DELETE FROM history_retention");
-    if (damage === "counter-row") f.db.exec("DELETE FROM history_counters");
-    if (damage === "identity-table") f.db.exec("DROP TABLE identity_edges");
-    if (damage === "import-table") f.db.exec("DROP TABLE import_generations");
+    if (damage === "compact") {
+      f.db.exec("DROP TABLE usage_compact");
+    }
+    if (damage === "owner-table") {
+      f.db.exec("DROP TABLE history_owner");
+    }
+    if (damage === "owner-row") {
+      f.db.exec("DELETE FROM history_owner");
+    }
+    if (damage === "retention-row") {
+      f.db.exec("DELETE FROM history_retention");
+    }
+    if (damage === "counter-row") {
+      f.db.exec("DELETE FROM history_counters");
+    }
+    if (damage === "identity-table") {
+      f.db.exec("DROP TABLE identity_edges");
+    }
+    if (damage === "import-table") {
+      f.db.exec("DROP TABLE import_generations");
+    }
     f.db.exec(`PRAGMA user_version=${version}`);
     f.db.close();
-    const { readFile, readdir } = await import("node:fs/promises"),
-      before = await readFile(f.path),
-      files = await readdir(f.directory),
-      control = await readFile(join(f.directory, "collector-control-v1.json"));
+    const { readFile, readdir } = await import("node:fs/promises");
+    const before = await readFile(f.path);
+    const files = await readdir(f.directory);
+    const control = await readFile(join(f.directory, "collector-control-v1.json"));
     expect((await f.make().read(f.context)).storage, damage).toBe("incompatible");
     expect(
       (
@@ -792,21 +821,27 @@ test.each(["absent", "empty"])(
   async (wal) => {
     for (const layout of ["foreign", "valid", "partial"]) {
       const f = await fixture();
-      if (layout === "foreign")
+      if (layout === "foreign") {
         f.db.exec("CREATE TABLE foreign_records(value TEXT); PRAGMA user_version=1");
-      else seedCollectorV1(f.db);
-      if (layout === "partial") f.db.exec("DROP TABLE usage_confirmations");
+      } else {
+        seedCollectorV1(f.db);
+      }
+      if (layout === "partial") {
+        f.db.exec("DROP TABLE usage_confirmations");
+      }
       f.db.exec("PRAGMA journal_mode=WAL");
       f.db.close();
-      if (wal === "empty") await writeFile(f.path + "-wal", "");
-      const { readFile, readdir } = await import("node:fs/promises"),
-        before = await readFile(f.path),
-        files = await readdir(f.directory);
+      if (wal === "empty") {
+        await writeFile(f.path + "-wal", "");
+      }
+      const { readFile, readdir } = await import("node:fs/promises");
+      const before = await readFile(f.path);
+      const files = await readdir(f.directory);
       const real = (await (await import("./history-storage.js")).loadHistoryStorage())!;
       let opens = 0;
       const history = createHostHistory({
         storage: async () => (path, readonly) => {
-          opens++;
+          opens += 1;
           return real(path, readonly);
         },
         agentDir: () => join(f.root, "agent"),

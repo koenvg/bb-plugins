@@ -21,21 +21,31 @@ const surfaceColors = new Map<string, boolean>();
 function lightSurface(element: HTMLElement): boolean {
   const color = getComputedStyle(element).backgroundColor;
   const explicit = document.documentElement.dataset.theme;
-  if (explicit === "light" || explicit === "dark") return explicit === "light";
+  if (explicit === "light" || explicit === "dark") {
+    return explicit === "light";
+  }
   const rgb = color.match(/^rgba?\(\s*([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)/);
-  if (rgb) return Number(rgb[1]) * 0.2126 + Number(rgb[2]) * 0.7152 + Number(rgb[3]) * 0.0722 > 160;
+  if (rgb) {
+    return Number(rgb[1]) * 0.2126 + Number(rgb[2]) * 0.7152 + Number(rgb[3]) * 0.0722 > 160;
+  }
   // Chromium computes modern theme colors as oklab/color(). Resolve through CSS,
   // not a theme-name assumption. No host pixels, text or images are read.
-  if (surfaceColors.has(color)) return surfaceColors.get(color)!;
+  if (surfaceColors.has(color)) {
+    return surfaceColors.get(color)!;
+  }
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return false;
+  if (!ctx) {
+    return false;
+  }
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, 1, 1);
   const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
   const light = r * 0.2126 + g * 0.7152 + b * 0.0722 > 160;
-  if (surfaceColors.size >= 16) surfaceColors.clear();
+  if (surfaceColors.size >= 16) {
+    surfaceColors.clear();
+  }
   surfaceColors.set(color, light);
   return light;
 }
@@ -50,16 +60,22 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
   const observed = new Set<Element>();
   const resize = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(schedule);
   const observer = new MutationObserver((records) => {
-    if (records.some((r) => !(r.target instanceof Element && r.target.closest(owned)))) schedule();
+    if (records.some((r) => !(r.target instanceof Element && r.target.closest(owned)))) {
+      schedule();
+    }
   });
 
   function schedule() {
-    if (!disposed && !scheduled) scheduled = requestAnimationFrame(reconcile);
+    if (!disposed && !scheduled) {
+      scheduled = requestAnimationFrame(reconcile);
+    }
   }
 
   function reconcile() {
     scheduled = 0;
-    if (disposed) return;
+    if (disposed) {
+      return;
+    }
     const targets: SpeedTarget[] = [];
     const nodes = new Set<Element>();
     const active = document.documentElement.getAttribute("data-compose-chat") === "active";
@@ -68,7 +84,7 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
     ].some(
       (el) => el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== "hidden",
     );
-    if (active)
+    if (active) {
       for (const composer of document.querySelectorAll<HTMLElement>("[data-app-composer]")) {
         const picker = composer.querySelector(
           'button[aria-label^="Provider, model and reasoning"]',
@@ -81,14 +97,20 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
           : titles.some((t) => /\(Fast mode\)$/i.test(t))
             ? "Fast"
             : undefined;
-        if (!mode) continue;
+        if (!mode) {
+          continue;
+        }
         const form = composer.querySelector<HTMLElement>("form[data-promptbox]");
-        if (!form) continue;
+        if (!form) {
+          continue;
+        }
         const wrapper = form.closest<HTMLElement>("[data-follow-up-composer]");
         const frame = wrapper && !form.hasAttribute("data-promptbox-compact") ? wrapper : form;
         const style = getComputedStyle(frame);
         const rect = frame.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden") continue;
+        if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden") {
+          continue;
+        }
         nodes.add(frame);
         let bottom = rect.bottom;
         // BB's new-thread footer is a sibling; its seam is internal to one frame.
@@ -112,7 +134,9 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
         let opaque = style.opacity !== "0";
         for (let parent = frame.parentElement; parent; parent = parent.parentElement) {
           const css = getComputedStyle(parent);
-          if (css.opacity === "0") opaque = false;
+          if (css.opacity === "0") {
+            opaque = false;
+          }
           const bounds = parent.getBoundingClientRect();
           if (/auto|scroll|hidden|clip/.test(css.overflowX)) {
             clip.left = Math.max(clip.left, bounds.left + parent.clientLeft);
@@ -127,7 +151,10 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
           }
         }
         const height = bottom - rect.top;
-        if (!ids.has(frame)) ids.set(frame, ++nextId);
+        if (!ids.has(frame)) {
+          nextId += 1;
+          ids.set(frame, nextId);
+        }
         const visible =
           opaque &&
           !modal &&
@@ -157,16 +184,19 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
           clip: `inset(${inset.join("px ")}px)`,
         });
       }
-    for (const node of observed)
+    }
+    for (const node of observed) {
       if (!nodes.has(node)) {
         resize?.unobserve(node);
         observed.delete(node);
       }
-    for (const node of nodes)
+    }
+    for (const node of nodes) {
       if (!observed.has(node)) {
         resize?.observe(node);
         observed.add(node);
       }
+    }
     const next = JSON.stringify(targets.map(({ frame: _frame, ...target }) => target));
     if (signature !== next) {
       signature = next;
@@ -197,7 +227,9 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
   document.addEventListener("animationend", schedule, true);
   reconcile();
   return () => {
-    if (disposed) return;
+    if (disposed) {
+      return;
+    }
     disposed = true;
     cancelAnimationFrame(scheduled);
     observer.disconnect();

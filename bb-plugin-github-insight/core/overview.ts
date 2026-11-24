@@ -3,30 +3,28 @@ import {
   checkRunNodeSchema,
   checkSchema,
   failingCheckRunIds,
-  type Check,
   latestCheckCandidates,
   markWaitingStatuses,
   statusContextNodeSchema,
   toCheck,
 } from "./checks";
+import type { Check } from "./checks";
 import {
   blockerSchema,
   buildBlockers,
-  type Blocker,
   mergeableSchema,
   mergeStateStatusSchema,
   reviewDecisionSchema,
 } from "./blockers";
-import { autoMergeActionSchema, buildAutoMergeAction, type AutoMergeAction } from "./auto-merge";
+import type { Blocker } from "./blockers";
+import { autoMergeActionSchema, buildAutoMergeAction } from "./auto-merge";
+import type { AutoMergeAction } from "./auto-merge";
 import { canUpdateBranch } from "./branch-update";
-import { parseFailureAnnotations, type Annotation } from "./failure";
+import { parseFailureAnnotations } from "./failure";
+import type { Annotation } from "./failure";
 import { mergeQueueEntrySchema, mergeQueueSchema, toMergeQueue } from "./merge-queue";
-import {
-  buildMergeAction,
-  mergeActionSchema,
-  mergeMethodSchema,
-  type MergeAction,
-} from "./merge-action";
+import { buildMergeAction, mergeActionSchema, mergeMethodSchema } from "./merge-action";
+import type { MergeAction } from "./merge-action";
 import {
   buildReviewers,
   reviewerSchema,
@@ -160,7 +158,9 @@ function contextsOf(page: OverviewPage) {
 
 function nextContextsCursor(page: OverviewPage): string | null {
   const contexts = contextsOf(page);
-  if (contexts === null || !contexts.pageInfo.hasNextPage) return null;
+  if (contexts === null || !contexts.pageInfo.hasNextPage) {
+    return null;
+  }
   return contexts.pageInfo.endCursor;
 }
 
@@ -192,7 +192,9 @@ async function readFailureAnnotations(
   fetchCheckRunDetails: GitHubReader["fetchCheckRunDetails"],
   ids: string[],
 ): Promise<Map<string, Annotation[]>> {
-  if (ids.length === 0) return new Map();
+  if (ids.length === 0) {
+    return new Map();
+  }
   return parseFailureAnnotations(await fetchCheckRunDetails(ids));
 }
 

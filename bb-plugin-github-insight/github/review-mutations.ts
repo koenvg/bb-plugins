@@ -50,7 +50,9 @@ export interface SubmitReviewError {
 }
 
 export function submitReviewError(message: string, prUrl: string): SubmitReviewError {
-  if (!ONE_PENDING_REVIEW.test(message)) return { message, url: null };
+  if (!ONE_PENDING_REVIEW.test(message)) {
+    return { message, url: null };
+  }
   return {
     message: "You have a pending review on GitHub. Submit or delete it there, then submit again.",
     url: prUrl,

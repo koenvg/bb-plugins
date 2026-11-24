@@ -3,7 +3,8 @@ import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, renderHook } from "@testing-library/react";
 import type { PluginCommandContext, ExperimentalOpenTabOptions } from "@get-bb/plugin-sdk/app";
-import { useCommandIntent, type CommandTab } from "./command-intents";
+import { useCommandIntent } from "./command-intents";
+import type { CommandTab } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
 import { rememberInsight, forgetInsights } from "./pr-availability";
 import type { InsightResult } from "../contract";
@@ -16,7 +17,9 @@ afterEach(() => {
 
 function command(id: string) {
   const found = GITHUB_COMMANDS.find((entry) => entry.id === id);
-  if (!found) throw new Error(`no command ${id}`);
+  if (!found) {
+    throw new Error(`no command ${id}`);
+  }
   return found;
 }
 

@@ -55,18 +55,18 @@ function fixture(multiple = false) {
 }
 describe("all-machine Codex slots", () => {
   it("shares one refresh owner across panes and passive accessories, without a machine picker", async () => {
-    const f = fixture(),
-      timers = vi.spyOn(globalThis, "setInterval"),
-      stop = vi.spyOn(globalThis, "clearInterval");
+    const f = fixture();
+    const timers = vi.spyOn(globalThis, "setInterval");
+    const stop = vi.spyOn(globalThis, "clearInterval");
     expect(panel.path).toBe("quota");
     const owner = renderSlot(
       installed.appOverlays.find((slot) => slot.id === "quota-refresh")!,
       {},
       f.options,
     );
-    const page = f.dashboard(),
-      split = f.dashboard(),
-      badge = f.accessory();
+    const page = f.dashboard();
+    const split = f.dashboard();
+    const badge = f.accessory();
     await waitFor(() => expect(badge.container.textContent).toBe("63%"));
     expect(page.queryByRole("combobox")).toBeNull();
     expect(page.getByLabelText("Account allowance")).toBeTruthy();
@@ -87,8 +87,8 @@ describe("all-machine Codex slots", () => {
     expect(badge.container.textContent).toBe("—");
   });
   it("shows combined recorded totals, changes chart metrics without preparing or selecting machines", async () => {
-    const f = fixture(true),
-      page = f.dashboard();
+    const f = fixture(true);
+    const page = f.dashboard();
     await waitFor(() =>
       expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
     );
@@ -141,8 +141,8 @@ describe("all-machine Codex slots", () => {
     const f = fixture(true);
     f.data.accounts[1]!.quota = { state: "unavailable", reason: "auth-required", snapshot: null };
     f.data.accounts[1]!.activity = emptyActivity("auth-required");
-    const page = f.dashboard(),
-      badge = f.accessory();
+    const page = f.dashboard();
+    const badge = f.accessory();
     await waitFor(() => expect(badge.container.textContent).toBe("63%"));
     expect(badge.queryByText("min")).toBeNull();
     expect(
@@ -156,10 +156,13 @@ describe("all-machine Codex slots", () => {
     f.machineReports.mockImplementation(async (input) => {
       const query = (input as { query: CalendarQuery }).query;
       const data = reportsFixture(query, f.now);
-      if (query.group === "thread")
+      if (query.group === "thread") {
         for (const row of data.machines) {
-          if (row.report.state !== "unavailable") row.report.ranking = [];
+          if (row.report.state !== "unavailable") {
+            row.report.ranking = [];
+          }
         }
+      }
       return data;
     });
     const page = f.dashboard();

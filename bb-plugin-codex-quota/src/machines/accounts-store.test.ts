@@ -5,8 +5,8 @@ import { accountsFixture } from "./machines.test-support.js";
 describe("account refresh ownership", () => {
   it("returns refresh ownership to a remaining pane when the newest pane closes", async () => {
     const store = new MachineAccountsStore();
-    const first = vi.fn(async () => accountsFixture()),
-      second = vi.fn(async () => accountsFixture());
+    const first = vi.fn(async () => accountsFixture());
+    const second = vi.fn(async () => accountsFixture());
     const stopFirst = store.start(first);
     await vi.waitFor(() => expect(store.getSnapshot().loading).toBe(false));
     const stopSecond = store.start(second);

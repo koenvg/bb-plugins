@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { QuotaSelectionStore, type QuotaApi } from "./selection-store.js";
+import { QuotaSelectionStore } from "./selection-store.js";
+import type { QuotaApi } from "./selection-store.js";
 import type { QuotaStatus } from "../quota/contract.js";
 
 const observedAt = new Date(Date.now() - 1000).toISOString();
@@ -33,7 +34,7 @@ describe("shared badge/dashboard selection", () => {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
       read: async ({ hostId }) => {
-        reads++;
+        reads += 1;
         return hostId === "host_a" ? pending.promise : view;
       },
     };
@@ -56,7 +57,7 @@ describe("shared badge/dashboard selection", () => {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
       read: async () => {
-        reads++;
+        reads += 1;
         return view;
       },
     };
@@ -79,7 +80,7 @@ describe("shared badge/dashboard selection", () => {
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
-      read: async () => (++reads === 1 ? view : switched.promise),
+      read: async () => ((reads += 1) === 1 ? view : switched.promise),
     };
     await store.connect(api);
     await store.refresh(api);
@@ -101,7 +102,9 @@ describe("shared badge/dashboard selection", () => {
     let unavailable = false;
     const api: QuotaApi = {
       selection: async () => {
-        if (unavailable) throw new Error("disconnected");
+        if (unavailable) {
+          throw new Error("disconnected");
+        }
         return { hostId: "host_a", generation: 1 };
       },
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
@@ -128,14 +131,14 @@ describe("shared badge/dashboard selection", () => {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
       read: async () => {
-        reads++;
+        reads += 1;
         return { state: "fresh", reason: "ok", snapshot };
       },
     };
     await store.connect(api);
     await store.refresh(api);
     let notifications = 0;
-    const unsubscribe = store.subscribe(() => notifications++);
+    const unsubscribe = store.subscribe(() => (notifications += 1) - 1);
     const initial = store.getSnapshot();
     store.tick(start + 1000);
     expect(store.getSnapshot()).toBe(initial);
@@ -191,7 +194,9 @@ describe("shared badge/dashboard selection", () => {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),
       read: async () => {
-        if (fail) throw new Error("transport failure");
+        if (fail) {
+          throw new Error("transport failure");
+        }
         return view;
       },
     };

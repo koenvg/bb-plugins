@@ -14,7 +14,9 @@ export function useDraftSaves(save: SaveDraft, onError: (key: string, message: s
     (key: string): Promise<void> => {
       const previous = saving.current.get(key) ?? Promise.resolve();
       const pending = unsaved.current.get(key);
-      if (pending === undefined) return previous;
+      if (pending === undefined) {
+        return previous;
+      }
       clearTimeout(pending.timer);
       unsaved.current.delete(key);
       const saved = previous.then(async () => {
@@ -22,7 +24,9 @@ export function useDraftSaves(save: SaveDraft, onError: (key: string, message: s
           kind: "error" as const,
           message: messageOf(error),
         }));
-        if (result.kind === "error") onError(key, result.message);
+        if (result.kind === "error") {
+          onError(key, result.message);
+        }
       });
       saving.current.set(key, saved);
       return saved;
@@ -47,7 +51,9 @@ export function useDraftSaves(save: SaveDraft, onError: (key: string, message: s
   useEffect(() => {
     const pending = unsaved.current;
     return () => {
-      for (const key of [...pending.keys()]) void flush(key);
+      for (const key of [...pending.keys()]) {
+        void flush(key);
+      }
     };
   }, [flush]);
 

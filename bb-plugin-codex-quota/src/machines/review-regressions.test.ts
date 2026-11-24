@@ -6,7 +6,8 @@ import { createReportCache } from "./report-cache.js";
 import { combineReports } from "./combined-report.js";
 import { memorySummaries, recordedFixture, reportsFixture } from "./machines.test-support.js";
 import { latestStart } from "../history/calendar/calendar-time.js";
-import { calendarReportSchema, type CalendarQuery } from "../history/calendar/calendar-contract.js";
+import { calendarReportSchema } from "../history/calendar/calendar-contract.js";
+import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
 
 const now = Date.UTC(2026, 9, 1, 12);
 const query: CalendarQuery = {
@@ -19,7 +20,9 @@ const query: CalendarQuery = {
 it("keeps token detail from active machines when another has no recorded tokens", () => {
   const data = reportsFixture(query, now);
   const empty = data.machines[1].report;
-  if (empty.state === "unavailable") throw new Error("Fixture must be available");
+  if (empty.state === "unavailable") {
+    throw new Error("Fixture must be available");
+  }
   empty.days[14].totalTokens = 0;
   empty.days[14].classes = { state: "unavailable" };
   expect(combineReports(data, query)?.days[0].classes).toEqual({ state: "unavailable" });
@@ -51,9 +54,11 @@ it("prunes expired reports for enrolled machines during a catalog pass", async (
 it("rejects joint accepted and uncertain sums even when each subtotal is safe", () => {
   const data = reportsFixture(query, now);
   for (const row of data.machines) {
-    if (row.report.state === "unavailable") throw new Error("Fixture must be available");
-    const report = row.report,
-      day = report.days[14]!;
+    if (row.report.state === "unavailable") {
+      throw new Error("Fixture must be available");
+    }
+    const report = row.report;
+    const day = report.days[14]!;
     day.totalTokens = 4e15;
     day.classes = {
       state: "available",
@@ -74,8 +79,8 @@ it("rejects joint accepted and uncertain sums even when each subtotal is safe", 
 it.each([false, true])(
   "fences concurrent report saves until a public collector RPC settles, failure=%s",
   async (failure) => {
-    let connected = true,
-      finish!: () => void;
+    let connected = true;
+    let finish!: () => void;
     const { bb, harness } = createFakePluginHost({
       pluginId: "codex-quota",
       sdk: {
@@ -88,12 +93,16 @@ it.each([false, true])(
         },
       },
       experimental_callHostRpc: async ({ method, input }) => {
-        if (method === "calendarReport") return recordedFixture(input as CalendarQuery, Date.now());
+        if (method === "calendarReport") {
+          return recordedFixture(input as CalendarQuery, Date.now());
+        }
         if (method === "collectorControl") {
           await new Promise<void>((done) => {
             finish = done;
           });
-          if (failure) throw new Error("Synthetic failure");
+          if (failure) {
+            throw new Error("Synthetic failure");
+          }
           return {
             state: "not-configured",
             reason: "not-configured",
@@ -140,9 +149,13 @@ it.each([false, true])(
 it("merges model IDs across machines while retaining an older report remainder", () => {
   const data = reportsFixture(query, now);
   const reports = data.machines.map((row) => row.report);
-  if (reports.some((row) => row.state === "unavailable")) throw Error("Fixture unavailable");
+  if (reports.some((row) => row.state === "unavailable")) {
+    throw Error("Fixture unavailable");
+  }
   const first = reports[0];
-  if (first.state === "unavailable") throw Error("Fixture unavailable");
+  if (first.state === "unavailable") {
+    throw Error("Fixture unavailable");
+  }
   first.days[14].models = { named: [{ model: "gpt-5", totalTokens: 400 }], otherTokens: 100 };
   const day = combineReports(data, query)!.days[14];
   expect(day.totalTokens).toBe(1200);
@@ -151,7 +164,9 @@ it("merges model IDs across machines while retaining an older report remainder",
     otherTokens: 100,
   });
   const second = reports[1];
-  if (second.state === "unavailable") throw Error("Fixture unavailable");
+  if (second.state === "unavailable") {
+    throw Error("Fixture unavailable");
+  }
   second.days[14].models = {
     named: [
       { model: "gpt-5", totalTokens: 300 },
@@ -171,8 +186,9 @@ it("merges model IDs across machines while retaining an older report remainder",
 it("merges new captured model money with an old cached report without inferring names", async () => {
   const data = reportsFixture(query, now);
   const [first, second] = data.machines.map((row) => row.report);
-  if (first.state === "unavailable" || second.state === "unavailable")
+  if (first.state === "unavailable" || second.state === "unavailable") {
     throw Error("Fixture unavailable");
+  }
   const empty = {
     state: "unavailable" as const,
     capturedCost: null,
@@ -209,9 +225,11 @@ it("merges new captured model money with an old cached report without inferring 
   const cache = createReportCache(storage, () => now);
   await cache.save("host_one", first);
   await cache.save("host_two", second);
-  const newReport = await cache.read("host_one", query),
-    oldReport = await cache.read("host_two", query);
-  if (!newReport || !oldReport) throw Error("Cache unavailable");
+  const newReport = await cache.read("host_one", query);
+  const oldReport = await cache.read("host_two", query);
+  if (!newReport || !oldReport) {
+    throw Error("Cache unavailable");
+  }
   data.machines[0].report = newReport;
   data.machines[1].report = oldReport;
   const combined = combineReports(data, query)!;
@@ -230,9 +248,11 @@ it("merges new captured model money with an old cached report without inferring 
 });
 it("caps model dollars again across machines and withholds unsafe sums without losing tokens", () => {
   const data = reportsFixture(query, now);
-  for (let machine = 0; machine < 2; machine++) {
+  for (let machine = 0; machine < 2; machine += 1) {
     const report = data.machines[machine].report;
-    if (report.state === "unavailable") throw Error("Fixture unavailable");
+    if (report.state === "unavailable") {
+      throw Error("Fixture unavailable");
+    }
     const day = report.days[14];
     const empty = {
       state: "unavailable" as const,
@@ -284,7 +304,9 @@ it("caps model dollars again across machines and withholds unsafe sums without l
     reason: "ok",
   });
   for (const machine of data.machines) {
-    if (machine.report.state === "unavailable") throw Error("Fixture unavailable");
+    if (machine.report.state === "unavailable") {
+      throw Error("Fixture unavailable");
+    }
     const value = machine.report.days[14];
     value.money = {
       ...value.money,

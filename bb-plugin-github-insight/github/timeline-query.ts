@@ -66,6 +66,8 @@ export function timelinePageArgs(request: TimelinePageRequest): string[] {
     "-F",
     `number=${request.number}`,
   ];
-  if (request.before !== null) args.push("-f", `before=${request.before}`);
+  if (request.before !== null) {
+    args.push("-f", `before=${request.before}`);
+  }
   return args;
 }

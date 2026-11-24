@@ -7,6 +7,7 @@ import { initializeHistory, projectCompactRecord } from "../storage/history-proj
 import { initializeIdentityStorage, acceptIdentityBatch } from "../identity/identity-storage.js";
 import { executeImport } from "./import-engine.js";
 import type { ImportConfiguration } from "./import-contract.js";
+
 const owned: string[] = [];
 afterEach(async () => {
   await Promise.all(owned.splice(0).map((p) => rm(p, { recursive: true, force: true })));
@@ -44,8 +45,8 @@ export const message = (id = "entry-a", parentId: string | null = null) => ({
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp22-test-"));
   owned.push(root);
-  const sources = join(root, "custom-root"),
-    workspace = join(root, "workspace");
+  const sources = join(root, "custom-root");
+  const workspace = join(root, "workspace");
   await mkdir(sources);
   await mkdir(workspace);
   const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
@@ -70,7 +71,7 @@ async function fixture() {
     signal: new AbortController().signal,
     now: () => Date.parse("2026-10-03T00:00:00.000Z"),
     bodyRead: () => {
-      reads++;
+      reads += 1;
     },
   };
   const run = (command: any, options = {}) =>
@@ -134,8 +135,9 @@ it("does not admit unresolved live overlap after detail expiry and reopen", asyn
     expect(f.db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 0 });
     await f.run({ action: "configure", configuration: f.config });
     let v = await f.run({ action: "start" });
-    for (let n = 0; v.generation?.state === "stopped" && n < 12; n++)
+    for (let n = 0; v.generation?.state === "stopped" && n < 12; n += 1) {
       v = await f.run({ action: "resume" });
+    }
     expect(v.generation).toMatchObject({
       state: "completed",
       records: 0,
@@ -169,9 +171,10 @@ it.each(["missing", "invalid", "empty", "canceled"])(
         const { unlink } = await import("node:fs/promises");
         await unlink(f.path);
       }
-      if (kind === "empty")
+      if (kind === "empty") {
         await writeFile(f.path, JSON.stringify(header("pi-a", f.workspace)) + "\n");
-      if (kind === "invalid")
+      }
+      if (kind === "invalid") {
         await writeFile(
           f.path,
           [
@@ -181,12 +184,16 @@ it.each(["missing", "invalid", "empty", "canceled"])(
             .map((row) => JSON.stringify(row))
             .join("\n") + "\n",
         );
+      }
       await f.run({ action: "configure", configuration: f.config });
       let view = await f.run({ action: "start" });
-      if (kind === "canceled") view = await f.run({ action: "cancel" });
-      else
-        for (let n = 0; view.generation?.state === "stopped" && n < 12; n++)
+      if (kind === "canceled") {
+        view = await f.run({ action: "cancel" });
+      } else {
+        for (let n = 0; view.generation?.state === "stopped" && n < 12; n += 1) {
           view = await f.run({ action: "resume" });
+        }
+      }
       const query = {
         start: "2026-10-01T00:00:00Z",
         end: "2026-10-02T00:00:00Z",
@@ -203,8 +210,12 @@ it.each(["missing", "invalid", "empty", "canceled"])(
         state: "incomplete",
         uncertain: true,
       });
-      if (kind === "missing") expect(readCoverage(f.db, query).omissions).toBe(1);
-      if (kind === "canceled") expect(readCoverage(f.db, query).backlog).toBe(false);
+      if (kind === "missing") {
+        expect(readCoverage(f.db, query).omissions).toBe(1);
+      }
+      if (kind === "canceled") {
+        expect(readCoverage(f.db, query).backlog).toBe(false);
+      }
       expect(readCoverage(f.db, { ...query, workspace: "/other" }), kind).toMatchObject(
         ["empty", "invalid"].includes(kind)
           ? { omissions: 0, uncertain: false, backlog: false }
@@ -249,8 +260,9 @@ it("persists frozen progress and runs only on explicit resume, with no partial t
     await f.run({ action: "status" });
     expect(f.reads()).toBe(reads);
     expect((await f.run({ action: "start" })).reason).toBe("unfinished-generation");
-    for (let i = 0; i < 10 && v.generation?.state !== "completed"; i++)
+    for (let i = 0; i < 10 && v.generation?.state !== "completed"; i += 1) {
       v = await f.run({ action: "resume" });
+    }
     expect(v.generation?.state).toBe("completed");
     expect(f.db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
       total_tokens: 5,
@@ -265,8 +277,9 @@ it("persists frozen progress and runs only on explicit resume, with no partial t
 });
 async function finish(f: Awaited<ReturnType<typeof fixture>>, options = {}) {
   let v = await f.run({ action: "resume" }, options);
-  for (let i = 0; i < 30 && v.generation?.state === "stopped"; i++)
+  for (let i = 0; i < 30 && v.generation?.state === "stopped"; i += 1) {
     v = await f.run({ action: "resume" }, options);
+  }
   return v;
 }
 async function start(f: Awaited<ReturnType<typeof fixture>>, configuration = f.config) {
@@ -482,7 +495,9 @@ it("quarantines unconfirmed overlap, without matching equal tokens or times", as
   try {
     const { importedUsage } = await import("./import-parser.js");
     const parsed = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
-    if (parsed.kind !== "usage") throw Error("fixture invalid");
+    if (parsed.kind !== "usage") {
+      throw Error("fixture invalid");
+    }
     projectCompactRecord(f.db, {
       ...parsed.record,
       eventId: "00000000-0000-4000-8000-000000000002",
@@ -568,8 +583,8 @@ it("supports owning-host workspace aliases but never retargets roots after freez
     const saved = (await f.run({ action: "status" })).generation;
     await rename(f.sources, f.sources + "-old");
     await mkdir(f.sources);
-    const old = f.reads(),
-      v = await f.run({ action: "resume" });
+    const old = f.reads();
+    const v = await f.run({ action: "resume" });
     expect(v.generation?.id).toBe(saved?.id);
     expect(v.generation?.startAt).toBe(saved?.startAt);
     expect(v.generation?.diagnostics).toContain("source-changed");
@@ -620,7 +635,7 @@ it("paginates frozen BB identities and bounds ordinary discovery without scannin
       title: null,
       state: "available" as const,
     }));
-    for (let offset = 0; offset < 101; offset += 100)
+    for (let offset = 0; offset < 101; offset += 100) {
       acceptIdentityBatch(f.db, {
         hostId: "host-a",
         generation: 2,
@@ -628,6 +643,7 @@ it("paginates frozen BB identities and bounds ordinary discovery without scannin
         total: 101,
         rows: rows.slice(offset, offset + 100),
       });
+    }
     await start(f, { ...f.config, ordinaryRoots: [ordinary] });
     expect((await f.run({ action: "status" })).generation?.candidates).toBe(100);
     acceptIdentityBatch(f.db, {
@@ -691,7 +707,9 @@ it("reserves unresolved scalar exclusions across later imports and never resurre
   try {
     const { importedUsage } = await import("./import-parser.js");
     const p = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
-    if (p.kind !== "usage") throw Error("Invalid fixture");
+    if (p.kind !== "usage") {
+      throw Error("Invalid fixture");
+    }
     const live = {
       ...p.record,
       eventId: "00000000-0000-4000-8000-000000000005",
@@ -809,7 +827,9 @@ it.each([false, true])(
     try {
       const { importedUsage } = await import("./import-parser.js");
       const usage = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
-      if (usage.kind !== "usage") throw Error("Invalid synthetic record");
+      if (usage.kind !== "usage") {
+        throw Error("Invalid synthetic record");
+      }
       const live = {
         ...usage.record,
         eventId: "00000000-0000-4000-8000-000000000001",
@@ -834,7 +854,7 @@ it.each([false, true])(
           .map((row) => JSON.stringify(row))
           .join("\n") + "\n",
       );
-      if (chained)
+      if (chained) {
         await writeFile(
           join(ordinary, "chained.jsonl"),
           [
@@ -846,6 +866,7 @@ it.each([false, true])(
             .map((row) => JSON.stringify(row))
             .join("\n") + "\n",
         );
+      }
       await start(f, { ...f.config, ordinaryRoots: [ordinary] });
       const v = await finish(f);
       expect(v.generation?.omissions).toBe(0);
@@ -880,7 +901,9 @@ it("does not use an excluded canonical owner as fork evidence", async () => {
   try {
     const { importedUsage } = await import("./import-parser.js");
     const usage = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
-    if (usage.kind !== "usage") throw Error("Invalid fixture");
+    if (usage.kind !== "usage") {
+      throw Error("Invalid fixture");
+    }
     const live = {
       ...usage.record,
       eventId: "00000000-0000-4000-8000-000000000001",

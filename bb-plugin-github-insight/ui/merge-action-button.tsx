@@ -1,11 +1,10 @@
-import { useState, type ComponentProps, type ReactNode } from "react";
-import {
-  MERGE_METHOD_LABEL,
-  type MergeMethod,
-  type RunnableMergeAction,
-} from "../core/merge-action";
+import { useState } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { MERGE_METHOD_LABEL } from "../core/merge-action";
+import type { MergeMethod, RunnableMergeAction } from "../core/merge-action";
 import type { PrInsight } from "../core/overview";
-import { Icon, type IconName } from "@/components/ui/icon";
+import { Icon } from "@/components/ui/icon";
+import type { IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "./confirm-dialog";
 import { PR_ACTION_BUSY_LABEL } from "./pr-operations";

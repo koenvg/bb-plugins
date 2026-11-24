@@ -6,8 +6,9 @@ const EDITOR =
   "[data-promptbox-input-region] [contenteditable], [data-promptbox-input-region] textarea";
 
 function visible(element: HTMLElement): boolean {
-  if (!element.isConnected || element.closest('[hidden], [inert], [aria-hidden="true"]'))
+  if (!element.isConnected || element.closest('[hidden], [inert], [aria-hidden="true"]')) {
     return false;
+  }
   const style = getComputedStyle(element);
   return (
     style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0
@@ -19,12 +20,20 @@ function modalOpen(): boolean {
   ).some(visible);
 }
 function focusedForm(): HTMLFormElement | null {
-  if (modalOpen()) return null;
+  if (modalOpen()) {
+    return null;
+  }
   const target = document.activeElement;
   const form = target?.closest<HTMLFormElement>(FORM);
-  if (!form || !visible(form)) return null;
-  if (target === form.querySelector(EDITOR)) return form;
-  if (target === button(form, "Start voice input")) return form;
+  if (!form || !visible(form)) {
+    return null;
+  }
+  if (target === form.querySelector(EDITOR)) {
+    return form;
+  }
+  if (target === button(form, "Start voice input")) {
+    return form;
+  }
   const controls = voiceButtons(form);
   return target === controls.cancel || target === controls.confirm || target === controls.indicator
     ? form
@@ -32,9 +41,12 @@ function focusedForm(): HTMLFormElement | null {
 }
 function editable(form: HTMLFormElement): HTMLElement | null {
   const editor = form.querySelector<HTMLElement>(EDITOR);
-  if (!editor || !visible(editor) || editor.getAttribute("aria-readonly") === "true") return null;
-  if (editor instanceof HTMLTextAreaElement)
+  if (!editor || !visible(editor) || editor.getAttribute("aria-readonly") === "true") {
+    return null;
+  }
+  if (editor instanceof HTMLTextAreaElement) {
     return editor.disabled || editor.readOnly ? null : editor;
+  }
   return editor.getAttribute("contenteditable") === "true" ? editor : null;
 }
 function button(root: HTMLElement, label: string): HTMLButtonElement | null {
@@ -54,18 +66,24 @@ function voiceButtons(form: HTMLFormElement) {
   const empty = { cancel: null, confirm: null, indicator: null };
   const roots = form.querySelectorAll<HTMLElement>(CONTROLS);
   const root = roots.length === 1 ? roots[0]! : null;
-  if (!root || !visible(root)) return empty;
+  if (!root || !visible(root)) {
+    return empty;
+  }
   const cancels = root.querySelectorAll<HTMLButtonElement>(
     'button[aria-label="Cancel recording"], button[aria-label="Cancel transcription"]',
   );
   const confirms = root.querySelectorAll<HTMLButtonElement>(
     'button[aria-label="Stop and transcribe recording"], button[aria-label="Stop and add to draft"], button[aria-label="Transcribing voice input"]',
   );
-  if (cancels.length !== 1 || confirms.length !== 1) return empty;
+  if (cancels.length !== 1 || confirms.length !== 1) {
+    return empty;
+  }
   const cancelLabel = cancels[0]!.getAttribute("aria-label")!;
   const confirm = confirms[0]!;
   const cancel = button(root, cancelLabel);
-  if (!cancel) return empty;
+  if (!cancel) {
+    return empty;
+  }
   if (
     cancelLabel === "Cancel recording" &&
     (confirm.getAttribute("aria-label") === "Stop and transcribe recording" ||
@@ -113,7 +131,9 @@ export function createVoiceKeyboardControls() {
   const metadata = new Map<HTMLButtonElement, { previous: string | null; value: string }>();
 
   function ownsFocus(form: HTMLFormElement): boolean {
-    if (modalOpen() || !visible(form)) return false;
+    if (modalOpen() || !visible(form)) {
+      return false;
+    }
     return (
       focusedForm() === form || (document.activeElement === document.body && lastFocused === form)
     );
@@ -128,10 +148,14 @@ export function createVoiceKeyboardControls() {
     };
   }
   function hint(control: HTMLButtonElement | null, value: string) {
-    if (!control || metadata.has(control)) return;
+    if (!control || metadata.has(control)) {
+      return;
+    }
     const previous = control.getAttribute("aria-keyshortcuts");
     // Do not replace host-owned guidance.
-    if (previous !== null) return;
+    if (previous !== null) {
+      return;
+    }
     metadata.set(control, { previous, value });
     control.setAttribute("aria-keyshortcuts", value);
   }
@@ -139,12 +163,19 @@ export function createVoiceKeyboardControls() {
     control: HTMLButtonElement,
     entry: { previous: string | null; value: string },
   ) {
-    if (control.getAttribute("aria-keyshortcuts") !== entry.value) return;
-    if (entry.previous === null) control.removeAttribute("aria-keyshortcuts");
-    else control.setAttribute("aria-keyshortcuts", entry.previous);
+    if (control.getAttribute("aria-keyshortcuts") !== entry.value) {
+      return;
+    }
+    if (entry.previous === null) {
+      control.removeAttribute("aria-keyshortcuts");
+    } else {
+      control.setAttribute("aria-keyshortcuts", entry.previous);
+    }
   }
   function sync() {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     if (pendingStart) {
       const pending = pendingStart;
       if (
@@ -168,13 +199,19 @@ export function createVoiceKeyboardControls() {
       hint(controls.confirm, "Enter");
       hint(controls.cancel, "Escape");
     }
-    if (!session && lastFocused?.hasAttribute(ACTIVE)) session = newSession(lastFocused, false);
-    if (!session) return;
+    if (!session && lastFocused?.hasAttribute(ACTIVE)) {
+      session = newSession(lastFocused, false);
+    }
+    if (!session) {
+      return;
+    }
     if (!session.form.isConnected) {
       session = null;
       return;
     }
-    if (!ownsFocus(session.form)) session.restore = false;
+    if (!ownsFocus(session.form)) {
+      session.restore = false;
+    }
     if (session.form.hasAttribute(ACTIVE)) {
       session.sawActive = true;
       return;
@@ -182,19 +219,26 @@ export function createVoiceKeyboardControls() {
     if (!session.sawActive) {
       // Pending permission is independent of Enter-session ownership. An error
       // or removal releases that guard; unknown host markup stays fail-closed.
-      if (pendingStart?.form !== session.form) session = null;
+      if (pendingStart?.form !== session.form) {
+        session = null;
+      }
       return;
     }
     const editor = editable(session.form);
     // The native editor may become editable in an effect after voice state ends.
-    if (!editor) return;
+    if (!editor) {
+      return;
+    }
     const completed = session;
     session = null;
-    if (completed.keyboard && completed.restore && ownsFocus(completed.form))
+    if (completed.keyboard && completed.restore && ownsFocus(completed.form)) {
       editor.focus({ preventScroll: true });
+    }
   }
   function canStart(): boolean {
-    if (!mounted) return false;
+    if (!mounted) {
+      return false;
+    }
     sync();
     const form = focusedForm();
     return (
@@ -207,10 +251,14 @@ export function createVoiceKeyboardControls() {
     );
   }
   function start() {
-    if (!canStart()) return;
+    if (!canStart()) {
+      return;
+    }
     const form = focusedForm()!;
     const mic = button(form, "Start voice input");
-    if (!mic) return;
+    if (!mic) {
+      return;
+    }
     lastFocused = form;
     pendingStart = { form, errors: voiceErrors() };
     session = newSession(form, true); // Latch before React/native handlers run.
@@ -222,7 +270,9 @@ export function createVoiceKeyboardControls() {
     // Native control removal leaves body focus without a focusin event. An
     // actual focusin elsewhere permanently releases restoration ownership.
     lastFocused = form;
-    if (session && form !== session.form) session.restore = false;
+    if (session && form !== session.form) {
+      session.restore = false;
+    }
     sync();
   }
   function keyDown(event: KeyboardEvent) {
@@ -235,27 +285,35 @@ export function createVoiceKeyboardControls() {
       event.altKey ||
       event.metaKey ||
       event.defaultPrevented
-    )
+    ) {
       return;
+    }
     sync();
     const form = focusedForm() ?? (lastFocused && ownsFocus(lastFocused) ? lastFocused : null);
     if (
       !form ||
       !(event.target instanceof Node) ||
       (event.target !== document.body && !form.contains(event.target))
-    )
+    ) {
       return;
+    }
     if (heldEnter === form && event.repeat) {
       event.preventDefault();
       event.stopImmediatePropagation();
       return;
     }
-    if (!event.repeat) heldEnter = null;
-    if (!form.hasAttribute(ACTIVE)) return;
+    if (!event.repeat) {
+      heldEnter = null;
+    }
+    if (!form.hasAttribute(ACTIVE)) {
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
     heldEnter = form;
-    if (!session || session.form !== form) session = newSession(form, true);
+    if (!session || session.form !== form) {
+      session = newSession(form, true);
+    }
     session.keyboard = true;
     const controls = voiceButtons(form);
     if (controls.cancel && controls.cancel === document.activeElement && !event.repeat) {
@@ -263,17 +321,23 @@ export function createVoiceKeyboardControls() {
       sync();
       return;
     }
-    if (!controls.cancel || !controls.confirm || session.confirmed || event.repeat) return;
+    if (!controls.cancel || !controls.confirm || session.confirmed || event.repeat) {
+      return;
+    }
     session.confirmed = true;
     controls.confirm.click();
     sync();
   }
   function keyUp(event: KeyboardEvent) {
-    if (event.key === "Enter") heldEnter = null;
+    if (event.key === "Enter") {
+      heldEnter = null;
+    }
   }
 
   function mount({ signal }: { signal: AbortSignal }): () => void {
-    if (signal.aborted) return () => {};
+    if (signal.aborted) {
+      return () => {};
+    }
     mounted = true;
     lastFocused = focusedForm();
     const observer = new MutationObserver(sync);
@@ -300,7 +364,9 @@ export function createVoiceKeyboardControls() {
     sync();
     let disposed = false;
     const dispose = () => {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
       disposed = true;
       mounted = false;
       observer.disconnect();
@@ -308,7 +374,9 @@ export function createVoiceKeyboardControls() {
       window.removeEventListener("keyup", keyUp, true);
       window.removeEventListener("focusin", focusChanged, true);
       signal.removeEventListener("abort", dispose);
-      for (const [control, entry] of metadata) restoreHint(control, entry);
+      for (const [control, entry] of metadata) {
+        restoreHint(control, entry);
+      }
       metadata.clear();
       pendingStart = null;
       session = null;

@@ -6,7 +6,8 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, ReturnedReason, rpcContract } from "./contract";
 import type { Check } from "./core/checks";
-import { collectInsight, type PrInsight } from "./core/overview";
+import { collectInsight } from "./core/overview";
+import type { PrInsight } from "./core/overview";
 import requiredChecksPage from "./test/fixtures/pr-cli-14583-overview-required-checks.json";
 import { postIntent, useCommandIntent } from "./ui/command-intents";
 import { GITHUB_COMMANDS } from "./ui/commands";
@@ -996,7 +997,6 @@ describe("Composer banner merge action", () => {
     const slot = renderBanner(readyBanner);
 
     fireEvent.click(await slot.findByRole("button", { name: /Ready to merge/ }));
-
     expect(slot.inspection.experimental_panelCalls).toEqual([
       {
         method: "openTab",
@@ -1153,7 +1153,7 @@ describe("palette command availability", () => {
     let finishFirst: (result: InsightResult) => void = () => {};
     let loads = 0;
     const slot = renderBannerFor("thr_stale", () =>
-      loads++ === 0
+      (loads += 1) - 1 === 0
         ? new Promise<InsightResult>((resolve) => (finishFirst = resolve))
         : ok(emptyInsight),
     );

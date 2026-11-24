@@ -1,4 +1,5 @@
-import { accountsSchema, type MachineAccounts } from "./machines-contract.js";
+import { accountsSchema } from "./machines-contract.js";
+import type { MachineAccounts } from "./machines-contract.js";
 import { visibleView } from "../account/freshness.js";
 import type { QuotaStatus } from "../quota/contract.js";
 
@@ -34,7 +35,9 @@ export class MachineAccountsStore {
   getSnapshot = () => this.state;
   private set(patch: Partial<State>) {
     this.state = { ...this.state, ...patch };
-    for (const listener of this.listeners) listener();
+    for (const listener of this.listeners) {
+      listener();
+    }
   }
   start(api: AccountsApi) {
     this.api = api;
@@ -51,13 +54,15 @@ export class MachineAccountsStore {
     }
     let active = true;
     return () => {
-      if (!active) return;
+      if (!active) {
+        return;
+      }
       active = false;
       this.apis.delete(owner);
       this.api = [...this.apis].at(-1)?.api ?? null;
       this.set({ owners: this.state.owners - 1 });
       if (!this.state.owners) {
-        this.generation++;
+        this.generation += 1;
         clearTimeout(this.timer);
         clearInterval(this.clock);
         this.api = null;
@@ -71,29 +76,40 @@ export class MachineAccountsStore {
       const pending = this.inFlight;
       return includeActivity ? pending.then(() => this.refresh(force, true)) : pending;
     }
-    if (!this.api || !this.state.owners) return Promise.resolve();
-    if (!force && !includeActivity && Date.now() < this.nextReadAt) return Promise.resolve();
-    const api = this.api,
-      generation = this.generation;
+    if (!this.api || !this.state.owners) {
+      return Promise.resolve();
+    }
+    if (!force && !includeActivity && Date.now() < this.nextReadAt) {
+      return Promise.resolve();
+    }
+    const api = this.api;
+    const generation = this.generation;
     clearTimeout(this.timer);
     this.set({ loading: true, now: Date.now() });
     const valid = () => generation === this.generation && this.state.owners > 0;
     const run = Promise.resolve()
       .then(() => (valid() ? api({ refresh: force, includeActivity }) : null))
       .then((raw) => {
-        if (!valid()) return;
+        if (!valid()) {
+          return;
+        }
         const parsed = accountsSchema.parse(raw);
         // An allowance-only refresh must not overwrite an independently loaded activity observation.
         const old = this.state.data;
-        if (!includeActivity && old)
+        if (!includeActivity && old) {
           for (const account of parsed.accounts) {
             const previous = old.accounts.find((value) => value.key === account.key);
-            if (previous) account.activity = previous.activity;
+            if (previous) {
+              account.activity = previous.activity;
+            }
           }
+        }
         this.set({ data: parsed, failed: false });
       })
       .catch(() => {
-        if (!valid()) return;
+        if (!valid()) {
+          return;
+        }
         const data = this.state.data;
         this.set({
           failed: true,
@@ -114,7 +130,9 @@ export class MachineAccountsStore {
         });
       })
       .finally(() => {
-        if (!valid()) return;
+        if (!valid()) {
+          return;
+        }
         this.inFlight = null;
         this.set({ loading: false, now: Date.now() });
         const success =
@@ -138,7 +156,9 @@ export class MachineAccountsStore {
 }
 export function footerAllowance(data: MachineAccounts | null, now: number, active = true) {
   const empty: QuotaStatus = { state: "unavailable", reason: "unavailable", snapshot: null };
-  if (!active || !data) return { view: empty, known: false, label: "—" };
+  if (!active || !data) {
+    return { view: empty, known: false, label: "—" };
+  }
   const views = data.accounts.map((account) => visibleView(account.quota, now));
   const candidates = views.filter(
     (view) =>
@@ -150,7 +170,9 @@ export function footerAllowance(data: MachineAccounts | null, now: number, activ
   const lowest = candidates.sort(
     (a, b) => a.snapshot!.bindingRemainingPercent! - b.snapshot!.bindingRemainingPercent!,
   )[0];
-  if (!lowest) return { view: empty, known: false, label: "—" };
+  if (!lowest) {
+    return { view: empty, known: false, label: "—" };
+  }
   const known =
     data.truncated ||
     data.machines.some((machine) => machine.status !== "connected") ||

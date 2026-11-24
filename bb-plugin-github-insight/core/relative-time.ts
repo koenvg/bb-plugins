@@ -11,7 +11,9 @@ export function relativeTime(date: Date, now: Date, locale?: string): string {
   const format = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const seconds = (date.getTime() - now.getTime()) / 1000;
   for (const [unit, size] of UNITS) {
-    if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
+    if (Math.abs(seconds) >= size) {
+      return format.format(Math.round(seconds / size), unit);
+    }
   }
   return format.format(0, "second");
 }

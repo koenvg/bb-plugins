@@ -1,4 +1,5 @@
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, quotaViewSchema } from "../quota/contract.js";
 import { activityViewSchema, emptyActivity } from "../activity/activity-contract.js";
@@ -35,6 +36,7 @@ import {
   reportsRequestSchema,
   reportsSchema,
 } from "../machines/machines-contract.js";
+
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
 const selectionSchema = z
@@ -243,7 +245,9 @@ export default function plugin(bb: BbPluginApi) {
     async ping({ hostId }) {
       try {
         const host = await bb.sdk.hosts.get({ hostId });
-        if (host.id !== hostId) return { reachable: false };
+        if (host.id !== hostId) {
+          return { reachable: false };
+        }
         return await hostClient.call("ping", null, { hostId });
       } catch {
         return { reachable: false };

@@ -2,10 +2,8 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  experimental_scanPublicSdkOnly,
-  type PublicSdkOnlyScanOptions,
-} from "@get-bb/plugin-sdk/testing";
+import { experimental_scanPublicSdkOnly } from "@get-bb/plugin-sdk/testing";
+import type { PublicSdkOnlyScanOptions } from "@get-bb/plugin-sdk/testing";
 
 function scanPluginSources(packageRoot: string, options?: PublicSdkOnlyScanOptions) {
   const scanRoot = mkdtempSync(join(tmpdir(), "quota-sdk-scan-"));
@@ -95,19 +93,19 @@ describe("public SDK and quota-only boundary", () => {
       [
         "src/history/collection/collector-compatibility.test.ts",
         [
-          '/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root)).toString("base64")}`',
+          `/* @vite-ignore */ \`data:text/javascript;base64,\${Buffer.from(packagedCollectorAsset(root)).toString("base64")}\``,
         ],
       ],
       [
         "src/history/collection/collector-entry.test.ts",
         [
-          "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`)}`",
+          `/* @vite-ignore */ \`data:text/javascript,\${encodeURIComponent(\`export default \${COLLECTOR_ENTRY}\`)}\``,
         ],
       ],
       [
         "src/history/collection/history-legacy.test.ts",
         [
-          "/* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`)}`",
+          `/* @vite-ignore */ \`data:text/javascript,\${encodeURIComponent(\`export default \${LEGACY_ENTRY}\`)}\``,
         ],
       ],
       [
@@ -208,29 +206,34 @@ describe("public SDK and quota-only boundary", () => {
             entry.specifier === "../scripts/browser-fixture-runner.mjs") ||
             (entry.file === "scripts/preview-server.mjs" &&
               entry.specifier === "../../scripts/browser-fixture-runner.mjs"))
-        )
+        ) {
           return false;
+        }
         if (entry.reason === "outside-allowlist") {
           if (
             entry.specifier === "@playwright/test" &&
             (entry.file === "playwright.config.ts" || entry.file.startsWith("scripts/browser/"))
-          )
+          ) {
             return false;
+          }
           if (
             entry.file === "scripts/preview-server.mjs" &&
             ["esbuild", "@tailwindcss/node", "@tailwindcss/oxide"].includes(entry.specifier)
-          )
+          ) {
             return false;
-          if (entry.file === "vitest.config.ts" && entry.specifier === "vitest/config")
+          }
+          if (entry.file === "vitest.config.ts" && entry.specifier === "vitest/config") {
             return false;
+          }
         }
         // Only these synthetic probes may use the public test harness outside *.test.ts.
         if (
           entry.reason === "outside-allowlist" &&
           entry.specifier === "@get-bb/plugin-sdk/testing/host" &&
           hostHarnessProbes.has(entry.file)
-        )
+        ) {
           return false;
+        }
         if (
           entry.reason === "outside-allowlist" &&
           entry.specifier === "@get-bb/plugin-sdk/testing/app" &&
@@ -240,15 +243,17 @@ describe("public SDK and quota-only boundary", () => {
             "scripts/footer-preview.tsx",
             "src/machines/app.test-support.ts",
           ].includes(entry.file)
-        )
-          return false; // Public SDK React fixture. Never shipped as the plugin app.
+        ) {
+          return false;
+        } // Public SDK React fixture. Never shipped as the plugin app.
         // CI-only guard imports exact file URLs resolved through the installed Pi graph.
         if (
           entry.reason === "dynamic-specifier" &&
           entry.file === "scripts/check-installed-globs.mjs" &&
           (entry.specifier === "brace" || entry.specifier === "minimatch")
-        )
+        ) {
           return false;
+        }
         return (
           entry.reason !== "dynamic-specifier" ||
           !testSeams.get(entry.file)?.includes(entry.specifier)

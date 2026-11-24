@@ -112,7 +112,7 @@ describe("collectReviewThreads", () => {
   it(`stops after ${MAX_THREAD_PAGES} pages and says the list is not complete`, async () => {
     let calls = 0;
     const { complete } = await collectReviewThreads(async () => {
-      calls++;
+      calls += 1;
       return threadsPage([threadNode(`t${calls}`)], { hasNextPage: true, endCursor: "next" });
     });
 

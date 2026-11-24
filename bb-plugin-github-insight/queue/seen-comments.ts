@@ -24,8 +24,12 @@ export function createSeenComments(kv: Pick<PluginKvStorage, "get" | "set" | "de
       const key = keyOf(pr);
       return inOrder(key, async () => {
         const seen = await read(key);
-        for (const id of ids) seen.add(id);
-        if (seen.size > 0) await kv.set(key, { v: 1, ids: [...seen] });
+        for (const id of ids) {
+          seen.add(id);
+        }
+        if (seen.size > 0) {
+          await kv.set(key, { v: 1, ids: [...seen] });
+        }
       });
     },
 

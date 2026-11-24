@@ -1,15 +1,18 @@
 import { isVideoPath } from "../core/video-content";
 import { ReviewVideoDiff } from "../../review-ui/video-diff";
-import { useCallback } from "react";
-import { useRpc } from "@get-bb/plugin-sdk/app";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRpc, experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
 import { isRasterPath } from "../core/image-content";
-import { imageBasisKey, type PrImageBasis } from "../core/pr-image-basis";
-import { ReviewImageDiff, imageBlobResult, type ImageSide } from "../../review-ui/image-diff";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { parsePatchFiles, type DiffLineAnnotation, type FileDiffMetadata } from "@pierre/diffs";
-import { experimental_useCodeTheme as useCodeTheme } from "@get-bb/plugin-sdk/app";
-import { gitPatch, type ReviewFile } from "../core/pr-files";
+import { imageBasisKey } from "../core/pr-image-basis";
+import type { PrImageBasis } from "../core/pr-image-basis";
+import { ReviewImageDiff, imageBlobResult } from "../../review-ui/image-diff";
+import type { ImageSide } from "../../review-ui/image-diff";
+import { parsePatchFiles } from "@pierre/diffs";
+import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
+
+import { gitPatch } from "../core/pr-files";
+import type { ReviewFile } from "../core/pr-files";
 import type { DiffSide } from "../core/diff-lines";
 import type { DiffSide as PierreSide } from "../../review-ui/diff-lines";
 import type { ListedCommentDraft } from "../core/review-drafts";
@@ -59,12 +62,14 @@ export function PrFileDiff({
     isRasterPath(file.path) ||
     isRasterPath(file.previousPath ?? "") ||
     (file.patch === null && (isVideoPath(file.path) || isVideoPath(file.previousPath ?? "")))
-  )
+  ) {
     return (
       <PrPreviewFile file={file} image={image} threads={threads} commentDrafts={commentDrafts} />
     );
-  if (fileDiff === null)
+  }
+  if (fileDiff === null) {
     return <UnavailableFileDiff path={file.path} threads={threads} commentDrafts={commentDrafts} />;
+  }
   return (
     <LazyFileDiff
       path={file.path}
@@ -96,12 +101,13 @@ function PrPreviewFile({
   const threadId = image?.threadId;
   const load = useCallback(
     async (side: ImageSide, signal: AbortSignal) => {
-      if (!basis || !threadId)
+      if (!basis || !threadId) {
         return {
           kind: "error" as const,
           code: "stale" as const,
           message: "Preview revision unavailable. Refresh the review.",
         };
+      }
       const result = await rpc.call(video ? "getPrVideo" : "getPrImage", {
         threadId,
         expectedBasisKey: imageBasisKey(basis),
@@ -263,7 +269,9 @@ const CHEVRONS = {
 };
 
 function ThreadCount({ count }: { count: number }) {
-  if (count === 0) return null;
+  if (count === 0) {
+    return null;
+  }
   return (
     <span className="inline-flex items-center gap-1 font-sans text-xs text-muted-foreground tabular-nums">
       <Icon name="MessageSquare" className="size-3.5" />
@@ -274,7 +282,9 @@ function ThreadCount({ count }: { count: number }) {
 
 function parseFileDiff(file: ReviewFile): FileDiffMetadata | null {
   const patch = gitPatch(file);
-  if (patch === null) return null;
+  if (patch === null) {
+    return null;
+  }
   try {
     const files = parsePatchFiles(patch, undefined, true).flatMap((parsed) => parsed.files);
     return files.length === 1 ? files[0]! : null;
@@ -288,10 +298,14 @@ function useVisibleOnce<T extends Element>() {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const element = ref.current;
-    if (visible || element === null) return;
+    if (visible || element === null) {
+      return;
+    }
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) setVisible(true);
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+        }
       },
       { rootMargin: "800px 0px" },
     );

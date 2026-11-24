@@ -23,7 +23,9 @@ export type ReviewedMarks = ReturnType<typeof createReviewedMarks>;
 
 function markOf(stored: unknown): ReviewedMark | null {
   const entry = markEntrySchema.safeParse(stored);
-  if (!entry.success) return null;
+  if (!entry.success) {
+    return null;
+  }
   const { owner, repo, number, headOid, markedAt } = entry.data;
   return { ref: { owner, repo, number }, headOid, markedAt };
 }

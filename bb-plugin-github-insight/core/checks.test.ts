@@ -7,10 +7,8 @@ import {
   QUIET_STATUS_MS,
   mapStatusContextState,
   toCheck,
-  type CheckNode,
-  type CheckRunNode,
-  type StatusContextNode,
 } from "./checks";
+import type { CheckNode, CheckRunNode, StatusContextNode } from "./checks";
 
 function checkRun(overrides: Partial<CheckRunNode> = {}): CheckRunNode {
   return {

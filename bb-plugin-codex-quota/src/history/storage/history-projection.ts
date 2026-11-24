@@ -1,19 +1,17 @@
 import { initializeUsageMetadata, recordPiMetadata } from "./usage-metadata.js";
-import {
-  supportedHistoryVersion,
-  supportedHistoryLayout,
-  type HistoryDatabase,
-} from "./history-storage.js";
+import { supportedHistoryVersion, supportedHistoryLayout } from "./history-storage.js";
+import type { HistoryDatabase } from "./history-storage.js";
 import type { HistoryReadiness } from "../history-contract.js";
-import { usageRecordSchema, type parseCompact } from "../collection/usage-record.js";
+import { usageRecordSchema } from "../collection/usage-record.js";
+import type { parseCompact } from "../collection/usage-record.js";
 import { sameCompactUsage, sameUsageEvidence } from "../collection/usage-evidence.js";
 import {
   HISTORY_VERSION,
   createRetentionSchema,
   insertCompact,
   retentionState,
-  type CompactRow,
 } from "./history-retention.js";
+import type { CompactRow } from "./history-retention.js";
 import { initializeIdentityStorage } from "../identity/identity-storage.js";
 import { initializeImport } from "../import/import-state.js";
 
@@ -34,8 +32,12 @@ type Owner = { event_id: string; evidence: string; conflicted: number };
 export function initializeHistory(db: HistoryDatabase, firstObservedAt: string, collector = true) {
   const version = (db.prepare("PRAGMA user_version").get() as { user_version: number })
     .user_version;
-  if (version !== 0 && (!supportedHistoryVersion(version) || !supportedHistoryLayout(db, version)))
+  if (
+    version !== 0 &&
+    (!supportedHistoryVersion(version) || !supportedHistoryLayout(db, version))
+  ) {
     throw Error("History schema unsupported");
+  }
   db.transaction(() => {
     db.exec(`CREATE TABLE IF NOT EXISTS collector_meta (id INTEGER PRIMARY KEY CHECK(id=1), first_observed TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS collector_pauses (id INTEGER PRIMARY KEY, started TEXT NOT NULL, ended TEXT);
@@ -48,14 +50,16 @@ export function initializeHistory(db: HistoryDatabase, firstObservedAt: string, 
       CREATE TABLE IF NOT EXISTS workspace_totals (workspace TEXT PRIMARY KEY, total_tokens INTEGER NOT NULL, events INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS workspace_ranking ON workspace_totals(total_tokens DESC,workspace);
       CREATE TABLE IF NOT EXISTS collector_sources (name TEXT PRIMARY KEY, identity TEXT NOT NULL, size INTEGER NOT NULL, stamp TEXT NOT NULL, offset INTEGER NOT NULL, dropping INTEGER NOT NULL, edge TEXT NOT NULL, invalid INTEGER NOT NULL, stalled INTEGER NOT NULL);`);
-    if (collector)
+    if (collector) {
       db.prepare("INSERT OR IGNORE INTO collector_meta VALUES (1, ?)").run(firstObservedAt);
+    }
     db.prepare("INSERT OR IGNORE INTO history_counters VALUES (1,0,0,0,0,0)").run();
     createRetentionSchema(db, version === 1);
     initializeWriterObservation(db);
     initializeIdentityStorage(db);
-    if (version !== HISTORY_VERSION)
+    if (version !== HISTORY_VERSION) {
       db.prepare("UPDATE identity_receipt SET backfill=0,backfilled=0 WHERE id=1").run();
+    }
     initializeImport(db);
     initializeUsageMetadata(db);
     db.exec(`PRAGMA user_version = ${HISTORY_VERSION}`);
@@ -80,14 +84,18 @@ function adjustWorkspace(db: HistoryDatabase, row: EventRow, direction: number) 
   const total = db
     .prepare("SELECT total_tokens,events FROM workspace_totals WHERE workspace=?")
     .get(row.workspace) as { total_tokens: number; events: number };
-  if (![total.total_tokens, total.events].every((n) => Number.isSafeInteger(n) && n >= 0))
+  if (![total.total_tokens, total.events].every((n) => Number.isSafeInteger(n) && n >= 0)) {
     throw Error("History totals unavailable");
-  if (total.events === 0)
+  }
+  if (total.events === 0) {
     db.prepare("DELETE FROM workspace_totals WHERE workspace=?").run(row.workspace);
+  }
 }
 function exclude(db: HistoryDatabase, id: string) {
   const row = eventRow(db, id);
-  if (!row?.accepted) return;
+  if (!row?.accepted) {
+    return;
+  }
   adjustWorkspace(db, row, -1);
   db.prepare("UPDATE usage_events SET accepted=0 WHERE event_id=?").run(id);
   db.prepare("UPDATE usage_compact SET accepted=0 WHERE event_id=?").run(id);
@@ -143,31 +151,38 @@ function resolveBinding(db: HistoryDatabase, row: EventRow, binding: Binding) {
       row.evidence,
       row.accepted ? 0 : 1,
     );
-    if (!row.accepted)
+    if (!row.accepted) {
       db.prepare(
         "UPDATE history_counters SET conflicting_entries=conflicting_entries+1 WHERE id=1",
       ).run();
+    }
     return;
   }
-  if (owner.event_id === row.event_id) return;
+  if (owner.event_id === row.event_id) {
+    return;
+  }
   exclude(db, row.event_id);
-  if (!sameUsageEvidence(owner.evidence, row.evidence)) conflictOwner(db, binding, owner);
+  if (!sameUsageEvidence(owner.evidence, row.evidence)) {
+    conflictOwner(db, binding, owner);
+  }
 }
 /** Called only inside the source/progress transaction. No report-time replay decisions. */
 export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord) {
   if ("workspace" in record) {
-    if (record.provenance === "observed")
+    if (record.provenance === "observed") {
       db.prepare("UPDATE history_writer_observation SET observed=1 WHERE id=1").run();
+    }
     const { metadata, ...scalars } = record;
-    const prior = eventRow(db, record.eventId),
-      payload = JSON.stringify(scalars),
-      retention = retentionState(db);
+    const prior = eventRow(db, record.eventId);
+    const payload = JSON.stringify(scalars);
+    const retention = retentionState(db);
     if (
       !prior &&
       (record.occurredAt < retention.compact_cutoff ||
         db.prepare("SELECT event_id FROM usage_expired WHERE event_id=?").get(record.eventId))
-    )
+    ) {
       return;
+    }
     if (prior) {
       if (!sameCompactUsage(prior, payload)) {
         invalid(db);
@@ -181,10 +196,14 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
               "SELECT event_id,evidence,conflicted FROM usage_entry_owners WHERE session_id=? AND entry_id=?",
             )
             .get(binding.session_id, binding.entry_id) as Owner | undefined;
-          if (owner) conflictOwner(db, binding, owner);
+          if (owner) {
+            conflictOwner(db, binding, owner);
+          }
         }
       }
-      if (sameCompactUsage(prior, payload)) recordPiMetadata(db, record.eventId, metadata);
+      if (sameCompactUsage(prior, payload)) {
+        recordPiMetadata(db, record.eventId, metadata);
+      }
       return;
     }
     const accepted = db
@@ -193,7 +212,7 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
       ? 0
       : 1;
     insertCompact(db, payload, accepted, 0);
-    if (record.occurredAt >= retention.detail_cutoff)
+    if (record.occurredAt >= retention.detail_cutoff) {
       db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,?,0)").run(
         record.eventId,
         record.sessionId,
@@ -202,19 +221,24 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
         payload,
         accepted,
       );
-    else
+    } else {
       db.prepare("UPDATE usage_compact SET detail_available=0 WHERE event_id=?").run(
         record.eventId,
       );
+    }
     db.prepare(
       "UPDATE history_counters SET observed_events=observed_events+1,unconfirmed_events=unconfirmed_events+1 WHERE id=1",
     ).run();
     const row = eventRow(db, record.eventId)!;
-    if (accepted) adjustWorkspace(db, row, 1);
+    if (accepted) {
+      adjustWorkspace(db, row, 1);
+    }
     const binding = db
       .prepare("SELECT session_id,entry_id FROM usage_confirmations WHERE event_id=?")
       .get(record.eventId) as Binding | undefined;
-    if (binding) resolveBinding(db, row, binding);
+    if (binding) {
+      resolveBinding(db, row, binding);
+    }
     recordPiMetadata(db, record.eventId, metadata);
   } else {
     const binding: Binding = { session_id: record.sessionId, entry_id: record.entryId };
@@ -229,17 +253,22 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
           "SELECT event_id,evidence,conflicted FROM usage_entry_owners WHERE session_id=? AND entry_id=?",
         )
         .get(prior.session_id, prior.entry_id) as Owner | undefined;
-      if (owner) conflictOwner(db, prior, owner);
+      if (owner) {
+        conflictOwner(db, prior, owner);
+      }
       return;
     }
-    if (!prior)
+    if (!prior) {
       db.prepare("INSERT INTO usage_confirmations VALUES (?,?,?)").run(
         record.eventId,
         record.sessionId,
         record.entryId,
       );
+    }
     const row = eventRow(db, record.eventId);
-    if (row && !prior) resolveBinding(db, row, binding);
+    if (row && !prior) {
+      resolveBinding(db, row, binding);
+    }
   }
 }
 /** Resolve an attempted confirmed event to its immutable first owner, including exclusion state. */
@@ -254,9 +283,13 @@ function confirmedUsage(
     JOIN usage_entry_owners o ON o.session_id=c.session_id AND o.entry_id=c.entry_id
     JOIN usage_compact e ON e.event_id=o.event_id WHERE c.event_id=?`)
     .get(eventId) as (CompactRow & { conflicted: number }) | undefined;
-  if (!row) return null;
+  if (!row) {
+    return null;
+  }
   const candidate = { ...record, eventId: row.event_id, sessionId: row.session_id };
-  if (!sameCompactUsage(row, JSON.stringify(candidate))) return null;
+  if (!sameCompactUsage(row, JSON.stringify(candidate))) {
+    return null;
+  }
   const original = usageRecordSchema.parse({
     ...candidate,
     workspace: row.workspace,
@@ -297,8 +330,9 @@ export function admitImportedUsage(
         "SELECT event_id FROM usage_compact WHERE session_id=? AND confirmed=0 AND provenance='observed' LIMIT 1",
       )
       .get(record.sessionId)
-  )
+  ) {
     return { kind: "unresolved-overlap" };
+  }
   projectCompactRecord(db, { ...record, provenance: "imported" });
   projectCompactRecord(db, {
     version: 1,

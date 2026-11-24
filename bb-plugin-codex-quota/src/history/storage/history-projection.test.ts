@@ -2,10 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "./history-storage.js";
+import { openHistoryDatabase } from "./history-storage.js";
+import type { HistoryDatabase } from "./history-storage.js";
 import { recordHistoryExecutions, explainHistoryExecution } from "../history-sql.test-support.js";
 import { initializeHistory, projectCompactRecord, collectionView } from "./history-projection.js";
 import { parseCompact } from "../collection/usage-record.js";
+
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
   for (const { root, db } of fixtures.splice(0)) {
@@ -14,8 +16,8 @@ afterEach(async () => {
   }
 });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bbp18-projection-")),
-    db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const root = await mkdtemp(join(tmpdir(), "bbp18-projection-"));
+  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
   fixtures.push({ root, db });
   initializeHistory(db, "2026-10-01T00:00:00.000Z");
   return db;
@@ -85,7 +87,9 @@ it("keeps conflicting confirmation-before-event evidence excluded", async () => 
 it("bounds ranking with a persistent index and no grouping or detailed-event scan", async () => {
   const db = await fixture();
   db.transaction(() => {
-    for (let n = 1; n <= 80; n++) projectCompactRecord(db, compact(record(n, `/workspace-${n}`)));
+    for (let n = 1; n <= 80; n += 1) {
+      projectCompactRecord(db, compact(record(n, `/workspace-${n}`)));
+    }
   });
   const capture = recordHistoryExecutions(db);
   const view = collectionView(capture.db, true, false);

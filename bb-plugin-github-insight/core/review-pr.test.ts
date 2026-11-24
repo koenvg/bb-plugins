@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readReviewPr, reviewPrMetadata, type ReviewPr } from "./review-pr";
+import { readReviewPr, reviewPrMetadata } from "./review-pr";
+import type { ReviewPr } from "./review-pr";
 
 const pr: ReviewPr = {
   repo: "acme/api",

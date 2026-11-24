@@ -7,12 +7,15 @@ const identity = (s: { dev: number; ino: number }) => `${s.dev}:${s.ino}`;
 export const stamp = (s: { mtimeMs: number; ctimeMs: number }) => `${s.mtimeMs}:${s.ctimeMs}`;
 /** Prove every ancestor, not only the last directory. No header path becomes a read destination. */
 export async function proveDirectory(path: string): Promise<string> {
-  if (!isAbsolute(path) || resolve(path) !== path || path === sep)
+  if (!isAbsolute(path) || resolve(path) !== path || path === sep) {
     throw Error("Native source unavailable");
+  }
   const proofs = [];
   for (let parent = path; parent !== dirname(parent); parent = dirname(parent)) {
     const stat = await lstat(parent);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error("Native source unavailable");
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw Error("Native source unavailable");
+    }
     proofs.push(`${parent}:${identity(stat)}`);
   }
   return proofs.join("\n");
@@ -24,14 +27,16 @@ export async function openSource(path: string): Promise<{
   stamp: string;
   verify(): Promise<void>;
 }> {
-  const parent = dirname(path),
-    proof = await proveDirectory(parent),
-    before = await lstat(path);
-  if (!before.isFile() || before.isSymbolicLink()) throw Error("Native source unavailable");
+  const parent = dirname(path);
+  const proof = await proveDirectory(parent);
+  const before = await lstat(path);
+  if (!before.isFile() || before.isSymbolicLink()) {
+    throw Error("Native source unavailable");
+  }
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   const verify = async () => {
-    const current = await file.stat(),
-      named = await lstat(path);
+    const current = await file.stat();
+    const named = await lstat(path);
     if (
       !current.isFile() ||
       !named.isFile() ||
@@ -42,8 +47,9 @@ export async function openSource(path: string): Promise<{
       stamp(current) !== stamp(before) ||
       stamp(named) !== stamp(before) ||
       (await proveDirectory(parent)) !== proof
-    )
+    ) {
       throw Error("Native source changed");
+    }
   };
   try {
     await verify();

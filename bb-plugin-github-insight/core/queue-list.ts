@@ -1,14 +1,12 @@
 import { REVIEW_QUEUE_PAGE_SIZE } from "./review-queue";
-import {
-  agentStateOf,
-  ATTENTION_TEXT,
-  attentionReasons,
-  type AgentState,
-  type AttentionReason,
-  type LinkedQueuePr,
-  type QueueSection,
-  type ReviewQueueResult,
-  type ReviewQueueView,
+import { agentStateOf, ATTENTION_TEXT, attentionReasons } from "./review-queue-view";
+import type {
+  AgentState,
+  AttentionReason,
+  LinkedQueuePr,
+  QueueSection,
+  ReviewQueueResult,
+  ReviewQueueView,
 } from "./review-queue-view";
 
 export type QueueMark = (typeof ATTENTION_TEXT)[AttentionReason];
@@ -39,9 +37,15 @@ export type QueueListLoad =
   | { kind: "error"; message: string };
 
 export function queueListOf(result: ReviewQueueResult): QueueListLoad {
-  if (result.kind === "loading") return result;
-  if (result.kind === "ok") return { kind: "ok", list: listOf(result, null) };
-  if (result.lastGood === null) return { kind: "error", message: result.message };
+  if (result.kind === "loading") {
+    return result;
+  }
+  if (result.kind === "ok") {
+    return { kind: "ok", list: listOf(result, null) };
+  }
+  if (result.lastGood === null) {
+    return { kind: "error", message: result.message };
+  }
   return { kind: "ok", list: listOf(result.lastGood, result.message) };
 }
 
@@ -81,21 +85,35 @@ export function formatQueueList(list: QueueList): string {
   if (list.error !== null) {
     lines.push(`Error: ${list.error}`, `Showing the queue loaded at ${list.loadedAt}`);
   }
-  if (list.prs.length === 0) lines.push("No pull requests in the review queue");
+  if (list.prs.length === 0) {
+    lines.push("No pull requests in the review queue");
+  }
   for (const section of ["needs_review", "reviewed"] as const) {
     const prs = list.prs.filter((pr) => pr.section === section);
-    if (prs.length === 0) continue;
+    if (prs.length === 0) {
+      continue;
+    }
     lines.push(SECTION_HEADING[section], ...prs.map(formatEntry));
   }
-  if (list.truncated) lines.push(`Showing the first ${REVIEW_QUEUE_PAGE_SIZE} pull requests`);
+  if (list.truncated) {
+    lines.push(`Showing the first ${REVIEW_QUEUE_PAGE_SIZE} pull requests`);
+  }
   return `${lines.join("\n")}\n`;
 }
 
 function formatEntry(entry: QueueListEntry): string {
   const parts = [`  ${entry.key}  ${entry.title}`];
-  if (entry.author !== null) parts.push(`by ${entry.author}`);
-  if (entry.marks.length > 0) parts.push(`[${entry.marks.join(", ")}]`);
-  if (entry.labels.length > 0) parts.push(`labels: ${entry.labels.join(", ")}`);
-  if (entry.thread !== null) parts.push(`thread ${entry.thread.id} ${entry.thread.status}`);
+  if (entry.author !== null) {
+    parts.push(`by ${entry.author}`);
+  }
+  if (entry.marks.length > 0) {
+    parts.push(`[${entry.marks.join(", ")}]`);
+  }
+  if (entry.labels.length > 0) {
+    parts.push(`labels: ${entry.labels.join(", ")}`);
+  }
+  if (entry.thread !== null) {
+    parts.push(`thread ${entry.thread.id} ${entry.thread.status}`);
+  }
   return parts.join("  ");
 }

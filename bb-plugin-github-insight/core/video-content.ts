@@ -24,11 +24,12 @@ export function isVideoPath(path: string): boolean {
   return /\.(mp4|webm)$/i.test(path);
 }
 export function videoBytes(bytes: Buffer): VideoWireResult {
-  if (bytes.length > MAX_VIDEO_BYTES)
+  if (bytes.length > MAX_VIDEO_BYTES) {
     return videoError(
       "too_large",
       "Video exceeds the 8 MiB preview limit. Use a local player for larger files.",
     );
+  }
   const mp4 =
     bytes.length >= 16 &&
     bytes.toString("ascii", 4, 8) === "ftyp" &&

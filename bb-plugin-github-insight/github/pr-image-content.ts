@@ -1,10 +1,7 @@
-import {
-  imageBytes,
-  imageError,
-  MAX_IMAGE_BYTES,
-  type ImageWireResult,
-} from "../core/image-content";
-import { prImageRefsSchema, type PrImageRefs } from "../core/pr-image-basis";
+import { imageBytes, imageError, MAX_IMAGE_BYTES } from "../core/image-content";
+import type { ImageWireResult } from "../core/image-content";
+import { prImageRefsSchema } from "../core/pr-image-basis";
+import type { PrImageRefs } from "../core/pr-image-basis";
 import type { RepoFile } from "../core/repo-file";
 import { readRepoFile } from "./repo-file";
 

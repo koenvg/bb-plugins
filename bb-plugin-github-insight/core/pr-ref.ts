@@ -13,9 +13,13 @@ export function parsePullRequestUrl(url: string): PullRequestRef | null {
   } catch {
     return null;
   }
-  if (parsed.hostname !== "github.com") return null;
+  if (parsed.hostname !== "github.com") {
+    return null;
+  }
   const match = PR_PATH.exec(parsed.pathname);
-  if (match === null) return null;
+  if (match === null) {
+    return null;
+  }
   const [, owner, repo, number] = match;
   return { owner: owner!, repo: repo!, number: Number(number) };
 }

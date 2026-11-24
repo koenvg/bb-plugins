@@ -1,20 +1,14 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import {
-  hostContract,
-  rpcContract,
-  type DraftsResult,
-  type GhResult,
-  type ReviewResult,
-} from "./contract";
-import { imageError, type ImageWireResult } from "./core/image-content";
-import { INSIGHT_UPDATED_CHANNEL, type InsightUpdated } from "./core/insight-updated";
+import { hostContract, rpcContract } from "./contract";
+import type { DraftsResult, GhResult, ReviewResult } from "./contract";
+import { imageError } from "./core/image-content";
+import type { ImageWireResult } from "./core/image-content";
+import { INSIGHT_UPDATED_CHANNEL } from "./core/insight-updated";
+import type { InsightUpdated } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
 import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
-import {
-  REVIEW_DRAFTS_UPDATED_CHANNEL,
-  REVIEW_UPDATED_CHANNEL,
-  type ReviewUpdated,
-} from "./core/review-updated";
+import { REVIEW_DRAFTS_UPDATED_CHANNEL, REVIEW_UPDATED_CHANNEL } from "./core/review-updated";
+import type { ReviewUpdated } from "./core/review-updated";
 import { newCommentDraftId } from "./core/review-drafts";
 import { createMediaSigner } from "./core/signed-media";
 import { reviewPrMetadata } from "./core/review-pr";
@@ -39,7 +33,9 @@ import { createViewedMarksStore } from "./review/viewed-marks-store";
 export type { rpcContract } from "./contract";
 
 function unwrap(result: GhResult): unknown {
-  if (!result.ok) throw new GhFailureError(result.failure);
+  if (!result.ok) {
+    throw new GhFailureError(result.failure);
+  }
   return result.data;
 }
 
@@ -101,7 +97,9 @@ export default async function plugin(bb: BbPluginApi) {
         { owner: ref.owner, repo: ref.repo, text },
         { hostId },
       );
-      if (!result.ok) throw new GhFailureError(result.failure);
+      if (!result.ok) {
+        throw new GhFailureError(result.failure);
+      }
       return result.html;
     },
     now: Date.now,
@@ -241,8 +239,9 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function getPrBodyImage(threadId: string, file: RepoFile): Promise<ImageWireResult> {
     const resolution = await resolvePr(threadId);
-    if (resolution.kind === "pr")
+    if (resolution.kind === "pr") {
       return host.call("readPrImage", file, { hostId: resolution.target.hostId });
+    }
     return imageError(
       "read",
       resolution.kind === "error" ? resolution.message : "No pull request for this thread",

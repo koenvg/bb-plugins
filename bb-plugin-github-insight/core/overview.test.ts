@@ -5,7 +5,8 @@ import checkRunDetails from "../test/fixtures/pr-25337-check-run-details.json";
 import readyToEnqueuePage from "../test/fixtures/pr-25693-overview-ready-to-enqueue.json";
 import inMergeQueuePage from "../test/fixtures/pr-25597-overview-in-merge-queue.json";
 import requiredChecksPage from "../test/fixtures/pr-cli-14583-overview-required-checks.json";
-import { MAX_CONTEXT_PAGES, collectInsight, type GitHubReader } from "./overview";
+import { MAX_CONTEXT_PAGES, collectInsight } from "./overview";
+import type { GitHubReader } from "./overview";
 
 const recordedPages: Record<string, unknown> = { start: pageOne, MTAw: pageTwo };
 

@@ -23,7 +23,9 @@ interface TimelineServiceDeps {
 export function createTimelineService(deps: TimelineServiceDeps) {
   async function getTimeline(threadId: string, before: string | null): Promise<TimelineResult> {
     const resolution = await deps.resolvePr(threadId);
-    if (resolution.kind !== "pr") return resolution;
+    if (resolution.kind !== "pr") {
+      return resolution;
+    }
     try {
       const [{ othersComments, ownPrRepliedAt, ...page }, { markedAt, seen }] = await Promise.all([
         deps
@@ -50,9 +52,12 @@ export function createTimelineService(deps: TimelineServiceDeps) {
     body,
   }: AddPrCommentRequest): Promise<ActionResult> {
     const resolution = await deps.resolvePr(threadId);
-    if (resolution.kind === "no_pr")
+    if (resolution.kind === "no_pr") {
       return { kind: "error", message: "No pull request for this thread" };
-    if (resolution.kind === "error") return resolution;
+    }
+    if (resolution.kind === "error") {
+      return resolution;
+    }
     const posted = await write(() =>
       deps.addComment(resolution.target, { subjectId: prNodeId, body }),
     );

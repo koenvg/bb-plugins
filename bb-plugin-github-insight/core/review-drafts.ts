@@ -29,14 +29,18 @@ export function summaryDraftEntry(draft: SummaryDraft) {
 
 export function readCommentDraft(entry: unknown): CommentDraft | null {
   const parsed = commentDraftEntrySchema.safeParse(entry);
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    return null;
+  }
   const { v: _, ...draft } = parsed.data;
   return draft;
 }
 
 export function readSummaryDraft(entry: unknown): SummaryDraft | null {
   const parsed = summaryDraftEntrySchema.safeParse(entry);
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    return null;
+  }
   const { v: _, ...draft } = parsed.data;
   return draft;
 }

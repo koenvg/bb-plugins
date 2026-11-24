@@ -35,16 +35,23 @@ async function fixture(status = "renamed", moving = false, path = "new.png") {
     threads: [{ id: "thr_1", environmentId: "env_1" }],
     pullRequests: { env_1: linkedPr(43) },
     host: ({ method }) => {
-      if (method === "fetchPrHead")
+      if (method === "fetchPrHead") {
         return ok(
-          head(moving && ++reads > 1 ? "4444444444444444444444444444444444444444" : headSha),
+          head(moving && (reads += 1) > 1 ? "4444444444444444444444444444444444444444" : headSha),
         );
-      if (method === "fetchPrFiles")
+      }
+      if (method === "fetchPrFiles") {
         return ok([{ filename: path, previous_filename: "old.png", status }]);
-      if (method === "fetchReviewThreads") return ok(threads);
-      if (method === "fetchImageMergeBase") return ok({ merge_base_commit: { sha: mergeBaseSha } });
-      if (method === "readPrImage")
+      }
+      if (method === "fetchReviewThreads") {
+        return ok(threads);
+      }
+      if (method === "fetchImageMergeBase") {
+        return ok({ merge_base_commit: { sha: mergeBaseSha } });
+      }
+      if (method === "readPrImage") {
         return { kind: "ready", content: "iVBORw0KGgoAAAAA", mime: "image/png", sizeBytes: 12 };
+      }
       throw Error(`Unexpected ${method}`);
     },
   });
@@ -68,7 +75,9 @@ describe("PR image RPC", () => {
         host: ({ method }) => {
           if (method === "fetchPrHead") {
             events.push("head");
-            if (++headReads === 1 && boundary === "head") return pending.promise;
+            if ((headReads += 1) === 1 && boundary === "head") {
+              return pending.promise;
+            }
             return ok(head());
           }
           if (method === "fetchPrFiles") {
@@ -136,9 +145,15 @@ describe("PR image RPC", () => {
       pullRequests: { env_1: linkedPr(43) },
       host: ({ method }) => {
         calls.push(method);
-        if (method === "fetchPrHead") return ok(head());
-        if (method === "fetchPrFiles") return ok(files);
-        if (method === "fetchReviewThreads") return ok(threads);
+        if (method === "fetchPrHead") {
+          return ok(head());
+        }
+        if (method === "fetchPrFiles") {
+          return ok(files);
+        }
+        if (method === "fetchReviewThreads") {
+          return ok(threads);
+        }
         throw Error(`Unexpected ${method}`);
       },
     });
@@ -146,7 +161,9 @@ describe("PR image RPC", () => {
       threadId: "thr_1",
     })) as ReviewResult;
     expect(review).toMatchObject({ kind: "ok", head: { oid: headSha }, imageBasis: null });
-    if (review.kind !== "ok") throw Error("Expected loaded review");
+    if (review.kind !== "ok") {
+      throw Error("Expected loaded review");
+    }
     expect(review.files).toEqual(expectedFiles);
     expect(calls).toEqual(["fetchPrHead", "fetchReviewThreads", "fetchPrFiles"]);
   });
@@ -187,9 +204,15 @@ describe("PR image RPC", () => {
         pullRequests: { env_1: linkedPr(43) },
         host: ({ method }) => {
           events.push(method);
-          if (method === "fetchPrHead") return ok(head());
-          if (method === "fetchPrFiles") return files.promise;
-          if (method === "fetchReviewThreads") return threadRead.promise;
+          if (method === "fetchPrHead") {
+            return ok(head());
+          }
+          if (method === "fetchPrFiles") {
+            return files.promise;
+          }
+          if (method === "fetchReviewThreads") {
+            return threadRead.promise;
+          }
           throw Error(`Unexpected ${method}`);
         },
       });
@@ -225,7 +248,7 @@ describe("PR image RPC", () => {
       mergeBaseSha,
       hostId: "host-1",
     });
-    for (const side of ["before", "after"])
+    for (const side of ["before", "after"]) {
       expect(
         await harness.behavior.callRpc("getPrImage", {
           threadId: "thr_1",
@@ -234,6 +257,7 @@ describe("PR image RPC", () => {
           side,
         }),
       ).toEqual({ kind: "ready", content: "iVBORw0KGgoAAAAA", mime: "image/png", sizeBytes: 12 });
+    }
     expect(
       harness.experimental_hostRpcCalls
         .filter(({ method }) => method === "readPrImage")
@@ -271,7 +295,7 @@ describe("PR image RPC", () => {
     for (const [path, key] of [
       ["other.png", imageBasisKey(review.imageBasis!)],
       ["new.png", "old-basis"],
-    ])
+    ]) {
       expect(
         await harness.behavior.callRpc("getPrImage", {
           threadId: "thr_1",
@@ -280,6 +304,7 @@ describe("PR image RPC", () => {
           side: "after",
         }),
       ).toMatchObject({ kind: "error", code: "stale" });
+    }
   });
   it("retries file pagination when the PR head moves", async () => {
     const { harness, review } = await fixture("renamed", true);
@@ -299,7 +324,9 @@ describe("PR body image RPC", () => {
       threads: [{ id: "thr_1", environmentId: "env_1" }],
       pullRequests: { env_1: linkedPr(43) },
       host: ({ method }) => {
-        if (method === "readPrImage") return ready;
+        if (method === "readPrImage") {
+          return ready;
+        }
         throw Error(`Unexpected ${method}`);
       },
     });

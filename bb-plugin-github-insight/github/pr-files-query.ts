@@ -27,7 +27,9 @@ export function fitPrFilesPage(response: unknown, maxBytes = PR_FILES_PAGE_MAX_B
     .filter((file) => file.patch !== undefined)
     .sort((a, b) => jsonBytes(b.patch) - jsonBytes(a.patch));
   for (const file of byPatchSize) {
-    if (bytes <= maxBytes) break;
+    if (bytes <= maxBytes) {
+      break;
+    }
     bytes -= jsonBytes(file.patch) + jsonBytes("patch") + 2;
     delete file.patch;
   }

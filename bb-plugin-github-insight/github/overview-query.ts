@@ -89,6 +89,8 @@ export function overviewPageArgs(request: PrPageRequest): string[] {
     "-F",
     `firstPage=${request.after === null}`,
   ];
-  if (request.after !== null) args.push("-f", `after=${request.after}`);
+  if (request.after !== null) {
+    args.push("-f", `after=${request.after}`);
+  }
   return args;
 }

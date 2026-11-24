@@ -1,17 +1,10 @@
 import { createHash } from "node:crypto";
 
 import type { HistoryDatabase } from "../storage/history-storage.js";
-import {
-  identityBatchSchema,
-  confirmedRelationshipSchema,
-  type IdentityBatch,
-  type AttributionView,
-} from "./identity-contract.js";
-import {
-  resolveCandidates,
-  type ConfirmedRelationship,
-  type AttributionGrade,
-} from "./identity-resolution.js";
+import { identityBatchSchema, confirmedRelationshipSchema } from "./identity-contract.js";
+import type { IdentityBatch, AttributionView } from "./identity-contract.js";
+import { resolveCandidates } from "./identity-resolution.js";
+import type { ConfirmedRelationship, AttributionGrade } from "./identity-resolution.js";
 
 // Scalar attribution data is independent of immutable payloads and replay owners.
 export function initializeIdentityStorage(db: HistoryDatabase) {
@@ -68,19 +61,27 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
   const batch = identityBatchSchema.parse(input);
   db.transaction(() => {
     const prior = receipt(db);
-    if (prior.host_id && prior.host_id !== batch.hostId) throw Error("Identity host mismatch");
+    if (prior.host_id && prior.host_id !== batch.hostId) {
+      throw Error("Identity host mismatch");
+    }
     // Unknown discovery heartbeats contain no rows and establish no evidence.
     if (batch.total === null) {
-      if (batch.rows.length) throw Error("Partial identity rows");
+      if (batch.rows.length) {
+        throw Error("Partial identity rows");
+      }
       return;
     }
-    if (batch.generation < prior.generation) return;
+    if (batch.generation < prior.generation) {
+      return;
+    }
     if (batch.generation > prior.generation) {
       // An unchanged server catalog may have an acknowledged cursor from before
       // recovery. Accept no partial restart; disclose unknown attribution so it
       // can redeliver this same host/generation from offset zero.
       if (batch.offset !== 0) {
-        if (!prior.generation && !prior.received) return;
+        if (!prior.generation && !prior.received) {
+          return;
+        }
         throw Error("Identity batch gap");
       }
       db.prepare(
@@ -89,18 +90,24 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
       db.prepare("INSERT OR IGNORE INTO identity_generations VALUES (?,0)").run(batch.generation);
     }
     const current = receipt(db);
-    if (current.expected_total !== null && current.expected_total !== batch.total)
+    if (current.expected_total !== null && current.expected_total !== batch.total) {
       throw Error("Identity total changed");
+    }
     db.prepare("UPDATE identity_receipt SET expected_total=? WHERE id=1").run(batch.total);
-    if (batch.offset > current.received || batch.offset + batch.rows.length > batch.total)
+    if (batch.offset > current.received || batch.offset + batch.rows.length > batch.total) {
       throw Error("Identity batch gap");
+    }
     const digest = createHash("sha256").update(JSON.stringify(batch)).digest("hex");
     const stored = db
       .prepare("SELECT digest FROM identity_batches WHERE generation=? AND offset=?")
       .get(batch.generation, batch.offset) as { digest: string } | undefined;
-    if (stored && stored.digest !== digest) throw Error("Identity batch conflict");
+    if (stored && stored.digest !== digest) {
+      throw Error("Identity batch conflict");
+    }
     if (!stored) {
-      if (batch.offset !== current.received) throw Error("Identity batch overlap");
+      if (batch.offset !== current.received) {
+        throw Error("Identity batch overlap");
+      }
       for (const input of batch.rows) {
         const row = {
           ...input,
@@ -131,7 +138,9 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
           db.prepare("DELETE FROM identity_uncertain WHERE thread_id=?").run(row.threadId);
           db.prepare("UPDATE identity_receipt SET evidence_changed=1 WHERE id=1").run();
         }
-        if (row.ownershipUnknown === false) continue; // Host-neutral resolution, not a binding.
+        if (row.ownershipUnknown === false) {
+          continue;
+        } // Host-neutral resolution, not a binding.
         if (row.providerIdentity) {
           if (
             !db
@@ -139,8 +148,9 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
                 "SELECT 1 FROM identity_edges e JOIN identity_generations g USING(generation) WHERE provider_identity=? AND thread_id=? AND g.complete=1 LIMIT 1",
               )
               .get(row.providerIdentity, row.threadId)
-          )
+          ) {
             db.prepare("UPDATE identity_receipt SET evidence_changed=1 WHERE id=1").run();
+          }
           db.prepare("INSERT OR IGNORE INTO identity_edges VALUES (?,?,?)").run(
             batch.generation,
             row.providerIdentity,
@@ -197,10 +207,14 @@ export async function verifyWorkspaceAlias(
   candidate: string,
   realpath: (path: string) => Promise<string>,
 ) {
-  if (!recorded.startsWith("/") || !candidate.startsWith("/")) return false;
+  if (!recorded.startsWith("/") || !candidate.startsWith("/")) {
+    return false;
+  }
   try {
     const [a, b] = await Promise.all([realpath(recorded), realpath(candidate)]);
-    if (a !== b) return false;
+    if (a !== b) {
+      return false;
+    }
     db.transaction(() => {
       if (
         !db
@@ -249,9 +263,12 @@ function adjust(
     const row = db
       .prepare(`SELECT total_tokens,events FROM ${table} WHERE ${where}`)
       .get(...keys) as { total_tokens: number; events: number };
-    if (![row.total_tokens, row.events].every((n) => Number.isSafeInteger(n) && n >= 0))
+    if (![row.total_tokens, row.events].every((n) => Number.isSafeInteger(n) && n >= 0)) {
       throw Error("Identity totals unavailable");
-    if (!row.events) db.prepare(`DELETE FROM ${table} WHERE ${where}`).run(...keys);
+    }
+    if (!row.events) {
+      db.prepare(`DELETE FROM ${table} WHERE ${where}`).run(...keys);
+    }
   }
 }
 /** Retention removes numeric attribution, not durable relationship or entry-owner evidence. */
@@ -259,7 +276,9 @@ export function retireIdentityUsage(db: HistoryDatabase, eventId: string) {
   const row = db.prepare("SELECT * FROM identity_usage WHERE event_id=?").get(eventId) as
     | Usage
     | undefined;
-  if (row?.projected) adjust(db, row.grade, row.thread_id, -row.total, -1);
+  if (row?.projected) {
+    adjust(db, row.grade, row.thread_id, -row.total, -1);
+  }
   db.prepare("DELETE FROM identity_usage WHERE event_id=?").run(eventId);
 }
 export function reconcileIdentity(db: HistoryDatabase, signal: AbortSignal, limit = 200) {
@@ -270,8 +289,9 @@ export function reconcileIdentity(db: HistoryDatabase, signal: AbortSignal, limi
         backfill_done: number;
       }
     ).backfill_done
-  )
+  ) {
     return;
+  }
   db.transaction(() => {
     const state = receipt(db);
     const expired = db
@@ -319,7 +339,9 @@ export function reconcileIdentity(db: HistoryDatabase, signal: AbortSignal, limi
         rows.length < limit ? 1 : 0,
       );
     }
-    if (!state.complete) return;
+    if (!state.complete) {
+      return;
+    }
     const rows = db
       .prepare("SELECT * FROM identity_usage WHERE revision<? ORDER BY revision,event_id LIMIT ?")
       .all(state.revision, limit) as Usage[];
@@ -355,8 +377,12 @@ export function reconcileIdentity(db: HistoryDatabase, signal: AbortSignal, limi
         candidates.map((c) => c.threadId),
         !uncertain,
       );
-      if (row.projected) adjust(db, row.grade, row.thread_id, -row.total, -1);
-      if (row.accepted) adjust(db, result.grade, result.threadId, row.total, 1);
+      if (row.projected) {
+        adjust(db, row.grade, row.thread_id, -row.total, -1);
+      }
+      if (row.accepted) {
+        adjust(db, result.grade, result.threadId, row.total, 1);
+      }
       db.prepare(
         "UPDATE identity_usage SET grade=?,thread_id=?,revision=?,projected=? WHERE event_id=?",
       ).run(result.grade, result.threadId, state.revision, row.accepted, row.event_id);
@@ -384,8 +410,9 @@ export function identityView(db: HistoryDatabase): AttributionView {
     !!db.prepare("SELECT 1 FROM identity_usage WHERE revision<? LIMIT 1").get(state.revision);
   const discovery = !state.generation ? "unknown" : state.complete ? "complete" : "partial";
   // Never display stale exact aggregates during re-resolution or incomplete discovery.
-  if (backlog || discovery !== "complete")
+  if (backlog || discovery !== "complete") {
     return { discovery, backlog, grades: [], threads: [], truncated: false };
+  }
   const totals = db
     .prepare("SELECT grade,total_tokens AS totalTokens,events FROM identity_grade_totals")
     .all() as { grade: AttributionGrade; totalTokens: number; events: number }[];

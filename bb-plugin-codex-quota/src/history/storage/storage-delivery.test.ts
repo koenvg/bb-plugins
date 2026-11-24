@@ -12,9 +12,9 @@ import { historyReadinessSchema } from "../history-contract.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 it("redelivers an unchanged cached catalog after host recovery without changing its fingerprint or generation", async () => {
-  const root = await mkdtemp(join(tmpdir(), "bbp16-delivery-")),
-    directory = join(root, "data/history"),
-    dataDir = join(root, "data");
+  const root = await mkdtemp(join(tmpdir(), "bbp16-delivery-"));
+  const directory = join(root, "data/history");
+  const dataDir = join(root, "data");
   await mkdir(directory, { recursive: true });
   const db = (await openHistoryDatabase(join(root, "server.sqlite")))!;
   let sdkCalls = 0;
@@ -23,13 +23,13 @@ it("redelivers an unchanged cached catalog after host recovery without changing 
     sdk: {
       environments: {
         list: async () => {
-          sdkCalls++;
+          sdkCalls += 1;
           return [{ id: "env_owned", hostId: "host-one" }];
         },
       },
       threads: {
         list: async (args = {}) => {
-          sdkCalls++;
+          sdkCalls += 1;
           return args.archived
             ? []
             : [
@@ -42,7 +42,7 @@ it("redelivers an unchanged cached catalog after host recovery without changing 
         },
         events: {
           list: async () => {
-            sdkCalls++;
+            sdkCalls += 1;
             return [
               {
                 id: "identity-one",
@@ -125,8 +125,9 @@ it("redelivers an unchanged cached catalog after host recovery without changing 
     const read = async () =>
       historyReadinessSchema.parse(await call("host-one", new AbortController().signal));
     let before = await read();
-    for (let n = 0; before.collection?.attribution?.discovery !== "complete" && n < 12; n++)
+    for (let n = 0; before.collection?.attribution?.discovery !== "complete" && n < 12; n += 1) {
       before = await read();
+    }
     expect(before.collection?.attribution?.threads).toMatchObject([
       { threadId: "thr_owned", totalTokens: 5 },
     ]);
@@ -136,8 +137,9 @@ it("redelivers an unchanged cached catalog after host recovery without changing 
     const calls = sdkCalls;
     await writeFile(join(directory, "usage-v1.sqlite"), "owned-confirmed-corruption");
     let recovered = await read();
-    for (let n = 0; recovered.collection?.attribution?.discovery !== "complete" && n < 5; n++)
+    for (let n = 0; recovered.collection?.attribution?.discovery !== "complete" && n < 5; n += 1) {
       recovered = await read();
+    }
     expect(recovered.health?.state).toBe("recovered");
     expect(recovered.collection?.enabled).toBe(false);
     expect(recovered.collection?.attribution?.threads).toMatchObject([

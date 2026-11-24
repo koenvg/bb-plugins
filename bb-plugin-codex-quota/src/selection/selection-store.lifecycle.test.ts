@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { QuotaSelectionStore, type QuotaApi, type Selection } from "./selection-store.js";
+import { QuotaSelectionStore } from "./selection-store.js";
+import type { QuotaApi, Selection } from "./selection-store.js";
 import type { QuotaStatus } from "../quota/contract.js";
 
 const fresh = (): QuotaStatus => ({
@@ -75,10 +76,11 @@ describe("app-window quota refresh lifetime", () => {
       const store = new QuotaSelectionStore();
       const stop = store.start(api);
       await vi.advanceTimersByTimeAsync(0);
-      if (outcome === "reject")
+      if (outcome === "reject") {
         api.selectHost = async () => {
           throw new Error("selection rejected");
         };
+      }
       await store.selectHost(api, null);
       await vi.advanceTimersByTimeAsync(59_999);
       expect(selection).toHaveBeenCalledTimes(1);
@@ -164,8 +166,12 @@ describe("app-window quota refresh lifetime", () => {
       let recover = false;
       read.mockImplementation(async () => {
         attempts.push(Date.now() - initial);
-        if (recover) return fresh();
-        if (failure === "rejected") throw new Error("transport failure");
+        if (recover) {
+          return fresh();
+        }
+        if (failure === "rejected") {
+          throw new Error("transport failure");
+        }
         return failure === "stale"
           ? { ...fresh(), state: "stale", reason: "network" }
           : { state: "unavailable", reason: "network", snapshot: null };
@@ -236,18 +242,20 @@ describe("app-window quota refresh lifetime", () => {
       vi.useFakeTimers();
       const { api, read } = fixture();
       let release!: () => void;
-      if (phase === "selection")
+      if (phase === "selection") {
         api.selection = () =>
           new Promise((done) => {
             release = () => done({ hostId: "host_a", generation: 1 });
           });
-      if (phase === "read")
+      }
+      if (phase === "read") {
         read.mockImplementationOnce(
           () =>
             new Promise((done) => {
               release = () => done(fresh());
             }),
         );
+      }
       const store = new QuotaSelectionStore();
       const stop = store.start(api);
       await vi.advanceTimersByTimeAsync(0);

@@ -2,7 +2,8 @@ import { mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { uploadImage, type UploadImageDeps } from "./upload-image";
+import { uploadImage } from "./upload-image";
+import type { UploadImageDeps } from "./upload-image";
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -23,12 +24,18 @@ function github(answers: (Response | Error)[]) {
     fetch: async (url, init) => {
       sent.push({ url: new URL(String(url)), init: init ?? {} });
       const answer = answers.shift() ?? respond(500, "no answer left");
-      if (answer instanceof Error) throw answer;
+      if (answer instanceof Error) {
+        throw answer;
+      }
       return answer;
     },
     gh: async (args) => {
-      if (args.join(" ") === "api repos/octo/app --jq .id") return "4242\n";
-      if (args.join(" ") === "auth token") return "gho_secret\n";
+      if (args.join(" ") === "api repos/octo/app --jq .id") {
+        return "4242\n";
+      }
+      if (args.join(" ") === "auth token") {
+        return "gho_secret\n";
+      }
       throw new Error(`unexpected gh ${args.join(" ")}`);
     },
   };

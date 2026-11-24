@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import postcss from "postcss";
+import { parse } from "postcss";
 
 const css = readFileSync(new URL("./app.css", import.meta.url), "utf8");
-const root = postcss.parse(css);
+const root = parse(css);
 
 describe("Scoped, theme-native styling", () => {
   it("gates every style rule on the active content-script marker", () => {
@@ -50,8 +50,9 @@ describe("Scoped, theme-native styling", () => {
       if (
         !rule.selector.includes("[data-promptbox-action-row]") &&
         !rule.selector.includes("[data-promptbox-submit-action]")
-      )
+      ) {
         return;
+      }
       if (rule.nodes.some((node) => node.type === "decl" && geometry.has(node.prop))) {
         expect(rule.selector).toContain(":not([data-promptbox-send-menu] *)");
       }
@@ -66,7 +67,9 @@ describe("Scoped, theme-native styling", () => {
           ':root[data-compose-chat="active"] [data-app-composer] form[data-promptbox]',
     );
     expect(formRule?.type).toBe("rule");
-    if (formRule?.type !== "rule") return;
+    if (formRule?.type !== "rule") {
+      return;
+    }
     expect(
       formRule.nodes.some(
         (node) => node.type === "decl" && node.prop === "outline" && node.value === "none",
@@ -75,9 +78,13 @@ describe("Scoped, theme-native styling", () => {
     expect(css).toContain("--compose-shadow-color:");
     expect(css).toContain("box-shadow: var(--compose-shadow)");
     root.walkRules((rule) => {
-      if (!rule.selector.includes(":focus-within")) return;
+      if (!rule.selector.includes(":focus-within")) {
+        return;
+      }
       for (const node of rule.nodes) {
-        if (node.type === "decl" && node.prop === "outline") expect(node.value).toBe("none");
+        if (node.type === "decl" && node.prop === "outline") {
+          expect(node.value).toBe("none");
+        }
       }
     });
   });
@@ -88,7 +95,9 @@ describe("Scoped, theme-native styling", () => {
         node.selector === ':root[data-compose-chat="active"] [data-timeline-row-list="bundle"]',
     );
     expect(bundleRule?.type).toBe("rule");
-    if (bundleRule?.type !== "rule") return;
+    if (bundleRule?.type !== "rule") {
+      return;
+    }
     expect(
       bundleRule.nodes.some(
         (node) =>

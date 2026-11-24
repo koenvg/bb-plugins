@@ -37,7 +37,9 @@ function fixture(version: "0.44" | "0.45" = "0.44") {
   };
   // Model the host editor's normal Enter submit path.
   editor.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.defaultPrevented) form.requestSubmit();
+    if (event.key === "Enter" && !event.defaultPrevented) {
+      form.requestSubmit();
+    }
   });
   let controls: HTMLDivElement | undefined;
   function active(state: "recording" | "transcribing" = "recording", sending = false) {
@@ -62,11 +64,12 @@ function fixture(version: "0.44" | "0.45" = "0.44") {
       active("transcribing");
     };
     const send = controls.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]');
-    if (send)
+    if (send) {
       send.onclick = () => {
         voiceSends();
         active("transcribing", true);
       };
+    }
   }
   function finish(text?: string) {
     form.removeAttribute("data-promptbox-voice-active");
@@ -74,7 +77,9 @@ function fixture(version: "0.44" | "0.45" = "0.44") {
     controls = undefined;
     editor.contentEditable = "true";
     editor.removeAttribute("aria-readonly");
-    if (text) editor.append(` ${text}`);
+    if (text) {
+      editor.append(` ${text}`);
+    }
   }
   return { form, editor, mic, starts, confirms, voiceSends, cancels, submits, active, finish };
 }
@@ -98,7 +103,9 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue({ length: 1 } as DOMRectList);
 });
 afterEach(async () => {
-  for (const dispose of mounts.splice(0)) await dispose();
+  for (const dispose of mounts.splice(0)) {
+    await dispose();
+  }
   document.body.replaceChildren();
   vi.restoreAllMocks();
 });
@@ -161,7 +168,9 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
   });
   it.each(["compact", "new-thread"])("supports a %s native composer", async (layout) => {
     const f = fixture();
-    if (layout === "compact") f.form.dataset.promptboxCompact = "";
+    if (layout === "compact") {
+      f.form.dataset.promptboxCompact = "";
+    }
     f.editor.focus();
     const { command } = await mount();
     await command.run(context);
@@ -479,7 +488,9 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
         "aria-label",
         mismatch === "both cancel labels" ? "Cancel transcription" : "Transcribing voice input",
       );
-      if (mismatch === "both confirm labels") extra.disabled = true;
+      if (mismatch === "both confirm labels") {
+        extra.disabled = true;
+      }
       controls.append(extra);
     }
     expect(key(f.editor, "Enter").defaultPrevented).toBe(true);

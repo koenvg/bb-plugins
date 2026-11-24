@@ -63,7 +63,9 @@ export function parsePrHead(response: unknown): PrHead {
 }
 
 function submittedReview(review: z.infer<typeof latestReviewSchema>): ViewerReview | null {
-  if (!review || review.state === "PENDING" || review.submittedAt === null) return null;
+  if (!review || review.state === "PENDING" || review.submittedAt === null) {
+    return null;
+  }
   return {
     state: review.state,
     submittedAt: review.submittedAt,

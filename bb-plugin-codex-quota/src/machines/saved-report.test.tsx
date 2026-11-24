@@ -16,7 +16,8 @@ const query: CalendarQuery = {
   includeUncertain: true,
 };
 const deferred = <T,>() => {
-  let resolve!: (value: T) => void, reject!: (reason: unknown) => void;
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
   const promise = new Promise<T>((yes, no) => {
     resolve = yes;
     reject = no;
@@ -27,7 +28,9 @@ function observation(q: CalendarQuery, tokens = 1200, cached = false) {
   const value = reportsFixture(q, now);
   for (const row of value.machines) {
     row.cached = cached;
-    if (row.report.state === "unavailable") throw Error("Fixture unavailable");
+    if (row.report.state === "unavailable") {
+      throw Error("Fixture unavailable");
+    }
     const report = row.report;
     report.days[14]!.totalTokens = report.summary.totalTokens = tokens / 2;
     report.days[14]!.classes = { state: "unavailable" };
@@ -44,17 +47,17 @@ it("renders saved 1200 and cost 6 in the real dashboard before live and preparat
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(now);
   const f = await dashboardFixture();
-  const live = deferred<unknown>(),
-    prepare = deferred<unknown>(),
-    threads = deferred<unknown>();
+  const live = deferred<unknown>();
+  const prepare = deferred<unknown>();
+  const threads = deferred<unknown>();
   f.machinePreparation.mockReturnValue(prepare.promise);
   f.machineReports.mockImplementation(() => live.promise);
   f.machineReportSnapshot.mockImplementation(async (input) => {
     const q = (input as { query: CalendarQuery }).query;
     return q.group === "thread" ? threads.promise : observation(q, 1200, true);
   });
-  const page = f.page(),
-    q = within(page.container);
+  const page = f.page();
+  const q = within(page.container);
   await waitFor(() =>
     expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
   );
@@ -105,7 +108,7 @@ it("retains same-query known marked values on rejection and clears them on autho
   );
   await waitFor(() => expect(hook.result.current.view?.summary.totalTokens).toBe(1800));
   read.mockRejectedValueOnce(Error("transient"));
-  revision++;
+  revision += 1;
   hook.rerender();
   await waitFor(() => expect(hook.result.current.failed).toBe(true));
   expect(hook.result.current.view?.summary).toMatchObject({ totalTokens: 1800, capturedCost: 6 });
@@ -118,10 +121,10 @@ it("retains same-query known marked values on rejection and clears them on autho
 });
 
 it("retires both saved and live A-to-B-to-A responses and cannot publish after unmount", async () => {
-  const aSaved = deferred<unknown>(),
-    aLive = deferred<unknown>(),
-    bSaved = deferred<unknown>(),
-    bLive = deferred<unknown>();
+  const aSaved = deferred<unknown>();
+  const aLive = deferred<unknown>();
+  const bSaved = deferred<unknown>();
+  const bLive = deferred<unknown>();
   const read = vi
     .fn()
     .mockReturnValueOnce(aLive.promise)
@@ -158,8 +161,8 @@ it("retires both saved and live A-to-B-to-A responses and cannot publish after u
 });
 
 it("performs one trailing live read when preparation settles during an outstanding read", async () => {
-  const first = deferred<unknown>(),
-    next = deferred<unknown>();
+  const first = deferred<unknown>();
+  const next = deferred<unknown>();
   const read = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(next.promise);
   let revision = 0;
   const hook = renderHook(() =>
@@ -180,7 +183,9 @@ it("performs one trailing live read when preparation settles during an outstandi
 
 it("preserves a certified zero while its live reread is pending", async () => {
   const zero = reportsFixture(query, now);
-  for (const row of zero.machines) row.report = calendarEmptySnapshot(query, "observed-inactivity");
+  for (const row of zero.machines) {
+    row.report = calendarEmptySnapshot(query, "observed-inactivity");
+  }
   const held = deferred<unknown>();
   const read = vi.fn().mockResolvedValueOnce(zero).mockReturnValueOnce(held.promise);
   let revision = 0;

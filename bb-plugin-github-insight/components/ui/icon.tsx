@@ -1,5 +1,7 @@
-import { Component, createContext, useContext, type CSSProperties, type ReactNode } from "react";
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+import { Component, createContext, useContext, useSyncExternalStore } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import type { IconSvgElement } from "@hugeicons/react";
 import Alert02Icon from "@hugeicons/core-free-icons/Alert02Icon";
 import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
 import Archive03Icon from "@hugeicons/core-free-icons/Archive03Icon";
@@ -48,7 +50,7 @@ import UserAdd01Icon from "@hugeicons/core-free-icons/UserAdd01Icon";
 import UnavailableIcon from "@hugeicons/core-free-icons/UnavailableIcon";
 import WorkflowCircle03Icon from "@hugeicons/core-free-icons/WorkflowCircle03Icon";
 import ZapIcon from "@hugeicons/core-free-icons/ZapIcon";
-import { useSyncExternalStore } from "react";
+
 import { cn } from "../../lib/utils";
 import {
   EXTENDED_ICON_NAMES,
@@ -56,10 +58,10 @@ import {
   getPluginAssetIcon,
   subscribeAppIcons,
   subscribePluginAssetIcons,
-  type ExtendedIconName,
   getExtendedIcons,
   subscribeExtendedIcons,
 } from "./icon-registry";
+import type { ExtendedIconName } from "./icon-registry";
 
 const SectionAddStrokeRoundedIcon: IconSvgElement = [
   [
@@ -219,7 +221,9 @@ const CORE_ICON_LOOKUP: Readonly<Record<string, IconSvgElement | undefined>> = C
 let extendedIconsLoad: Promise<void> | null = null;
 
 export function preloadExtendedIcons(): Promise<void> {
-  if (getExtendedIcons() !== null) return Promise.resolve();
+  if (getExtendedIcons() !== null) {
+    return Promise.resolve();
+  }
   extendedIconsLoad ??= import("./icon-extended").then(
     () => undefined,
     (error: unknown) => {

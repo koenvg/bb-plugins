@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createPrLookup, LOOKUP_SHARE_MS } from "./pr-lookup";
 import { createRateLimitPause, RATE_LIMIT_FALLBACK_MS } from "./github/rate-limit-pause";
-import { linkedPr, type PullRequestResult } from "./test/plugin-harness";
+import { linkedPr } from "./test/plugin-harness";
+import type { PullRequestResult } from "./test/plugin-harness";
 
 const MINUTE = 60_000;
 const RATE_LIMIT_MESSAGE = "gh pr view failed: GraphQL: API rate limit already exceeded";

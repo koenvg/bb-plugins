@@ -74,7 +74,9 @@ for (const { theme, layout, mobile } of cases) {
         expect(dimensions!.x).toBeCloseTo(bounds!.x, 1);
         expect(dimensions!.y).toBeCloseTo(bounds!.y, 1);
         expect(dimensions!.width).toBeCloseTo(bounds!.width, 1);
-        if (layout !== "new") expect(dimensions!.height).toBeCloseTo(bounds!.height, 1);
+        if (layout !== "new") {
+          expect(dimensions!.height).toBeCloseTo(bounds!.height, 1);
+        }
         const corner = await layer
           .locator(".border-glow-card")
           .evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue("--cursor-angle")));
@@ -121,14 +123,14 @@ test("Electric motion stays bounded, stops on switch, hide and reduced motion", 
   await page.addInitScript(() => {
     const state = { draws: 0, deleted: 0 };
     (window as unknown as { speedProbe: typeof state }).speedProbe = state;
-    const draw = WebGL2RenderingContext.prototype.drawArrays,
-      del = WebGL2RenderingContext.prototype.deleteProgram;
+    const draw = WebGL2RenderingContext.prototype.drawArrays;
+    const del = WebGL2RenderingContext.prototype.deleteProgram;
     WebGL2RenderingContext.prototype.drawArrays = function (...args) {
-      state.draws++;
+      state.draws += 1;
       return draw.apply(this, args);
     };
     WebGL2RenderingContext.prototype.deleteProgram = function (...args) {
-      state.deleted++;
+      state.deleted += 1;
       return del.apply(this, args);
     };
   });
@@ -234,7 +236,7 @@ test("Electric backing pixels never exceed the hard cap across frame sizes", asy
   }
 });
 
-for (const theme of ["dark", "light"])
+for (const theme of ["dark", "light"]) {
   for (const tier of ["Fast", "Ultrafast"]) {
     test(`Glow follows the page pointer outside the composer in ${theme} ${tier}`, async ({
       page,
@@ -284,3 +286,4 @@ for (const theme of ["dark", "light"])
       await page.mouse.move(100, 200);
     });
   }
+}

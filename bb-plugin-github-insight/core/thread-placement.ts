@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { diffLines } from "./diff-lines";
 import type { ReviewFile } from "./pr-files";
-import { reviewThreadSchema, type ReviewThread } from "./review-threads";
+import { reviewThreadSchema } from "./review-threads";
+import type { ReviewThread } from "./review-threads";
 
 export const placedThreadSchema = z.object({
   thread: reviewThreadSchema,
@@ -40,7 +41,9 @@ export function visibleThreads(
   showResolved: boolean,
   revealedThreadIds: ReadonlySet<string>,
 ): ThreadPlacement {
-  if (showResolved) return threads;
+  if (showResolved) {
+    return threads;
+  }
   const shows = (thread: ReviewThread) => !thread.resolved || revealedThreadIds.has(thread.id);
   return {
     placed: threads.placed.filter(({ thread }) => shows(thread)),

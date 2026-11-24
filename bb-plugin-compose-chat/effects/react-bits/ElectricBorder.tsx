@@ -28,7 +28,8 @@ SOFTWARE.
 */
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import "./ElectricBorder.css";
 
 export interface ElectricBorderProps {
@@ -236,13 +237,13 @@ void addArc(vec2 p, vec4 ends, vec4 info, float t, inout vec3 light, inout float
   float settle = smoothstep(0.0, 0.15, u) * smoothstep(1.0, 0.85, u);
   float bendSlope = 3.14159265 / len * cos(3.14159265 * u) * settle;
   float beyond = max(-along, 0.0) + max(along - len, 0.0);
-  for (int c = 0; c < 2; c++) {
+  for (int c = 0; c < 2; c += 1) {
     uint seed = uint(info.z * 131.0) + uint(c) * 29u + 7u;
     float jag = 0.0;
     float jagSlope = 0.0;
     float wave = max(len * 0.3, 14.0);
     float weight = (0.6 + uChaos) * (1.5 + len * 0.05) * (c == 0 ? 1.0 : 1.5);
-    for (int o = 0; o < 3; o++) {
+    for (int o = 0; o < 3; o += 1) {
       vec2 n = ring(vec2(along / wave + info.z * 3.0, t * (1.4 + float(o) * 1.1)), 1048576.0, seed + uint(o));
       jag += n.x * weight;
       jagSlope += n.y * weight / wave;
@@ -280,7 +281,7 @@ void main() {
   vec2 toHover = p - uHover.xy;
   float heat = uHover.z * exp(-dot(toHover, toHover) / (uHoverRadius * uHoverRadius));
   float surge = 0.0;
-  for (int i = 0; i < ${PULSES}; i++) {
+  for (int i = 0; i < ${PULSES}; i += 1) {
     vec4 pulse = uPulses[i];
     if (pulse.z <= 0.0) continue;
     float gap = abs(s - pulse.x);
@@ -310,7 +311,7 @@ void main() {
     float fade = smoothstep(reach, reach * 0.55, edge);
     float count = min(uStrands + heat * 1.2, 6.0);
     float slopeScale = 1.0 / uPerimeter;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i += 1) {
       float fi = float(i);
       if (fi >= ceil(count)) break;
       float present = clamp(count - fi, 0.0, 1.0);
@@ -348,7 +349,7 @@ void main() {
     hot *= shown;
   }
 
-  for (int i = 0; i < ${ARCS}; i++) addArc(p, uArcEnds[i], uArcShape[i], t, light, energy, hot);
+  for (int i = 0; i < ${ARCS}; i += 1) addArc(p, uArcEnds[i], uArcShape[i], t, light, energy, hot);
 
   float breath = 1.0 + uFlicker * 0.5 * wobble(t * 4.6 + 7.0, 3u);
   float gain = uIntensity * breath * (1.0 + heat * 0.25) * 1.4;
@@ -373,14 +374,18 @@ const parseColor = (value: string): number[] => {
     return [0, 2, 4].map((index) => parseInt(full.slice(index, index + 2), 16) / 255);
   }
   const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
-  if (rgb) return [rgb[1], rgb[2], rgb[3]].map((channel) => clamp(parseFloat(channel) / 255, 0, 1));
+  if (rgb) {
+    return [rgb[1], rgb[2], rgb[3]].map((channel) => clamp(parseFloat(channel) / 255, 0, 1));
+  }
   if (typeof document !== "undefined") {
     const context = document.createElement("canvas").getContext("2d");
     if (context) {
       context.fillStyle = "#000000";
       context.fillStyle = text;
       const normal = String(context.fillStyle);
-      if (normal !== "#000000" || /^(#0{3}|#0{6}|black)$/i.test(text)) return parseColor(normal);
+      if (normal !== "#000000" || /^(#0{3}|#0{6}|black)$/i.test(text)) {
+        return parseColor(normal);
+      }
     }
   }
   return [0.49, 0.98, 1];
@@ -388,7 +393,9 @@ const parseColor = (value: string): number[] => {
 
 const compile = (gl: WebGL2RenderingContext, type: number, source: string) => {
   const shader = gl.createShader(type);
-  if (!shader) return null;
+  if (!shader) {
+    return null;
+  }
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -404,8 +411,12 @@ const link = (gl: WebGL2RenderingContext): Program | null => {
   const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
   const program = vertex && fragment ? gl.createProgram() : null;
   if (!vertex || !fragment || !program) {
-    if (vertex) gl.deleteShader(vertex);
-    if (fragment) gl.deleteShader(fragment);
+    if (vertex) {
+      gl.deleteShader(vertex);
+    }
+    if (fragment) {
+      gl.deleteShader(fragment);
+    }
     return null;
   }
   gl.attachShader(program, vertex);
@@ -420,9 +431,11 @@ const link = (gl: WebGL2RenderingContext): Program | null => {
   }
   const uniforms: Program["uniforms"] = {};
   const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-  for (let index = 0; index < count; index++) {
+  for (let index = 0; index < count; index += 1) {
     const info = gl.getActiveUniform(program, index);
-    if (info) uniforms[info.name.replace(/\[0\]$/, "")] = gl.getUniformLocation(program, info.name);
+    if (info) {
+      uniforms[info.name.replace(/\[0\]$/, "")] = gl.getUniformLocation(program, info.name);
+    }
   }
   return { program, uniforms };
 };
@@ -461,10 +474,13 @@ const pointOn = (path: BorderPath, s: number) => {
     const dy = -Math.cos(angle);
     let low = 0;
     let high = vr + r + 2;
-    for (let step = 0; step < 18; step++) {
+    for (let step = 0; step < 18; step += 1) {
       const mid = (low + high) / 2;
-      if (roundBox(ax + dx * mid, -ay + dy * mid, hx, hy, r) < 0) low = mid;
-      else high = mid;
+      if (roundBox(ax + dx * mid, -ay + dy * mid, hx, hy, r) < 0) {
+        low = mid;
+      } else {
+        high = mid;
+      }
     }
     x = ax + dx * low;
     y = -ay + dy * low;
@@ -481,17 +497,22 @@ const pointOn = (path: BorderPath, s: number) => {
   const length = Math.hypot(nx, ny) || 1;
   return { x: px, y: py, nx: nx / length, ny: ny / length };
 };
-
 const nearestOn = (path: BorderPath, x: number, y: number) => {
   const { ax, ay, vr, quarter } = path;
   const qx = Math.abs(x) - ax;
   const qy = Math.abs(y) - ay;
   let t;
-  if (qx > 0 && qy > 0) t = ax + vr * Math.atan2(qx, qy);
-  else if (qx > qy) t = ax + HALF_PI * vr + ay - Math.abs(y);
-  else t = Math.abs(x);
+  if (qx > 0 && qy > 0) {
+    t = ax + vr * Math.atan2(qx, qy);
+  } else if (qx > qy) {
+    t = ax + HALF_PI * vr + ay - Math.abs(y);
+  } else {
+    t = Math.abs(x);
+  }
   t = clamp(t, 0, quarter);
-  if (x >= 0) return y < 0 ? t : 2 * quarter - t;
+  if (x >= 0) {
+    return y < 0 ? t : 2 * quarter - t;
+  }
   return y < 0 ? 4 * quarter - t : 2 * quarter + t;
 };
 
@@ -558,7 +579,9 @@ const ElectricBorder = ({
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+    if (!container || !canvas) {
+      return;
+    }
 
     const gl = canvas.getContext("webgl2", {
       alpha: true,
@@ -569,7 +592,9 @@ const ElectricBorder = ({
       powerPreference: "default",
     });
     const program = gl ? link(gl) : null;
-    if (!gl || !program) return;
+    if (!gl || !program) {
+      return;
+    }
 
     const reducedQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let reduced = reducedQuery.matches;
@@ -653,7 +678,9 @@ const ElectricBorder = ({
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      if (power <= 0.001 && !sparks.length) return;
+      if (power <= 0.001 && !sparks.length) {
+        return;
+      }
       gl.useProgram(program.program);
       gl.uniform2f(u.uSize, width, height);
       gl.uniform1f(u.uRatio, size.ratio);
@@ -698,7 +725,9 @@ const ElectricBorder = ({
 
     const frame = (now: number) => {
       raf = 0;
-      if (lost) return;
+      if (lost) {
+        return;
+      }
       const s = settingsRef.current;
       if (!s.paused && !reduced && now - last < 1000 / s.maxFps) {
         raf = requestAnimationFrame(frame);
@@ -711,10 +740,14 @@ const ElectricBorder = ({
       const motion = reduced || s.paused ? 0 : 1;
       time += elapsed * s.speed * motion;
 
-      if (s.active && !wasActive) reveal = 0;
+      if (s.active && !wasActive) {
+        reveal = 0;
+      }
       wasActive = s.active;
       power += ((s.active ? 1 : 0) - power) * (1 - Math.exp(-dt / (s.active ? 0.28 : 0.4)));
-      if (s.active) reveal = reduced ? 1 : Math.min(1, reveal + dt / 0.9);
+      if (s.active) {
+        reveal = reduced ? 1 : Math.min(1, reveal + dt / 0.9);
+      }
       ink += ((s.light ? 1 : 0) - ink) * (1 - Math.exp(-dt / 0.25));
 
       if (reduced || s.paused) {
@@ -736,9 +769,13 @@ const ElectricBorder = ({
       hover.power +=
         ((engaged ? 1 : 0) - hover.power) * (1 - Math.exp(-dt / (engaged ? 0.3 : 0.55)));
 
-      if (s.arcs <= 0 || reduced) sparks.length = 0;
-      for (let index = sparks.length - 1; index >= 0; index--) {
-        if (time - sparks[index].born > sparks[index].life) sparks.splice(index, 1);
+      if (s.arcs <= 0 || reduced) {
+        sparks.length = 0;
+      }
+      for (let index = sparks.length - 1; index >= 0; (index -= 1) + 1) {
+        if (time - sparks[index].born > sparks[index].life) {
+          sparks.splice(index, 1);
+        }
       }
       if (!s.paused && !reduced && s.active && reveal >= 1 && s.arcs > 0 && sparks.length < ARCS) {
         const chance = Math.min(elapsed, 0.25) * s.speed * s.arcs;
@@ -751,7 +788,7 @@ const ElectricBorder = ({
         }
       }
       const fit = power * power * (3 - 2 * power);
-      for (let index = 0; index < ARCS; index++) {
+      for (let index = 0; index < ARCS; index += 1) {
         const o = index * 4;
         const spark = sparks[index];
         if (!spark) {
@@ -768,10 +805,12 @@ const ElectricBorder = ({
         arcShape[o + 2] = spark.seed;
       }
 
-      for (let index = pulses.length - 1; index >= 0; index--) {
-        if (now - pulses[index].born > 2200) pulses.splice(index, 1);
+      for (let index = pulses.length - 1; index >= 0; (index -= 1) + 1) {
+        if (now - pulses[index].born > 2200) {
+          pulses.splice(index, 1);
+        }
       }
-      for (let index = 0; index < PULSES; index++) {
+      for (let index = 0; index < PULSES; index += 1) {
         const o = index * 4;
         const pulse = pulses[index];
         if (!pulse) {
@@ -786,12 +825,15 @@ const ElectricBorder = ({
       render(s, hover.power * (s.interactive ? 1 : 0));
 
       const busy = power > 0.002 || s.active || sparks.length > 0;
-      if (busy && s.speed > 0 && !s.paused && !reduced && visible && pageVisible)
+      if (busy && s.speed > 0 && !s.paused && !reduced && visible && pageVisible) {
         raf = requestAnimationFrame(frame);
+      }
     };
 
     const wake = () => {
-      if (raf || lost || !visible || !pageVisible) return;
+      if (raf || lost || !visible || !pageVisible) {
+        return;
+      }
       last = performance.now();
       raf = requestAnimationFrame(frame);
     };
@@ -814,19 +856,29 @@ const ElectricBorder = ({
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      if (!settingsRef.current.interactive) return;
+      if (!settingsRef.current.interactive) {
+        return;
+      }
       locate(event);
-      if (pointer.near) wake();
+      if (pointer.near) {
+        wake();
+      }
     };
 
     const onPointerDown = (event: PointerEvent) => {
       locate(event);
       const s = settingsRef.current;
-      if (!pointer.over || !s.interactive || !s.active || reduced) return;
+      if (!pointer.over || !s.interactive || !s.active || reduced) {
+        return;
+      }
       const along = nearestOn(path, pointer.x - size.width / 2, pointer.y - size.height / 2);
       pulses.push({ s: along, born: performance.now() });
-      if (pulses.length > PULSES) pulses.shift();
-      if (sparks.length < ARCS) sparks.push(spawnArc(time, along));
+      if (pulses.length > PULSES) {
+        pulses.shift();
+      }
+      if (sparks.length < ARCS) {
+        sparks.push(spawnArc(time, along));
+      }
       wake();
     };
 

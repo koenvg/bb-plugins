@@ -1,4 +1,5 @@
-import { loadedReviewQueueSchema, type LoadedReviewQueue } from "./review-queue-view";
+import { loadedReviewQueueSchema } from "./review-queue-view";
+import type { LoadedReviewQueue } from "./review-queue-view";
 
 export const REVIEW_QUEUE_UPDATED_CHANNEL = "review-queue.updated";
 

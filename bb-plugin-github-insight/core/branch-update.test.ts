@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canUpdateBranch, type BranchUpdateInput } from "./branch-update";
+import { canUpdateBranch } from "./branch-update";
+import type { BranchUpdateInput } from "./branch-update";
 
 const behind: BranchUpdateInput = {
   prState: "open",

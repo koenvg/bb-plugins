@@ -1,7 +1,8 @@
 import type { PluginKvStorage } from "@get-bb/plugin-sdk";
 import type { ActionResult } from "../contract";
 import type { PullRequestRef } from "../core/pr-ref";
-import { storedViewedSchema, type ViewedMarks } from "../core/viewed-marks";
+import { storedViewedSchema } from "../core/viewed-marks";
+import type { ViewedMarks } from "../core/viewed-marks";
 import { createKeyedQueue } from "../core/keyed-queue";
 
 export type ViewedMarksStore = ReturnType<typeof createViewedMarksStore>;
@@ -29,9 +30,14 @@ export function createViewedMarksStore(kv: PluginKvStorage) {
       const key = keyOf(pr);
       return inOrder(key, async () => {
         const marks: Record<string, string> = { ...(await read(key)), ...set };
-        for (const path of remove) delete marks[path];
-        if (Object.keys(marks).length === 0) await kv.delete(key);
-        else await kv.set(key, { v: 1, marks });
+        for (const path of remove) {
+          delete marks[path];
+        }
+        if (Object.keys(marks).length === 0) {
+          await kv.delete(key);
+        } else {
+          await kv.set(key, { v: 1, marks });
+        }
         return { kind: "ok" as const };
       }).catch((error: unknown) => ({ kind: "error" as const, message: errorText(error) }));
     },

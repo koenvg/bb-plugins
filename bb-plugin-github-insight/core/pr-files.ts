@@ -46,13 +46,23 @@ export async function collectPrFiles(
 }
 
 export function gitPatch(file: ReviewFile): string | null {
-  if (file.patch === null) return null;
+  if (file.patch === null) {
+    return null;
+  }
   const oldPath = file.previousPath ?? file.path;
   const headers = [`diff --git a/${oldPath} b/${file.path}`];
-  if (file.status === "added") headers.push("new file mode 100644");
-  if (file.status === "removed") headers.push("deleted file mode 100644");
-  if (file.status === "renamed") headers.push(`rename from ${oldPath}`, `rename to ${file.path}`);
-  if (file.status === "copied") headers.push(`copy from ${oldPath}`, `copy to ${file.path}`);
+  if (file.status === "added") {
+    headers.push("new file mode 100644");
+  }
+  if (file.status === "removed") {
+    headers.push("deleted file mode 100644");
+  }
+  if (file.status === "renamed") {
+    headers.push(`rename from ${oldPath}`, `rename to ${file.path}`);
+  }
+  if (file.status === "copied") {
+    headers.push(`copy from ${oldPath}`, `copy to ${file.path}`);
+  }
   headers.push(
     file.status === "added" ? "--- /dev/null" : `--- a/${oldPath}`,
     file.status === "removed" ? "+++ /dev/null" : `+++ b/${file.path}`,

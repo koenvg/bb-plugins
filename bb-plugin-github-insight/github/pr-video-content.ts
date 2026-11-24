@@ -1,9 +1,5 @@
-import {
-  MAX_VIDEO_BYTES,
-  videoBytes,
-  videoError,
-  type VideoWireResult,
-} from "../core/video-content";
+import { MAX_VIDEO_BYTES, videoBytes, videoError } from "../core/video-content";
+import type { VideoWireResult } from "../core/video-content";
 import type { RepoFile } from "../core/repo-file";
 import { readRepoFile } from "./repo-file";
 
@@ -15,13 +11,14 @@ const videoFailures = {
   read: "Could not read video from GitHub. Retry or use a local player.",
 } as const;
 export async function readPrVideo(file: RepoFile, signal: AbortSignal): Promise<VideoWireResult> {
-  if (activeReads >= 2)
+  if (activeReads >= 2) {
     return videoError("read", "Two video reads are already running. Wait and retry.");
-  activeReads++;
+  }
+  activeReads += 1;
   try {
     const read = await readRepoFile(file, MAX_VIDEO_BYTES, signal);
     return read.ok ? videoBytes(read.bytes) : videoError(read.code, videoFailures[read.code]);
   } finally {
-    activeReads--;
+    activeReads -= 1;
   }
 }

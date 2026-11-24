@@ -14,7 +14,8 @@ import { tmpdir } from "node:os";
 import { renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { createHostHistory, type HostHistory } from "../history-host.js";
+import { createHostHistory } from "../history-host.js";
+import type { HostHistory } from "../history-host.js";
 import { loadHistoryStorage, openHistoryDatabase } from "../storage/history-storage.js";
 import { projectCompactRecord } from "../storage/history-projection.js";
 import { maintainHistory } from "../storage/history-retention.js";
@@ -24,11 +25,15 @@ import type { HistoryReadContext } from "../history-maintenance.js";
 import type { CalendarQuery } from "../calendar/calendar-contract.js";
 import { createHash } from "node:crypto";
 
-const roots: string[] = [],
-  histories: HostHistory[] = [];
+const roots: string[] = [];
+const histories: HostHistory[] = [];
 afterEach(async () => {
-  for (const history of histories.splice(0)) history.dispose();
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const history of histories.splice(0)) {
+    history.dispose();
+  }
+  for (const root of roots.splice(0)) {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 const now = Date.parse("2026-10-01T12:00:00Z");
 const query: CalendarQuery = {
@@ -100,9 +105,9 @@ function pi(n = 1, total = 20) {
 async function fixture(rows: unknown[], options: { lines?: number; read?: () => void } = {}) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "native-usage-")));
   roots.push(root);
-  const home = join(root, "codex"),
-    dataDir = join(root, "data"),
-    sessions = join(home, "sessions");
+  const home = join(root, "codex");
+  const dataDir = join(root, "data");
+  const sessions = join(home, "sessions");
   await mkdir(sessions, { recursive: true });
   await mkdir(dataDir);
   await mkdir(join(home, "archived_sessions"));
@@ -123,20 +128,26 @@ async function fixture(rows: unknown[], options: { lines?: number; read?: () => 
     histories.push(h);
     return h;
   };
-  const history = make(),
-    path = join(dataDir, "history", "usage-v1.sqlite");
+  const history = make();
+  const path = join(dataDir, "history", "usage-v1.sqlite");
   async function prepare(h = history) {
     let result;
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 500; i += 1) {
       result = await h.prepare!(context);
-      if (result.state !== "available") throw Error(result.reason);
-      if (!result.ingestionPending && !result.attribution.backlog) return result;
+      if (result.state !== "available") {
+        throw Error(result.reason);
+      }
+      if (!result.ingestionPending && !result.attribution.backlog) {
+        return result;
+      }
     }
     throw Error("Fixture did not settle");
   }
   async function report(q = query, h = history) {
     const result = await h.report(q, context);
-    if (result.state === "unavailable") throw Error(result.reason);
+    if (result.state === "unavailable") {
+      throw Error(result.reason);
+    }
     return result;
   }
   return { root, home, sessions, file, dataDir, path, context, make, history, prepare, report };
@@ -196,9 +207,9 @@ it("feeds public prepare/report with mixed legacy Pi and native usage, preservin
     cacheRead: 120,
     cacheWrite: 0,
   });
-  const before = await readFile(f.path),
-    source = await readFile(f.file),
-    names = await readdir(join(f.dataDir, "history"));
+  const before = await readFile(f.path);
+  const source = await readFile(f.file);
+  const names = await readdir(join(f.dataDir, "history"));
   await f.report();
   await f.report({ ...query, scope: { kind: "workspace", workspace: "/fixture" } });
   expect(await readFile(f.path)).toEqual(before);
@@ -350,7 +361,7 @@ it("separates obsolete legacy tier disagreement from token ownership, and quaran
   await f.prepare();
   expect((await f.report()).summary.totalTokens).toBe(0);
 });
-for (const order of ["pi-first", "native-first"])
+for (const order of ["pi-first", "native-first"]) {
   it(`exact legacy response aliases count once in ${order} order and keep Pi price`, async () => {
     const f = await fixture(
       order === "pi-first" ? [header(), turn()] : [header(), turn(), usage("alias")],
@@ -371,7 +382,9 @@ for (const order of ["pi-first", "native-first"])
       ),
     );
     db.close();
-    if (order === "pi-first") await appendFile(f.file, text([usage("alias")]));
+    if (order === "pi-first") {
+      await appendFile(f.file, text([usage("alias")]));
+    }
     await f.prepare();
     expect((await f.report()).summary).toMatchObject({
       totalTokens: 120,
@@ -381,6 +394,7 @@ for (const order of ["pi-first", "native-first"])
     await f.prepare();
     expect((await f.report()).summary.totalTokens).toBe(120);
   });
+}
 it("retains supported totals but leaves nonzero cache-write classes and native prices unavailable", async () => {
   const row = usage();
   row.payload.usage.cache_write_input_tokens = 5;
@@ -417,7 +431,9 @@ it("rolls back unacknowledged admission on cancellation and reopens without repl
   let cancel = true;
   const f = await fixture([header(), turn(), usage()], {
     read: () => {
-      if (cancel) controller.abort();
+      if (cancel) {
+        controller.abort();
+      }
     },
   });
   expect(await f.history.prepare!({ ...f.context, signal: controller.signal })).toEqual({
@@ -450,7 +466,9 @@ it("bounds discovery and resumes it before ingesting usage from a deferred direc
     join(deferred, "rollout.jsonl"),
     text([header(), turn(), ...Array.from({ length: 135 }, (_, i) => usage(`deferred${i}`))]),
   );
-  for (let i = 0; i < 135; i++) await writeFile(join(f.sessions, `${i}.txt`), "");
+  for (let i = 0; i < 135; i += 1) {
+    await writeFile(join(f.sessions, `${i}.txt`), "");
+  }
 
   const first = await f.history.prepare!(f.context);
   expect(first).toMatchObject({ state: "available", ingestionPending: true });
@@ -461,8 +479,9 @@ it("bounds discovery and resumes it before ingesting usage from a deferred direc
 
 it("bounds lines, revisits pending files, and gives native identity only to the matching provider and host", async () => {
   const f = await fixture([header(), turn(), usage("base")], { lines: 12 });
-  for (let i = 0; i < 4; i++)
+  for (let i = 0; i < 4; i += 1) {
     await writeFile(join(f.sessions, `${i}.jsonl`), text([header(), turn(), usage(`file${i}`)]));
+  }
   const first = await f.history.prepare!(f.context);
   expect(first).toMatchObject({ state: "available", ingestionPending: true });
   expect((await f.report()).summary.totalTokens).toBeLessThanOrEqual(480);
@@ -572,7 +591,9 @@ it("does not acknowledge or admit a source replaced after its descriptor opens",
   let replace = true;
   const f = await fixture([header(), turn(), usage()], {
     read: () => {
-      if (!replace) return;
+      if (!replace) {
+        return;
+      }
       replace = false;
       renameSync(f.file, join(f.root, "original.jsonl"));
       writeFileSync(f.file, text([header(), turn(), usage("replacement")]));
@@ -606,7 +627,9 @@ it("rolls back schema-4 migration, facts and controls when version publication f
       return {
         ...opened,
         exec(sql) {
-          if (/PRAGMA user_version = 5/u.test(sql)) throw Error("synthetic-publication-failure");
+          if (/PRAGMA user_version = 5/u.test(sql)) {
+            throw Error("synthetic-publication-failure");
+          }
           opened.exec(sql);
         },
       };
@@ -626,7 +649,9 @@ it("drains the 80-token Pi backlog when native descriptor replacement fails and 
   let replace = false;
   const f = await fixture([header(), turn(), usage()], {
     read: () => {
-      if (!replace) return;
+      if (!replace) {
+        return;
+      }
       replace = false;
       renameSync(f.file, join(f.root, "original.jsonl"));
       writeFileSync(f.file, text([header(), turn(), usage("replacement")]));
@@ -660,7 +685,7 @@ it("drains the 80-token Pi backlog when native descriptor replacement fails and 
   expect((await f.report()).summary.totalTokens).toBe(320);
 });
 
-for (const field of ["id", "cwd"])
+for (const field of ["id", "cwd"]) {
   it.each([0, 10, 31, 127])(
     "rejects native owning " + field + " with control code %s while retaining valid usage",
     async (code) => {
@@ -685,3 +710,4 @@ for (const field of ["id", "cwd"])
       expect(report.days[14].coverage.state).toBe("incomplete");
     },
   );
+}

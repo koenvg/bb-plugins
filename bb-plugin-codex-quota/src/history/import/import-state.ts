@@ -2,6 +2,7 @@ import { initializeUncertainHistory } from "./import-uncertain.js";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import type { RootProof } from "./import-source.js";
 import type { ImportConfiguration, ImportDiagnostic, ImportView } from "./import-contract.js";
+
 export type Frozen = {
   roots: RootProof[];
   workspaces: { recorded: string; resolved: string; identity: string }[];
@@ -73,12 +74,12 @@ export function importStatus(
   host: string,
   reason: ImportView["reason"] = "ok",
 ): ImportView {
-  const configuration = config(db, host),
-    g =
-      unfinished(db, host) ??
-      (db
-        .prepare("SELECT * FROM import_generations WHERE host=? ORDER BY rowid DESC LIMIT 1")
-        .get(host) as Generation | undefined);
+  const configuration = config(db, host);
+  const g =
+    unfinished(db, host) ??
+    (db
+      .prepare("SELECT * FROM import_generations WHERE host=? ORDER BY rowid DESC LIMIT 1")
+      .get(host) as Generation | undefined);
   const counts = g
     ? (db
         .prepare(
@@ -121,7 +122,9 @@ export function importStatus(
 }
 export function diagnostic(db: HistoryDatabase, g: Generation, code: ImportDiagnostic, n = 1) {
   const codes = JSON.parse(g.diagnostics) as ImportDiagnostic[];
-  if (!codes.includes(code) && codes.length < 20) codes.push(code);
+  if (!codes.includes(code) && codes.length < 20) {
+    codes.push(code);
+  }
   g.diagnostics = JSON.stringify(codes);
   g.omissions += n;
   db.prepare("UPDATE import_generations SET diagnostics=?,omissions=? WHERE id=?").run(

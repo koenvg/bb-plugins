@@ -2,7 +2,8 @@ import { mkdtemp, rm, mkdir, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "../storage/history-storage.js";
+import { openHistoryDatabase } from "../storage/history-storage.js";
+import type { HistoryDatabase } from "../storage/history-storage.js";
 import {
   initializeHistory,
   projectCompactRecord,
@@ -18,6 +19,7 @@ import {
   verifyWorkspaceAlias,
 } from "./identity-storage.js";
 import type { IdentityBatch } from "./identity-contract.js";
+
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
   for (const { root, db } of fixtures.splice(0)) {
@@ -26,8 +28,8 @@ afterEach(async () => {
   }
 });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bbp19-identity-")),
-    db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const root = await mkdtemp(join(tmpdir(), "bbp19-identity-"));
+  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
   fixtures.push({ root, db });
   initializeHistory(db, "2026-10-01T00:00:00.000Z");
   initializeIdentityStorage(db);
@@ -56,7 +58,9 @@ function capture(db: HistoryDatabase, n: number, extra: Record<string, unknown> 
     ...extra,
   };
   const record = parseCompact(JSON.stringify(value), false);
-  if (record) db.transaction(() => projectCompactRecord(db, record));
+  if (record) {
+    db.transaction(() => projectCompactRecord(db, record));
+  }
   return value;
 }
 const batch = (
@@ -150,14 +154,14 @@ it("requires all contiguous batches, rejects host changes and keeps incomplete e
   expect(() => acceptIdentityBatch(db, batch(2, [], "host_b"))).toThrow();
 });
 it("retains different hosts, paths and confirmed filesystem aliases without changing ownership", async () => {
-  const a = await fixture(),
-    b = await fixture();
+  const a = await fixture();
+  const b = await fixture();
   capture(a.db, 1, { providerSessionKey: null });
   capture(b.db, 1);
   acceptIdentityBatch(a.db, batch());
   acceptIdentityBatch(b.db, batch(1, [{ ...batch().rows[0]!, threadId: "thr_b" }], "host_b"));
-  const actual = join(a.root, "workspace"),
-    alias = join(a.root, "alias");
+  const actual = join(a.root, "workspace");
+  const alias = join(a.root, "alias");
   await mkdir(actual);
   await symlink(actual, alias);
   capture(a.db, 2, { workspace: alias, providerSessionKey: null, sessionId: "import-pi" });
@@ -180,7 +184,9 @@ it("keeps replay ownership and conflict exclusions and bounds unchanged reads", 
   const { db } = await fixture();
   const first = capture(db, 9);
   for (const n of [9, 1]) {
-    if (n === 1) capture(db, n);
+    if (n === 1) {
+      capture(db, n);
+    }
     const confirmation = parseCompact(
       JSON.stringify({ version: 1, eventId: captureId(n), sessionId: "pi-id", entryId: "entry" }),
       true,
@@ -248,7 +254,7 @@ it("does not hide a later conflicting import behind a candidate limit", async ()
   const { db } = await fixture();
   capture(db, 1, { providerSessionKey: null });
   const rows: IdentityBatch["rows"] = [];
-  for (let n = 0; n < 5; n++) {
+  for (let n = 0; n < 5; n += 1) {
     recordConfirmedRelationship(db, {
       sessionId: "pi-id",
       workspace: "/original",
@@ -294,7 +300,7 @@ it("freezes generation totals and rejects contradictory late additions", async (
 it("does not restart 1000 usage rows for unchanged or title-only catalog generations", async () => {
   const { db } = await fixture();
   db.transaction(() => {
-    for (let n = 1; n <= 1000; n++) {
+    for (let n = 1; n <= 1000; n += 1) {
       const record = parseCompact(
         JSON.stringify({
           version: 1,
@@ -321,12 +327,14 @@ it("does not restart 1000 usage rows for unchanged or title-only catalog generat
     }
   });
   acceptIdentityBatch(db, batch());
-  for (let n = 0; n < 6; n++) reconcileIdentity(db, signal());
+  for (let n = 0; n < 6; n += 1) {
+    reconcileIdentity(db, signal());
+  }
   expect(identityView(db).threads[0]?.totalTokens).toBe(3000);
   const revision = (
     db.prepare("SELECT revision FROM identity_receipt").get() as { revision: number }
   ).revision;
-  for (let generation = 2; generation <= 7; generation++) {
+  for (let generation = 2; generation <= 7; generation += 1) {
     acceptIdentityBatch(
       db,
       batch(generation, [{ ...batch().rows[0]!, title: generation === 7 ? "New title" : "A" }]),
@@ -342,7 +350,7 @@ it("does not restart 1000 usage rows for unchanged or title-only catalog generat
   expect(identityView(db).backlog).toBe(true);
   expect(identityView(db).threads).toEqual([]);
   // Identical fresh catalogs must let real conflict work finish across cache intervals.
-  for (let generation = 9; generation <= 13; generation++) {
+  for (let generation = 9; generation <= 13; generation += 1) {
     acceptIdentityBatch(db, batch(generation, [{ ...batch().rows[0]!, threadId: "thr_conflict" }]));
     reconcileIdentity(db, signal());
   }
@@ -382,7 +390,7 @@ it("revokes only uncertain identities and keeps multi-batch uncertainty changes 
     state: "archived",
     ownershipUnknown: true,
   } as const;
-  for (let generation = 2; generation <= 3; generation++) {
+  for (let generation = 2; generation <= 3; generation += 1) {
     acceptIdentityBatch(db, { ...batch(generation), total: 2 });
     expect(identityView(db).threads).toEqual([]);
     acceptIdentityBatch(db, { ...batch(generation, [uncertain]), offset: 1, total: 2 });

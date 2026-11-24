@@ -9,10 +9,8 @@ import {
   createReviewQueueService,
   REVIEW_QUEUE_STORAGE_KEY,
   SHARED_ENVIRONMENT_MESSAGE,
-  type QueueProject,
-  type QueueThread,
-  type ReviewQueueServiceDeps,
 } from "./review-queue-service";
+import type { QueueProject, QueueThread, ReviewQueueServiceDeps } from "./review-queue-service";
 
 function queuePr(repo: string, number: number, overrides: Partial<QueuePr> = {}): QueuePr {
   return {
@@ -156,7 +154,9 @@ function serviceWith(overrides: Partial<ReviewQueueServiceDeps> = {}) {
 }
 
 function viewOf(result: LoadedReviewQueue): ReviewQueueView {
-  if (result.kind !== "ok") throw new Error(`expected ok, got ${result.message}`);
+  if (result.kind !== "ok") {
+    throw new Error(`expected ok, got ${result.message}`);
+  }
   return result;
 }
 
@@ -297,7 +297,9 @@ describe("review queue service", () => {
         thread("thr_ok", "env_ok", 1),
       ],
       resolveEnvironmentPr: async (environmentId) => {
-        if (environmentId === "env_broken") throw new Error("environment not found");
+        if (environmentId === "env_broken") {
+          throw new Error("environment not found");
+        }
         return linkedTo("acme", "api", 15);
       },
     });
@@ -311,7 +313,9 @@ describe("review queue service", () => {
     let fail = false;
     const { service } = serviceWith({
       fetchReviewQueue: async () => {
-        if (fail) throw new Error("gh not logged in");
+        if (fail) {
+          throw new Error("gh not logged in");
+        }
         return queueOf([queuePr("acme/api", 15)]);
       },
     });
@@ -320,7 +324,9 @@ describe("review queue service", () => {
 
     const result = await service.refreshReviewQueue();
 
-    if (good.kind !== "ok") throw new Error("expected ok");
+    if (good.kind !== "ok") {
+      throw new Error("expected ok");
+    }
     const { kind: _kind, ...lastGood } = good;
     expect(result).toEqual({ kind: "error", message: "gh not logged in", lastGood });
     expect(await service.getReviewQueue()).toEqual(result);
@@ -429,10 +435,15 @@ describe("review queue service", () => {
         reviewThread("thr_broken"),
       ],
       readPluginMetadata: async (threadId) => {
-        if (threadId === "thr_broken") throw new Error("thread not found");
-        if (threadId === "thr_v2")
+        if (threadId === "thr_broken") {
+          throw new Error("thread not found");
+        }
+        if (threadId === "thr_v2") {
           return { "review-pr": { ...reviewPrEntry("acme/api", 15)["review-pr"], v: 2 } };
-        if (threadId === "thr_archived") return reviewPrEntry("acme/api", 15);
+        }
+        if (threadId === "thr_archived") {
+          return reviewPrEntry("acme/api", 15);
+        }
         return {};
       },
     });
@@ -549,7 +560,9 @@ describe("team PRs", () => {
       requests,
       scanTeamPrs: async (_hostId: string, request: TeamScanRequest) => {
         requests.push(request);
-        if (found instanceof Error) throw found;
+        if (found instanceof Error) {
+          throw found;
+        }
         return {
           refs: found,
           scannedThrough: Object.fromEntries(
@@ -1228,7 +1241,9 @@ describe("startReview", () => {
     const reviewThreads: QueueThread[] = [];
     const { service, published } = serviceWith({
       fetchReviewQueue: async () => {
-        if (fail) throw new Error("rate limited");
+        if (fail) {
+          throw new Error("rate limited");
+        }
         return queueOf([queuePr("acme/api", 15)]);
       },
       listReviewThreads: async () => reviewThreads,
@@ -1246,7 +1261,9 @@ describe("startReview", () => {
 
     await vi.waitFor(() => expect(published).toHaveLength(3));
     const update = published[2]!;
-    if (update.kind !== "error") throw new Error("expected error");
+    if (update.kind !== "error") {
+      throw new Error("expected error");
+    }
     expect(update.message).toBe("rate limited");
     expect(update.lastGood?.needsReview[0]!.prs[0]!.thread?.id).toBe("thr_review");
   });
@@ -1263,7 +1280,7 @@ describe("startReview", () => {
         await open?.promise;
         return [];
       },
-      now: () => clock++,
+      now: () => (clock += 1) - 1,
     });
     await service.refreshReviewQueue();
     const relinkGate = deferred<void>();
@@ -1362,7 +1379,7 @@ describe("archiveReview on a PR kept only by its thread", () => {
     let fetches = 0;
     const { service, published } = serviceWith({
       fetchReviewQueue: async () => {
-        fetches++;
+        fetches += 1;
         return queueOf([], [queuePr("acme/api", 15)]);
       },
       listReviewThreads: async () => reviewThreads,
@@ -1413,12 +1430,16 @@ describe("markReviewed", () => {
     const first = service.markReviewed({ repo: "acme/api", number: 15, headOid: "head-15" });
     await vi.waitFor(() => expect(gate).toBeNull());
     const second = service.markReviewed({ repo: "acme/api", number: 16, headOid: "head-16" });
-    for (let i = 0; i < 20; i++) await new Promise((resolve) => setImmediate(resolve));
+    for (let i = 0; i < 20; i += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
     firstRelink.resolve();
     await Promise.all([first, second]);
 
     const stored = await service.getReviewQueue();
-    if (stored.kind === "loading") throw new Error("expected a stored view");
+    if (stored.kind === "loading") {
+      throw new Error("expected a stored view");
+    }
     expect(
       allPrs(stored)
         .filter((pr) => pr.review === "reviewed")
@@ -1472,7 +1493,9 @@ describe("markReviewed", () => {
       kv: {
         ...kv,
         set: async (key: string, value: unknown) => {
-          if (key.startsWith("reviewed:")) throw new Error("disk full");
+          if (key.startsWith("reviewed:")) {
+            throw new Error("disk full");
+          }
           await kv.set(key, value);
         },
       },

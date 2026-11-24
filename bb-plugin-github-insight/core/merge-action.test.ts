@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Blocker } from "./blockers";
-import { buildMergeAction, type MergeActionInput, type MergeMethod } from "./merge-action";
+import { buildMergeAction } from "./merge-action";
+import type { MergeActionInput, MergeMethod } from "./merge-action";
 
 function only(method: MergeMethod): MergeActionInput["allowedMethods"] {
   return { MERGE: false, SQUASH: false, REBASE: false, [method]: true };

@@ -1,5 +1,6 @@
 import type { PluginCommandContext, PluginCommandRegistration } from "@get-bb/plugin-sdk/app";
-import { postIntent, type CommandTab, type IntentOf } from "./command-intents";
+import { postIntent } from "./command-intents";
+import type { CommandTab, IntentOf } from "./command-intents";
 import { canMerge, hasPr } from "./pr-availability";
 
 type ThreadCheck = (threadId: string) => boolean;
@@ -29,9 +30,12 @@ function prTabCommand(
         !context.experimental_panel.openTab({
           tab: { id: "pr", context: { kind: "thread" }, availability: "action" },
         })
-      )
+      ) {
         return;
-      for (const { tab, intent } of intents) postIntent(threadId, tab, intent);
+      }
+      for (const { tab, intent } of intents) {
+        postIntent(threadId, tab, intent);
+      }
     },
   };
 }
@@ -42,7 +46,9 @@ export const GITHUB_COMMANDS: readonly PluginCommandRegistration[] = [
     title: "GitHub: Merge PR",
     isAvailable: availableWhen(canMerge),
     run: ({ threadId }) => {
-      if (threadId !== null) postIntent(threadId, "merge", "merge");
+      if (threadId !== null) {
+        postIntent(threadId, "merge", "merge");
+      }
     },
   },
   prTabCommand("open-pr-tab", "GitHub: Open PR tab", SHOW_OVERVIEW),

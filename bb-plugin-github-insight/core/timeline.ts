@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { actorSchema } from "./actor";
 import type { SignMedia } from "./signed-media";
-import { othersPrComments, othersReviewTexts, type PostedComment } from "./new-comments";
+import { othersPrComments, othersReviewTexts } from "./new-comments";
+import type { PostedComment } from "./new-comments";
 
 const loginSchema = z.object({ login: z.string() }).nullable();
 
@@ -143,7 +144,9 @@ function toEvent(node: Node, signMedia: SignMedia): TimelineEvent | null {
         url: node.url,
       };
     case "PullRequestReview":
-      if (node.state === "PENDING" || node.submittedAt === null) return null;
+      if (node.state === "PENDING" || node.submittedAt === null) {
+        return null;
+      }
       return {
         kind: "review",
         id: node.id,
@@ -197,14 +200,16 @@ function othersCommentsOf(nodes: readonly Node[], viewer: string): PostedComment
 
 function viewerRepliedAt(nodes: readonly Node[], viewer: string): number {
   const times = nodes.flatMap((node) => {
-    if (node.__typename === "IssueComment" && node.author?.login === viewer)
+    if (node.__typename === "IssueComment" && node.author?.login === viewer) {
       return [Date.parse(node.createdAt)];
+    }
     if (
       node.__typename === "PullRequestReview" &&
       node.submittedAt !== null &&
       node.author?.login === viewer
-    )
+    ) {
       return [Date.parse(node.submittedAt)];
+    }
     return [];
   });
   return Math.max(0, ...times);
@@ -224,7 +229,9 @@ export function parseTimelinePage(response: unknown, signMedia: SignMedia): Time
     locked: pullRequest.locked,
     viewerCanUpdate: pullRequest.viewerCanUpdate,
     events: nodes.flatMap((node) => {
-      if (isMergeClose(node, nodes)) return [];
+      if (isMergeClose(node, nodes)) {
+        return [];
+      }
       const event = toEvent(node, signMedia);
       return event === null ? [] : [event];
     }),
@@ -239,11 +246,12 @@ export function groupTimeline(events: readonly TimelineEvent[]): TimelineEntry[]
   const entries: TimelineEntry[] = [];
   for (const event of events) {
     const last = entries.at(-1);
-    if (event.kind !== "commit") entries.push(event);
-    else if (last?.kind === "commits") {
+    if (event.kind !== "commit") {
+      entries.push(event);
+    } else if (last?.kind === "commits") {
       last.commits.push(event);
       last.at = event.at;
-    } else
+    } else {
       entries.push({
         kind: "commits",
         id: event.id,
@@ -251,6 +259,7 @@ export function groupTimeline(events: readonly TimelineEvent[]): TimelineEntry[]
         at: event.at,
         commits: [event],
       });
+    }
   }
   return entries;
 }

@@ -3,15 +3,16 @@ import pageOne from "../test/fixtures/pr-25337-overview-page-1.json";
 import pageTwo from "../test/fixtures/pr-25337-overview-page-2.json";
 import checkRunDetails from "../test/fixtures/pr-25337-check-run-details.json";
 import type { Check } from "./checks";
-import { collectInsight, type PrInsight } from "./overview";
+import { collectInsight } from "./overview";
+import type { PrInsight } from "./overview";
 import type { Reviewer } from "./reviewers";
 import {
   buildSummary,
   MAX_SUMMARY_BYTES,
   SUMMARY_HEARTBEAT_MS,
   shouldWriteSummary,
-  type PrSummary,
 } from "./summary";
+import type { PrSummary } from "./summary";
 
 const recordedPages: Record<string, unknown> = { start: pageOne, MTAw: pageTwo };
 const refreshedAt = Date.parse("2026-09-24T10:00:00Z");
@@ -124,7 +125,9 @@ describe("buildSummary on PR 25337", () => {
       )
       .filter((text) => text !== "");
     expect(failureTexts.length).toBeGreaterThan(0);
-    for (const text of failureTexts) expect(json).not.toContain(text);
+    for (const text of failureTexts) {
+      expect(json).not.toContain(text);
+    }
   });
 });
 

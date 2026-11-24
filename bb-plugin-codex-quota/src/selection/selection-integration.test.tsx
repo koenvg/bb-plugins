@@ -20,19 +20,23 @@ it.each([
 ])(
   "isolates management changes from combined usage, switch back=%s late readiness=%s",
   async (back, late) => {
-    const f = await dashboardFixture(),
-      selection = deferred<{ hostId: string; generation: number }>();
-    const stale = deferred<unknown>(),
-      ready = f.historyReadiness.getMockImplementation()!;
+    const f = await dashboardFixture();
+    const selection = deferred<{ hostId: string; generation: number }>();
+    const stale = deferred<unknown>();
+    const ready = f.historyReadiness.getMockImplementation()!;
     let selected = 0;
     f.selectHost.mockImplementation(async (raw) => {
       const { hostId } = raw as { hostId: string };
-      if (++selected === 1) return { hostId, generation: 1 };
-      if (hostId === "host_two") return selection.promise;
+      if ((selected += 1) === 1) {
+        return { hostId, generation: 1 };
+      }
+      if (hostId === "host_two") {
+        return selection.promise;
+      }
       return { hostId, generation: 3 };
     });
-    const page = f.page(),
-      q = within(page.container);
+    const page = f.page();
+    const q = within(page.container);
     await q.findByText("63%");
     await setHistoryManagementOpen(page.container);
     await q.findByText("History not configured on this host.");
@@ -45,9 +49,11 @@ it.each([
     expect(q.queryByRole("region", { name: "History readiness" })).toBeNull();
     expect(q.getByText("63%")).toBeTruthy();
     expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
-    if (back) fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[0]!);
+    if (back) {
+      fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[0]!);
+    }
     await act(async () => {
-      if (late)
+      if (late) {
         stale.resolve({
           state: "unavailable",
           reason: "collector-incompatible",
@@ -56,6 +62,7 @@ it.each([
           writer: "unavailable",
           collection: null,
         });
+      }
       selection.resolve({ hostId: "host_two", generation: 2 });
     });
     await q.findByText("History not configured on this host.");
@@ -74,13 +81,13 @@ it.each([
   },
 );
 it("does not dispatch management reads while an explicit machine choice is pending", async () => {
-  const f = await dashboardFixture(),
-    pending = deferred<{ hostId: string; generation: number }>();
+  const f = await dashboardFixture();
+  const pending = deferred<{ hostId: string; generation: number }>();
   f.selectHost
     .mockImplementationOnce(async () => ({ hostId: "host_one", generation: 1 }))
     .mockImplementationOnce(async () => pending.promise);
-  const page = f.settings(),
-    q = within(page.container);
+  const page = f.settings();
+  const q = within(page.container);
   await setHistoryManagementOpen(page.container);
   await q.findByText("History not configured on this host.");
   const reads = f.historyReadiness.mock.calls.length;
@@ -95,13 +102,13 @@ it("does not dispatch management reads while an explicit machine choice is pendi
   expect(f.historyReadiness.mock.lastCall![0]).toEqual({ hostId: "host_two", generation: 2 });
 });
 it("blocks a queued collector request when a same-turn machine choice starts", async () => {
-  const f = await dashboardFixture(),
-    pending = deferred<{ hostId: string; generation: number }>();
+  const f = await dashboardFixture();
+  const pending = deferred<{ hostId: string; generation: number }>();
   f.selectHost
     .mockImplementationOnce(async () => ({ hostId: "host_one", generation: 1 }))
     .mockImplementationOnce(async () => pending.promise);
-  const page = f.settings(),
-    q = within(page.container);
+  const page = f.settings();
+  const q = within(page.container);
   await setHistoryManagementOpen(page.container);
   await q.findByText("History not configured on this host.");
   q.getByText("Collection and privacy").closest("details")!.open = true;
@@ -109,7 +116,9 @@ it("blocks a queued collector request when a same-turn machine choice starts", a
   await act(async () => {
     fireEvent.click(install);
     fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[1]!);
-    for (let i = 0; i < 10; i++) await Promise.resolve();
+    for (let i = 0; i < 10; i += 1) {
+      await Promise.resolve();
+    }
   });
   expect(f.collectorControl).not.toHaveBeenCalled();
   await act(async () => {

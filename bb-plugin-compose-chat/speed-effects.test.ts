@@ -38,8 +38,8 @@ afterEach(() => {
 });
 
 describe("SDK settings delivery to native speed decorations", () => {
-  for (const theme of ["dark", "light"])
-    for (const mode of ["Fast", "Ultrafast"])
+  for (const theme of ["dark", "light"]) {
+    for (const mode of ["Fast", "Ultrafast"]) {
       for (const effect of ["Glow", "Electric"]) {
         it(`delivers ${effect} settings and the approved preview mapping for ${mode} in ${theme}`, async () => {
           document.documentElement.dataset.theme = theme;
@@ -124,6 +124,8 @@ describe("SDK settings delivery to native speed decorations", () => {
           expect(document.querySelector(".compose-speed-layer")).toBeNull();
         });
       }
+    }
+  }
   it("honors Off from the SDK settings hook", async () => {
     document.body.innerHTML =
       '<div data-app-composer><div data-follow-up-composer><form data-promptbox><button aria-label="Provider, model and reasoning"><span title="Codex (Ultrafast mode)">Model</span></button></form></div></div>';

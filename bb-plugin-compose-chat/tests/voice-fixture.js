@@ -5,9 +5,9 @@ export function installVoiceFixture({ form, input, commands, version = "0.44" })
   const command = commands.find((command) => command.id === "start-voice-input");
   const context = { threadId: "fixture", projectId: "fixture", openPanel: () => false };
   let binding = command.defaultShortcut;
-  let starts = 0,
-    confirms = 0,
-    cancels = 0;
+  let starts = 0;
+  let confirms = 0;
+  let cancels = 0;
   let voiceSends = 0;
   let controls;
   const state = () =>
@@ -23,7 +23,9 @@ export function installVoiceFixture({ form, input, commands, version = "0.44" })
     input.readOnly = false;
     input.removeAttribute("aria-readonly");
     mic.hidden = false;
-    if (text) input.value += ` ${text}`;
+    if (text) {
+      input.value += ` ${text}`;
+    }
   }
   function recording(transcribing = false, sending = false) {
     form.setAttribute("data-promptbox-voice-active", "");
@@ -41,28 +43,31 @@ export function installVoiceFixture({ form, input, commands, version = "0.44" })
       ${version === "0.45" ? `<button type="button" aria-label="${sending ? "Transcribing and sending" : "Send voice input"}" ${transcribing ? "disabled" : ""}>Send voice</button>` : ""}`;
     form.querySelector("[data-promptbox-action-row]").append(controls);
     controls.querySelector("button").onclick = () => {
-      cancels++;
+      cancels += 1;
       finish();
     };
     controls.querySelectorAll("button")[1].onclick = () => {
-      confirms++;
+      confirms += 1;
       recording(true);
     };
     const send = controls.querySelector('[aria-label="Send voice input"]');
-    if (send)
+    if (send) {
       send.onclick = () => {
-        voiceSends++;
+        voiceSends += 1;
         recording(true, true);
       };
+    }
   }
   mic.onclick = () => {
-    starts++;
+    starts += 1;
     recording();
   };
   // This is a fixture host-command dispatcher, not plugin runtime code. Change
   // binding to exercise rebinding/disabled behavior without a hard-coded plugin listener.
   window.addEventListener("keydown", (event) => {
-    if (event.defaultPrevented || event.repeat || event.isComposing || !binding) return;
+    if (event.defaultPrevented || event.repeat || event.isComposing || !binding) {
+      return;
+    }
     const key = event.key === " " ? "Space" : event.key;
     if (
       key !== binding.key ||
@@ -70,9 +75,12 @@ export function installVoiceFixture({ form, input, commands, version = "0.44" })
       event.shiftKey !== !!binding.shift ||
       event.metaKey !== !!binding.meta ||
       event.altKey !== !!binding.alt
-    )
+    ) {
       return;
-    if (!command.isAvailable(context)) return;
+    }
+    if (!command.isAvailable(context)) {
+      return;
+    }
     event.preventDefault();
     command.run(context);
   });
@@ -96,7 +104,7 @@ export function installVoiceFixture({ form, input, commands, version = "0.44" })
     (event) => {
       if (event.key === "Escape" && state() !== "idle") {
         event.preventDefault();
-        cancels++;
+        cancels += 1;
         finish();
       }
     },

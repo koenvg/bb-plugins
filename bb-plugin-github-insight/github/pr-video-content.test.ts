@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 const mp4 = Buffer.from("000000186674797069736f6d0000000069736f6d6d703432", "hex");
 const state = vi.hoisted(() => ({
   calls: [] as unknown[][],

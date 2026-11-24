@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkFailure, parseFailureAnnotations, type AnnotationNode } from "./failure";
+import { checkFailure, parseFailureAnnotations } from "./failure";
+import type { AnnotationNode } from "./failure";
 
 function annotation(
   level: AnnotationNode["annotationLevel"],

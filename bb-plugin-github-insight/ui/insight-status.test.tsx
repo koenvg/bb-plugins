@@ -151,8 +151,9 @@ describe("PR insight availability in both views", () => {
       { threadId: "loading", params: null, environment: null },
       options,
     );
-    for (const slot of [chat, panel])
+    for (const slot of [chat, panel]) {
       expect(within(slot.container).getByRole("status").textContent).toBe("Loading pull request…");
+    }
     await act(async () => pending.resolve({ kind: "no_pr" }));
     expect(chat.container.textContent).toBe("");
     expect(within(panel.container).getByText("No pull request for this thread")).toBeTruthy();
@@ -166,8 +167,12 @@ describe("PR insight availability in both views", () => {
       expect(view.queryByText("Draft")).toBeNull();
     }
     f.set(ok());
-    for (const view of f.views) fireEvent.click(view.getByRole("button", { name: "Retry" }));
-    for (const view of f.views) await view.findByText("Draft");
+    for (const view of f.views) {
+      fireEvent.click(view.getByRole("button", { name: "Retry" }));
+    }
+    for (const view of f.views) {
+      await view.findByText("Draft");
+    }
     expect(f.chat.inspection.navigateCalls).toEqual([]);
     expect(f.panel.inspection.navigateCalls).toEqual([]);
   });
@@ -178,19 +183,24 @@ describe("PR insight availability in both views", () => {
       const data = ok({ ...base, pr: { ...base.pr, state } });
       const f = fixture(data);
       const label = state === "draft" ? "Draft" : "Open";
-      for (const view of f.views) await view.findByText(label);
+      for (const view of f.views) {
+        await view.findByText(label);
+      }
       f.read.mockRejectedValue(new Error("transport failed"));
       await f.reload();
       for (const view of f.views) {
         expect(view.getByText(label)).toBeTruthy();
         expect(view.getByRole("alert").textContent).toContain("transport failed");
       }
-      for (const slot of [f.chat, f.panel])
+      for (const slot of [f.chat, f.panel]) {
         expect(slot.container.querySelector("time")?.getAttribute("datetime")).toBe(
           new Date(refreshedAt).toISOString(),
         );
+      }
       f.refresh.mockResolvedValue(data);
-      for (const view of f.views) fireEvent.click(view.getByRole("button", { name: "Retry" }));
+      for (const view of f.views) {
+        fireEvent.click(view.getByRole("button", { name: "Retry" }));
+      }
       await act(async () => {});
       for (const view of f.views) {
         expect(view.getByText(label)).toBeTruthy();
@@ -205,10 +215,11 @@ describe("PR insight availability in both views", () => {
       await view.findByText("Draft");
       expect(view.getByRole("alert").textContent).toContain("rate limited");
     }
-    for (const slot of [f.chat, f.panel])
+    for (const slot of [f.chat, f.panel]) {
       expect(slot.container.querySelector("time")?.getAttribute("datetime")).toBe(
         new Date(refreshedAt).toISOString(),
       );
+    }
   });
 
   it("keeps status and details during refresh with progress in each view", async () => {
@@ -217,10 +228,14 @@ describe("PR insight availability in both views", () => {
       "previous failure",
     );
     const f = fixture(data);
-    for (const view of f.views) await view.findByText("Draft");
+    for (const view of f.views) {
+      await view.findByText("Draft");
+    }
     const pending = deferred<InsightResult>();
     f.refresh.mockImplementation(() => pending.promise);
-    for (const view of f.views) fireEvent.click(view.getByRole("button", { name: "Retry" }));
+    for (const view of f.views) {
+      fireEvent.click(view.getByRole("button", { name: "Retry" }));
+    }
     for (const view of f.views) {
       expect(view.getByText("Draft")).toBeTruthy();
       expect(view.getByText("1 check failed")).toBeTruthy();
@@ -233,7 +248,9 @@ describe("PR insight availability in both views", () => {
 
   it("forgets retained data after a confirmed no-PR result", async () => {
     const f = fixture();
-    for (const view of f.views) await view.findByText("Draft");
+    for (const view of f.views) {
+      await view.findByText("Draft");
+    }
     f.set({ kind: "no_pr" });
     await f.reload();
     expect(f.chat.container.textContent).toBe("");
@@ -247,7 +264,9 @@ describe("PR insight availability in both views", () => {
 
   it("converges across lifecycle and queue transitions without new polling or fetch paths", async () => {
     const f = fixture();
-    for (const view of f.views) await view.findByText("Draft");
+    for (const view of f.views) {
+      await view.findByText("Draft");
+    }
     const updates: [PrInsight, string][] = [
       [{ ...base, pr: { ...base.pr, state: "open" } }, "Open"],
       [

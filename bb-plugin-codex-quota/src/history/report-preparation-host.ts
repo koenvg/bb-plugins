@@ -1,5 +1,5 @@
 import type { createNativeUsage } from "./native/native-usage.js";
-import { maintainHistory } from "./storage/history-retention.js";
+import { maintainHistory, retentionState } from "./storage/history-retention.js";
 import { createHash } from "node:crypto";
 import { withRetainedHistory, retainedHistoryReason } from "./storage/retained-history.js";
 import type { HistoryReadContext, HistoryDependencies } from "./history-maintenance.js";
@@ -12,7 +12,6 @@ import {
 } from "./identity/identity-storage.js";
 import { join } from "node:path";
 import { reconcileCollector } from "./storage/history-ingest.js";
-import { retentionState } from "./storage/history-retention.js";
 import { collectorLogNames, collectorDiscoveryProgress } from "./collection/history-logs.js";
 
 export async function prepareHostReport(
@@ -21,8 +20,8 @@ export async function prepareHostReport(
   native?: ReturnType<typeof createNativeUsage>,
 ): Promise<z.infer<typeof hostPreparationSchema>> {
   try {
-    let nativeAvailable = false,
-      nativeFailed = false;
+    let nativeAvailable = false;
+    let nativeFailed = false;
     try {
       nativeAvailable = (await native?.available()) ?? false;
     } catch {
@@ -36,12 +35,17 @@ export async function prepareHostReport(
       false,
       async (db) => {
         context.signal.throwIfAborted();
-        if (!context.identities) return { state: "unavailable", reason: "identity-unavailable" };
+        if (!context.identities) {
+          return { state: "unavailable", reason: "identity-unavailable" };
+        }
         acceptIdentityBatch(db, context.identities);
         const retention = retentionState(db);
-        if (!retention.backfill_done)
+        if (!retention.backfill_done) {
           return { state: "unavailable", reason: "storage-unavailable" };
-        if (nativeAvailable) maintainHistory(db, now, deps.maintenanceRows);
+        }
+        if (nativeAvailable) {
+          maintainHistory(db, now, deps.maintenanceRows);
+        }
         let nativeProgress = { pending: false, progress: "" };
         if (nativeAvailable) {
           try {
@@ -80,7 +84,9 @@ export async function prepareHostReport(
             )
           : [];
         reconcileIdentity(db, context.signal);
-        if (nativeFailed) return { state: "unavailable", reason: "storage-unavailable" };
+        if (nativeFailed) {
+          return { state: "unavailable", reason: "storage-unavailable" };
+        }
         const receipt = db.prepare("SELECT * FROM identity_receipt WHERE id=1").get();
         // Indexed first-pending markers change after each bounded reconciliation step.
         const pending = db

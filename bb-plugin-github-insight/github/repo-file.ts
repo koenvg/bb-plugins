@@ -2,7 +2,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { imageShaSchema } from "../core/image-content";
-import { repoFileSchema, type RepoFile } from "../core/repo-file";
+import { repoFileSchema } from "../core/repo-file";
+import type { RepoFile } from "../core/repo-file";
 
 const run = promisify(execFile);
 const contentsSchema = z.object({
@@ -42,7 +43,9 @@ export async function readRepoFile(
       contentsSchema,
       options,
     );
-    if (contents.size > maxBytes) return { ok: false, code: "too_large" };
+    if (contents.size > maxBytes) {
+      return { ok: false, code: "too_large" };
+    }
     const inline = contents.encoding === "base64" && contents.content !== "";
     const content = inline
       ? contents.content
@@ -52,11 +55,16 @@ export async function readRepoFile(
     return bytes.length === contents.size ? { ok: true, bytes } : { ok: false, code: "read" };
   } catch (error) {
     const fields = typeof error === "object" && error !== null ? error : {};
-    if ("code" in fields && fields.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
+    if ("code" in fields && fields.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
       return { ok: false, code: "too_large" };
+    }
     const stderr = "stderr" in fields ? String(fields.stderr) : "";
-    if (/\b(401|403)\b|authentication|not logged/i.test(stderr)) return { ok: false, code: "auth" };
-    if (/\b404\b/.test(stderr)) return { ok: false, code: "missing" };
+    if (/\b(401|403)\b|authentication|not logged/i.test(stderr)) {
+      return { ok: false, code: "auth" };
+    }
+    if (/\b404\b/.test(stderr)) {
+      return { ok: false, code: "missing" };
+    }
     return { ok: false, code: "read" };
   }
 }

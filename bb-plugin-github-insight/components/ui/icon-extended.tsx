@@ -51,7 +51,6 @@ import FolderRemoveIcon from "@hugeicons/core-free-icons/FolderRemoveIcon";
 import GitBranchIcon from "@hugeicons/core-free-icons/GitBranchIcon";
 import GitForkIcon from "@hugeicons/core-free-icons/GitForkIcon";
 import GitMergeIcon from "@hugeicons/core-free-icons/GitMergeIcon";
-import GitPullRequestArrow from "@hugeicons/core-free-icons/GitPullRequestIcon";
 import GitPullRequestClosedIcon from "@hugeicons/core-free-icons/GitPullRequestClosedIcon";
 import GitPullRequestDraftIcon from "@hugeicons/core-free-icons/GitPullRequestDraftIcon";
 import GitPullRequestIcon from "@hugeicons/core-free-icons/GitPullRequestIcon";
@@ -108,7 +107,8 @@ import ViewIcon from "@hugeicons/core-free-icons/ViewIcon";
 import ViewOffIcon from "@hugeicons/core-free-icons/ViewOffIcon";
 import ZoomInAreaIcon from "@hugeicons/core-free-icons/ZoomInAreaIcon";
 import ZoomOutAreaIcon from "@hugeicons/core-free-icons/ZoomOutAreaIcon";
-import { type ExtendedIconMap, registerExtendedIcons } from "./icon-registry";
+import { registerExtendedIcons } from "./icon-registry";
+import type { ExtendedIconMap } from "./icon-registry";
 
 const PaletteStrokeRoundedIcon: IconSvgElement = [
   [
@@ -276,7 +276,7 @@ export const EXTENDED_ICON_MAP: ExtendedIconMap = {
   GitBranch: GitBranchIcon,
   GitMerge: GitMergeIcon,
   GitPullRequest: GitPullRequestIcon,
-  GitPullRequestArrow: GitPullRequestArrow,
+  GitPullRequestArrow: GitPullRequestIcon,
   GitPullRequestClosed: GitPullRequestClosedIcon,
   GitPullRequestDraft: GitPullRequestDraftIcon,
   Globe: InternetIcon,

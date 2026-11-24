@@ -18,11 +18,15 @@ export function reviewPrMetadata(pr: ReviewPr) {
 }
 
 export function readReviewPr(metadata: unknown): ReviewPr | null {
-  if (typeof metadata !== "object" || metadata === null) return null;
+  if (typeof metadata !== "object" || metadata === null) {
+    return null;
+  }
   const parsed = reviewPrEntrySchema.safeParse(
     (metadata as Record<string, unknown>)[REVIEW_PR_METADATA_KEY],
   );
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    return null;
+  }
   const { v: _, ...pr } = parsed.data;
   return pr;
 }
