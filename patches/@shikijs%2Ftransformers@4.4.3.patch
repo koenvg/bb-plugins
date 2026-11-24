@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index be1c36d4d3b166bd5c214d25991de3c7aa8e5d81..3b187574831955664cc7fc3317396443e80e0509 100644
+--- a/package.json
++++ b/package.json
+@@ -31,7 +31,8 @@
+   },
+   "dependencies": {
+     "@shikijs/core": "4.4.3",
+-    "@shikijs/types": "4.4.3"
++    "@shikijs/types": "4.4.3",
++    "@types/hast": "^3.0.5"
+   },
+   "scripts": {
+     "build": "tsdown",

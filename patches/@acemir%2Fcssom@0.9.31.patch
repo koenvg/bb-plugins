@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 0170d5827a7fe9cb92f35918c5305ecba592df24..fc8da3e4a78f9bd1a31f8d1e80c223b0140bf25c 100644
+--- a/package.json
++++ b/package.json
+@@ -24,6 +24,9 @@
+     "build": "node build.js",
+     "release": "npm run build && changeset publish"
+   },
++  "dependencies": {
++    "cssstyle": "^6.2.0"
++  },
+   "devDependencies": {
+     "@changesets/changelog-github": "^0.5.2",
+     "@changesets/cli": "^2.29.8",

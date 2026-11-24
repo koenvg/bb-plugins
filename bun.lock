@@ -490,6 +490,12 @@
       },
     },
   },
+  "patchedDependencies": {
+    "gaxios@7.3.1": "patches/gaxios@7.3.1.patch",
+    "tiptap-markdown@0.9.0": "patches/tiptap-markdown@0.9.0.patch",
+    "@acemir/cssom@0.9.31": "patches/@acemir%2Fcssom@0.9.31.patch",
+    "@shikijs/transformers@4.4.3": "patches/@shikijs%2Ftransformers@4.4.3.patch",
+  },
   "packages": {
     "@acemir/cssom": ["@acemir/cssom@0.9.31", "", {}, "sha512-ZnR3GSaH+/vJ0YlHau21FjfLYjMpYVIzTD8M8vIEQvIGxeOXyXdzCI140rrCY862p/C/BbzWsjc1dgnM9mkoTA=="],
 

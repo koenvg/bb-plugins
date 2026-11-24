@@ -594,10 +594,19 @@ describe("Manage production project table", () => {
       await Promise.resolve();
     });
     expect(env.slot.rpcCalls.filter((call) => call.method === "listProjects")).toHaveLength(reads);
-    env.setList(() => ({
-      projects: fixtures().map((row) => ({ ...row, name: "Retry baseline", color: "indianred" })),
-    }));
+    const retry = deferred<{ projects: Project[] }>();
+    env.setList(() => retry.promise);
     fireEvent.click(env.slot.getByRole("button", { name: "Retry" }));
+    expect(env.slot.getByRole("table", { name: "Projects" }).getAttribute("aria-busy")).toBe(
+      "true",
+    );
+    expect(home).toHaveProperty("value", "Keep through failure");
+    await act(async () => {
+      retry.resolve({
+        projects: fixtures().map((row) => ({ ...row, name: "Retry baseline", color: "indianred" })),
+      });
+      await retry.promise;
+    });
     await ready(env);
     expect(home).toHaveProperty("value", "Keep through failure");
     expect(env.slot.queryByRole("alert")).toBeNull();
