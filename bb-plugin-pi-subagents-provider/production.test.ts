@@ -42,6 +42,11 @@ it("builds and loads the public provider artifacts without development dependenc
       cpSync(join(repository, name), join(directory, name));
     }
     const manifest = JSON.parse(readFileSync(join(repository, "package.json"), "utf8"));
+    for (const patch of Object.values(manifest.patchedDependencies ?? {}) as string[]) {
+      const target = join(directory, patch);
+      mkdirSync(join(target, ".."), { recursive: true });
+      cpSync(join(repository, patch), target);
+    }
     for (const path of globSync(
       manifest.workspaces.map((workspace: string) => `${workspace}/package.json`),
       {
