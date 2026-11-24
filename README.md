@@ -111,7 +111,9 @@ bun run lint:fix
 
 The root `package.json` declares Bun workspaces for `bb-plugin-*`, `packages/*`, and `review-ui`. Each package keeps its dependency declarations and scripts. One root `bun.lock` records their resolved versions and dependency overrides. `bunfig.toml` selects isolated linking so packages resolve their declared dependencies without relying on hoisting. Do not add package-local lockfiles. Bun automatically finds the workspace root when invoked inside a workspace.
 
-The shared [lint config](.oxlintrc.json) makes correctness violations errors. Existing findings remain warnings in specific files so this migration does not change plugin behavior. The shared [format config](.oxfmtrc.json) uses two spaces, double quotes, semicolons, and a 100-column line width. It does not sort imports or package fields. Generated output, lockfiles, test data, copied agent skills, and archived OpenSpec plans are excluded from formatting.
+The shared [lint config](oxlint.config.ts) extends Ultracite's core and React presets. Ultracite 8.1.0 supports the pinned Oxlint 1.86.0 and Oxfmt 0.71.0. The migration retains correctness errors and existing file-specific warnings. Rules with existing violations are explicitly deferred for progressive adoption, as described in the [migration guide](https://www.ultracite.ai/docs/migrate). Remove those overrides in focused follow-up changes rather than running a repository-wide fix.
+
+The shared [format config](oxfmt.config.ts) extends Ultracite with the existing two-space, double-quote, semicolon, 100-column style. It preserves prose wrapping and disables import, Tailwind class, and package-field sorting to avoid a broad reformat. Existing formatting exclusions remain unchanged. Oxlint covers maintained JavaScript and TypeScript, not CSS or Markdown linting. Oxfmt still formats supported non-code files. Package tests, framework typechecks, SDK checks, installed-glob checks, browser fixtures, and builds remain separate checks; the presets do not replace them. No type-aware linting or hooks are added.
 
 ## Running tests and typechecks
 
