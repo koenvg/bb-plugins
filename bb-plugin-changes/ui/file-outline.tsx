@@ -23,7 +23,7 @@ const INDENT_PX = 16;
 const ROW_START_PX = 8;
 const CHEVRON_GAP_PX = 6;
 
-export function FileOutline({ files, commentCounts, current, onSelect }: FileOutlineProps) {
+export const FileOutline = ({ files, commentCounts, current, onSelect }: FileOutlineProps) => {
   const rows = useMemo(() => buildFileTree(files), [files]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed]);
@@ -80,9 +80,9 @@ export function FileOutline({ files, commentCounts, current, onSelect }: FileOut
       <ResizeHandle outline={outline} controls={navId} />
     </div>
   );
-}
+};
 
-function ResizeHandle({ outline, controls }: { outline: OutlineWidth; controls: string }) {
+const ResizeHandle = ({ outline, controls }: { outline: OutlineWidth; controls: string }) => {
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -143,7 +143,7 @@ function ResizeHandle({ outline, controls }: { outline: OutlineWidth; controls: 
       onKeyDown={onKeyDown}
     />
   );
-}
+};
 
 function renderedWidth(handle: HTMLElement): number {
   return handle.parentElement!.getBoundingClientRect().width;
@@ -152,7 +152,7 @@ function renderedWidth(handle: HTMLElement): number {
 const ROW =
   "flex h-[26px] w-full cursor-pointer items-center gap-1.5 pr-2 text-left text-sm hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50";
 
-function FolderRow({
+const FolderRow = ({
   row,
   open,
   onToggle,
@@ -160,7 +160,7 @@ function FolderRow({
   row: Extract<FileTreeRow, { kind: "folder" }>;
   open: boolean;
   onToggle: () => void;
-}) {
+}) => {
   return (
     <button
       type="button"
@@ -187,9 +187,9 @@ function FolderRow({
       </span>
     </button>
   );
-}
+};
 
-function FileRow({
+const FileRow = ({
   row,
   commentCount,
   current,
@@ -199,7 +199,7 @@ function FileRow({
   commentCount: number;
   current: boolean;
   onSelect: () => void;
-}) {
+}) => {
   return (
     <button
       type="button"
@@ -217,7 +217,7 @@ function FileRow({
       <DiffStat additions={row.file.additions} deletions={row.file.deletions} />
     </button>
   );
-}
+};
 
 function IndentGuides({ depth }: { depth: number }) {
   return Array.from({ length: depth }, (_, level) => (
@@ -242,7 +242,7 @@ const STATUS: Record<ChangedFile["status"], { letter: string; label: string; cla
     untracked: { letter: "U", label: "Untracked", className: "text-success" },
   };
 
-function StatusBadge({ status }: { status: ChangedFile["status"] }) {
+const StatusBadge = ({ status }: { status: ChangedFile["status"] }) => {
   const { letter, label, className } = STATUS[status];
   return (
     <span
@@ -254,7 +254,7 @@ function StatusBadge({ status }: { status: ChangedFile["status"] }) {
       {letter}
     </span>
   );
-}
+};
 
 function revealRow(nav: HTMLElement, path: string) {
   const row = nav.querySelector<HTMLElement>(`button[data-path="${CSS.escape(path)}"]`);
@@ -272,7 +272,7 @@ function rowStart(depth: number): number {
   return ROW_START_PX + depth * INDENT_PX;
 }
 
-function CommentCount({ count }: { count: number }) {
+const CommentCount = ({ count }: { count: number }) => {
   if (count === 0) {
     return null;
   }
@@ -285,4 +285,4 @@ function CommentCount({ count }: { count: number }) {
       <span className="sr-only">{`${count} pending ${count === 1 ? "comment" : "comments"}`}</span>
     </span>
   );
-}
+};

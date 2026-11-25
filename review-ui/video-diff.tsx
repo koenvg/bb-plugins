@@ -11,7 +11,7 @@ const PLAYBACK_ERROR =
 const BUTTON =
   "min-h-9 cursor-pointer rounded border border-input px-3 text-foreground hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
-export function ReviewVideoDiff({ before, after, active, load }: ReviewImageDiffProps) {
+export const ReviewVideoDiff = ({ before, after, active, load }: ReviewImageDiffProps) => {
   return (
     <div
       className="px-3 pb-3"
@@ -37,9 +37,9 @@ export function ReviewVideoDiff({ before, after, active, load }: ReviewImageDiff
       />
     </div>
   );
-}
+};
 
-function VideoFigure({
+const VideoFigure = ({
   side,
   label,
   active,
@@ -49,7 +49,7 @@ function VideoFigure({
   label: ImageLabel | null;
   active: boolean;
   load: ReviewImageDiffProps["load"];
-}) {
+}) => {
   const [state, setState] = useState<VideoState>({ kind: "idle" });
   const [request, setRequest] = useState(0);
   const video = useRef<HTMLVideoElement>(null);
@@ -167,4 +167,4 @@ function VideoFigure({
       </div>
     </figure>
   );
-}
+};

@@ -25,14 +25,14 @@ export interface ReaderProps {
 }
 
 /** The target owner remounts this reader only when source identity changes. */
-export function Reader({
+export const Reader = ({
   target,
   readDocument,
   Original,
   lineRange,
   resolveDestinations,
   destination,
-}: ReaderProps) {
+}: ReaderProps) => {
   const [state, setState] = useState<{
     loading: boolean;
     result: ReadResult | null;
@@ -178,4 +178,4 @@ export function Reader({
       />
     </section>
   );
-}
+};

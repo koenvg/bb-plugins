@@ -8,7 +8,7 @@ type IconActionProps = Pick<ButtonProps, "onClick" | "aria-pressed"> & {
 };
 
 /** A named toolbar action with a hoverable, keyboard-dismissible hint. */
-export function IconAction({ icon, label, ...props }: IconActionProps) {
+export const IconAction = ({ icon, label, ...props }: IconActionProps) => {
   const id = useId();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -56,4 +56,4 @@ export function IconAction({ icon, label, ...props }: IconActionProps) {
       )}
     </span>
   );
-}
+};

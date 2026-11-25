@@ -56,7 +56,7 @@ function quote(capture: Capture) {
 }
 
 /** Owns only this reader's selection. Draft writes stay with the slot owner. */
-export function SelectionAction({
+export const SelectionAction = ({
   panel,
   snapshot,
   view,
@@ -68,7 +68,7 @@ export function SelectionAction({
   view: "preview" | "raw";
   destination?: ExcerptDestination;
   revision: number;
-}) {
+}) => {
   const [capture, setCapture] = useState<Capture | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -237,4 +237,4 @@ export function SelectionAction({
       )}
     </>
   );
-}
+};

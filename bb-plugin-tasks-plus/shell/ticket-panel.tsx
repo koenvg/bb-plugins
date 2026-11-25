@@ -34,7 +34,7 @@ const claimOutlet = (element: HTMLElement) => {
 };
 const hasContent = () => contents.size > 0;
 
-function TicketTab() {
+const TicketTab = () => {
   const root = useRef<HTMLDivElement>(null);
   const panel = experimental_useAppPanel();
   const populated = useSyncExternalStore(subscribe, hasContent);
@@ -70,7 +70,7 @@ function TicketTab() {
       )}
     </div>
   );
-}
+};
 
 export const ticketTab = {
   context: { kind: "nav-panel", panelId: "tasks" },
@@ -115,7 +115,7 @@ export type TicketAttachment = {
   element: HTMLElement;
   recovery: boolean;
 } | null;
-export function TicketPanelContent({
+export const TicketPanelContent = ({
   children,
   onOutletChange,
   onReveal,
@@ -125,7 +125,7 @@ export function TicketPanelContent({
   onOutletChange: (attachment: TicketAttachment) => void;
   recovery?: boolean;
   onReveal: () => void;
-}) {
+}) => {
   const outlet = useSyncExternalStore(subscribe, currentOutlet);
   const session = useTasksSession();
   useLayoutEffect(() => session?.onPendingTransition(onReveal), [session, onReveal]);
@@ -167,4 +167,4 @@ export function TicketPanelContent({
       )}
     </>
   );
-}
+};

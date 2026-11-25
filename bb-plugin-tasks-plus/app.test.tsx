@@ -8,10 +8,10 @@ const app = await loadPluginApp(() => import("./app"));
 
 afterEach(cleanup);
 
-function Badge() {
+const Badge = () => {
   const badge = app.navPanels[0]!.experimental_useBadge!();
   return badge ? <output aria-label={badge.label}>{badge.count}</output> : null;
-}
+};
 
 it("does not register the removed Orchestrator approval renderer", () => {
   expect(app.pendingInteractions.map(({ id }) => id)).not.toContain("orchestrator-run");

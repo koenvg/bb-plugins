@@ -88,7 +88,7 @@ function useSessionDataLifetime(data: ReturnType<typeof createSessionData>, owne
   }, [data, owned]);
 }
 
-export function TaskDataProvider({ children }: { children: ReactNode }) {
+export const TaskDataProvider = ({ children }: { children: ReactNode }) => {
   const rpc = useRpc<TasksRpcContract>();
   const data = useMemo(() => createSessionData(rpc), [rpc]);
   useSessionDataLifetime(data, true);
@@ -116,7 +116,7 @@ export function TaskDataProvider({ children }: { children: ReactNode }) {
     });
   }, [data]);
   return <TaskDataContext.Provider value={data}>{children}</TaskDataContext.Provider>;
-}
+};
 
 /** Inventories also work outside the task session, without crossing RPC bindings. */
 function useSessionData() {

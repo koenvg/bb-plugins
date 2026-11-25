@@ -64,7 +64,7 @@ interface TaskPropertiesProps {
   onUpdate: (update: TaskPropertyUpdate) => void;
 }
 
-function LabelChip({ label }: { label: Label }) {
+const LabelChip = ({ label }: { label: Label }) => {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-2xs text-muted-foreground">
       <span
@@ -75,9 +75,9 @@ function LabelChip({ label }: { label: Label }) {
       {label.name}
     </span>
   );
-}
+};
 
-function StatusMenu({
+const StatusMenu = ({
   task,
   onUpdate,
   triggerClassName,
@@ -89,7 +89,7 @@ function StatusMenu({
   triggerClassName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}) => {
   const { triggerRef, contentRef, onCloseAutoFocus } = usePropertyMenuFocus(open);
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -110,9 +110,9 @@ function StatusMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
-function PriorityMenu({
+const PriorityMenu = ({
   task,
   onUpdate,
   triggerClassName,
@@ -124,7 +124,7 @@ function PriorityMenu({
   triggerClassName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}) => {
   const { triggerRef, contentRef, onCloseAutoFocus } = usePropertyMenuFocus(open);
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -145,9 +145,9 @@ function PriorityMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
-function DueDateMenu({
+const DueDateMenu = ({
   task,
   onUpdate,
   triggerClassName,
@@ -159,7 +159,7 @@ function DueDateMenu({
   triggerClassName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}) => {
   const { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus } = usePropertyMenuFocus(open);
   const pick = (dueDate: string | null) => {
     onUpdate({ dueDate });
@@ -217,9 +217,9 @@ function DueDateMenu({
       </PopoverContent>
     </Popover>
   );
-}
+};
 
-function LabelsMenu({
+const LabelsMenu = ({
   task,
   labels,
   onUpdate,
@@ -233,7 +233,7 @@ function LabelsMenu({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
-}) {
+}) => {
   const { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus } = usePropertyMenuFocus(open);
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -251,9 +251,9 @@ function LabelsMenu({
       </PopoverContent>
     </Popover>
   );
-}
+};
 
-function DispatchTargetMenu({
+const DispatchTargetMenu = ({
   project,
   bbProjects,
   onError,
@@ -267,7 +267,7 @@ function DispatchTargetMenu({
   triggerClassName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}) => {
   const rpc = useTasksRpc();
   const { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus } = usePropertyMenuFocus(open);
   const [selection, setSelection] = useState<string | null>(null);
@@ -347,12 +347,12 @@ function DispatchTargetMenu({
       </PopoverContent>
     </Popover>
   );
-}
+};
 
 const RAIL_ROW_CLASS =
   "-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:bg-state-hover";
 
-export function PropertiesRail({
+export const PropertiesRail = ({
   task,
   project,
   bbProjects,
@@ -370,7 +370,7 @@ export function PropertiesRail({
     onDispatchReadinessChange?: (ready: boolean) => void;
     onError: (message: string) => void;
     className?: string;
-  }) {
+  }) => {
   const taskLabels = (labels ?? []).filter((label) => task.labelIds.includes(label.id));
   const active = threads.filter(isActiveThread);
   return (
@@ -473,12 +473,12 @@ export function PropertiesRail({
       </div>
     </aside>
   );
-}
+};
 
 const CHIP_CLASS =
   "inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-0.5 text-xs text-foreground hover:border-input";
 
-export function InlineProperties({
+export const InlineProperties = ({
   task,
   project,
   bbProjects,
@@ -495,7 +495,7 @@ export function InlineProperties({
     onDispatchReadinessChange?: (ready: boolean) => void;
     onError: (message: string) => void;
     className?: string;
-  }) {
+  }) => {
   const taskLabels = (labels ?? []).filter((label) => task.labelIds.includes(label.id));
   return (
     <div
@@ -551,4 +551,4 @@ export function InlineProperties({
       />
     </div>
   );
-}
+};

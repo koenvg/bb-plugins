@@ -25,7 +25,7 @@ export interface ReviewFileDiffProps<T> {
   onPostRender?: (node: HTMLElement) => void;
 }
 
-export function ReviewFileDiff<T>({
+export const ReviewFileDiff = <T,>({
   fileDiff,
   annotations,
   renderAnnotation,
@@ -38,7 +38,7 @@ export function ReviewFileDiff<T>({
   collapsed = false,
   onToggleCollapsed,
   onPostRender,
-}: ReviewFileDiffProps<T>) {
+}: ReviewFileDiffProps<T>) => {
   const renderCustomHeader = useCallback(() => customHeader, [customHeader]);
   const hasCustomHeader = customHeader != null;
   return (
@@ -101,7 +101,7 @@ export function ReviewFileDiff<T>({
       }
     />
   );
-}
+};
 
 export function stickyHeaderHeight(element: Element): number {
   const header = element

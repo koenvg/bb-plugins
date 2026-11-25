@@ -48,7 +48,7 @@ interface ThreadActions {
 
 const ThreadActionsContext = createContext<ThreadActions | null>(null);
 
-export function ThreadActionsProvider({
+export const ThreadActionsProvider = ({
   threadId,
   drafts,
   onWritten,
@@ -58,7 +58,7 @@ export function ThreadActionsProvider({
   drafts: Drafts;
   onWritten: () => void;
   children: ReactNode;
-}) {
+}) => {
   const rpc = useRpc<typeof rpcContract>();
   const [states, setStates] = useState<Record<string, LocalState>>({});
   const busyIds = useRef(new Set<string>());
@@ -190,7 +190,7 @@ export function ThreadActionsProvider({
   );
 
   return <ThreadActionsContext.Provider value={actions}>{children}</ThreadActionsContext.Provider>;
-}
+};
 
 export function useThreadActions(): ThreadActions {
   const actions = useContext(ThreadActionsContext);

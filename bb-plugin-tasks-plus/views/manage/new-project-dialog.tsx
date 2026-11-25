@@ -39,7 +39,7 @@ interface NewProjectDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
+export const NewProjectDialog = ({ open, onOpenChange }: NewProjectDialogProps) => {
   const rpc = useTasksRpc();
   const navigation = useTasksNavigation();
   const projects = useProjects();
@@ -270,4 +270,4 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
       </DialogContent>
     </Dialog>
   );
-}
+};

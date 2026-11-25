@@ -12,10 +12,10 @@ import {
   setup,
   tasks,
   project,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const parent = { ...tasks[0]!, status: "done" as const };
 const child = { ...tasks[1]!, parentTaskId: parent.id };
 const records = [parent, child, tasks[2]!];

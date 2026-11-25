@@ -5,7 +5,7 @@ import { ShortcutProvider } from "../shell/shortcut-provider";
 import { TasksRefreshProvider, useTasksRefresh } from "../shell/refresh";
 import "./preview.css";
 
-function Fixture() {
+const Fixture = () => {
   const root = useRef<HTMLDivElement>(null);
   const [projectId, setProjectId] = useState(
     () => new URLSearchParams(window.location.search).get("projectId") ?? "project-1",
@@ -24,7 +24,7 @@ function Fixture() {
       </ShortcutProvider>
     </div>
   );
-}
+};
 
 const request = async (method: string, input?: unknown) => {
   const response = await fetch(`/__board_rpc/${method}`, {

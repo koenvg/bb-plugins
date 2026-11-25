@@ -219,7 +219,7 @@ class ConversationReader extends Component<
   }
 }
 
-function CapturedConversation({
+const CapturedConversation = ({
   row,
   presentation,
   active,
@@ -227,7 +227,7 @@ function CapturedConversation({
   row: ViewRow;
   presentation: ReturnType<typeof rowPresentation>;
   active: boolean;
-}) {
+}) => {
   const output = useRef<HTMLElement>(null);
   const capture = row.capture;
   const [conversationOpenOnMount] = useState(() => !capture?.finalOutput?.trim());
@@ -378,9 +378,9 @@ function CapturedConversation({
       </ConversationReader>
     </article>
   );
-}
+};
 
-export function SubagentsView({
+export const SubagentsView = ({
   state,
   loading = false,
   error,
@@ -394,7 +394,7 @@ export function SubagentsView({
   warning?: string;
   target?: string | null;
   overview?: boolean;
-}) {
+}) => {
   const { ordered, overviewEntries } = useMemo(() => projectRows(state?.rows ?? []), [state]);
   const rows = useMemo(() => new Map(ordered.map((row) => [row.id, row])), [ordered]);
   const navigation: Navigation =
@@ -764,4 +764,4 @@ export function SubagentsView({
       </div>
     </section>
   );
-}
+};

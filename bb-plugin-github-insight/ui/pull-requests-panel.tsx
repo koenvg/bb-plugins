@@ -19,7 +19,7 @@ import { OVERVIEW_WIDTH, useOverviewLayout } from "./use-overview-layout";
 
 type OverviewLayoutControls = ReturnType<typeof useOverviewLayout>;
 
-export function PullRequestsPanel({ subPath }: PluginNavPanelProps) {
+export const PullRequestsPanel = ({ subPath }: PluginNavPanelProps) => {
   const queue = useReviewQueue();
   const overview = useOverviewLayout();
   const route = parsePullRequestsRoute(subPath);
@@ -49,9 +49,15 @@ export function PullRequestsPanel({ subPath }: PluginNavPanelProps) {
       )}
     </div>
   );
-}
+};
 
-function PrSidePanel({ pr, overview }: { pr: PullRequestRef; overview: OverviewLayoutControls }) {
+const PrSidePanel = ({
+  pr,
+  overview,
+}: {
+  pr: PullRequestRef;
+  overview: OverviewLayoutControls;
+}) => {
   const navigation = usePullRequestsNavigation();
   const insight = usePrInsight(pr);
   const { maximized } = overview.layout;
@@ -91,9 +97,9 @@ function PrSidePanel({ pr, overview }: { pr: PullRequestRef; overview: OverviewL
       </div>
     </aside>
   );
-}
+};
 
-function ResizeHandle({ overview }: { overview: OverviewLayoutControls }) {
+const ResizeHandle = ({ overview }: { overview: OverviewLayoutControls }) => {
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -145,7 +151,7 @@ function ResizeHandle({ overview }: { overview: OverviewLayoutControls }) {
       onKeyDown={onKeyDown}
     />
   );
-}
+};
 
 function renderedWidth(handle: HTMLElement): number {
   return handle.parentElement!.getBoundingClientRect().width;

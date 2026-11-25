@@ -138,7 +138,7 @@ async function loadPreview(subject: Attachment, signal: AbortSignal): Promise<Re
   }
 }
 
-function AttachmentDocument({
+const AttachmentDocument = ({
   snapshot,
   view,
   destinations,
@@ -148,7 +148,7 @@ function AttachmentDocument({
   view: DocumentView;
   destinations: DestinationPolicy;
   body: RefObject<HTMLElement | null>;
-}) {
+}) => {
   const namespace = useId();
   const model = useMemo(() => createDocumentModel(snapshot.text, namespace), [snapshot, namespace]);
   const navigation = useMemo(
@@ -173,7 +173,7 @@ function AttachmentDocument({
       outline
     />
   );
-}
+};
 function usable(element: HTMLElement | null): element is HTMLElement {
   if (
     element === null ||

@@ -182,6 +182,11 @@ export function createLocalHost(options: LocalHostOptions) {
       throw new Error(`Owned host blocks SDK access ${String(name)}`);
     },
   });
+  const OwnedIcon = (props: React.ComponentProps<PluginSdkApp["experimental_Icon"]>) => {
+    useOwner();
+    if (props.name !== "Bot") throw new Error("Owned host blocks unsupported SDK glyph");
+    return <Icon {...props} name="Bot" />;
+  };
   const supported = {
     useRpc<Contract extends PluginRpcContract>() {
       useOwner();
@@ -203,11 +208,11 @@ export function createLocalHost(options: LocalHostOptions) {
       useOwner();
       return settings;
     },
-    experimental_usePluginId() {
+    experimental_usePluginId: function usePluginId() {
       useOwner();
       return "tasks-plus";
     },
-    experimental_useAppPanel() {
+    experimental_useAppPanel: function useAppPanel() {
       useOwner();
       return panel;
     },
@@ -232,11 +237,7 @@ export function createLocalHost(options: LocalHostOptions) {
       useOwner();
       return React.useSyncExternalStore(connection.subscribe, connection.get, connection.get);
     },
-    experimental_Icon(props: React.ComponentProps<PluginSdkApp["experimental_Icon"]>) {
-      useOwner();
-      if (props.name !== "Bot") throw new Error("Owned host blocks unsupported SDK glyph");
-      return <Icon {...props} name="Bot" />;
-    },
+    experimental_Icon: OwnedIcon,
   } satisfies Partial<PluginSdkApp>;
   const runtime = new Proxy(supported, {
     get(target, name) {
@@ -286,7 +287,7 @@ export function createLocalHost(options: LocalHostOptions) {
         live();
         if (root) throw new Error("Owned host already mounted");
         route.set(subPath);
-        function Frame() {
+        const Frame = () => {
           const subPath = React.useSyncExternalStore(route.subscribe, route.get, route.get);
           const ticketVisible = React.useSyncExternalStore(
             ticket.subscribe,
@@ -298,7 +299,7 @@ export function createLocalHost(options: LocalHostOptions) {
               <Component subPath={subPath} ticketVisible={ticketVisible} />
             </Scope.Provider>
           );
-        }
+        };
         root = createRoot(container);
         root.render(<Frame />);
       },

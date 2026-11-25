@@ -57,12 +57,12 @@ interface NewTaskDialogProps {
   defaultStatus?: TaskStatus;
 }
 
-export function NewTaskDialog({
+export const NewTaskDialog = ({
   open,
   onOpenChange,
   projectId,
   defaultStatus,
-}: NewTaskDialogProps) {
+}: NewTaskDialogProps) => {
   const rpc = useTasksRpc();
   const navigation = useTasksNavigation();
   const projects = useProjects();
@@ -503,4 +503,4 @@ export function NewTaskDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

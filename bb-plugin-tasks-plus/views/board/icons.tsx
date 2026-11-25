@@ -68,7 +68,7 @@ function statusArtwork(status: TaskStatus) {
   }
 }
 
-export function StatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
+export const StatusIcon = ({ status, className }: { status: TaskStatus; className?: string }) => {
   return (
     <svg
       viewBox="0 0 14 14"
@@ -79,7 +79,7 @@ export function StatusIcon({ status, className }: { status: TaskStatus; classNam
       {statusArtwork(status)}
     </svg>
   );
-}
+};
 
 const PRIORITY_LIT_BARS: Record<Exclude<TaskPriority, "urgent">, number> = {
   high: 3,
@@ -88,13 +88,13 @@ const PRIORITY_LIT_BARS: Record<Exclude<TaskPriority, "urgent">, number> = {
   none: 0,
 };
 
-export function PriorityIcon({
+export const PriorityIcon = ({
   priority,
   className,
 }: {
   priority: TaskPriority;
   className?: string;
-}) {
+}) => {
   if (priority === "urgent") {
     return (
       <svg
@@ -135,4 +135,4 @@ export function PriorityIcon({
       ))}
     </svg>
   );
-}
+};

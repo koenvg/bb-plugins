@@ -252,11 +252,13 @@ export function isBuiltinIconName(name: string): name is BuiltinIconName {
   return ICON_NAME_SET.has(name);
 }
 
-class IconErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
-  { failed: boolean }
-> {
-  state = { failed: false };
+type IconErrorBoundaryProps = { children: ReactNode; fallback: ReactNode };
+
+class IconErrorBoundary extends Component<IconErrorBoundaryProps, { failed: boolean }> {
+  constructor(props: IconErrorBoundaryProps) {
+    super(props);
+    this.state = { failed: false };
+  }
 
   static getDerivedStateFromError() {
     return { failed: true };
@@ -267,7 +269,7 @@ class IconErrorBoundary extends Component<
   }
 }
 
-export function Icon({ name, fallback = "Zap", ...props }: IconProps) {
+export const Icon = ({ name, fallback = "Zap", ...props }: IconProps) => {
   const ancestors = useContext(IconAncestors);
   const custom = useSyncExternalStore(
     subscribeAppIcons,
@@ -320,9 +322,9 @@ export function Icon({ name, fallback = "Zap", ...props }: IconProps) {
     return <PluginAssetIcon url={resolvedAsset} resolved={resolved} {...props} />;
   }
   return <BuiltinIcon name={isBuiltinIconName(resolved) ? resolved : "Zap"} {...props} />;
-}
+};
 
-function PluginAssetIcon({
+const PluginAssetIcon = ({
   url,
   resolved,
   className,
@@ -332,7 +334,7 @@ function PluginAssetIcon({
 }: Omit<IconProps, "name" | "fallback"> & {
   url: string;
   resolved: string;
-}) {
+}) => {
   const image = `url("${url.replace(/["\\]/gu, "\\$&")}")`;
   return (
     <span
@@ -357,15 +359,15 @@ function PluginAssetIcon({
       data-plugin-icon-asset={url}
     />
   );
-}
+};
 
-function BuiltinIcon({
+const BuiltinIcon = ({
   name,
   className,
   style,
   "aria-hidden": ariaHidden,
   "aria-label": ariaLabel,
-}: IconProps) {
+}: IconProps) => {
   const coreIcon = CORE_ICON_LOOKUP[name];
   if (coreIcon !== undefined) {
     return (
@@ -389,15 +391,15 @@ function BuiltinIcon({
       aria-label={ariaLabel}
     />
   );
-}
+};
 
-function ExtendedIcon({
+const ExtendedIcon = ({
   name,
   className,
   style,
   "aria-hidden": ariaHidden,
   "aria-label": ariaLabel,
-}: IconProps) {
+}: IconProps) => {
   const extendedIcons: Readonly<Record<string, IconSvgElement | undefined>> | null =
     useSyncExternalStore(subscribeExtendedIcons, getExtendedIcons, getExtendedIcons);
   const icon = extendedIcons?.[name];
@@ -416,4 +418,4 @@ function ExtendedIcon({
       data-icon-pending={icon === undefined ? "" : undefined}
     />
   );
-}
+};

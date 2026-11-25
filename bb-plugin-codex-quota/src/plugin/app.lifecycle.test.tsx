@@ -5,10 +5,10 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { metadataFixture } from "../machines/app.test-support.js";
 
 const installed = await loadPluginApp(() => import("./app.js"));
-function NavigationBadge() {
+const NavigationBadge = () => {
   const badge = installed.navPanels[0]!.experimental_useBadge?.();
   return badge ? <span title={badge.label}>{badge.text}</span> : null;
-}
+};
 afterEach(() => {
   cleanup();
   configure({ reactStrictMode: false });

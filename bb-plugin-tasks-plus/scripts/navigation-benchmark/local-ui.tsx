@@ -36,7 +36,7 @@ const ticketRegistration = app.tabs.find(
 )!;
 const Page = panel.component;
 const Ticket = ticketRegistration.component;
-function NativeHost({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) {
+const NativeHost = ({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) => {
   return (
     <div className="lab-workspace">
       <section className="lab-list">
@@ -48,7 +48,7 @@ function NativeHost({ subPath, ticketVisible }: { subPath: string; ticketVisible
       </section>
     </div>
   );
-}
+};
 let slot: ReturnType<typeof createLocalHost>;
 slot = createLocalHost({
   panel,

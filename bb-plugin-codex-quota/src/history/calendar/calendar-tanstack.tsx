@@ -77,7 +77,7 @@ function dailyInspection(
   }));
 }
 
-export function CalendarChart({
+export const CalendarChart = ({
   data,
   visibleModels,
   metric,
@@ -89,7 +89,7 @@ export function CalendarChart({
   metric: TokenMetric;
   includeUncertain: boolean;
   helpId?: string;
-}) {
+}) => {
   const definition = useMemo(() => {
     const modelMetric = metric === "tokens" || metric === "cost";
     const maximum = modelMetric
@@ -275,4 +275,4 @@ export function CalendarChart({
       }}
     />
   );
-}
+};

@@ -5,7 +5,7 @@ import { openSubagentsTab } from "./open-subagents-tab.js";
 import { useSubagentsHistory } from "./use-subagents-history.js";
 
 /** Bare SDK receiver only. It adds no DOM or layout to the native composer. */
-export function NativeSubagentsContext() {
+export const NativeSubagentsContext = () => {
   const composer = useComposer();
   const threadId = composer.scope.kind === "thread" ? composer.scope.threadId : undefined;
   const providerId = composer.selection?.providerId;
@@ -28,4 +28,4 @@ export function NativeSubagentsContext() {
     });
   }, [threadId, providerId, current.state, current.loading, current.error, panel]);
   return null;
-}
+};

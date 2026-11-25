@@ -14,10 +14,10 @@ import {
 
 const app = await loadPluginApp(() => import("../app"));
 const panel = app.navPanels.find((registration) => registration.id === "pull-requests")!;
-function Badge() {
+const Badge = () => {
   const badge = panel.experimental_useBadge?.();
   return <output data-testid="badge">{JSON.stringify(badge)}</output>;
-}
+};
 afterEach(cleanup);
 
 describe("Pull Requests sidebar badge", () => {

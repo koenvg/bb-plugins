@@ -14,7 +14,7 @@ type IconActionProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 /** Named icon control with a keyboard-dismissible hover/focus tooltip. */
-export function IconAction({ icon, label, tooltip = label, ref, ...props }: IconActionProps) {
+export const IconAction = ({ icon, label, tooltip = label, ref, ...props }: IconActionProps) => {
   const id = useId();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -105,4 +105,4 @@ export function IconAction({ icon, label, tooltip = label, ref, ...props }: Icon
       )}
     </span>
   );
-}
+};

@@ -16,13 +16,13 @@ import { makeTask } from "../../test-fixtures.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 import type { ComponentProps } from "react";
 
-function List(props: ComponentProps<typeof ListView>) {
+const List = (props: ComponentProps<typeof ListView>) => {
   return (
     <TasksRefreshProvider>
       <ListView {...props} />
     </TasksRefreshProvider>
   );
-}
+};
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

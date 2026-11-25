@@ -10,10 +10,10 @@ import {
   row,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 function saveLabelFilter(scope: "all" | "active") {
   storeListPreference(scope, {

@@ -34,13 +34,13 @@ export const VERDICTS: Record<
   },
 };
 
-export function ViewerReviewBadge({
+export const ViewerReviewBadge = ({
   review,
   headOid,
 }: {
   review: ViewerReview | null;
   headOid: string;
-}) {
+}) => {
   const reviewOnMount = useRef(review?.submittedAt);
   if (review === null) return null;
 
@@ -80,4 +80,4 @@ export function ViewerReviewBadge({
       )}
     </span>
   );
-}
+};

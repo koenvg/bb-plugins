@@ -85,7 +85,7 @@ function taskDetailSubPath(taskKey: string): string {
   return tasksRouteToSubPath({ kind: "task", taskKey });
 }
 
-function OpenInTasksButton({ label, subPath }: { label: string; subPath?: string }) {
+const OpenInTasksButton = ({ label, subPath }: { label: string; subPath?: string }) => {
   const navigate = useBbNavigate();
   const transition = useTasksSession();
   return (
@@ -104,9 +104,15 @@ function OpenInTasksButton({ label, subPath }: { label: string; subPath?: string
       <Icon name="ArrowUpRight" className="size-4" />
     </Button>
   );
-}
+};
 
-function CardShell({ dashed = false, children }: { dashed?: boolean; children: React.ReactNode }) {
+const CardShell = ({
+  dashed = false,
+  children,
+}: {
+  dashed?: boolean;
+  children: React.ReactNode;
+}) => {
   return (
     <div
       className={
@@ -118,7 +124,7 @@ function CardShell({ dashed = false, children }: { dashed?: boolean; children: R
       {children}
     </div>
   );
-}
+};
 
 function embedAriaLabel(task: Task): string {
   const parts = [`${task.key} — ${task.title}`, STATUS_LABELS[task.status].toLowerCase()];
@@ -128,7 +134,7 @@ function embedAriaLabel(task: Task): string {
   return `${parts.join(", ")} — open in side panel`;
 }
 
-export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
+export const TaskDirectiveCard = ({ attributes }: PluginMessageDirectiveProps) => {
   const navigate = useBbNavigate();
   const panel = experimental_useAppPanel();
   const taskKey = attributes.key?.trim() ?? "";
@@ -231,9 +237,9 @@ export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
       />
     </CardShell>
   );
-}
+};
 
-function TaskEmbedPanelContent({ params, threadId }: ExperimentalThreadActionTabProps) {
+const TaskEmbedPanelContent = ({ params, threadId }: ExperimentalThreadActionTabProps) => {
   const requestedKey =
     isRecord(params) && typeof params.taskKey === "string" ? params.taskKey.trim() : "";
   const linked = useTasksQuery(
@@ -294,9 +300,9 @@ function TaskEmbedPanelContent({ params, threadId }: ExperimentalThreadActionTab
       </div>
     </div>
   );
-}
+};
 
-export function TaskEmbedPanel(props: ExperimentalThreadActionTabProps) {
+export const TaskEmbedPanel = (props: ExperimentalThreadActionTabProps) => {
   return (
     <TasksRefreshProvider>
       <TasksSessionProvider>
@@ -304,4 +310,4 @@ export function TaskEmbedPanel(props: ExperimentalThreadActionTabProps) {
       </TasksSessionProvider>
     </TasksRefreshProvider>
   );
-}
+};

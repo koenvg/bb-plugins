@@ -23,10 +23,10 @@ installTestPluginRuntime();
 const { PropertiesRail, InlineProperties } = await import("./rail");
 const { TasksRefreshProvider } = await import("../../shell/refresh");
 
-function RailHarness({
+const RailHarness = ({
   layout = "rail",
   ...props
-}: ComponentProps<typeof PropertiesRail> & { layout?: "rail" | "inline" }) {
+}: ComponentProps<typeof PropertiesRail> & { layout?: "rail" | "inline" }) => {
   const [openMenu, setOpenMenu] = useState<ComponentProps<typeof PropertiesRail>["openMenu"]>(null);
   const Properties = layout === "rail" ? PropertiesRail : InlineProperties;
   return (
@@ -34,7 +34,7 @@ function RailHarness({
       <Properties {...props} openMenu={openMenu} onOpenMenuChange={setOpenMenu} />
     </TasksRefreshProvider>
   );
-}
+};
 
 afterEach(cleanup);
 

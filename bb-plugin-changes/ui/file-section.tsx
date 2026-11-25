@@ -51,7 +51,7 @@ interface FileSectionProps {
   viewed: FileViewedState;
 }
 
-export function FileSection({
+export const FileSection = ({
   threadId,
   environmentId,
   imageBasis,
@@ -66,7 +66,7 @@ export function FileSection({
   openForms,
   view,
   viewed,
-}: FileSectionProps) {
+}: FileSectionProps) => {
   const { visible, ref } = useNearView<HTMLElement>();
   const showsDiff = canMark(file);
   const openFileButton = <OpenFileButton environmentId={environmentId} file={file} />;
@@ -125,9 +125,9 @@ export function FileSection({
       )}
     </section>
   );
-}
+};
 
-function ChangesPreview({
+const ChangesPreview = ({
   threadId,
   file,
   basis,
@@ -141,7 +141,7 @@ function ChangesPreview({
   active: boolean;
   generation: number;
   openFileButton: ReactNode;
-}) {
+}) => {
   const rpc = useRpc<typeof rpcContract>();
   const [collapsed, setCollapsed] = useState(false);
   const video = isVideoPath(file.path) || isVideoPath(file.previousPath ?? "");
@@ -212,9 +212,9 @@ function ChangesPreview({
       )}
     </>
   );
-}
+};
 
-function FileDiffWithComments({
+const FileDiffWithComments = ({
   threadId,
   imageBasis,
   imagesActive,
@@ -231,7 +231,7 @@ function FileDiffWithComments({
 }: Omit<FileSectionProps, "patch" | "loadPatch" | "environmentId"> & {
   patch: string;
   openFileButton: ReactNode;
-}) {
+}) => {
   const theme = useCodeTheme();
   const fileDiff = useMemo(() => parseFileDiff(patch), [patch]);
   const originalLines = useMemo(() => lines ?? diffLines(patch), [lines, patch]);
@@ -390,14 +390,14 @@ function FileDiffWithComments({
       }
     />
   );
-}
+};
 
 const CHEVRONS = {
   collapsed: <Icon name="ChevronRight" className="size-3.5" />,
   expanded: <Icon name="ChevronDown" className="size-3.5" />,
 };
 
-function OpenFileButton({ environmentId, file }: { environmentId: string; file: ChangedFile }) {
+const OpenFileButton = ({ environmentId, file }: { environmentId: string; file: ChangedFile }) => {
   const navigate = useBbNavigate();
   const [error, setError] = useState<string | null>(null);
   const deleted = file.status === "deleted";
@@ -438,9 +438,9 @@ function OpenFileButton({ environmentId, file }: { environmentId: string; file: 
       )}
     </>
   );
-}
+};
 
-function FileNotice({
+const FileNotice = ({
   file,
   openFileButton,
   children,
@@ -448,16 +448,16 @@ function FileNotice({
   file: ChangedFile;
   openFileButton: ReactNode;
   children: ReactNode;
-}) {
+}) => {
   return (
     <div className="flex flex-col text-sm">
       <FileHeaderRow file={file} openFileButton={openFileButton} />
       <span className="px-4 pb-2 text-xs text-muted-foreground">{children}</span>
     </div>
   );
-}
+};
 
-function FileHeaderRow({
+const FileHeaderRow = ({
   file,
   openFileButton,
   viewed,
@@ -467,7 +467,7 @@ function FileHeaderRow({
   openFileButton: ReactNode;
   viewed?: FileViewedState;
   contextAction?: ReactNode;
-}) {
+}) => {
   const fullPath = file.previousPath === null ? file.path : `${file.previousPath} → ${file.path}`;
   const statusLabel = `${file.status.replace("_", " ")} file`;
   const Filename = viewed === undefined ? "span" : "button";
@@ -526,7 +526,7 @@ function FileHeaderRow({
       </span>
     </div>
   );
-}
+};
 
 function parseFileDiff(patch: string): FileDiffMetadata | null {
   try {

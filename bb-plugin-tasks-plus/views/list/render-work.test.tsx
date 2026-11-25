@@ -10,13 +10,13 @@ import { TaskRow } from "./row.js";
 import * as listDates from "./lib.js";
 import * as threadSummary from "./thread-summary.js";
 
-function List(props: ComponentProps<typeof ListView>) {
+const List = (props: ComponentProps<typeof ListView>) => {
   return (
     <TasksRefreshProvider>
       <ListView {...props} />
     </TasksRefreshProvider>
   );
-}
+};
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -130,7 +130,7 @@ it("does not rebuild unchanged real row menus or metadata on selection", () => {
   const onEdit = vi.fn();
   const onMenu = vi.fn();
   const labels: never[] = [];
-  function Rows({ selected }: { selected: string }) {
+  const Rows = ({ selected }: { selected: string }) => {
     return (
       <>
         {tasks.map((task) => (
@@ -151,7 +151,7 @@ it("does not rebuild unchanged real row menus or metadata on selection", () => {
         ))}
       </>
     );
-  }
+  };
   const slot = renderSlot({ component: Rows }, { selected: "TSK-1" });
   expect(semanticRows.size).toBe(100);
   semanticRows.clear();

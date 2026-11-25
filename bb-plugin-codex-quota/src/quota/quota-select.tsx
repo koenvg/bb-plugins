@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 
 type Props = ComponentProps<"select"> & { containerClassName?: string };
 
-export function QuotaSelect({ className = "", containerClassName = "w-36", ...props }: Props) {
+export const QuotaSelect = ({ className = "", containerClassName = "w-36", ...props }: Props) => {
   return (
     <span className={`relative inline-flex min-w-0 shrink-0 ${containerClassName}`}>
       <select
@@ -22,4 +22,4 @@ export function QuotaSelect({ className = "", containerClassName = "w-36", ...pr
       </svg>
     </span>
   );
-}
+};

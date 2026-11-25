@@ -37,7 +37,7 @@ export type MarkdownDocumentProps = Readonly<{
   navigation?: DocumentNavigation;
 }>;
 
-export function MarkdownDocument({
+export const MarkdownDocument = ({
   model,
   view,
   destinations = denyDestinations,
@@ -45,7 +45,7 @@ export function MarkdownDocument({
   lineRange,
   annotateSourceLines = false,
   navigation,
-}: MarkdownDocumentProps) {
+}: MarkdownDocumentProps) => {
   const root = useRef<HTMLDivElement>(null);
   const wide = useWidePanel(navigation?.container ?? root);
   const imagePermission =
@@ -127,4 +127,4 @@ export function MarkdownDocument({
       </DestinationContext.Provider>
     </div>
   );
-}
+};

@@ -50,8 +50,11 @@ const readDocument = async (): Promise<ReadResult> => {
 };
 const width = Number(params.get("width")) || 760;
 document.documentElement.dataset.theme = params.get("theme") || "light";
+
+const Original = () => <p>Bound BB preview placeholder. No plugin selection occurs.</p>;
+
 // This event supplies new public line-range props, like a host navigation request.
-function FixtureReader({ index = 0 }: { index?: number }) {
+const FixtureReader = ({ index = 0 }: { index?: number }) => {
   const [lineRange, setLineRange] = useState<LineRequest>(() =>
     params.has("start")
       ? { startLineNumber: Number(params.get("start")), endLineNumber: Number(params.get("end")) }
@@ -66,14 +69,9 @@ function FixtureReader({ index = 0 }: { index?: number }) {
     return () => window.removeEventListener("fixture-line-request", request);
   }, [index]);
   return (
-    <Reader
-      target={target}
-      readDocument={readDocument}
-      lineRange={lineRange}
-      Original={() => <p>Bound BB preview placeholder. No plugin selection occurs.</p>}
-    />
+    <Reader target={target} readDocument={readDocument} lineRange={lineRange} Original={Original} />
   );
-}
+};
 // The reader's host icons need the public SDK runtime even in this direct-render fixture.
 installTestPluginRuntime();
 createRoot(document.getElementById("root")!).render(

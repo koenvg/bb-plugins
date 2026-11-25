@@ -39,7 +39,7 @@ interface ProbeProps {
   threadIds: readonly string[];
   onData?: (data: ThreadTaskData) => void;
 }
-function Probe({ threadIds, onData }: ProbeProps) {
+const Probe = ({ threadIds, onData }: ProbeProps) => {
   const data = (threadTaskAction.useData ?? missingValue("Expected a non-null value"))({
     threadIds,
   });
@@ -73,22 +73,22 @@ function Probe({ threadIds, onData }: ProbeProps) {
       })}
     </>
   );
-}
-function RefreshButton() {
+};
+const RefreshButton = () => {
   const refresh = useTasksRefresh();
   return (
     <button onClick={refresh.refresh} disabled={refresh.isRefreshing}>
       Refresh tasks
     </button>
   );
-}
-function RefreshRoot() {
+};
+const RefreshRoot = () => {
   return (
     <TasksRefreshProvider>
       <RefreshButton />
     </TasksRefreshProvider>
   );
-}
+};
 interface Response {
   tasks: Task[];
 }

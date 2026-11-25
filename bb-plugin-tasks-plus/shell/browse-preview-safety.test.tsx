@@ -13,10 +13,10 @@ import {
   select,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 describe("retained preview safety", () => {
   it("keeps local title and description edits over a newer background response", async () => {

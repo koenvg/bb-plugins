@@ -12,16 +12,16 @@ interface CompactViewportOverrideProviderProps {
   isCompactViewport: boolean;
 }
 
-export function CompactViewportOverrideProvider({
+export const CompactViewportOverrideProvider = ({
   children,
   isCompactViewport,
-}: CompactViewportOverrideProviderProps) {
+}: CompactViewportOverrideProviderProps) => {
   return createElement(
     CompactViewportOverrideContext.Provider,
     { value: isCompactViewport },
     children,
   );
-}
+};
 
 export function useIsCompactViewport(): boolean {
   const override = useContext(CompactViewportOverrideContext);

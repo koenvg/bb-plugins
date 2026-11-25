@@ -14,15 +14,15 @@ import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
 const TEXT_BUTTON_CLASS =
   "flex min-h-8 min-w-0 flex-1 items-center gap-1.5 px-3 py-1.5 text-left text-xs hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
-export function ComposerBanner() {
+export const ComposerBanner = () => {
   const { scope } = useComposer();
   if (scope.kind !== "thread") {
     return null;
   }
   return <ThreadBanner key={scope.threadId} threadId={scope.threadId} />;
-}
+};
 
-function ThreadBanner({ threadId }: { threadId: string }) {
+const ThreadBanner = ({ threadId }: { threadId: string }) => {
   usePrPanelNavigation(threadId);
   useReportThreadOpened(threadId);
   const insight = useInsight(threadId);
@@ -145,9 +145,9 @@ function ThreadBanner({ threadId }: { threadId: string }) {
       )}
     </>
   );
-}
+};
 
-function BannerStatus({ text }: { text: string }) {
+const BannerStatus = ({ text }: { text: string }) => {
   return (
     <div
       role="status"
@@ -161,7 +161,7 @@ function BannerStatus({ text }: { text: string }) {
       <span className="truncate">{text}</span>
     </div>
   );
-}
+};
 
 interface BannerTextProps {
   lifecycle: StatusRow;
@@ -170,7 +170,7 @@ interface BannerTextProps {
   onClick: () => void;
 }
 
-function BannerText({ lifecycle, detail, busy, onClick }: BannerTextProps) {
+const BannerText = ({ lifecycle, detail, busy, onClick }: BannerTextProps) => {
   const icon = detail ?? lifecycle;
   return (
     <button
@@ -201,4 +201,4 @@ function BannerText({ lifecycle, detail, busy, onClick }: BannerTextProps) {
       )}
     </button>
   );
-}
+};

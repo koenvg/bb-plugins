@@ -37,13 +37,13 @@ export function describeCreateProjectError(error: unknown): string {
   return message;
 }
 
-export function ColorSwatchPicker({
+export const ColorSwatchPicker = ({
   value,
   onChange,
 }: {
   value: string;
   onChange: (color: string, interaction: "navigate" | "activate") => void;
-}) {
+}) => {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   // Exact custom colors stay unselected; Indigo is their keyboard entry point.
   const entryIndex = Math.max(
@@ -90,9 +90,9 @@ export function ColorSwatchPicker({
       ))}
     </div>
   );
-}
+};
 
-export function CheckboxField({
+export const CheckboxField = ({
   checked,
   onCheckedChange,
   label,
@@ -100,7 +100,7 @@ export function CheckboxField({
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   label: string;
-}) {
+}) => {
   return (
     <button
       type="button"
@@ -120,9 +120,9 @@ export function CheckboxField({
       {label}
     </button>
   );
-}
+};
 
-export function Field({
+export const Field = ({
   label,
   children,
   hint,
@@ -130,7 +130,7 @@ export function Field({
   label: string;
   children: React.ReactNode;
   hint?: string;
-}) {
+}) => {
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-medium text-muted-foreground">{label}</label>
@@ -138,4 +138,4 @@ export function Field({
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
-}
+};

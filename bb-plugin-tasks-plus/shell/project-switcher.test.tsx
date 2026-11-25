@@ -33,11 +33,11 @@ const readyInventory = (): Inventory => ({
 function setupPicker(inventory = readyInventory(), compact = false) {
   const onSelect = vi.fn();
   const backgroundAction = vi.fn();
-  function Background() {
+  const Background = () => {
     useShortcuts({ "panel.newTask": backgroundAction });
     return null;
-  }
-  function Picker({ inventory }: { inventory: Inventory }) {
+  };
+  const Picker = ({ inventory }: { inventory: Inventory }) => {
     const [open, setOpen] = useState(true);
     const root = useRef<HTMLDivElement>(null);
     return (
@@ -63,7 +63,7 @@ function setupPicker(inventory = readyInventory(), compact = false) {
         </CompactViewportOverrideProvider>
       </TasksRefreshProvider>
     );
-  }
+  };
   const slot = renderSlot(
     { component: Picker },
     { inventory },

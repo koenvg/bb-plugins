@@ -10,7 +10,7 @@ import { Reader, type ReadDocument } from "./reader";
 import type { ExcerptDestination } from "./selection";
 import "./app.css";
 
-function FileReader({ path, source, Original, experimental_lineRange }: PluginFileOpenerProps) {
+const FileReader = ({ path, source, Original, experimental_lineRange }: PluginFileOpenerProps) => {
   const composer = useComposer();
   const destination = useMemo<ExcerptDestination>(
     () => ({
@@ -66,7 +66,7 @@ function FileReader({ path, source, Original, experimental_lineRange }: PluginFi
       lineRange={experimental_lineRange}
     />
   );
-}
+};
 
 export default definePluginApp((app) => {
   app.slots.fileOpener({

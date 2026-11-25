@@ -41,7 +41,7 @@ interface ListViewProps {
   scopeUnavailable?: boolean;
 }
 
-function LoadingRows() {
+const LoadingRows = () => {
   return (
     <DelayedLoading>
       <div className="px-3.5 pt-3">
@@ -60,7 +60,7 @@ function LoadingRows() {
       </div>
     </DelayedLoading>
   );
-}
+};
 
 export const ListView = memo(function ListView({
   projectId,

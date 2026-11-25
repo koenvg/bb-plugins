@@ -76,11 +76,11 @@ interface OverviewTabProps {
   scrollRoot: RefObject<HTMLElement | null>;
 }
 
-export function OverviewTab({ threadId, scrollRoot }: OverviewTabProps) {
+export const OverviewTab = ({ threadId, scrollRoot }: OverviewTabProps) => {
   return <OverviewTabContent key={threadId} threadId={threadId} scrollRoot={scrollRoot} />;
-}
+};
 
-function OverviewTabContent({ threadId, scrollRoot }: OverviewTabProps) {
+const OverviewTabContent = ({ threadId, scrollRoot }: OverviewTabProps) => {
   const insight = useInsight(threadId);
   const [branchUpdated, setBranchUpdated] = useState(false);
   usePrCommands(threadId, insight);
@@ -101,7 +101,7 @@ function OverviewTabContent({ threadId, scrollRoot }: OverviewTabProps) {
       )}
     />
   );
-}
+};
 
 export interface InsightView {
   result: InsightResult | null;
@@ -123,13 +123,15 @@ interface PrOverviewProps {
   renderDetails?: (details: ReactNode, refreshedAt: number) => ReactNode;
 }
 
-export function PrOverview({
+const renderUnwrappedDetails = (details: ReactNode) => details;
+
+export const PrOverview = ({
   insight: { result, refreshing, revalidating, refresh },
   noPrText,
   controls,
   notice,
-  renderDetails = (details) => details,
-}: PrOverviewProps) {
+  renderDetails = renderUnwrappedDetails,
+}: PrOverviewProps) => {
   if (result === null) return <Notice>Loading pull request…</Notice>;
   if (result.kind === "no_pr") return <Notice>{noPrText}</Notice>;
   if (result.kind === "error") {
@@ -174,7 +176,7 @@ export function PrOverview({
       )}
     </div>
   );
-}
+};
 
 function useReportedSummary(result: ReturnType<typeof useInsight>["result"]) {
   const report = useReportSummary();
@@ -205,17 +207,17 @@ function checkStatusesInCard(blockers: readonly Blocker[]): ReadonlySet<CheckSta
   );
 }
 
-function OverviewCard({ children }: { children: ReactNode }) {
+const OverviewCard = ({ children }: { children: ReactNode }) => {
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background px-3 py-2.5">
       {children}
     </div>
   );
-}
+};
 
 const TOOLBAR_SIZE = "h-7 px-2.5";
 
-function PrHeader({
+const PrHeader = ({
   pr,
   lifecycle,
   age,
@@ -225,7 +227,7 @@ function PrHeader({
   lifecycle: StatusRow;
   age: ReactNode;
   action: ReactNode;
-}) {
+}) => {
   const merged = pr.state === "merged";
   return (
     <div data-testid="pr-header" className="flex min-w-0 flex-col gap-2">
@@ -272,14 +274,14 @@ function PrHeader({
       <PrMeta pr={pr} />
     </div>
   );
-}
+};
 
 function branchLabel(pr: PrInsight["pr"]): string {
   const head = pr.headOwner === null ? pr.headRefName : `${pr.headOwner}:${pr.headRefName}`;
   return `${head} → ${pr.baseRefName}`;
 }
 
-function PrMeta({ pr }: { pr: PrInsight["pr"] }) {
+const PrMeta = ({ pr }: { pr: PrInsight["pr"] }) => {
   return (
     <div className="flex min-w-0 items-center gap-x-3 text-xs text-muted-foreground">
       <span className="inline-flex min-w-0 items-center gap-1" title={branchLabel(pr)}>
@@ -293,7 +295,7 @@ function PrMeta({ pr }: { pr: PrInsight["pr"] }) {
       <span className="shrink-0 tabular-nums">{countOf(pr.changedFiles, "file")}</span>
     </div>
   );
-}
+};
 
 interface MergeStatusCardProps {
   insight: PrInsight;
@@ -301,7 +303,7 @@ interface MergeStatusCardProps {
   controls: ThreadControls | null;
 }
 
-function MergeStatusCard({ insight, status, controls }: MergeStatusCardProps) {
+const MergeStatusCard = ({ insight, status, controls }: MergeStatusCardProps) => {
   const line = prSummaryLine(insight);
   if (line === null && insight.pr.state !== "draft") return null;
   const blockers = listedBlockers(status.blockers);
@@ -404,7 +406,7 @@ function MergeStatusCard({ insight, status, controls }: MergeStatusCardProps) {
       )}
     </section>
   );
-}
+};
 
 const CHECK_STATUS_OF_BLOCKER: Partial<Record<Blocker["code"], CheckStatus>> = {
   checks_failed: "failed",
@@ -412,16 +414,16 @@ const CHECK_STATUS_OF_BLOCKER: Partial<Record<Blocker["code"], CheckStatus>> = {
   checks_waiting: "waiting",
 };
 
-function BlockerLabel({ blocker }: { blocker: Blocker }) {
+const BlockerLabel = ({ blocker }: { blocker: Blocker }) => {
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <Icon name="AlertCircle" className={cn("size-4 shrink-0", blockerTone(blocker.code))} />
       <span className="min-w-0 break-words">{blocker.text}</span>
     </span>
   );
-}
+};
 
-function CheckBlocker({ blocker, checks }: { blocker: Blocker; checks: readonly Check[] }) {
+const CheckBlocker = ({ blocker, checks }: { blocker: Blocker; checks: readonly Check[] }) => {
   const [open, setOpen] = useState(false);
   const listId = useId();
   return (
@@ -456,7 +458,7 @@ function CheckBlocker({ blocker, checks }: { blocker: Blocker; checks: readonly 
       )}
     </>
   );
-}
+};
 
 const DRAFT_VERDICT: StatusRow = {
   text: "Draft, not ready for review",
@@ -479,7 +481,7 @@ function verdictOf(line: SummaryLine | null, blockers: readonly Blocker[]): Stat
 const LINK_ACTION =
   "-mx-1.5 inline-flex min-h-7 shrink-0 items-center gap-1 rounded-sm px-1.5 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
-function BlockerFix({
+const BlockerFix = ({
   code,
   pr,
   canUpdateBranch,
@@ -489,7 +491,7 @@ function BlockerFix({
   pr: PrInsight["pr"];
   canUpdateBranch: boolean;
   controls: ThreadControls | null;
-}) {
+}) => {
   const showFiles = useShowFiles();
   if (code === "conflicts") {
     return (
@@ -519,9 +521,9 @@ function BlockerFix({
     default:
       return null;
   }
-}
+};
 
-function DataAge({ refreshedAt, updating }: { refreshedAt: number; updating: boolean }) {
+const DataAge = ({ refreshedAt, updating }: { refreshedAt: number; updating: boolean }) => {
   const readAt = new Date(refreshedAt);
   return (
     <span className="inline-flex items-center gap-1 tabular-nums">
@@ -536,7 +538,7 @@ function DataAge({ refreshedAt, updating }: { refreshedAt: number; updating: boo
       </time>
     </span>
   );
-}
+};
 
 const GROUP_HEADING_CLASS = "text-xs font-medium text-muted-foreground";
 
@@ -551,7 +553,7 @@ const REVIEWER_STATE_ICON: Record<Reviewer["state"], { name: IconName; className
   dismissed: { name: "Unavailable", className: "text-muted-foreground" },
 };
 
-function ReviewerList({ reviewers }: { reviewers: readonly Reviewer[] }) {
+const ReviewerList = ({ reviewers }: { reviewers: readonly Reviewer[] }) => {
   if (reviewers.length === 0) return null;
   return (
     <OverviewSection label="Reviewers" summary={reviewers.length}>
@@ -560,9 +562,9 @@ function ReviewerList({ reviewers }: { reviewers: readonly Reviewer[] }) {
       </OverviewCard>
     </OverviewSection>
   );
-}
+};
 
-function ReviewerRows({ reviewers }: { reviewers: readonly Reviewer[] }) {
+const ReviewerRows = ({ reviewers }: { reviewers: readonly Reviewer[] }) => {
   return (
     <ul aria-label="Reviewers" className="flex flex-col gap-0.5">
       {reviewers.map((reviewer) => {
@@ -586,7 +588,7 @@ function ReviewerRows({ reviewers }: { reviewers: readonly Reviewer[] }) {
       })}
     </ul>
   );
-}
+};
 
 const CHECK_SUMMARY_ORDER: readonly CheckStatus[] = [
   "failed",
@@ -604,13 +606,13 @@ function checkSummary(checks: readonly Check[]): string {
   }).join(" · ");
 }
 
-function CheckList({
+const CheckList = ({
   checks,
   shownInCard,
 }: {
   checks: readonly Check[];
   shownInCard: ReadonlySet<CheckStatus>;
-}) {
+}) => {
   if (checks.length === 0) {
     return (
       <OverviewSection label="Checks">
@@ -640,13 +642,13 @@ function CheckList({
       </OverviewCard>
     </OverviewSection>
   );
-}
+};
 
-function CollapsedChecks({
+const CollapsedChecks = ({
   groups,
 }: {
   groups: readonly (readonly [CheckStatus, readonly Check[]])[];
-}) {
+}) => {
   const [open, setOpen] = useState(false);
   const shown = groups.filter(([, group]) => group.length > 0);
   if (shown.length === 0) return null;
@@ -668,9 +670,9 @@ function CollapsedChecks({
       ))}
     </details>
   );
-}
+};
 
-function CheckRows({ checks }: { checks: readonly Check[] }) {
+const CheckRows = ({ checks }: { checks: readonly Check[] }) => {
   return (
     <ul className="mt-1 flex flex-col">
       {checks.map((check) => (
@@ -678,9 +680,9 @@ function CheckRows({ checks }: { checks: readonly Check[] }) {
       ))}
     </ul>
   );
-}
+};
 
-function CheckRow({ check }: { check: Check }) {
+const CheckRow = ({ check }: { check: Check }) => {
   const icon = STATUS_ICON[check.status];
   return (
     <li className="flex min-w-0 flex-col gap-1 py-1 text-sm">
@@ -698,9 +700,9 @@ function CheckRow({ check }: { check: Check }) {
       {check.failure !== null && <CheckFailureDetail failure={check.failure} />}
     </li>
   );
-}
+};
 
-function CheckFailureDetail({ failure }: { failure: CheckFailure }) {
+const CheckFailureDetail = ({ failure }: { failure: CheckFailure }) => {
   const hiddenCount = failure.annotationCount - failure.annotations.length;
   const reasonRepeated = failure.annotations.some(({ message }) => message === failure.reason);
   return (
@@ -725,4 +727,4 @@ function CheckFailureDetail({ failure }: { failure: CheckFailure }) {
       {hiddenCount > 0 && <p>{hiddenCount} more</p>}
     </div>
   );
-}
+};

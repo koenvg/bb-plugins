@@ -1,12 +1,12 @@
 import type { AttributionView } from "./identity-contract.js";
 
-export function IdentityTotals({
+export const IdentityTotals = ({
   view,
   onOpenThread,
 }: {
   view: AttributionView;
   onOpenThread?: (threadId: string) => void;
-}) {
+}) => {
   return (
     <section className="mt-4 min-w-0" aria-label="Thread attribution">
       <h3 className="font-semibold">Verified exact-thread totals</h3>
@@ -67,4 +67,4 @@ export function IdentityTotals({
       )}
     </section>
   );
-}
+};

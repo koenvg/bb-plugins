@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 const SIDE = { start: "left-0", end: "right-0" };
 
-export function Tip({
+export const Tip = ({
   text,
   side = "start",
   className = "",
@@ -12,7 +12,7 @@ export function Tip({
   side?: keyof typeof SIDE;
   className?: string;
   children: ReactNode;
-}) {
+}) => {
   return (
     <span className={`group/tip relative ${className}`}>
       {children}
@@ -25,4 +25,4 @@ export function Tip({
       </span>
     </span>
   );
-}
+};

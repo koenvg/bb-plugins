@@ -62,7 +62,7 @@ window.fetch = async (input, init) => {
 };
 document.documentElement.dataset.theme =
   new URLSearchParams(location.search).get("theme") || "light";
-function TaskFixture() {
+const TaskFixture = () => {
   const fallback = useRef<HTMLButtonElement>(null);
   const [attachments, setAttachments] = useState([attachment]);
   const [choices, setChoices] = useState(false);
@@ -136,8 +136,8 @@ function TaskFixture() {
       ) : null}
     </main>
   );
-}
-function Fixture() {
+};
+const Fixture = () => {
   const root = useRef<HTMLDivElement>(null);
   return (
     <div ref={root}>
@@ -146,7 +146,7 @@ function Fixture() {
       </ShortcutProvider>
     </div>
   );
-}
+};
 renderSlot(
   {
     component: () => (

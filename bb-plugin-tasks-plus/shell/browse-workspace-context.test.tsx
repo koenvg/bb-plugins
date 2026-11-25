@@ -15,10 +15,10 @@ import {
   row,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const prompt = "Select a ticket to view and edit";
 
 describe("removal combined with context transitions", () => {

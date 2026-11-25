@@ -49,7 +49,7 @@ it("keeps an enqueue error when the RPC finishes before the button subscribes", 
   const ready = new Promise<void>((resolve) => {
     show = resolve;
   });
-  function DelayedButton() {
+  const DelayedButton = () => {
     const [visible, setVisible] = useState(false);
     useEffect(() => {
       void ready.then(() => setVisible(true));
@@ -57,7 +57,7 @@ it("keeps an enqueue error when the RPC finishes before the button subscribes", 
     return visible ? (
       <MergeActionButton threadId="thr_early" pr={pr} action={{ kind: "enqueue" }} />
     ) : null;
-  }
+  };
   const message = "Pull request is not mergeable";
   const run = vi.spyOn(prOperations, "run");
   const subscribe = vi.spyOn(prOperations, "subscribe");

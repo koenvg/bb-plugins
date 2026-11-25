@@ -8,7 +8,7 @@ import { useThreadListActions } from "./sidebar-actions";
 
 afterEach(cleanup);
 
-function DeleteControl() {
+const DeleteControl = () => {
   const actions = useThreadListActions(thread());
   const [error, setError] = useState("");
   return (
@@ -27,7 +27,7 @@ function DeleteControl() {
       <span role="alert">{error}</span>
     </>
   );
-}
+};
 
 it.each(["missing", "disabled"])("does not invoke %s native delete actions", async (state) => {
   const run = vi.fn(async () => {});

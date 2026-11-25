@@ -25,13 +25,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function List() {
+const List = () => {
   return (
     <TasksRefreshProvider>
       <ListView projectId="project-a" />
     </TasksRefreshProvider>
   );
-}
+};
 
 function renderList() {
   const tasks = [

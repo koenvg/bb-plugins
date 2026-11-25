@@ -20,7 +20,7 @@ const VERDICT_LABELS: Record<ReviewEvent, string> = {
 
 const SUMMARY_KEY = "summary";
 
-export function SubmitReviewToggle({ open, toggle }: { open: boolean; toggle: () => void }) {
+export const SubmitReviewToggle = ({ open, toggle }: { open: boolean; toggle: () => void }) => {
   return (
     <button
       type="button"
@@ -41,7 +41,7 @@ export function SubmitReviewToggle({ open, toggle }: { open: boolean; toggle: ()
       Submit review
     </button>
   );
-}
+};
 
 interface SubmitPanelProps {
   threadId: string;
@@ -52,14 +52,14 @@ interface SubmitPanelProps {
   onWritten: () => void;
 }
 
-export function SubmitPanel({
+export const SubmitPanel = ({
   threadId,
   open,
   head,
   commentDrafts,
   summaryDraft,
   onWritten,
-}: SubmitPanelProps) {
+}: SubmitPanelProps) => {
   const rpc = useRpc<typeof rpcContract>();
   const headingId = useId();
   const reasonId = useId();
@@ -209,11 +209,11 @@ export function SubmitPanel({
       </section>
     </div>
   );
-}
+};
 
 const SUBMITTED_LABEL_MS = 1800;
 
-function SubmitLabel({ busy, submittedAt }: { busy: boolean; submittedAt: number | null }) {
+const SubmitLabel = ({ busy, submittedAt }: { busy: boolean; submittedAt: number | null }) => {
   if (busy) {
     return (
       <>
@@ -237,9 +237,9 @@ function SubmitLabel({ busy, submittedAt }: { busy: boolean; submittedAt: number
     );
   }
   return <>Submit</>;
-}
+};
 
-function VerdictOption({
+const VerdictOption = ({
   event,
   checked,
   disabled,
@@ -249,7 +249,7 @@ function VerdictOption({
   checked: boolean;
   disabled: boolean;
   select: () => void;
-}) {
+}) => {
   return (
     <label
       className={cn(
@@ -270,7 +270,7 @@ function VerdictOption({
       {VERDICT_LABELS[event]}
     </label>
   );
-}
+};
 
 function useSummaryText(threadId: string, summaryDraft: SummaryDraft | null) {
   const rpc = useRpc<typeof rpcContract>();
@@ -303,14 +303,14 @@ function useSummaryText(threadId: string, summaryDraft: SummaryDraft | null) {
   };
 }
 
-function ErrorText({ children }: { children: ReactNode }) {
+const ErrorText = ({ children }: { children: ReactNode }) => {
   return (
     <p role="alert" className="flex items-start gap-1.5 break-words text-xs text-destructive">
       <Icon name="AlertCircle" className="mt-px size-3.5 shrink-0" />
       <span>{children}</span>
     </p>
   );
-}
+};
 
 function commentsText(count: number): string {
   return count === 1 ? "1 comment" : `${count} comments`;

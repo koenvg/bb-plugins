@@ -44,7 +44,7 @@ type Annotation =
   | { kind: "thread"; thread: ReviewThread }
   | { kind: "comment-draft"; draft: ListedCommentDraft };
 
-export function PrFileDiff({
+export const PrFileDiff = ({
   file,
   threads,
   commentDrafts,
@@ -56,7 +56,7 @@ export function PrFileDiff({
   onAddComment?: AddComment;
   viewed?: FileViewedState;
   image?: { threadId: string; basis: PrImageBasis | null; active: boolean; generation: number };
-}) {
+}) => {
   const fileDiff = useMemo(() => parseFileDiff(file), [file]);
   if (
     isRasterPath(file.path) ||
@@ -82,9 +82,9 @@ export function PrFileDiff({
       }
     />
   );
-}
+};
 
-function PrPreviewFile({
+const PrPreviewFile = ({
   file,
   image,
   threads,
@@ -92,7 +92,7 @@ function PrPreviewFile({
 }: ThreadsProps & {
   file: ReviewFile;
   image?: { threadId: string; basis: PrImageBasis | null; active: boolean; generation: number };
-}) {
+}) => {
   const rpc = useRpc<typeof rpcContract>();
   const [collapsed, setCollapsed] = useState(false);
   const video = isVideoPath(file.path) || isVideoPath(file.previousPath ?? "");
@@ -167,9 +167,9 @@ function PrPreviewFile({
       ))}
     </section>
   );
-}
+};
 
-function UnavailableFileDiff({ path, threads, commentDrafts }: ThreadsProps & { path: string }) {
+const UnavailableFileDiff = ({ path, threads, commentDrafts }: ThreadsProps & { path: string }) => {
   return (
     <section
       data-path={path}
@@ -185,9 +185,9 @@ function UnavailableFileDiff({ path, threads, commentDrafts }: ThreadsProps & { 
       ))}
     </section>
   );
-}
+};
 
-function LazyFileDiff({
+const LazyFileDiff = ({
   path,
   fileDiff,
   threads,
@@ -199,7 +199,7 @@ function LazyFileDiff({
   fileDiff: FileDiffMetadata;
   onAddComment?: (side: PierreSide, line: number) => void;
   viewed?: FileViewedState;
-}) {
+}) => {
   const { visible, ref } = useVisibleOnce<HTMLElement>();
   const theme = useCodeTheme();
   const lineAnnotations = useMemo(
@@ -261,14 +261,14 @@ function LazyFileDiff({
       )}
     </section>
   );
-}
+};
 
 const CHEVRONS = {
   collapsed: <Icon name="ChevronRight" className="size-3.5" />,
   expanded: <Icon name="ChevronDown" className="size-3.5" />,
 };
 
-function ThreadCount({ count }: { count: number }) {
+const ThreadCount = ({ count }: { count: number }) => {
   if (count === 0) {
     return null;
   }
@@ -278,7 +278,7 @@ function ThreadCount({ count }: { count: number }) {
       {count}
     </span>
   );
-}
+};
 
 function parseFileDiff(file: ReviewFile): FileDiffMetadata | null {
   const patch = gitPatch(file);

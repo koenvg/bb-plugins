@@ -13,10 +13,10 @@ import {
   select,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const ref = (task: (typeof tasks)[number]) => ({
   id: task.id,
   key: task.key,

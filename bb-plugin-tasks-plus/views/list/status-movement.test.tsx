@@ -25,13 +25,13 @@ window.ResizeObserver ??= class {
   disconnect() {}
 };
 
-function List(props: ComponentProps<typeof ListView>) {
+const List = (props: ComponentProps<typeof ListView>) => {
   return (
     <TasksRefreshProvider>
       <ListView {...props} />
     </TasksRefreshProvider>
   );
-}
+};
 
 beforeEach(() => window.localStorage.clear());
 afterEach(() => {

@@ -6,7 +6,7 @@ import { useReviewQueue } from "./use-review-queue";
 const RAIL_ITEM = '[data-nav-rail-item="github-insight/pull-requests"]';
 const CUTOUT = { boxShadow: "0 0 0 2px var(--surface-recessed-solid)" };
 
-export function PrRailBadge() {
+export const PrRailBadge = () => {
   const item = useHostElement(RAIL_ITEM);
   const badge = reviewBadge(useReviewQueue().view);
   if (item === null || badge === null) return null;
@@ -42,7 +42,7 @@ export function PrRailBadge() {
     </span>,
     item,
   );
-}
+};
 
 function useHostElement(selector: string): HTMLElement | null {
   const [element, setElement] = useState<HTMLElement | null>(null);

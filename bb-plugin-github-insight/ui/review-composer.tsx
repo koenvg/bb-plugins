@@ -61,13 +61,13 @@ function findReviewRequest(view: ReviewQueueView | null, route: ReviewRoute): Li
   return null;
 }
 
-export function ReviewComposerPage({
+export const ReviewComposerPage = ({
   route,
   queue,
 }: {
   route: ReviewRoute;
   queue: ReviewQueueState;
-}) {
+}) => {
   const navigation = usePullRequestsNavigation();
   const [latchedPr, setLatchedPr] = useState<LinkedQueuePr | null>(null);
   const pr = latchedPr ?? findReviewRequest(queue.view, route);
@@ -101,9 +101,9 @@ export function ReviewComposerPage({
       )}
     </div>
   );
-}
+};
 
-function ReviewComposer({ pr, projectId }: { pr: LinkedQueuePr; projectId: string }) {
+const ReviewComposer = ({ pr, projectId }: { pr: LinkedQueuePr; projectId: string }) => {
   const rpc = useRpc<typeof rpcContract>();
   const navigation = usePullRequestsNavigation();
   const [error, setError] = useState<string | null>(null);
@@ -147,4 +147,4 @@ function ReviewComposer({ pr, projectId }: { pr: LinkedQueuePr; projectId: strin
       />
     </>
   );
-}
+};

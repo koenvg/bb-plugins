@@ -34,7 +34,7 @@ export function pagerPosition(tasks: readonly Task[], taskKey: string): PagerPos
   };
 }
 
-function TaskPager({
+const TaskPager = ({
   taskKey,
   projectId,
   onNavigate,
@@ -42,7 +42,7 @@ function TaskPager({
   taskKey: string;
   projectId: string | null;
   onNavigate: (route: TasksRoute) => void;
-}) {
+}) => {
   const siblings = useTasksQuery(
     async (rpc) =>
       listAllTasks(rpc, {
@@ -90,15 +90,15 @@ function TaskPager({
       </Button>
     </div>
   );
-}
+};
 
-function ViewToggle({
+const ViewToggle = ({
   view,
   onChange,
 }: {
   view: TaskViewMode;
   onChange: (view: TaskViewMode) => void;
-}) {
+}) => {
   const segment = (mode: TaskViewMode, label: string) => (
     <button
       type="button"
@@ -120,9 +120,9 @@ function ViewToggle({
       {segment("board", "Board")}
     </div>
   );
-}
+};
 
-function RefreshTasksButton() {
+const RefreshTasksButton = () => {
   const { refresh, isRefreshing } = useTasksRefresh();
 
   const handleRefresh = useCallback(() => {
@@ -151,7 +151,7 @@ function RefreshTasksButton() {
       </Tooltip>
     </TooltipProvider>
   );
-}
+};
 
 interface TasksTopbarProps {
   route: ResolvedTasksRoute;
@@ -163,7 +163,7 @@ interface TasksTopbarProps {
   onBack: () => void;
 }
 
-export function TasksTopbar({
+export const TasksTopbar = ({
   route,
   projects: projectInventory,
   pagerScope,
@@ -171,7 +171,7 @@ export function TasksTopbar({
   onNewTask,
   onNewProject,
   onBack,
-}: TasksTopbarProps) {
+}: TasksTopbarProps) => {
   useTaskCommandActions(route.kind === "task" ? route.taskKey : "", {
     back: route.kind === "task" ? onBack : null,
   });
@@ -348,4 +348,4 @@ export function TasksTopbar({
       <TasksNavigationMenu route={route} onNavigate={onNavigate} onNewProject={onNewProject} />
     </header>
   );
-}
+};

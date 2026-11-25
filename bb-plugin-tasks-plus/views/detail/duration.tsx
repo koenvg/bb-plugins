@@ -60,13 +60,13 @@ function durationDisplay(duration: TaskDurationResult): {
   }
 }
 
-export function TaskDurationStrip({
+export const TaskDurationStrip = ({
   duration,
   pendingStatus,
 }: {
   duration: TaskDurationResult;
   pendingStatus: boolean;
-}) {
+}) => {
   const display = pendingStatus
     ? {
         value: { compact: "Awaiting status save" },
@@ -100,4 +100,4 @@ export function TaskDurationStrip({
       </div>
     </section>
   );
-}
+};

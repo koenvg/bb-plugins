@@ -7,7 +7,7 @@ import { ProjectOverview } from "./project-overview";
 import { PromptDialog } from "./prompt-dialog";
 import "./app.css";
 
-function ProjectSettings() {
+const ProjectSettings = () => {
   const editorLock = useRef(false);
   const [editorPending, setEditorPending] = useState(false);
   const overview = useProjectOverview(editorLock, editorPending);
@@ -71,7 +71,7 @@ function ProjectSettings() {
       </p>
     </section>
   );
-}
+};
 
 export default definePluginApp((app) => {
   app.slots.settingsSection({

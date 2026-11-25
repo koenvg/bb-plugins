@@ -49,7 +49,7 @@ export function accountDetails(data: MachineAccounts | null, now: number) {
     return `${data.accounts.length === 1 && account.identity === "verified" ? "Shared account" : `Account ${index + 1}`}; ${machines}; ${view.state}${quotaReasonText[view.reason] ? `; ${quotaReasonText[view.reason]}` : ""}; ${view.snapshot?.bindingRemainingPercent ?? "unknown"}% remaining; ${binding?.name ?? "window unknown"}; ${resetCountdown(binding?.resetAt ?? null, now)}; ${view.snapshot ? `observed ${new Date(view.snapshot.observedAt).toLocaleString()}` : "no observation"}${account.identity === "unknown" ? "; account identity unverified" : ""}`;
   });
 }
-export function AccountsTooltip({ data, now }: { data: MachineAccounts | null; now: number }) {
+export const AccountsTooltip = ({ data, now }: { data: MachineAccounts | null; now: number }) => {
   const summary = footerAllowance(data, now);
   return (
     <div className="max-h-[60vh] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-border bg-popover p-4 text-xs text-popover-foreground shadow-md">
@@ -107,8 +107,8 @@ export function AccountsTooltip({ data, now }: { data: MachineAccounts | null; n
       <p className="mt-3 text-muted-foreground">Click to open all-machine usage.</p>
     </div>
   );
-}
-export function AccountsOverview({
+};
+export const AccountsOverview = ({
   data,
   now,
   loading = false,
@@ -116,7 +116,7 @@ export function AccountsOverview({
   data: MachineAccounts | null;
   now: number;
   loading?: boolean;
-}) {
+}) => {
   const single =
     data?.accounts.length === 1 && data.accounts[0]!.identity === "verified" && !data.truncated;
   return (
@@ -245,8 +245,8 @@ export function AccountsOverview({
       )}
     </section>
   );
-}
-export function AccountsActivity({
+};
+export const AccountsActivity = ({
   data,
   now,
   loading,
@@ -256,7 +256,7 @@ export function AccountsActivity({
   now: number;
   loading: boolean;
   refresh(): void;
-}) {
+}) => {
   return (
     <section className="mt-5 text-sm" aria-label="Account-wide activity">
       <h2 className="font-medium">Account-wide activity</h2>
@@ -280,4 +280,4 @@ export function AccountsActivity({
       ))}
     </section>
   );
-}
+};

@@ -5,7 +5,7 @@ import { ProjectsSection } from "../../views/manage/projects-section.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 import { querySnapshotStorageKey } from "../../shell/query-snapshot.js";
 
-function ProductionTablePreview() {
+const ProductionTablePreview = () => {
   return (
     <TasksRefreshProvider>
       <div className="fixture-table-frame">
@@ -13,7 +13,7 @@ function ProductionTablePreview() {
       </div>
     </TasksRefreshProvider>
   );
-}
+};
 
 // Use the same app registration and slot harness as the rendered package tests.
 // Every RPC below is local fixture data. No request reaches the BB server.

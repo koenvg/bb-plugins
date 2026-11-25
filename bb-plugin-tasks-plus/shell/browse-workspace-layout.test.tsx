@@ -10,10 +10,10 @@ import {
   project,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 // Captures actual component markup for an isolated browser + built-CSS inspection.
 // This is not an installed-host or hydrated browser fixture.

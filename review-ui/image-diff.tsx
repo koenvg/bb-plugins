@@ -24,7 +24,7 @@ export interface ReviewImageDiffProps {
   load: (side: ImageSide, signal: AbortSignal) => Promise<ImageResult>;
 }
 
-export function ReviewImageDiff({ before, after, active, load }: ReviewImageDiffProps) {
+export const ReviewImageDiff = ({ before, after, active, load }: ReviewImageDiffProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
   useEffect(() => {
@@ -51,9 +51,9 @@ export function ReviewImageDiff({ before, after, active, load }: ReviewImageDiff
       <ImageFigure side="after" label={after} active={active && near} load={load} />
     </div>
   );
-}
+};
 
-function ImageFigure({
+const ImageFigure = ({
   side,
   label,
   active,
@@ -63,7 +63,7 @@ function ImageFigure({
   label: ImageLabel | null;
   active: boolean;
   load: ReviewImageDiffProps["load"];
-}) {
+}) => {
   const [state, setState] = useState<ImageState>({ kind: "loading" });
   const [retry, setRetry] = useState(0);
   const url = useRef<string | null>(null);
@@ -152,7 +152,7 @@ function ImageFigure({
       </div>
     </figure>
   );
-}
+};
 
 export function imageBlobResult(
   result:

@@ -54,7 +54,7 @@ interface NewComments {
 const CommentDraftsContext = createContext<CommentDrafts | null>(null);
 const NewCommentsContext = createContext<NewComments | null>(null);
 
-export function CommentDraftsProvider({
+export const CommentDraftsProvider = ({
   threadId,
   draftMedia,
   onDeleteStarted,
@@ -66,7 +66,7 @@ export function CommentDraftsProvider({
   onDeleteStarted: (draftId: string) => void;
   onDeleteFailed: () => void;
   children: ReactNode;
-}) {
+}) => {
   const rpc = useRpc<typeof rpcContract>();
   const [states, setStates] = useState<Record<string, LocalState>>({});
 
@@ -155,7 +155,7 @@ export function CommentDraftsProvider({
       <CommentDraftsContext.Provider value={value}>{children}</CommentDraftsContext.Provider>
     </NewCommentsContext.Provider>
   );
-}
+};
 
 export function useCommentDrafts(): CommentDrafts {
   const drafts = useContext(CommentDraftsContext);
@@ -173,13 +173,13 @@ export function useNewComments(): NewComments {
   return newComments;
 }
 
-export function CommentDraftCard({
+export const CommentDraftCard = ({
   draft,
   showLocation = false,
 }: {
   draft: ListedCommentDraft;
   showLocation?: boolean;
-}) {
+}) => {
   const drafts = useCommentDrafts();
   const headingId = useId();
   const { text, busy, error } = drafts.stateOf(draft);
@@ -245,15 +245,15 @@ export function CommentDraftCard({
       </div>
     </section>
   );
-}
+};
 
-function DraftImages({
+const DraftImages = ({
   text,
   draftMedia,
 }: {
   text: string;
   draftMedia: DisplayedDrafts["draftMedia"];
-}) {
+}) => {
   const content = useMemo(
     () =>
       draftAttachments(text)
@@ -269,12 +269,12 @@ function DraftImages({
       <Markdown content={content} />
     </div>
   );
-}
+};
 
-function Pill({ children }: { children: ReactNode }) {
+const Pill = ({ children }: { children: ReactNode }) => {
   return (
     <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-muted px-2 text-muted-foreground tabular-nums">
       {children}
     </span>
   );
-}
+};

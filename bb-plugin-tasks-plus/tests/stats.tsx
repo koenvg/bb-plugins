@@ -24,7 +24,7 @@ const inputs =
 const tasks = statsDetailTasks(inputs);
 let failed = state === "error";
 
-function Fixture() {
+const Fixture = () => {
   const [subPath, setSubPath] = useState(params.get("subPath") ?? "stats");
   useEffect(() => {
     let nextCall = 0;
@@ -53,7 +53,7 @@ function Fixture() {
       </output>
     </>
   );
-}
+};
 const request = async (method: string, input: unknown) => {
   const response = await fetch(`/__stats_rpc/${method}`, {
     method: "POST",

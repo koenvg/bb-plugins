@@ -145,10 +145,10 @@ export function useTasksRefreshSource(): TasksRefreshState {
   );
 }
 
-export function TasksRefreshProvider({ children }: { children: ReactNode }) {
+export const TasksRefreshProvider = ({ children }: { children: ReactNode }) => {
   const value = useTasksRefreshSource();
   return <TasksRefreshContext.Provider value={value}>{children}</TasksRefreshContext.Provider>;
-}
+};
 
 export function useTasksRefresh(): TasksRefreshState {
   const state = useContext(TasksRefreshContext);

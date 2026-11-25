@@ -32,7 +32,7 @@ const read: ActivityApi = async () => {
     ),
   };
 };
-function Preview() {
+const Preview = () => {
   const [hostId, setHostId] = useState<string | null>("synthetic-host");
   return (
     <>
@@ -77,5 +77,5 @@ function Preview() {
       </QuotaDashboard>
     </>
   );
-}
+};
 createRoot(document.getElementById("root")!).render(<Preview />);

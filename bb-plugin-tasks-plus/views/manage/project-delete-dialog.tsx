@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import "./project-delete-dialog.css";
 
-export function ProjectDeleteDialog({
+export const ProjectDeleteDialog = ({
   project,
   canDelete,
   pending,
@@ -28,7 +28,7 @@ export function ProjectDeleteDialog({
   isLocked: () => boolean;
   onDelete: () => Promise<void>;
   onClose: () => void;
-}) {
+}) => {
   const rpc = useTasksRpc();
   const inputId = useId();
   const cancel = useRef<HTMLButtonElement | null>(null);
@@ -167,4 +167,4 @@ export function ProjectDeleteDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

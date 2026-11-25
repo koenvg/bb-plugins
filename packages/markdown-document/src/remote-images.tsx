@@ -101,7 +101,7 @@ export class RemoteImages {
     for (const release of this.assets) release();
   }
 }
-export function RemoteImage({
+export const RemoteImage = ({
   url,
   alt,
   resources,
@@ -109,7 +109,7 @@ export function RemoteImage({
   url: string;
   alt: string;
   resources: RemoteImages;
-}) {
+}) => {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [broken, setBroken] = useState(false);
   useEffect(() => {
@@ -151,4 +151,4 @@ export function RemoteImage({
       {broken ? " (image unavailable)" : ""}
     </span>
   );
-}
+};

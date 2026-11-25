@@ -31,7 +31,7 @@ function chipTriggerClass(active: boolean): string {
   );
 }
 
-function FilterChip({
+const FilterChip = ({
   icon,
   label,
   selectedNames,
@@ -41,7 +41,7 @@ function FilterChip({
   label: string;
   selectedNames: readonly string[];
   children: ReactNode;
-}) {
+}) => {
   const active = selectedNames.length > 0;
   return (
     <DropdownMenu>
@@ -61,9 +61,9 @@ function FilterChip({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
-function SortChip({ sort, onChange }: { sort: TaskSort; onChange: (sort: TaskSort) => void }) {
+const SortChip = ({ sort, onChange }: { sort: TaskSort; onChange: (sort: TaskSort) => void }) => {
   const active = sort !== "manual";
   return (
     <DropdownMenu>
@@ -89,7 +89,7 @@ function SortChip({ sort, onChange }: { sort: TaskSort; onChange: (sort: TaskSor
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
 export type DependencyFilter = "ready" | "blocked";
 
@@ -106,13 +106,13 @@ const DEPENDENCY_LABELS: Record<DependencyFilter | "all", string> = {
   blocked: "Blocked",
 };
 
-export function DependencyChip({
+export const DependencyChip = ({
   value,
   onChange,
 }: {
   value: DependencyFilter | undefined;
   onChange: (value: DependencyFilter | undefined) => void;
-}) {
+}) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -141,7 +141,7 @@ export function DependencyChip({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
 export const EMPTY_FILTERS: ListFilterState = {
   statuses: [],
@@ -158,7 +158,7 @@ export function hasActiveFilters(filters: ListFilterState): boolean {
   );
 }
 
-export function ListFilterBar({
+export const ListFilterBar = ({
   filters,
   onChange,
   sort,
@@ -172,7 +172,7 @@ export function ListFilterBar({
   onSortChange: (sort: TaskSort) => void;
   labelOptions: readonly LabelFilterOption[];
   taskCount: number | undefined;
-}) {
+}) => {
   const keepOpen = (event: Event) => event.preventDefault();
   const showLabelChip = labelOptions.length > 0 || filters.labelNames.length > 0;
   return (
@@ -297,4 +297,4 @@ export function ListFilterBar({
       </span>
     </div>
   );
-}
+};

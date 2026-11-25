@@ -79,12 +79,12 @@ interface Selection {
   endpoint: EndpointSummary;
 }
 
-function RowAction({
+const RowAction = ({
   label,
   target,
   icon,
   ...props
-}: ComponentProps<typeof Button> & { label: string; target: string; icon: string }) {
+}: ComponentProps<typeof Button> & { label: string; target: string; icon: string }) => {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -101,9 +101,9 @@ function RowAction({
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   );
-}
+};
 
-export function WebhookSettingsSection() {
+export const WebhookSettingsSection = () => {
   const rpc = useRpc<typeof webhookRpcContract>();
   const rpcRef = useRef(rpc);
   rpcRef.current = rpc;
@@ -648,4 +648,4 @@ export function WebhookSettingsSection() {
       </Dialog>
     </section>
   );
-}
+};

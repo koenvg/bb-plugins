@@ -44,7 +44,7 @@ function fixture(
   let latest!: ReturnType<typeof useTaskListMeta>;
   let sharedRefresh!: () => void;
   const history: ReturnType<typeof useTaskListMeta>[] = [];
-  function Probe({ ids, scope }: { ids: string[]; scope: string }) {
+  const Probe = ({ ids, scope }: { ids: string[]; scope: string }) => {
     latest = useTaskListMeta(
       ids.map((id) => makeTask({ id })),
       scope,
@@ -52,14 +52,14 @@ function fixture(
     sharedRefresh = useTasksRefresh().refresh;
     history.push(latest);
     return <button onClick={latest.refresh}>Refresh work</button>;
-  }
-  function Root(props: { ids: string[]; scope: string }) {
+  };
+  const Root = (props: { ids: string[]; scope: string }) => {
     return (
       <TasksRefreshProvider>
         <Probe {...props} />
       </TasksRefreshProvider>
     );
-  }
+  };
   const calls: Record<string, unknown>[] = [];
   const slot = renderSlot(
     { component: Root },

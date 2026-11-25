@@ -16,7 +16,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   canceled: "var(--muted-foreground)",
 };
 
-export function StatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
+export const StatusIcon = ({ status, className }: { status: TaskStatus; className?: string }) => {
   const color = STATUS_COLORS[status];
   return (
     <svg viewBox="0 0 14 14" aria-hidden className={cn("size-3.5 shrink-0", className)}>
@@ -69,15 +69,15 @@ export function StatusIcon({ status, className }: { status: TaskStatus; classNam
       ) : null}
     </svg>
   );
-}
+};
 
-export function PriorityIcon({
+export const PriorityIcon = ({
   priority,
   className,
 }: {
   priority: TaskPriority;
   className?: string;
-}) {
+}) => {
   if (priority === "urgent") {
     return (
       <span
@@ -113,7 +113,7 @@ export function PriorityIcon({
       ))}
     </svg>
   );
-}
+};
 
 export const THREAD_STATUS_META: Record<
   TaskThread["liveStatus"],

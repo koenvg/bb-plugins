@@ -52,7 +52,7 @@ const collectorText = {
   unchecked: "not checked",
 };
 
-export function HistoryReadinessPanel({
+export const HistoryReadinessPanel = ({
   selection,
   read,
   control,
@@ -61,7 +61,7 @@ export function HistoryReadinessPanel({
   selectionPending = false,
   selectionRevision = 0,
   isActive,
-}: Props) {
+}: Props) => {
   const key = `${selection.hostId ?? ""}:${selection.generation}:${selectionRevision}:${selectionPending}`;
   const [attempt, setAttempt] = useState(0);
   const [observation, setObservation] = useState<{
@@ -415,14 +415,14 @@ export function HistoryReadinessPanel({
       )}
     </section>
   );
-}
+};
 
-export function HistoryReadinessSection({
+export const HistoryReadinessSection = ({
   selection,
   selectionPending,
   selectionRevision,
   isActive,
-}: Omit<Props, "read" | "control">) {
+}: Omit<Props, "read" | "control">) => {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const rpcRef = useRef(rpc);
@@ -446,4 +446,4 @@ export function HistoryReadinessSection({
       control={control.current}
     />
   );
-}
+};

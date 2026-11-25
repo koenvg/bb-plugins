@@ -11,10 +11,10 @@ import {
   setup,
   row,
   select,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 describe("browse selection routes", () => {
   it("round-trips optional selection including host encoding, without adding selection to boards", () => {

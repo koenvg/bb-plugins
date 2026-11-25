@@ -24,7 +24,7 @@ export function displayValue(day: CalendarDay, metric: TokenMetric) {
 export function subtotalText(money: CapturedSubtotal): string {
   return `${money.capturedCost === null ? "Unavailable" : capturedEstimate(money.capturedCost)} · ${money.pricedRecords} of ${money.records} records priced · pricing ${money.state}${money.reason === "unsafe-sum" ? ", unsafe monetary sum" : ""}`;
 }
-export function UsageTooltip({
+export const UsageTooltip = ({
   day,
   metric,
   maxWidth,
@@ -40,7 +40,7 @@ export function UsageTooltip({
   };
   maxWidth?: number;
   pinned?: boolean;
-}) {
+}) => {
   const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = card.current;
@@ -182,4 +182,4 @@ export function UsageTooltip({
       )}
     </div>
   );
-}
+};

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { ComponentType } from "react";
+import type { ComponentProps, ComponentType } from "react";
 import type {
   ComposerDraft,
   ComposerMention,
@@ -29,13 +29,20 @@ export function registerBrowserToolbarAction(
   registration: { id: string; title: string; component: ComponentType<BrowserTabProps> },
 ) {
   const Component = registration.component;
+  type ToolbarSlot = Parameters<PluginAppBuilder["slots"]["experimental_browserToolbarAction"]>[0];
+  const ToolbarAction = ({
+    threadId,
+    tabId,
+    url,
+    experimental_page,
+  }: ComponentProps<ToolbarSlot["component"]>) => {
+    const page = usePageScripting(experimental_page);
+    return <Component threadId={threadId} tabId={tabId} url={url} page={page} />;
+  };
   app.slots.experimental_browserToolbarAction({
     id: registration.id,
     title: registration.title,
-    component: ({ threadId, tabId, url, experimental_page }) => {
-      const page = usePageScripting(experimental_page);
-      return <Component threadId={threadId} tabId={tabId} url={url} page={page} />;
-    },
+    component: ToolbarAction,
   });
 }
 

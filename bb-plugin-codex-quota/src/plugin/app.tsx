@@ -36,7 +36,7 @@ function useAccountsOwner() {
   useEffect(() => shared.start(api), [api]);
   return useAccounts();
 }
-function QuotaRefreshOwner() {
+const QuotaRefreshOwner = () => {
   useAccountsOwner();
   useEffect(() => {
     const resume = () => {
@@ -55,8 +55,8 @@ function QuotaRefreshOwner() {
     };
   }, []);
   return null;
-}
-function MachineManagement({ machines }: { machines: Machine[] }) {
+};
+const MachineManagement = ({ machines }: { machines: Machine[] }) => {
   const rpc = useRpc<typeof rpcContract>();
   const [open, setOpen] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ hostId: string | null; generation: number } | null>(
@@ -166,8 +166,8 @@ function MachineManagement({ machines }: { machines: Machine[] }) {
       </p>
     </details>
   );
-}
-function QuotaPage() {
+};
+const QuotaPage = () => {
   const state = useAccountsOwner();
   const rpc = useRpc<typeof rpcContract>();
   const reference = useRef(rpc);
@@ -218,8 +218,8 @@ function QuotaPage() {
       </div>
     </main>
   );
-}
-function UsageSettings() {
+};
+const UsageSettings = () => {
   const state = useAccountsOwner();
   return (
     <section className="min-w-0" aria-label="Usage collection settings">
@@ -244,8 +244,8 @@ function UsageSettings() {
       <MachineManagement machines={state.data?.machines ?? []} />
     </section>
   );
-}
-function SidebarQuotaBadge({ descriptionId }: { descriptionId?: string }) {
+};
+const SidebarQuotaBadge = ({ descriptionId }: { descriptionId?: string }) => {
   const state = useAccounts();
   const summary = footerAllowance(state.data, state.now, state.owners > 0);
   const detail = accountDetails(state.data, state.now).join(". ");
@@ -266,7 +266,7 @@ function SidebarQuotaBadge({ descriptionId }: { descriptionId?: string }) {
       )}
     </>
   );
-}
+};
 function useQuotaNavigationBadge() {
   const state = useAccounts();
   const summary = footerAllowance(state.data, state.now, state.owners > 0);
@@ -276,7 +276,7 @@ function useQuotaNavigationBadge() {
     label: `${summary.known ? "Lowest known" : "Lowest"} Codex account allowance; ${summary.label}${summary.known ? "; some accounts unavailable or unverified" : ""}. ${detail}`,
   };
 }
-function QuotaBatteryIcon({ className }: { className?: string }) {
+const QuotaBatteryIcon = ({ className }: { className?: string }) => {
   const state = useAccounts();
   const summary = footerAllowance(state.data, state.now, state.owners > 0);
   return (
@@ -287,8 +287,8 @@ function QuotaBatteryIcon({ className }: { className?: string }) {
       className={className}
     />
   );
-}
-function FooterQuotaBadge({ target }: { target: FooterTarget }) {
+};
+const FooterQuotaBadge = ({ target }: { target: FooterTarget }) => {
   const state = useAccounts();
   const [position, setPosition] = useState<{ left: number; bottom: number } | null>(null);
   const over = useRef(false);
@@ -373,7 +373,7 @@ function FooterQuotaBadge({ target }: { target: FooterTarget }) {
         )}
     </>
   );
-}
+};
 function QuotaFooter() {
   const navigate = useBbNavigate();
   const targets = useSyncExternalStore(footer.subscribe, footer.getSnapshot);

@@ -36,14 +36,14 @@ interface MergeActionButtonProps {
   showError?: boolean;
 }
 
-export function MergeActionButton({
+export const MergeActionButton = ({
   threadId,
   pr,
   action,
   size = "default",
   disabled = false,
   showError = true,
-}: MergeActionButtonProps) {
+}: MergeActionButtonProps) => {
   const { busy, ownRunning, ownError, run } = usePrActionButton(
     threadId,
     pr.headOid,
@@ -92,7 +92,7 @@ export function MergeActionButton({
       )}
     </div>
   );
-}
+};
 
 interface ActionButtonProps extends Omit<ComponentProps<"button">, "children"> {
   icon: IconName;
@@ -102,7 +102,7 @@ interface ActionButtonProps extends Omit<ComponentProps<"button">, "children"> {
   size: ButtonSize;
 }
 
-function ActionButton({ icon, label, busyLabel, running, size, ...rest }: ActionButtonProps) {
+const ActionButton = ({ icon, label, busyLabel, running, size, ...rest }: ActionButtonProps) => {
   return (
     <button
       type="button"
@@ -117,7 +117,7 @@ function ActionButton({ icon, label, busyLabel, running, size, ...rest }: Action
       {running ? busyLabel : label}
     </button>
   );
-}
+};
 
 interface MergeConfirmationProps {
   pr: PrInsight["pr"];
@@ -129,7 +129,7 @@ interface MergeConfirmationProps {
   confirm: () => void;
 }
 
-export function MergeConfirmation({
+export const MergeConfirmation = ({
   pr,
   method,
   running,
@@ -137,7 +137,7 @@ export function MergeConfirmation({
   open,
   onOpenChange,
   confirm,
-}: MergeConfirmationProps) {
+}: MergeConfirmationProps) => {
   const label = MERGE_METHOD_LABEL[method];
   return (
     <ConfirmDialog
@@ -156,4 +156,4 @@ export function MergeConfirmation({
       confirm={confirm}
     />
   );
-}
+};

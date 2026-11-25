@@ -153,11 +153,11 @@ interface FilesTabProps {
   jump: FilesJumpRequest | null;
 }
 
-export function FilesTab({ threadId, jump }: FilesTabProps) {
+export const FilesTab = ({ threadId, jump }: FilesTabProps) => {
   return <FilesTabContent key={threadId} threadId={threadId} jump={jump} />;
-}
+};
 
-function FilesTabContent({ threadId, jump }: FilesTabProps) {
+const FilesTabContent = ({ threadId, jump }: FilesTabProps) => {
   const {
     result,
     refreshing,
@@ -230,7 +230,7 @@ function FilesTabContent({ threadId, jump }: FilesTabProps) {
       </CommentDraftsProvider>
     </ThreadActionsProvider>
   );
-}
+};
 
 interface ReviewContentProps {
   threadId: string;
@@ -251,7 +251,7 @@ interface ReviewContentProps {
   jump: FilesJumpRequest | null;
 }
 
-function ReviewContent({
+const ReviewContent = ({
   threadId,
   files,
   threads,
@@ -268,7 +268,7 @@ function ReviewContent({
   refresh,
   requests,
   jump,
-}: ReviewContentProps) {
+}: ReviewContentProps) => {
   const [showResolved, setShowResolved] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(
     () => commentDrafts.length > 0 || summaryDraft !== null,
@@ -420,9 +420,9 @@ function ReviewContent({
       </ThreadSelectionContext.Provider>
     </div>
   );
-}
+};
 
-function ErrorBanner({ children }: { children: ReactNode }) {
+const ErrorBanner = ({ children }: { children: ReactNode }) => {
   return (
     <div
       role="alert"
@@ -431,7 +431,7 @@ function ErrorBanner({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
-}
+};
 
 function useSendToAgent(threadId: string, onSent: (reviewThreadIds: readonly string[]) => void) {
   const rpc = useRpc<typeof rpcContract>();
@@ -486,7 +486,7 @@ function filesChangedText(files: readonly ReviewFile[]): string {
   return files.length === 1 ? "1 file changed" : `${files.length} files changed`;
 }
 
-function CountPill({ emphasis, children }: { emphasis: boolean; children: ReactNode }) {
+const CountPill = ({ emphasis, children }: { emphasis: boolean; children: ReactNode }) => {
   return (
     <span
       className={cn(
@@ -499,9 +499,9 @@ function CountPill({ emphasis, children }: { emphasis: boolean; children: ReactN
       {children}
     </span>
   );
-}
+};
 
-function CommentStepper({ navigation }: { navigation: CommentNavigation }) {
+const CommentStepper = ({ navigation }: { navigation: CommentNavigation }) => {
   if (navigation.position === null) {
     return null;
   }
@@ -514,9 +514,9 @@ function CommentStepper({ navigation }: { navigation: CommentNavigation }) {
       <StepButton label="Next comment" icon="ChevronDown" onClick={() => navigation.step(1)} />
     </div>
   );
-}
+};
 
-function StepButton({
+const StepButton = ({
   label,
   icon,
   onClick,
@@ -524,7 +524,7 @@ function StepButton({
   label: string;
   icon: "ChevronUp" | "ChevronDown";
   onClick: () => void;
-}) {
+}) => {
   return (
     <IconTooltip label={label}>
       <button
@@ -537,15 +537,15 @@ function StepButton({
       </button>
     </IconTooltip>
   );
-}
+};
 
-function ShowResolvedSwitch({
+const ShowResolvedSwitch = ({
   checked,
   onChange,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
-}) {
+}) => {
   return (
     <label className="flex cursor-pointer select-none items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground">
       <input
@@ -561,8 +561,8 @@ function ShowResolvedSwitch({
       Show resolved
     </label>
   );
-}
+};
 
-function Padded({ children }: { children: ReactNode }) {
+const Padded = ({ children }: { children: ReactNode }) => {
   return <div className="h-full overflow-y-auto p-3">{children}</div>;
-}
+};

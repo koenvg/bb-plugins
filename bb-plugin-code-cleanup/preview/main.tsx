@@ -23,7 +23,7 @@ const rpc = {
   },
 };
 const signals = new EventTarget();
-function FixtureNotifications() {
+const FixtureNotifications = () => {
   useEffect(() => {
     let current = true;
     let cursor = 0;
@@ -54,8 +54,8 @@ function FixtureNotifications() {
     };
   }, []);
   return null;
-}
-function FixtureDefault() {
+};
+const FixtureDefault = () => {
   const [field, setField] = useState<{
     descriptor: { label: string; description?: string };
     value: boolean;
@@ -121,7 +121,7 @@ function FixtureDefault() {
       {error && <p role="alert">{error}</p>}
     </section>
   );
-}
+};
 // Implement only the public app hooks used by the actual app entry.
 Object.assign(globalThis, {
   __bbPluginRuntime: {

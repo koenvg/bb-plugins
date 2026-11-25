@@ -12,7 +12,7 @@ import { PrMarkdown } from "./pr-markdown";
 import { useThreadActions } from "./thread-actions";
 import { useThreadSelection } from "./thread-selection";
 
-export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
+export const ReviewThreadCard = ({ thread }: { thread: ReviewThread }) => {
   const selection = useThreadSelection();
   const hasNewComment = useThreadHasNewComment(thread);
   const [toggled, setToggled] = useState<boolean | null>(null);
@@ -54,9 +54,9 @@ export function ReviewThreadCard({ thread }: { thread: ReviewThread }) {
       )}
     </article>
   );
-}
+};
 
-function ResolvedSummary({
+const ResolvedSummary = ({
   thread,
   expanded,
   toggle,
@@ -64,7 +64,7 @@ function ResolvedSummary({
   thread: ReviewThread;
   expanded: boolean;
   toggle: () => void;
-}) {
+}) => {
   const first = thread.comments[0];
   return (
     <button
@@ -88,9 +88,9 @@ function ResolvedSummary({
       />
     </button>
   );
-}
+};
 
-function AgentToggle({ reviewThreadId }: { reviewThreadId: string }) {
+const AgentToggle = ({ reviewThreadId }: { reviewThreadId: string }) => {
   const selection = useThreadSelection();
   const selected = selection.isSelected(reviewThreadId);
   return (
@@ -112,9 +112,9 @@ function AgentToggle({ reviewThreadId }: { reviewThreadId: string }) {
       Add to agent
     </label>
   );
-}
+};
 
-function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: ReactNode }) {
+const CommentView = ({ comment, trailing }: { comment: ReviewComment; trailing: ReactNode }) => {
   const createdAt = new Date(comment.createdAt);
   const { ref, glowing } = useNewComment(comment.id);
   return (
@@ -142,9 +142,9 @@ function CommentView({ comment, trailing }: { comment: ReviewComment; trailing: 
       <PrMarkdown content={comment.body} className="pl-7 leading-relaxed [&_pre]:overflow-x-auto" />
     </div>
   );
-}
+};
 
-function Avatar({ login, url }: { login: string; url: string | null }) {
+const Avatar = ({ login, url }: { login: string; url: string | null }) => {
   const [failed, setFailed] = useState(false);
   if (url === null || failed) {
     return (
@@ -164,9 +164,9 @@ function Avatar({ login, url }: { login: string; url: string | null }) {
       onError={() => setFailed(true)}
     />
   );
-}
+};
 
-function MoreCommentsLink({ thread }: { thread: ReviewThread }) {
+const MoreCommentsLink = ({ thread }: { thread: ReviewThread }) => {
   const url = thread.comments.at(-1)?.url;
   if (url === undefined) return null;
   return (
@@ -178,9 +178,9 @@ function MoreCommentsLink({ thread }: { thread: ReviewThread }) {
       <Icon name="ArrowUpRight" className="size-3" />
     </UrlLink>
   );
-}
+};
 
-function ThreadActionsView({ thread }: { thread: ReviewThread }) {
+const ThreadActionsView = ({ thread }: { thread: ReviewThread }) => {
   const actions = useThreadActions();
   const headingId = useId();
   const { replyText, hasDraft, busy, error, pendingReviewUrl } = actions.stateOf(thread.id);
@@ -279,7 +279,7 @@ function ThreadActionsView({ thread }: { thread: ReviewThread }) {
       </div>
     </section>
   );
-}
+};
 
 function firstLine(body: string): string {
   return body.trimStart().split("\n", 1)[0] ?? "";

@@ -27,7 +27,7 @@ describe("ColorSwatchPicker keyboard navigation", () => {
   it("wraps in palette order with all four arrows and distinguishes navigation from activation", () => {
     const onChange = vi.fn();
     const onParentKeyDown = vi.fn();
-    function Fixture() {
+    const Fixture = () => {
       const [value, setValue] = useState("slateblue");
       return (
         <div onKeyDown={onParentKeyDown}>
@@ -40,7 +40,7 @@ describe("ColorSwatchPicker keyboard navigation", () => {
           />
         </div>
       );
-    }
+    };
     const view = render(<Fixture />);
     view.getByRole("radio", { name: "Indigo" }).focus();
     for (const [key, label, value] of [

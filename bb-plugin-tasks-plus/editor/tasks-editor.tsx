@@ -197,7 +197,7 @@ interface TasksEditorProps {
   className?: string;
 }
 
-export function TasksEditor({
+export const TasksEditor = ({
   value,
   onChange,
   placeholder,
@@ -208,7 +208,7 @@ export function TasksEditor({
   onOpenThread,
   onEditorReady,
   className,
-}: TasksEditorProps) {
+}: TasksEditorProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -503,4 +503,4 @@ export function TasksEditor({
       ) : null}
     </div>
   );
-}
+};

@@ -10,10 +10,10 @@ import {
   row,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const press = (key: string, extra: KeyboardEventInit = {}) =>
   fireEvent.keyDown(document.activeElement ?? window, { key, ...extra });
 const detail = (slot: ReturnType<typeof setup>) =>

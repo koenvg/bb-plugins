@@ -10,13 +10,13 @@ import { keyLabel, SHORTCUT_SCOPE_LABELS, SHORTCUTS, type ShortcutScope } from "
 
 const SCOPE_ORDER: readonly ShortcutScope[] = ["panel", "list", "board", "detail"];
 
-export function ShortcutHelpDialog({
+export const ShortcutHelpDialog = ({
   open,
   onOpenChange,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}) => {
   const returnFocusRef = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
     if (open && document.activeElement instanceof HTMLElement) {
@@ -66,4 +66,4 @@ export function ShortcutHelpDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

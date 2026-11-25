@@ -26,13 +26,13 @@ export type BrowseRoute = Extract<ResolvedTasksRoute, { kind: "all" | "active" |
 
 /** The accepted route is the only selected identity. The list owns its rendered order;
  * this boundary owns composition and safe requests, never another editor session. */
-export function BrowseWorkspace({
+export const BrowseWorkspace = ({
   route,
   noProjects = false,
 }: {
   route: BrowseRoute;
   noProjects?: boolean;
-}) {
+}) => {
   const navigate = useBbNavigate();
   const navigation = useTasksNavigation();
   const session = useTasksSession()!;
@@ -353,4 +353,4 @@ export function BrowseWorkspace({
       </TicketPanelContent>
     </div>
   );
-}
+};

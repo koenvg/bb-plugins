@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/command";
 import { Icon } from "@/components/ui/icon";
 
-export function LabelsPicker({
+export const LabelsPicker = ({
   task,
   labels,
   onChange,
@@ -20,7 +20,7 @@ export function LabelsPicker({
   task: Task;
   labels: readonly Label[] | undefined;
   onChange: (labelIds: string[]) => void;
-}) {
+}) => {
   const rpc = useTasksRpc();
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
@@ -103,4 +103,4 @@ export function LabelsPicker({
       </CommandList>
     </Command>
   );
-}
+};

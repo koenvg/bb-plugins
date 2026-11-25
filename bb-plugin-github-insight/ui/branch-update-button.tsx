@@ -33,7 +33,7 @@ interface BranchUpdateButtonProps {
   onUpdated: () => void;
 }
 
-export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButtonProps) {
+export const BranchUpdateButton = ({ threadId, pr, onUpdated }: BranchUpdateButtonProps) => {
   const rpc = useRpc<typeof rpcContract>();
   const { busy, ownRunning, ownError, run } = usePrActionButton(
     threadId,
@@ -133,9 +133,9 @@ export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButt
       )}
     </div>
   );
-}
+};
 
-export function PullReminder({ dismiss }: { dismiss: () => void }) {
+export const PullReminder = ({ dismiss }: { dismiss: () => void }) => {
   return (
     <div
       role="status"
@@ -153,4 +153,4 @@ export function PullReminder({ dismiss }: { dismiss: () => void }) {
       </button>
     </div>
   );
-}
+};

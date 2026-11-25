@@ -4,13 +4,13 @@ import type { ListedCommentDraft } from "../core/review-drafts";
 import { Icon } from "@/components/ui/icon";
 import { CommentDraftCard } from "./comment-drafts";
 
-export function OlderCommentDrafts({
+export const OlderCommentDrafts = ({
   drafts,
   headOid,
 }: {
   drafts: readonly ListedCommentDraft[];
   headOid: string;
-}) {
+}) => {
   const headingId = useId();
   const first = drafts[0];
   if (first === undefined) return null;
@@ -40,4 +40,4 @@ export function OlderCommentDrafts({
       </div>
     </section>
   );
-}
+};

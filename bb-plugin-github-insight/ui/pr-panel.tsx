@@ -33,11 +33,11 @@ function initialSubTab(threadId: string): PrSubTab {
   return pending === null ? rememberedSubTab(threadId) : SUB_TAB_OF_INTENT[pending];
 }
 
-export function PrPanel({ threadId }: ExperimentalThreadActionTabProps) {
+export const PrPanel = ({ threadId }: ExperimentalThreadActionTabProps) => {
   return <PrPanelContent key={threadId} threadId={threadId} />;
-}
+};
 
-function PrPanelContent({ threadId }: { threadId: string }) {
+const PrPanelContent = ({ threadId }: { threadId: string }) => {
   const [selected, setSelected] = useState(() => initialSubTab(threadId));
   const [filesShown, setFilesShown] = useState(selected === "files");
   const select = useCallback(
@@ -95,14 +95,14 @@ function PrPanelContent({ threadId }: { threadId: string }) {
       </div>
     </RepoImageThreadProvider>
   );
-}
+};
 
 interface SubTabIds {
   tab: string;
   panel: string;
 }
 
-function SubTabBar({
+const SubTabBar = ({
   selected,
   select,
   ids,
@@ -114,7 +114,7 @@ function SubTabBar({
   ids: (subTab: PrSubTab) => SubTabIds;
   filesShown: boolean;
   summary: PrTabSummary | null;
-}) {
+}) => {
   const buttons = useRef(new Map<PrSubTab, HTMLButtonElement>());
   const filesDescriptionId = useId();
   function onKeyDown(event: KeyboardEvent) {
@@ -194,9 +194,9 @@ function SubTabBar({
       )}
     </div>
   );
-}
+};
 
-function SubTabPanel({
+const SubTabPanel = ({
   ids,
   shown,
   children,
@@ -204,7 +204,7 @@ function SubTabPanel({
   ids: SubTabIds;
   shown: boolean;
   children: ReactNode;
-}) {
+}) => {
   return (
     <div
       role="tabpanel"
@@ -217,4 +217,4 @@ function SubTabPanel({
       {children}
     </div>
   );
-}
+};

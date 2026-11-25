@@ -228,7 +228,7 @@ it.each([
     );
     const before = store.tasks.listTaskThreads(task.id);
     const onOpen = vi.fn();
-    function Overview() {
+    const Overview = () => {
       const meta = useTaskListMeta([{ ...task, labelIds: [] }], "all").data?.get(task.id);
       return (
         <TaskRow
@@ -244,7 +244,7 @@ it.each([
           onOpenMenuChange={() => {}}
         />
       );
-    }
+    };
     const slot = renderSlot(
       {
         component: () => (
@@ -516,7 +516,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   const before = tasks.map((task) => store.tasks.listTaskThreads(task.id));
   registerTasksApi(bb, store);
   let latest: ReturnType<typeof useTaskListMeta>["data"];
-  function Overview() {
+  const Overview = () => {
     latest = useTaskListMeta(tasks, "all").data;
     return (
       <>
@@ -539,7 +539,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
         ))}
       </>
     );
-  }
+  };
   const slot = renderSlot(
     {
       component: () => (

@@ -4,7 +4,7 @@ import { Icon } from "@/components/ui/icon";
 import type { ReviewThread } from "../core/review-threads";
 import { ReviewThreadCard } from "./review-thread";
 
-export function OutdatedThreads({ threads }: { threads: readonly ReviewThread[] }) {
+export const OutdatedThreads = ({ threads }: { threads: readonly ReviewThread[] }) => {
   const headingId = useId();
   if (threads.length === 0) return null;
   return (
@@ -24,9 +24,9 @@ export function OutdatedThreads({ threads }: { threads: readonly ReviewThread[] 
       ))}
     </section>
   );
-}
+};
 
-function OutdatedThread({ thread }: { thread: ReviewThread }) {
+const OutdatedThread = ({ thread }: { thread: ReviewThread }) => {
   const snippet = thread.comments[0]?.diffHunk;
   return (
     <div className="flex flex-col gap-1">
@@ -42,4 +42,4 @@ function OutdatedThread({ thread }: { thread: ReviewThread }) {
       <ReviewThreadCard thread={thread} />
     </div>
   );
-}
+};

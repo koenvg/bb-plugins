@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export function OverviewSection({
+export const OverviewSection = ({
   label,
   summary,
   children,
@@ -8,7 +8,7 @@ export function OverviewSection({
   label: string;
   summary?: ReactNode;
   children: ReactNode;
-}) {
+}) => {
   return (
     <section aria-label={label} className="flex flex-col gap-2">
       <h3 className="flex min-w-0 items-baseline gap-2 text-xs font-semibold text-foreground">
@@ -22,4 +22,4 @@ export function OverviewSection({
       {children}
     </section>
   );
-}
+};

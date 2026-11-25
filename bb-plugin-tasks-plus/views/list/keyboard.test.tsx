@@ -8,10 +8,10 @@ import {
   row,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "../../shell/browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const child = makeTask({
   ...tasks[0]!,
   id: "child",

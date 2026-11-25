@@ -15,10 +15,10 @@ import {
   select,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 describe("browse save and task ownership", () => {
   it("renders native Ticket without requesting activity", async () => {

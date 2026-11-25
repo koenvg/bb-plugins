@@ -65,7 +65,7 @@ type RepoImageState =
   | { kind: "ready"; url: string }
   | { kind: "error"; message: string };
 
-function RepoImage({ file, alt }: { file: RepoFile; alt: string }) {
+const RepoImage = ({ file, alt }: { file: RepoFile; alt: string }) => {
   const threadId = useRepoImageThread();
   const rpc = useRpc<typeof rpcContract>();
   const [state, setState] = useState<RepoImageState>({ kind: "loading" });
@@ -113,7 +113,7 @@ function RepoImage({ file, alt }: { file: RepoFile; alt: string }) {
       {alt}
     </span>
   );
-}
+};
 
 function sameSlots(a: readonly HTMLElement[], b: readonly HTMLElement[]): boolean {
   return a.length === b.length && a.every((slot, index) => slot === b[index]);
@@ -122,7 +122,7 @@ function sameSlots(a: readonly HTMLElement[], b: readonly HTMLElement[]): boolea
 // BB's Markdown rebuilds its <video> component whenever a host context changes, which remounts
 // the element and restarts the video. Portaling our own <video> into a plain span keeps it alive.
 // Repo images take the same route because BB's sanitizer strips the blob: URLs they load into.
-export function PrMarkdown({ content, className }: { content: string; className: string }) {
+export const PrMarkdown = ({ content, className }: { content: string; className: string }) => {
   const { markdown, media } = useMemo(() => withMediaSlots(content), [content]);
   const root = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState<readonly HTMLElement[]>([]);
@@ -162,4 +162,4 @@ export function PrMarkdown({ content, className }: { content: string; className:
       })}
     </div>
   );
-}
+};

@@ -19,7 +19,7 @@ interface AutoMergeButtonProps {
   action: Exclude<AutoMergeAction, { kind: "none" }>;
 }
 
-export function AutoMergeButton({ threadId, pr, action }: AutoMergeButtonProps) {
+export const AutoMergeButton = ({ threadId, pr, action }: AutoMergeButtonProps) => {
   const { busy, ownRunning, ownError, run } = usePrActionButton(
     threadId,
     pr.headOid,
@@ -57,4 +57,4 @@ export function AutoMergeButton({ threadId, pr, action }: AutoMergeButtonProps) 
       )}
     </div>
   );
-}
+};

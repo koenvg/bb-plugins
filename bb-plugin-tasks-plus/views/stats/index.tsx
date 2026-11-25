@@ -30,7 +30,7 @@ export function formatStatsDuration(milliseconds: number | null): string {
   return remainder ? `${days}d ${remainder}h` : `${days}d`;
 }
 
-function Summary({ measures }: { measures: StatsMeasures | undefined }) {
+const Summary = ({ measures }: { measures: StatsMeasures | undefined }) => {
   const items = [
     {
       label: "Median duration",
@@ -59,15 +59,15 @@ function Summary({ measures }: { measures: StatsMeasures | undefined }) {
       ))}
     </dl>
   );
-}
+};
 
-function MeasuresTable({
+const MeasuresTable = ({
   title,
   rows,
 }: {
   title: string;
   rows: (StatsMeasures & { id: string; name: string; color?: string })[];
-}) {
+}) => {
   return (
     <section className="stats-breakdown">
       <h2>{title}</h2>
@@ -105,9 +105,9 @@ function MeasuresTable({
       </table>
     </section>
   );
-}
+};
 
-function TaskRows({
+const TaskRows = ({
   rows,
   stats,
   interrupted = false,
@@ -115,7 +115,7 @@ function TaskRows({
   rows: StatsDurationRow[];
   stats: TaskStats;
   interrupted?: boolean;
-}) {
+}) => {
   const navigation = useTasksNavigation();
   const projectNames = new Map(stats.byProject.map((project) => [project.id, project.name]));
   return (
@@ -148,9 +148,9 @@ function TaskRows({
       ))}
     </ul>
   );
-}
+};
 
-export function StatsView({ projectId }: { projectId?: string }) {
+export const StatsView = ({ projectId }: { projectId?: string }) => {
   const navigation = useTasksNavigation();
   const projects = useProjects();
   const filterId = useId();
@@ -325,4 +325,4 @@ export function StatsView({ projectId }: { projectId?: string }) {
       </footer>
     </div>
   );
-}
+};

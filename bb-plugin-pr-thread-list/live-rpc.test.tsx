@@ -18,14 +18,14 @@ const deferred = <T,>() => {
 it("distinguishes loading and failed loads from successful empty results and recovers", async () => {
   let request = deferred<Record<string, number>>();
   const read = () => request.promise;
-  function Probe() {
+  const Probe = () => {
     const [value, , status] = useLiveRpc("changed", read);
     return (
       <output>
         {status}:{value === null ? "unanswered" : JSON.stringify(value)}
       </output>
     );
-  }
+  };
   const slot = renderSlot({ component: Probe }, {});
   expect(slot.getByText("loading:unanswered")).toBeTruthy();
   await act(async () => request.reject(new Error("offline")));

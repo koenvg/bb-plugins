@@ -16,7 +16,7 @@ export function pricedAverage(money: CalendarMoney): string {
 export function pricingLabel(money: CalendarMoney): string {
   return `${money.pricedRecords} of ${money.records} accepted records priced; ${money.pricedEntities} priced active entities; pricing ${money.state}`;
 }
-export function MoneyValues({
+export const MoneyValues = ({
   money,
   entities,
   compact = false,
@@ -24,7 +24,7 @@ export function MoneyValues({
   money: CalendarMoney;
   entities: string;
   compact?: boolean;
-}) {
+}) => {
   if (compact) {
     return (
       <p className="mt-1 text-muted-foreground tabular-nums [overflow-wrap:anywhere]">
@@ -55,4 +55,4 @@ export function MoneyValues({
       </p>
     </div>
   );
-}
+};

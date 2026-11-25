@@ -131,7 +131,7 @@ export async function savePresetDraft(
   }
 }
 
-export function PresetDialog({
+export const PresetDialog = ({
   open,
   onOpenChange,
   editing,
@@ -141,7 +141,7 @@ export function PresetDialog({
   onOpenChange: (open: boolean) => void;
   editing: Preset | null;
   onSave: (draft: PresetDraft) => Promise<void>;
-}) {
+}) => {
   const [draft, setDraft] = useState<PresetDraft>(
     editing ? presetDraft(editing) : EMPTY_PRESET_DRAFT,
   );
@@ -316,4 +316,4 @@ export function PresetDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

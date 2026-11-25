@@ -88,7 +88,7 @@ export function useSnoozeControls(client: SnoozeClient): SnoozeControls {
   return useSyncExternalStore(client.subscribe, client.getSnapshot).controls ?? NO_CONTROLS;
 }
 
-export function SnoozeOwner({ client }: { client: SnoozeClient }) {
+export const SnoozeOwner = ({ client }: { client: SnoozeClient }) => {
   const {
     threads,
     status,
@@ -131,4 +131,4 @@ export function SnoozeOwner({ client }: { client: SnoozeClient }) {
     });
   }, [threads, threadsReady, snoozes]);
   return null;
-}
+};

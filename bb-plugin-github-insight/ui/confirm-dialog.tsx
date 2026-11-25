@@ -16,7 +16,7 @@ interface ConfirmDialogProps {
   confirm: () => void;
 }
 
-export function ConfirmDialog({
+export const ConfirmDialog = ({
   title,
   description,
   confirmLabel,
@@ -25,7 +25,7 @@ export function ConfirmDialog({
   open,
   onOpenChange,
   confirm,
-}: ConfirmDialogProps) {
+}: ConfirmDialogProps) => {
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger && <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger>}
@@ -54,4 +54,4 @@ export function ConfirmDialog({
       </AlertDialog.Portal>
     </AlertDialog.Root>
   );
-}
+};

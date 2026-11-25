@@ -14,10 +14,10 @@ import {
   row,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const prompt = "Select a ticket to view and edit";
 const keys = (slot: ReturnType<typeof setup>) =>
   [...slot.container.querySelectorAll<HTMLElement>("[data-task-key]")].map(

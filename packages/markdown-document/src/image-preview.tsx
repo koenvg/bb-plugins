@@ -27,12 +27,12 @@ const PreviewContext = createContext<{
   session: PresentationSession;
 } | null>(null);
 
-export function ImagePreviewBoundary({
+export const ImagePreviewBoundary = ({
   model,
   policy,
   view,
   children,
-}: PresentationSession & { children: ReactNode }) {
+}: PresentationSession & { children: ReactNode }) => {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const session = useMemo(() => ({ model, policy, view }), [model, policy, view]);
   const value = useMemo(() => ({ container, session }), [container, session]);
@@ -42,7 +42,7 @@ export function ImagePreviewBoundary({
       <div ref={setContainer} className="mr-image-preview-host" />
     </PreviewContext.Provider>
   );
-}
+};
 
 function requestAttributes(source: DisplayImage) {
   return {
@@ -55,7 +55,7 @@ function requestAttributes(source: DisplayImage) {
   };
 }
 
-export function ImagePresentation({
+export const ImagePresentation = ({
   source,
   alt,
   title,
@@ -65,7 +65,7 @@ export function ImagePresentation({
   alt: string;
   title?: string;
   onInlineError: () => void;
-}) {
+}) => {
   const host = useContext(PreviewContext);
   const trigger = useRef<HTMLButtonElement>(null);
   const image = useRef<HTMLImageElement>(null);
@@ -133,9 +133,9 @@ export function ImagePresentation({
         : null}
     </>
   );
-}
+};
 
-function ImageDialog({
+const ImageDialog = ({
   source,
   label,
   dialog,
@@ -147,7 +147,7 @@ function ImageDialog({
   dialog: RefObject<HTMLDialogElement | null>;
   trigger: RefObject<HTMLButtonElement | null>;
   close: () => void;
-}) {
+}) => {
   const closeButton = useRef<HTMLButtonElement>(null);
   const backdrop = useRef<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -245,4 +245,4 @@ function ImageDialog({
       )}
     </dialog>
   );
-}
+};

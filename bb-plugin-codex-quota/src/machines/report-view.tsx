@@ -17,7 +17,7 @@ type Props = {
   prepare(input: PreparationRequest): Promise<unknown>;
 };
 /** Existing visible-page preparation owns ingestion. Date and metric changes remain read-only. */
-export function MachineReportPanel({ now, read, snapshot, prepare }: Props) {
+export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
   const [timezone] = useState(() => {
     try {
       const value = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -297,4 +297,4 @@ export function MachineReportPanel({ now, read, snapshot, prepare }: Props) {
       )}
     </section>
   );
-}
+};

@@ -31,7 +31,7 @@ function selectedValue(summary: Summary, state: string, metric: ComparisonMetric
   }
   return metric === "tokens" ? tokenSubtotal(summary, state) : activeValue(summary, state);
 }
-export function CalendarComparison({
+export const CalendarComparison = ({
   view,
   metric,
   blocked,
@@ -39,7 +39,7 @@ export function CalendarComparison({
   view: CalendarSnapshot;
   metric: ComparisonMetric;
   blocked: boolean;
-}) {
+}) => {
   const comparison = view.comparison;
   if (!comparison) {
     return null;
@@ -119,4 +119,4 @@ export function CalendarComparison({
       )}
     </section>
   );
-}
+};

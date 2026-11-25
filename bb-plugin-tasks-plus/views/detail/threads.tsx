@@ -20,13 +20,13 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
-function ThreadPullRequestPill({
+const ThreadPullRequestPill = ({
   pullRequest,
   unavailable,
 }: {
   pullRequest: TaskPullRequest | undefined;
   unavailable: boolean;
-}) {
+}) => {
   if (pullRequest) {
     const meta = PR_STATE_META[pullRequest.state];
     return (
@@ -53,9 +53,9 @@ function ThreadPullRequestPill({
     );
   }
   return null;
-}
+};
 
-function ThreadCard({
+const ThreadCard = ({
   thread,
   pullRequest,
   pullRequestUnavailable,
@@ -67,7 +67,7 @@ function ThreadCard({
   pullRequestUnavailable: boolean;
   busy: boolean;
   onDetach: () => void;
-}) {
+}) => {
   const navigate = useBbNavigate();
   const meta = THREAD_STATUS_META[thread.liveStatus];
   return (
@@ -105,7 +105,7 @@ function ThreadCard({
       </button>
     </div>
   );
-}
+};
 
 const LAST_PRESET_STORAGE_KEY = "bb-tasks:last-dispatch-preset";
 
@@ -134,7 +134,7 @@ interface DispatchControlProps {
   onMenuReadinessChange?: (ready: boolean) => void;
 }
 
-export function DispatchControl({
+export const DispatchControl = ({
   task,
   presets,
   onError,
@@ -143,7 +143,7 @@ export function DispatchControl({
   open,
   onOpenChange,
   onMenuReadinessChange,
-}: DispatchControlProps) {
+}: DispatchControlProps) => {
   const rpc = useRpc<DelegationRpcContract>();
   const tasksRpc = useTasksRpc();
   const [dispatching, setDispatching] = useState(false);
@@ -266,7 +266,7 @@ export function DispatchControl({
       {blockedWorkDialog}
     </>
   );
-}
+};
 
 interface ThreadsSectionProps {
   threads: TaskThread[];
@@ -276,13 +276,13 @@ interface ThreadsSectionProps {
   onError: (message: string) => void;
 }
 
-export function ThreadsSection({
+export const ThreadsSection = ({
   threads,
   pullRequests,
   unavailableThreadIds,
   onDetach,
   onError,
-}: ThreadsSectionProps) {
+}: ThreadsSectionProps) => {
   const [confirm, setConfirm] = useState<TaskThread | null>(null);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
 
@@ -344,4 +344,4 @@ export function ThreadsSection({
       />
     </section>
   );
-}
+};

@@ -141,13 +141,13 @@ function onlyAgentState(section: QueueSection, state: AgentState): QueueSection 
     .filter((group) => group.prs.length > 0);
 }
 
-export function ReviewQueueLists({
+export const ReviewQueueLists = ({
   queue,
   selected,
 }: {
   queue: ReviewQueueState;
   selected: PullRequestRef | null;
-}) {
+}) => {
   const { view, error, refreshing, refresh } = queue;
   const rpc = useRpc<typeof rpcContract>();
   const [archived, setArchived] = useState<ReadonlySet<string>>(new Set());
@@ -285,9 +285,9 @@ export function ReviewQueueLists({
       )}
     </div>
   );
-}
+};
 
-function CaughtUp() {
+const CaughtUp = () => {
   return (
     <div
       role="status"
@@ -302,9 +302,9 @@ function CaughtUp() {
       </p>
     </div>
   );
-}
+};
 
-function ActionError({ message }: { message: string }) {
+const ActionError = ({ message }: { message: string }) => {
   return (
     <div
       role="alert"
@@ -314,9 +314,9 @@ function ActionError({ message }: { message: string }) {
       <span className="break-words text-destructive">{message}</span>
     </div>
   );
-}
+};
 
-function FilteredEmpty({ showAll }: { showAll(): void }) {
+const FilteredEmpty = ({ showAll }: { showAll(): void }) => {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
       No pull requests match this filter
@@ -329,9 +329,9 @@ function FilteredEmpty({ showAll }: { showAll(): void }) {
       </button>
     </div>
   );
-}
+};
 
-function AgentFilter({
+const AgentFilter = ({
   section,
   active,
   onChange,
@@ -339,7 +339,7 @@ function AgentFilter({
   section: QueueSection;
   active: ActiveAgentState | null;
   onChange(state: ActiveAgentState | null): void;
-}) {
+}) => {
   const shown = ACTIVE_AGENT_STATES.map((state) => ({
     state,
     count: countOf(onlyAgentState(section, state)),
@@ -372,7 +372,7 @@ function AgentFilter({
       })}
     </div>
   );
-}
+};
 
 interface CardHandlers {
   busy(pr: LinkedQueuePr): boolean;
@@ -393,7 +393,7 @@ interface QueueSectionViewProps {
   collapsible?: boolean;
 }
 
-function QueueSectionView({
+const QueueSectionView = ({
   label,
   section,
   count,
@@ -403,7 +403,7 @@ function QueueSectionView({
   headerEnd,
   footer,
   collapsible = false,
-}: QueueSectionViewProps) {
+}: QueueSectionViewProps) => {
   const [expanded, setExpanded] = useState(!collapsible);
   const title = (
     <>
@@ -480,17 +480,17 @@ function QueueSectionView({
       {footer}
     </section>
   );
-}
+};
 
-function Separator() {
+const Separator = () => {
   return (
     <span aria-hidden="true" className="text-subtle-foreground">
       ·
     </span>
   );
-}
+};
 
-function QueueRow({
+const QueueRow = ({
   pr,
   actions,
   quiet,
@@ -498,7 +498,7 @@ function QueueRow({
   pr: LinkedQueuePr;
   actions: CardHandlers;
   quiet: boolean;
-}) {
+}) => {
   const ci = CI_MARK[pr.ci];
   const decision = pr.reviewDecision === null ? null : REVIEW_DECISION_LABEL[pr.reviewDecision];
   const attention = attentionLabels(pr);
@@ -594,12 +594,12 @@ function QueueRow({
       <RowActions pr={pr} actions={actions} />
     </li>
   );
-}
+};
 
 const HEX_COLOR = /^[0-9a-f]{6}$/i;
 const BLOCKING_LABEL = /\bdo not\b/i;
 
-function LabelChip({ label }: { label: PrLabel }) {
+const LabelChip = ({ label }: { label: PrLabel }) => {
   const validColor = HEX_COLOR.test(label.color);
   const blocking = BLOCKING_LABEL.test(label.name);
   return (
@@ -620,9 +620,9 @@ function LabelChip({ label }: { label: PrLabel }) {
       {label.name}
     </span>
   );
-}
+};
 
-function YourReviewChip({ review }: { review: QueuePr["yourReview"] }) {
+const YourReviewChip = ({ review }: { review: QueuePr["yourReview"] }) => {
   if (review === null)
     return (
       <span data-testid="queue-your-review" className={cn(LABEL_CLASS, "border-dashed")}>
@@ -643,9 +643,9 @@ function YourReviewChip({ review }: { review: QueuePr["yourReview"] }) {
       {verdict.text}
     </span>
   );
-}
+};
 
-function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers }) {
+const RowActions = ({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers }) => {
   const navigation = usePullRequestsNavigation();
   const thread = pr.thread;
   const busy = actions.busy(pr);
@@ -718,9 +718,9 @@ function RowActions({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
       </IconTooltip>
     </div>
   );
-}
+};
 
-function ThreadStatusButton({ state, onClick }: { state: AgentState; onClick(): void }) {
+const ThreadStatusButton = ({ state, onClick }: { state: AgentState; onClick(): void }) => {
   const agent = AGENT[state];
   return (
     <PillButton
@@ -734,9 +734,9 @@ function ThreadStatusButton({ state, onClick }: { state: AgentState; onClick(): 
       <span data-testid="review-status">{agent.label}</span>
     </PillButton>
   );
-}
+};
 
-function PillButton({
+const PillButton = ({
   toneClass,
   leading,
   onClick,
@@ -746,7 +746,7 @@ function PillButton({
   leading: ReactNode;
   onClick(): void;
   children: ReactNode;
-}) {
+}) => {
   return (
     <button type="button" className={cn(STATUS_PILL_CLASS, toneClass)} onClick={onClick}>
       {leading}
@@ -757,4 +757,4 @@ function PillButton({
       />
     </button>
   );
-}
+};

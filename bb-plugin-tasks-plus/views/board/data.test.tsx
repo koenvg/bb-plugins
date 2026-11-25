@@ -10,7 +10,7 @@ import { useBoardData } from "./data.js";
 
 const first = makeTask({ id: "task-1", projectId: "project-1" });
 const second = makeTask({ id: "task-2", projectId: "project-2", key: "OTHER-1" });
-function Probe() {
+const Probe = () => {
   const [projectId, setProjectId] = useState("project-1");
   const board = useBoardData(projectId);
   return (
@@ -25,7 +25,7 @@ function Probe() {
       </output>
     </>
   );
-}
+};
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {

@@ -75,7 +75,7 @@ const CHILD_INDENT = 24;
 
 type Provider = ExperimentalProviderIconProps["provider"] & { displayName?: string };
 
-function ProviderGlyph({
+const ProviderGlyph = ({
   thread,
   provider,
   quiet,
@@ -83,7 +83,7 @@ function ProviderGlyph({
   thread: PluginSidebarThread;
   provider: Provider;
   quiet: boolean;
-}) {
+}) => {
   const dot = needsAttention(thread) ? "bg-destructive" : thread.isUnread ? "bg-primary" : null;
   return (
     <Tip
@@ -106,7 +106,7 @@ function ProviderGlyph({
       </span>
     </Tip>
   );
-}
+};
 
 const STATE_TONE = {
   danger: "bg-destructive/10 text-destructive",
@@ -114,7 +114,7 @@ const STATE_TONE = {
   muted: "text-muted-foreground",
 };
 
-function StateOrTime({
+const StateOrTime = ({
   thread,
   hasDraft,
   now,
@@ -124,7 +124,7 @@ function StateOrTime({
   hasDraft: boolean;
   now: number;
   wakeAt: number | undefined;
-}) {
+}) => {
   const state = rowState(thread, hasDraft);
   const fade =
     "transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0 group-has-[[aria-haspopup=menu][aria-expanded=true]]/row:opacity-0 [@media(hover:none)]:hidden";
@@ -154,15 +154,15 @@ function StateOrTime({
       {state.label === "Working" ? <span className="sr-only">{state.label}</span> : state.label}
     </span>
   );
-}
+};
 
-function RowDetail({
+const RowDetail = ({
   thread,
   rowStatus,
 }: {
   thread: PluginSidebarThread;
   rowStatus: PluginSidebarThreadRowStatus | null;
-}) {
+}) => {
   const items = workItems(thread);
   if (rowStatus)
     items.unshift({
@@ -201,9 +201,9 @@ function RowDetail({
       ))}
     </span>
   );
-}
+};
 
-function ThreadRow({
+const ThreadRow = ({
   item,
   provider,
   activeThreadId,
@@ -229,7 +229,7 @@ function ThreadRow({
   sdk: PluginBrowserBbSdk;
   sections: readonly PluginSidebarSection[];
   pinned: readonly PluginSidebarThread[];
-}) {
+}) => {
   const { thread } = item;
   const actions = useThreadListActions(thread);
   const { hasUnsubmittedDraft } = useSidebarThreadDraft(thread.id);
@@ -344,7 +344,7 @@ function ThreadRow({
       </div>
     </div>
   );
-}
+};
 
 const TABS: { value: Tab; label: string; empty: string }[] = [
   { value: "attention", label: "Needs attention", empty: "Nothing needs you." },
@@ -413,7 +413,7 @@ function listOptionItems(
   ];
 }
 
-function TabBar({
+const TabBar = ({
   tab,
   panelId,
   onSelect,
@@ -421,7 +421,7 @@ function TabBar({
   tab: Tab;
   panelId: string;
   onSelect: (tab: Tab) => void;
-}) {
+}) => {
   const ids = useId();
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
     const index = TABS.findIndex(({ value }) => value === tab);
@@ -463,9 +463,9 @@ function TabBar({
       ))}
     </div>
   );
-}
+};
 
-function GroupHeader({
+const GroupHeader = ({
   item,
   onToggle,
   onNewThread,
@@ -475,7 +475,7 @@ function GroupHeader({
   onToggle: () => void;
   onNewThread: (() => void) | null;
   menu: MenuItem[];
-}) {
+}) => {
   const urgent = item.scope.kind === "attention";
   const badge =
     item.scope.kind === "project" ? projectBadge(item.scope.projectId, item.label) : null;
@@ -534,9 +534,9 @@ function GroupHeader({
       </div>
     </div>
   );
-}
+};
 
-function ThreadList(props: PluginThreadListProps & { snoozeClient: SnoozeClient }) {
+const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient }) => {
   const [prefs, setPrefs] = useState(readPreferences);
   const lifecycles = prefs.tab === "all" ? prefs.lifecycles : ACTIVE_ONLY;
   const {
@@ -779,7 +779,7 @@ function ThreadList(props: PluginThreadListProps & { snoozeClient: SnoozeClient 
       </div>
     </div>
   );
-}
+};
 
 export default definePluginApp((app) => {
   const snoozeClient = createSnoozeClient();

@@ -163,7 +163,10 @@ interface MobileTriggerProps {
 export const MobileTrigger = React.forwardRef<
   HTMLButtonElement,
   MobileTriggerProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, keyof MobileTriggerProps>
->(({ asChild, open, onOpenChange, haspopup, onClick, children, className, ...domProps }, ref) => {
+>(function (
+  { asChild, open, onOpenChange, haspopup, onClick, children, className, ...domProps },
+  ref,
+) {
   const triggerClassName = getOverlayTriggerClassName(className);
   const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     onClick?.(e);
@@ -304,7 +307,7 @@ export function useResponsiveDrawerRealization({
   };
 }
 
-export function ResponsiveDrawerShell({
+export const ResponsiveDrawerShell = ({
   open,
   onOpenChange,
   onAfterCloseAutoFocus,
@@ -316,7 +319,7 @@ export function ResponsiveDrawerShell({
   contentClassName,
   onContentAnimationEnd,
   children,
-}: ResponsiveDrawerShellProps) {
+}: ResponsiveDrawerShellProps) => {
   const { isContentRealized } = useResponsiveDrawerRealization({ open });
   const [wasOpen, setWasOpen] = React.useState(open);
   React.useLayoutEffect(() => setWasOpen(open), [open]);
@@ -346,7 +349,7 @@ export function ResponsiveDrawerShell({
       )}
     </PersistentResponsiveDrawerShell>
   );
-}
+};
 
 interface PersistentResponsiveDrawerShellProps {
   open: boolean;
@@ -569,7 +572,7 @@ type PersistentDrawerDrag = {
   height: number;
 };
 
-export function PersistentResponsiveDrawerShell({
+export const PersistentResponsiveDrawerShell = ({
   open,
   onOpenChange,
   onAfterCloseAutoFocus,
@@ -582,7 +585,7 @@ export function PersistentResponsiveDrawerShell({
   motionDurationMs = 220,
   onContentAnimationEnd,
   children,
-}: PersistentResponsiveDrawerShellProps) {
+}: PersistentResponsiveDrawerShellProps) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const backdropRef = React.useRef<HTMLDivElement>(null);
   const dragRef = React.useRef<PersistentDrawerDrag | null>(null);
@@ -782,4 +785,4 @@ export function PersistentResponsiveDrawerShell({
     </>,
     portalTarget,
   );
-}
+};

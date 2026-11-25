@@ -27,7 +27,7 @@ const observation = (execution = "working"): TaskWorkStatus => ({
     },
   ],
 });
-function Probe({ ids, scope }: { ids: string[]; scope: string }) {
+const Probe = ({ ids, scope }: { ids: string[]; scope: string }) => {
   const query = useTaskListMeta(
     ids.map((id) => makeTask({ id })),
     scope,
@@ -39,14 +39,14 @@ function Probe({ ids, scope }: { ids: string[]; scope: string }) {
       <output>{JSON.stringify(query.data ? [...query.data] : "loading")}</output>
     </>
   );
-}
-function Root(props: { ids: string[]; scope: string }) {
+};
+const Root = (props: { ids: string[]; scope: string }) => {
   return (
     <TasksRefreshProvider>
       <Probe {...props} />
     </TasksRefreshProvider>
   );
-}
+};
 const result = (ids: string[], execution = "working") => ({
   byTaskId: Object.fromEntries(ids.map((id) => [id, observation(execution)])),
 });

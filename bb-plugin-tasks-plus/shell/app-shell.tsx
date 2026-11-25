@@ -33,7 +33,7 @@ const BOARD_MIN_WIDTH = 448;
 
 // Scope identity resets list-local query snapshots and controls together. Do
 // not key this outlet by a future selected ticket: selection must retain the list.
-function RouteOutlet({
+const RouteOutlet = ({
   route,
   boardUsable,
   noProjects,
@@ -41,7 +41,7 @@ function RouteOutlet({
   route: ResolvedTasksRoute;
   boardUsable: boolean;
   noProjects: boolean;
-}) {
+}) => {
   switch (route.kind) {
     case "entry":
       return null;
@@ -63,9 +63,9 @@ function RouteOutlet({
         <BrowseWorkspace key={route.projectId} route={route} noProjects={noProjects} />
       );
   }
-}
+};
 
-function TasksAppShellContent({ subPath: requestedSubPath }: PluginNavPanelProps) {
+const TasksAppShellContent = ({ subPath: requestedSubPath }: PluginNavPanelProps) => {
   const subPath = useSafeTaskTarget(requestedSubPath);
   const tasksNavigation = useTasksNavigation();
   const projects = useProjects();
@@ -219,9 +219,9 @@ function TasksAppShellContent({ subPath: requestedSubPath }: PluginNavPanelProps
       </div>
     </TaskCommandProvider>
   );
-}
+};
 
-export function TasksAppShell(props: PluginNavPanelProps) {
+export const TasksAppShell = (props: PluginNavPanelProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
   return (
     <TasksRefreshProvider>
@@ -234,4 +234,4 @@ export function TasksAppShell(props: PluginNavPanelProps) {
       </ShortcutProvider>
     </TasksRefreshProvider>
   );
-}
+};

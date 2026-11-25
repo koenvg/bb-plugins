@@ -9,9 +9,14 @@ import {
   writeListScroll,
 } from "../views/list/scroll-restoration.js";
 import { rpcInput } from "../test-fixtures.js";
-import { panel, setup, tasks, useWorkspaceTestLifecycle } from "./browse-workspace.test-support.js";
+import {
+  panel,
+  setup,
+  tasks,
+  registerWorkspaceTestLifecycle,
+} from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const TasksPage = panel.component;
 const records = TASK_STATUSES.map((status, index) => ({
   ...tasks[0]!,
