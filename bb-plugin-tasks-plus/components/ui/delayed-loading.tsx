@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 const LOADING_REVEAL_DELAY_MS = 200;
 
-export function DelayedLoading({ children }: { children: ReactNode }) {
+export const DelayedLoading = ({ children }: { children: ReactNode }) => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -11,4 +11,4 @@ export function DelayedLoading({ children }: { children: ReactNode }) {
   }, []);
 
   return visible ? children : null;
-}
+};

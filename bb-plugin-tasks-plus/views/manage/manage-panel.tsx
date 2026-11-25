@@ -47,7 +47,7 @@ function useActionError() {
   return { error, setError, run };
 }
 
-function LabelEditorRow({
+const LabelEditorRow = ({
   initialName,
   initialColor,
   submitLabel,
@@ -59,7 +59,7 @@ function LabelEditorRow({
   submitLabel: string;
   onSubmit: (name: string, color: string) => Promise<boolean>;
   onCancel?: () => void;
-}) {
+}) => {
   const [name, setName] = useState(initialName);
   const [color, setColor] = useState(initialColor);
   const submit = () => {
@@ -101,9 +101,9 @@ function LabelEditorRow({
       ) : null}
     </div>
   );
-}
+};
 
-function LabelsSection() {
+const LabelsSection = () => {
   const rpc = useTasksRpc();
   const projects = useProjects();
   const projectList = projects.data ?? [];
@@ -254,9 +254,9 @@ function LabelsSection() {
       />
     </div>
   );
-}
+};
 
-function PresetsSection() {
+const PresetsSection = () => {
   const rpc = useTasksRpc();
   const presets = usePresets();
   const machines = useTasksQuery(async (rpc) => (await rpc.call("listMachines", {})).machines, []);
@@ -386,11 +386,11 @@ function PresetsSection() {
       ) : null}
     </div>
   );
-}
+};
 
 const ROOT_PARENT = "__root__";
 
-function FolderRow({
+const FolderRow = ({
   folder,
   rootFolders,
   onRename,
@@ -402,7 +402,7 @@ function FolderRow({
   onRename: (name: string) => Promise<boolean>;
   onMove: (parentFolderId: string | null) => Promise<boolean>;
   onDelete: () => void;
-}) {
+}) => {
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(folder.name);
   const parentOptions = rootFolders.filter((entry) => entry.id !== folder.id);
@@ -490,9 +490,9 @@ function FolderRow({
       )}
     </div>
   );
-}
+};
 
-function FoldersSection() {
+const FoldersSection = () => {
   const rpc = useTasksRpc();
   const folders = useFolders();
   const projects = useProjects();
@@ -595,9 +595,9 @@ function FoldersSection() {
       />
     </div>
   );
-}
+};
 
-export function ManagePanel() {
+export const ManagePanel = () => {
   const [tab, setTab] = useState("labels");
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4">
@@ -630,4 +630,4 @@ export function ManagePanel() {
       </Tabs>
     </div>
   );
-}
+};

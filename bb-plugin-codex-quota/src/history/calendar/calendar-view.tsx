@@ -50,13 +50,13 @@ const graphFilterHelp =
   "Graph filters affect bars only. Recorded totals and table include all series. Uncertain estimates are not filtered.";
 const legendButton =
   "inline-flex min-w-0 pointer-coarse:min-w-[44px] pointer-coarse:min-h-[44px] max-w-full items-center gap-2 m-0 appearance-none border-0 bg-transparent p-0 text-left [font:inherit] [color:inherit] focus-visible:outline-2 focus-visible:outline-ring";
-export function CalendarValues({
+export const CalendarValues = ({
   view,
   metric,
 }: {
   view: Pick<CalendarSnapshot, "query" | "days"> & { state?: CalendarSnapshot["state"] };
   metric: TokenMetric;
-}) {
+}) => {
   const query = JSON.stringify(view.query);
   const helpId = useId();
   const group = useRef<HTMLDivElement>(null);
@@ -308,4 +308,4 @@ export function CalendarValues({
       </div>
     </div>
   );
-}
+};

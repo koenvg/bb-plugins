@@ -20,7 +20,7 @@ function parseTarget(params: unknown): { rowId?: string | null; overview?: boole
   return { rowId: value.rowId };
 }
 
-export function SubagentsPanel({ threadId, params }: ExperimentalThreadActionTabProps) {
+export const SubagentsPanel = ({ threadId, params }: ExperimentalThreadActionTabProps) => {
   const current = useSubagentsHistory(threadId);
   const target = parseTarget(params);
   return (
@@ -34,4 +34,4 @@ export function SubagentsPanel({ threadId, params }: ExperimentalThreadActionTab
       overview={target.overview}
     />
   );
-}
+};

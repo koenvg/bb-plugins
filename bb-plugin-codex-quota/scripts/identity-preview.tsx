@@ -66,7 +66,7 @@ export const syntheticHistory: HistoryReadiness = {
     },
   },
 };
-function Preview() {
+const Preview = () => {
   const [hostId, setHostId] = useState<string | null>("synthetic-host");
   return (
     <>
@@ -109,5 +109,5 @@ function Preview() {
       />
     </>
   );
-}
+};
 createRoot(document.getElementById("root")!).render(<Preview />);

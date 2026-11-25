@@ -17,7 +17,7 @@ const MenuHoverContext = React.createContext<MenuHoverContextValue>({
   clearLastHovered: () => {},
 });
 
-export function MenuHoverProvider({ children }: { children: React.ReactNode }) {
+export const MenuHoverProvider = ({ children }: { children: React.ReactNode }) => {
   const [lastHoveredId, setLastHoveredId] = React.useState<string | null>(null);
   const value = React.useMemo<MenuHoverContextValue>(
     () => ({
@@ -28,7 +28,7 @@ export function MenuHoverProvider({ children }: { children: React.ReactNode }) {
     [lastHoveredId],
   );
   return <MenuHoverContext.Provider value={value}>{children}</MenuHoverContext.Provider>;
-}
+};
 
 export interface MenuItemHoverProps {
   "data-last-hovered": "" | undefined;

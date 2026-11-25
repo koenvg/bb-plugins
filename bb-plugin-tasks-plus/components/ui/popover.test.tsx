@@ -20,13 +20,13 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function Fixture({
+const Fixture = ({
   onClose,
   removeTrigger = false,
 }: {
   onClose: (event: Event) => void;
   removeTrigger?: boolean;
-}) {
+}) => {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   return (
@@ -51,7 +51,7 @@ function Fixture({
       </Popover>
     </>
   );
-}
+};
 
 for (const isCompact of [false, true]) {
   describe(`popover close focus, compact=${isCompact}`, () => {

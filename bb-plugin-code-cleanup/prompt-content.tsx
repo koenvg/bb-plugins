@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { IconAction } from "./icon-action";
 
-export function PromptContent({
+export const PromptContent = ({
   draft,
   disabled,
   dirty,
@@ -12,7 +12,7 @@ export function PromptContent({
   disabled: boolean;
   dirty: boolean;
   onChange: (text: string) => void;
-}) {
+}) => {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const editTab = useRef<HTMLButtonElement>(null);
   const previewTab = useRef<HTMLButtonElement>(null);
@@ -120,4 +120,4 @@ export function PromptContent({
       </p>
     </div>
   );
-}
+};

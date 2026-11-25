@@ -4,7 +4,7 @@ import type { useProjectOverview } from "./use-project-overview";
 
 type Overview = ReturnType<typeof useProjectOverview>;
 
-export function ProjectOverview({
+export const ProjectOverview = ({
   overview,
   blocked,
   onEdit,
@@ -14,7 +14,7 @@ export function ProjectOverview({
   blocked: boolean;
   onEdit: (id: string, trigger: HTMLButtonElement) => void;
   activeProjectId?: string;
-}) {
+}) => {
   const { rows, reading, readError, pending, writeError, saved } = overview;
   const disabled = blocked || !!pending || !!readError;
   function persist(row: ProjectSummary, value: boolean | null) {
@@ -127,4 +127,4 @@ export function ProjectOverview({
       {saved && <p role="status">{saved}</p>}
     </section>
   );
-}
+};

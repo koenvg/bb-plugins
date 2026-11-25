@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { PRIMARY_BUTTON, TEXTAREA } from "./controls";
 import { messageOf } from "./error-message";
 
-export function PrCommentComposer({
+export const PrCommentComposer = ({
   threadId,
   prNodeId,
   onPosted,
@@ -13,7 +13,7 @@ export function PrCommentComposer({
   threadId: string;
   prNodeId: string;
   onPosted: () => Promise<void>;
-}) {
+}) => {
   const rpc = useRpc<typeof rpcContract>();
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
@@ -63,4 +63,4 @@ export function PrCommentComposer({
       </button>
     </div>
   );
-}
+};

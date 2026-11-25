@@ -67,7 +67,13 @@ export async function uploadAttachment(
   return { attachmentId: result.attachmentId, url: result.url };
 }
 
-export function Lightbox({ attachment, onClose }: { attachment: Attachment; onClose: () => void }) {
+export const Lightbox = ({
+  attachment,
+  onClose,
+}: {
+  attachment: Attachment;
+  onClose: () => void;
+}) => {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -106,9 +112,9 @@ export function Lightbox({ attachment, onClose }: { attachment: Attachment; onCl
       </button>
     </div>
   );
-}
+};
 
-function RemovalSpinner() {
+const RemovalSpinner = () => {
   return (
     <span
       role="status"
@@ -116,9 +122,9 @@ function RemovalSpinner() {
       className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
     />
   );
-}
+};
 
-export function AttachmentsGrid({
+export const AttachmentsGrid = ({
   attachments,
   onRemove,
   onError,
@@ -128,7 +134,7 @@ export function AttachmentsGrid({
   onRemove: (attachment: Attachment) => Promise<void>;
   onError: (message: string) => void;
   onPreview?: (attachment: Attachment, trigger: HTMLElement) => void;
-}) {
+}) => {
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
   const [confirm, setConfirm] = useState<Attachment | null>(null);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
@@ -278,4 +284,4 @@ export function AttachmentsGrid({
       />
     </div>
   );
-}
+};

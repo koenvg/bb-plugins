@@ -30,13 +30,13 @@ const ShortcutRegistryContext = createContext<{
   registerScope(root: RefObject<HTMLElement | null>): () => void;
 } | null>(null);
 
-export function ShortcutProvider({
+export const ShortcutProvider = ({
   rootRef,
   children,
 }: {
   rootRef: RefObject<HTMLElement | null>;
   children: ReactNode;
-}) {
+}) => {
   const registrations = useRef<HandlersRef[]>([]);
   const scopes = useRef<RefObject<HTMLElement | null>[]>([]);
   const registry = useRef({
@@ -91,7 +91,7 @@ export function ShortcutProvider({
       {children}
     </ShortcutRegistryContext.Provider>
   );
-}
+};
 
 /** Include plugin-owned portal content without claiming the host's other tabs. */
 export function useShortcutScope(root: RefObject<HTMLElement | null>): void {

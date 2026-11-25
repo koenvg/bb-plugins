@@ -29,13 +29,13 @@ const reasonText: Record<ImportView["reason"], string> = {
 };
 const button =
   "rounded-md border border-border px-3 py-2 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50";
-export function ImportPanel({
+export const ImportPanel = ({
   selection,
   selectionPending = false,
   selectionRevision = 0,
   isActive,
   call,
-}: Props) {
+}: Props) => {
   const key = `${selection.hostId ?? ""}:${selection.generation}:${selectionRevision}:${selectionPending}`;
   const currentKey = useRef(key);
   currentKey.current = key;
@@ -260,4 +260,4 @@ export function ImportPanel({
       </p>
     </details>
   );
-}
+};

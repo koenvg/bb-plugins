@@ -44,7 +44,7 @@ async function read(query: CalendarQuery) {
   return report(query);
 }
 const settled = async () => ({ state: "settled" as const, progress: "backend-fixture" });
-function Preview() {
+const Preview = () => {
   const [scope, setScope] = useState(new URLSearchParams(location.search).get("scope") ?? "all");
   return (
     <main className="mx-auto max-w-5xl p-5 text-foreground">
@@ -104,6 +104,6 @@ function Preview() {
       )}
     </main>
   );
-}
+};
 Object.assign(window, { nativeUsageFixture: { calls, reports } });
 createRoot(document.getElementById("root")!).render(<Preview />);

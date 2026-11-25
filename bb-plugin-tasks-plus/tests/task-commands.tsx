@@ -100,7 +100,7 @@ const presets = [
   },
 ];
 type PendingCommand = (() => void) | null;
-function Fixture() {
+const Fixture = () => {
   const [subPath, setSubPath] = useState(
     new URLSearchParams(window.location.search).has("home") ? "all" : "task/TSK-1",
   );
@@ -232,7 +232,7 @@ function Fixture() {
       </Dialog.Root>
     </>
   );
-}
+};
 const slot = renderSlot(
   { component: Fixture },
   {},

@@ -13,13 +13,13 @@ export const ticketRegistration = app.tabs.find(
     tab.context.panelId === "tasks",
 )!;
 const TasksPage = panel.component;
-export function Panel({
+export const Panel = ({
   subPath,
   ticketVisible = true,
 }: {
   subPath: string;
   ticketVisible?: boolean;
-}) {
+}) => {
   const Ticket = ticketRegistration.component;
   return (
     <>
@@ -27,7 +27,7 @@ export function Panel({
       {ticketVisible && <Ticket subPath={subPath} />}
     </>
   );
-}
+};
 export const project = {
   id: "01HZZZZZZZZZZZZZZZZZZZZZP1",
   name: "Tasks Plugin",
@@ -49,7 +49,7 @@ export const tasks = [1, 2, 3].map((n) =>
   }),
 );
 export const panelSize = { width: 1000 };
-export function useWorkspaceTestLifecycle() {
+export function registerWorkspaceTestLifecycle() {
   beforeEach(() => {
     panelSize.width = 1000;
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (

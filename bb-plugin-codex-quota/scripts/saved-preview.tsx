@@ -79,7 +79,7 @@ function observation(query: CalendarQuery, tokens: number, cached: boolean) {
 const app = await loadPluginApp(() => import("../src/plugin/app.js"));
 const tooltipCommits: { subtotal: string | null; models: string[] }[] = [];
 const Panel = app.navPanels[0]!.component;
-function ObservedPanel(props: { subPath: string }) {
+const ObservedPanel = (props: { subPath: string }) => {
   return (
     <Profiler
       id="cost-tooltip-coherence"
@@ -97,7 +97,7 @@ function ObservedPanel(props: { subPath: string }) {
       <Panel {...props} />
     </Profiler>
   );
-}
+};
 const options = {
   rpc: {
     machineAccounts: async () => {

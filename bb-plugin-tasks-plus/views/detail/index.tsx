@@ -68,7 +68,7 @@ function shownPropertiesLayout(root: HTMLElement | null): PropertiesLayout {
 const DESCRIPTION_SAVE_DELAY_MS = 800;
 const ACTIVE_PULL_REQUEST_REFRESH_MS = 60_000;
 
-function SubTaskDonut({ subtasks, onClick }: { subtasks: Task[]; onClick: () => void }) {
+const SubTaskDonut = ({ subtasks, onClick }: { subtasks: Task[]; onClick: () => void }) => {
   if (subtasks.length === 0) return null;
   const done = subtasks.filter((subtask) => subtask.status === "done").length;
   const degrees = (done / subtasks.length) * 360;
@@ -89,9 +89,9 @@ function SubTaskDonut({ subtasks, onClick }: { subtasks: Task[]; onClick: () => 
       {done}/{subtasks.length} sub-tasks
     </button>
   );
-}
+};
 
-function EditableTitle({
+const EditableTitle = ({
   task,
   onChange,
   onSave,
@@ -99,7 +99,7 @@ function EditableTitle({
   task: Task;
   onChange: (title: string) => void;
   onSave: () => void;
-}) {
+}) => {
   const ref = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
     if (ref.current && ref.current.textContent !== task.title) ref.current.textContent = task.title;
@@ -122,9 +122,9 @@ function EditableTitle({
       onBlur={onSave}
     />
   );
-}
+};
 
-function SubTasksSection({
+const SubTasksSection = ({
   ref,
   task,
   subtasks,
@@ -134,7 +134,7 @@ function SubTasksSection({
   task: Task;
   subtasks: Task[];
   onCreate: (title: string) => Promise<boolean>;
-}) {
+}) => {
   const navigation = useTasksNavigation();
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
@@ -197,9 +197,9 @@ function SubTasksSection({
       </button>
     </section>
   );
-}
+};
 
-function DetailSkeleton() {
+const DetailSkeleton = () => {
   return (
     <DelayedLoading>
       <div className="mx-auto w-full max-w-3xl px-8 py-12">
@@ -210,15 +210,15 @@ function DetailSkeleton() {
       </div>
     </DelayedLoading>
   );
-}
+};
 
-function TaskDetail({
+const TaskDetail = ({
   task: savedTask,
   onTaskChanged,
 }: {
   task: SingleTask;
   onTaskChanged: () => void;
-}) {
+}) => {
   const rpc = useTasksRpc();
   const previews = useTaskPreviews();
   const previewsRef = useRef(previews);
@@ -630,15 +630,15 @@ function TaskDetail({
       {attachmentPreview.dialog}
     </div>
   );
-}
+};
 
-export function DetailView(props: DetailViewProps) {
+export const DetailView = (props: DetailViewProps) => {
   const session = useTasksSession();
   const detail = <SessionDetailView {...props} />;
   return session ? detail : <TasksSessionProvider>{detail}</TasksSessionProvider>;
-}
+};
 
-function SessionDetailView({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) {
+const SessionDetailView = ({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) => {
   const committedKey = useSafeTaskTarget(taskKey);
   return (
     <DetailQuery
@@ -649,8 +649,8 @@ function SessionDetailView({ taskKey, onMissing, reconcileRevision, onReady }: D
       onReady={onReady}
     />
   );
-}
-function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) {
+};
+const DetailQuery = ({ taskKey, onMissing, reconcileRevision, onReady }: DetailViewProps) => {
   const query = useTaskPreview(taskKey);
   useTaskCommandReadiness(
     taskKey,
@@ -730,4 +730,4 @@ function DetailQuery({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
       <TaskDetail key={task.id} task={task} onTaskChanged={query.refresh} />
     </>
   );
-}
+};

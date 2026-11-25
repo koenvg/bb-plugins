@@ -83,7 +83,7 @@ afterEach(() => {
   openUrl.mockClear();
 });
 
-function Fixture({
+const Fixture = ({
   taskId = "task-a",
   confirmed,
   compact = false,
@@ -95,7 +95,7 @@ function Fixture({
   compact?: boolean;
   another?: boolean;
   listbox?: boolean;
-}) {
+}) => {
   const fallback = useRef<HTMLButtonElement>(null);
   const preview = useAttachmentPreview({
     taskId,
@@ -133,7 +133,7 @@ function Fixture({
       ) : null}
     </CompactViewportOverrideProvider>
   );
-}
+};
 function mount(props: Parameters<typeof Fixture>[0] = {}) {
   return render(
     <StrictMode>
@@ -478,7 +478,7 @@ describe("saved file activation", () => {
       deferredFetch();
       const item = { ...a, fileName };
       const fallback = { current: null };
-      function Cards() {
+      const Cards = () => {
         const preview = useAttachmentPreview({
           taskId: "task-a",
           confirmedAttachments: [item],
@@ -495,7 +495,7 @@ describe("saved file activation", () => {
             {preview.dialog}
           </>
         );
-      }
+      };
       render(<Cards />);
       fireEvent.click(screen.getByRole("button", { name: fileName }));
       await resolve(0, reply(item, "# eligible"));

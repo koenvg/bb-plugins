@@ -18,7 +18,7 @@ const previewState = parameters.get("state") ?? "recovered";
 const legacyPhase = parameters.get("legacy");
 let history: HistoryReadiness = missing;
 const now = Date.now();
-function Preview() {
+const Preview = () => {
   const [hostId, setHostId] = useState<string | null>("synthetic-host");
   return (
     <>
@@ -223,5 +223,5 @@ function Preview() {
       </QuotaDashboard>
     </>
   );
-}
+};
 createRoot(document.getElementById("root")!).render(<Preview />);

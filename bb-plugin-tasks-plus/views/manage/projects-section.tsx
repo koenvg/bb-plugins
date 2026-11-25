@@ -24,7 +24,7 @@ interface Mutation {
   kind: "save" | "delete";
 }
 
-export function ProjectsSection() {
+export const ProjectsSection = () => {
   const inventory = useProjects();
   const rpc = useTasksRpc();
   const currentInventory = useRef(inventory);
@@ -198,9 +198,9 @@ export function ProjectsSection() {
       </div>
     </section>
   );
-}
+};
 
-function ProjectRow({
+const ProjectRow = ({
   project,
   inventory,
   mutationLock,
@@ -218,7 +218,7 @@ function ProjectRow({
   onDelete: (project: Project, trigger: HTMLButtonElement) => void;
   beginSave: (id: string) => boolean;
   endSave: () => void;
-}) {
+}) => {
   const rpc = useTasksRpc();
   const formId = useId();
   const [saved, setSaved] = useState(project);
@@ -428,4 +428,4 @@ function ProjectRow({
       </td>
     </tr>
   );
-}
+};

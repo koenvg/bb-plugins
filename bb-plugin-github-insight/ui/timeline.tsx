@@ -114,7 +114,7 @@ function useTimeline(threadId: string, refreshedAt: number) {
 
 type Timeline = ReturnType<typeof useTimeline>;
 
-export function TimelineSections({
+export const TimelineSections = ({
   threadId,
   refreshedAt,
   scrollRoot,
@@ -124,7 +124,7 @@ export function TimelineSections({
   refreshedAt: number;
   scrollRoot: RefObject<HTMLElement | null>;
   between?: ReactNode;
-}) {
+}) => {
   const timeline = useTimeline(threadId, refreshedAt);
   return (
     <>
@@ -133,9 +133,9 @@ export function TimelineSections({
       <ConversationTimeline threadId={threadId} timeline={timeline} scrollRoot={scrollRoot} />
     </>
   );
-}
+};
 
-function ConversationTimeline({
+const ConversationTimeline = ({
   threadId,
   timeline,
   scrollRoot,
@@ -143,7 +143,7 @@ function ConversationTimeline({
   threadId: string;
   timeline: Timeline;
   scrollRoot: RefObject<HTMLElement | null>;
-}) {
+}) => {
   const { conversation, readError } = timeline;
   const entries = useMemo(() => groupTimeline(conversation?.events ?? []), [conversation]);
   const glow = useNewCommentGlowState(
@@ -194,7 +194,7 @@ function ConversationTimeline({
       )}
     </OverviewSection>
   );
-}
+};
 
 function conversationSummary(events: readonly TimelineEvent[]): string | undefined {
   const comments = events.filter(({ kind }) => kind === "comment").length;
@@ -206,7 +206,7 @@ function conversationSummary(events: readonly TimelineEvent[]): string | undefin
   return parts.length === 0 ? undefined : parts.join(" · ");
 }
 
-function TimelineSkeleton() {
+const TimelineSkeleton = () => {
   return (
     <div role="status" className="flex flex-col gap-3">
       <span className="sr-only">Loading conversation…</span>
@@ -225,9 +225,9 @@ function TimelineSkeleton() {
       ))}
     </div>
   );
-}
+};
 
-function CommentBox({
+const CommentBox = ({
   pr,
   threadId,
   onPosted,
@@ -235,7 +235,7 @@ function CommentBox({
   pr: Conversation["pr"];
   threadId: string;
   onPosted: () => Promise<void>;
-}) {
+}) => {
   if (pr.locked && !pr.viewerCanUpdate) {
     return (
       <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -245,9 +245,9 @@ function CommentBox({
     );
   }
   return <PrCommentComposer threadId={threadId} prNodeId={pr.prNodeId} onPosted={onPosted} />;
-}
+};
 
-function TimelineError({ message, retry }: { message: string; retry: () => void }) {
+const TimelineError = ({ message, retry }: { message: string; retry: () => void }) => {
   return (
     <div
       role="alert"
@@ -260,9 +260,15 @@ function TimelineError({ message, retry }: { message: string; retry: () => void 
       </button>
     </div>
   );
-}
+};
 
-function TimelineList({ older, entries }: { older: ReactNode; entries: readonly TimelineEntry[] }) {
+const TimelineList = ({
+  older,
+  entries,
+}: {
+  older: ReactNode;
+  entries: readonly TimelineEntry[];
+}) => {
   return (
     <ol className="relative flex flex-col gap-3 before:absolute before:inset-y-3 before:left-[9.5px] before:w-px before:bg-border">
       {older && (
@@ -286,9 +292,9 @@ function TimelineList({ older, entries }: { older: ReactNode; entries: readonly 
       })}
     </ol>
   );
-}
+};
 
-function RailItem({
+const RailItem = ({
   kind,
   icon,
   tone,
@@ -300,7 +306,7 @@ function RailItem({
   tone: string;
   onCard: boolean;
   children: ReactNode;
-}) {
+}) => {
   return (
     <li data-rail-item={kind} className="relative min-w-0 pl-8">
       <span
@@ -315,9 +321,9 @@ function RailItem({
       {children}
     </li>
   );
-}
+};
 
-function DescriptionSection({ timeline }: { timeline: Timeline }) {
+const DescriptionSection = ({ timeline }: { timeline: Timeline }) => {
   const { conversation, readError, hasPr } = timeline;
   if (!hasPr || (conversation === null && readError !== null)) return null;
   return (
@@ -336,11 +342,11 @@ function DescriptionSection({ timeline }: { timeline: Timeline }) {
       </div>
     </OverviewSection>
   );
-}
+};
 
 const FOLDED_HEIGHT_PX = 320;
 
-function DescriptionBody({ body }: { body: string }) {
+const DescriptionBody = ({ body }: { body: string }) => {
   const content = useRef<HTMLDivElement>(null);
   const [overflows, setOverflows] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -390,9 +396,9 @@ function DescriptionBody({ body }: { body: string }) {
       )}
     </div>
   );
-}
+};
 
-function DescriptionSkeleton() {
+const DescriptionSkeleton = () => {
   return (
     <div role="status" className="flex flex-col gap-2">
       <span className="sr-only">Loading description…</span>
@@ -410,7 +416,7 @@ function DescriptionSkeleton() {
       />
     </div>
   );
-}
+};
 
 function hasCard(entry: TimelineEntry): boolean {
   if (entry.kind === "comment") return true;
@@ -461,7 +467,7 @@ const LIFECYCLE = {
   merged: { text: "merged this", icon: "GitMerge" },
 } as const satisfies Record<string, { text: string; icon: IconName }>;
 
-function TimelineItem({ entry }: { entry: TimelineEntry }) {
+const TimelineItem = ({ entry }: { entry: TimelineEntry }) => {
   switch (entry.kind) {
     case "comment":
       return (
@@ -485,9 +491,9 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
       );
     }
   }
-}
+};
 
-function ReviewItem({ review }: { review: Extract<TimelineEntry, { kind: "review" }> }) {
+const ReviewItem = ({ review }: { review: Extract<TimelineEntry, { kind: "review" }> }) => {
   const showFiles = useShowFiles();
   const verdict = REVIEW_VERDICT[review.state];
   const hasDetail = review.body !== "" || review.inlineCount > 0;
@@ -515,9 +521,9 @@ function ReviewItem({ review }: { review: Extract<TimelineEntry, { kind: "review
   );
   if (review.body === "") return <Card>{detail}</Card>;
   return <CommentCard commentId={review.id}>{detail}</CommentCard>;
-}
+};
 
-function CommitGroup({ group }: { group: Extract<TimelineEntry, { kind: "commits" }> }) {
+const CommitGroup = ({ group }: { group: Extract<TimelineEntry, { kind: "commits" }> }) => {
   const count = group.commits.length;
   return (
     <details className="group">
@@ -544,16 +550,16 @@ function CommitGroup({ group }: { group: Extract<TimelineEntry, { kind: "commits
       </ul>
     </details>
   );
-}
+};
 
 const CARD_CLASS =
   "flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-background px-3 py-2";
 
-function Card({ children }: { children: ReactNode }) {
+const Card = ({ children }: { children: ReactNode }) => {
   return <div className={CARD_CLASS}>{children}</div>;
-}
+};
 
-function CommentCard({ commentId, children }: { commentId: string; children: ReactNode }) {
+const CommentCard = ({ commentId, children }: { commentId: string; children: ReactNode }) => {
   const { ref, glowing } = useNewComment(commentId);
   return (
     <div
@@ -564,18 +570,18 @@ function CommentCard({ commentId, children }: { commentId: string; children: Rea
       {children}
     </div>
   );
-}
+};
 
-function Body({ markdown }: { markdown: string }) {
+const Body = ({ markdown }: { markdown: string }) => {
   return (
     <PrMarkdown
       content={markdown}
       className="min-w-0 overflow-x-auto text-sm leading-relaxed break-words [contain:inline-size] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
     />
   );
-}
+};
 
-function EventHeader({
+const EventHeader = ({
   actor,
   at,
   url,
@@ -585,7 +591,7 @@ function EventHeader({
   at: string;
   url?: string;
   children: ReactNode;
-}) {
+}) => {
   const date = new Date(at);
   const time = (
     <time
@@ -611,4 +617,4 @@ function EventHeader({
       )}
     </div>
   );
-}
+};

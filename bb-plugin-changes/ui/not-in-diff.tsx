@@ -10,7 +10,7 @@ interface NotInDiffProps {
   forms: readonly OpenForm[];
 }
 
-export function NotInDiff({ threadId, comments, forms }: NotInDiffProps) {
+export const NotInDiff = ({ threadId, comments, forms }: NotInDiffProps) => {
   if (comments.length === 0 && forms.length === 0) {
     return null;
   }
@@ -40,13 +40,13 @@ export function NotInDiff({ threadId, comments, forms }: NotInDiffProps) {
       ))}
     </section>
   );
-}
+};
 
-function Location({ anchor }: { anchor: CommentAnchor }) {
+const Location = ({ anchor }: { anchor: CommentAnchor }) => {
   return (
     <span className="min-w-0 truncate font-mono text-muted-foreground" title={anchor.path}>
       {anchor.path}:{anchor.line}
       {anchor.side === "deletions" ? " (deleted line)" : ""}
     </span>
   );
-}
+};

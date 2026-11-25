@@ -13,14 +13,14 @@ afterEach(() => {
   cleanup();
   configure({ reactStrictMode: false });
 });
-function Projects() {
+const Projects = () => {
   const query = useSessionProjects();
   return <p>{query.isLoading ? "Loading inventory" : (query.data?.[0]?.name ?? query.error)}</p>;
-}
-function Preview() {
+};
+const Preview = () => {
   const query = useTaskPreview("TSK-1");
   return <p>{query.isLoading ? "Loading preview" : (query.data?.title ?? query.error)}</p>;
-}
+};
 
 describe("session data bindings", () => {
   it("keeps a fallback inventory live through React effect replay", async () => {

@@ -44,14 +44,14 @@ const reasons = {
 };
 const dateNavigationButton =
   "group inline-flex size-8 pointer-coarse:size-11 shrink-0 items-center justify-center border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50";
-export function CalendarReportPanel({
+export const CalendarReportPanel = ({
   selection,
   selectionPending = false,
   selectionRevision = 0,
   now,
   read,
   prepare,
-}: Props) {
+}: Props) => {
   const preparation = useReportPreparation(selection, selectionPending, selectionRevision, prepare);
   const [timezone] = useState(viewerTimezone);
   const [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : null));
@@ -264,8 +264,8 @@ export function CalendarReportPanel({
       )}
     </section>
   );
-}
-export function CalendarReportSection(props: Omit<Props, "read" | "prepare" | "now">) {
+};
+export const CalendarReportSection = (props: Omit<Props, "read" | "prepare" | "now">) => {
   const now = usePageClock();
   const rpc = useRpc<typeof rpcContract>();
   const rpcRef = useRef(rpc);
@@ -277,4 +277,4 @@ export function CalendarReportSection(props: Omit<Props, "read" | "prepare" | "n
     rpcRef.current.call("reportPreparation", input),
   );
   return <CalendarReportPanel {...props} now={now} read={read.current} prepare={prepare.current} />;
-}
+};

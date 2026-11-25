@@ -94,7 +94,7 @@ export function useStagedAttachmentRetry(
   };
 }
 
-function ChipThumbnail({ file }: { file: File }) {
+const ChipThumbnail = ({ file }: { file: File }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!file.type.startsWith("image/") || typeof URL.createObjectURL !== "function") {
@@ -114,9 +114,9 @@ function ChipThumbnail({ file }: { file: File }) {
       className="size-5 shrink-0 rounded-sm border border-border object-cover"
     />
   );
-}
+};
 
-export function AttachmentChip({
+export const AttachmentChip = ({
   entry,
   onRemove,
   onRetry,
@@ -126,7 +126,7 @@ export function AttachmentChip({
   onRemove: () => void;
   onRetry?: () => void;
   disabled?: boolean;
-}) {
+}) => {
   const broken = entry.status !== "staged";
   const image = entry.file.type.startsWith("image/");
   return (
@@ -178,4 +178,4 @@ export function AttachmentChip({
       </button>
     </span>
   );
-}
+};

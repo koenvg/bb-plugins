@@ -39,13 +39,13 @@ const scopes = [
   { name: `project:${A}` as const, projectId: A, activeOnly: false },
   { name: `project:${B}` as const, projectId: B, activeOnly: false },
 ];
-function List({
+const List = ({
   scope,
   report,
 }: {
   scope: (typeof scopes)[number];
   report: (scope: string, order: VisibleTaskOrder) => void;
-}) {
+}) => {
   return (
     <TasksRefreshProvider>
       <ListView
@@ -55,7 +55,7 @@ function List({
       />
     </TasksRefreshProvider>
   );
-}
+};
 const rpc = {
   listProjects: () => ({ projects: [] }),
   listLabels: () => ({ labels: [] }),

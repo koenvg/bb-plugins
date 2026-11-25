@@ -73,13 +73,13 @@ function useCreatorThreadMetadata(threadId: Task["createdByThreadId"]): CreatorM
   return query.data;
 }
 
-function CreatorThreadRelation({
+const CreatorThreadRelation = ({
   threadId,
   metadata,
 }: {
   threadId: string;
   metadata: CreatorMetadata;
-}) {
+}) => {
   const navigate = useBbNavigate();
   const title = metadata.kind === "available" ? metadata.title : null;
   const lifecycle = metadata.kind === "available" ? metadata.lifecycle : null;
@@ -114,8 +114,8 @@ function CreatorThreadRelation({
       <Icon name="ArrowUpRight" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
     </button>
   );
-}
-function TaskPicker({
+};
+const TaskPicker = ({
   side,
   candidates,
   catalog,
@@ -125,7 +125,7 @@ function TaskPicker({
   candidates: readonly Task[];
   catalog: CandidateCatalog;
   onPick: (task: Task) => void;
-}) {
+}) => {
   const [open, setOpen] = useState(false);
   return (
     <Popover
@@ -189,9 +189,9 @@ function TaskPicker({
       </PopoverContent>
     </Popover>
   );
-}
+};
 
-function DependencyList({
+const DependencyList = ({
   side,
   refs,
   candidates,
@@ -205,7 +205,7 @@ function DependencyList({
   catalog: CandidateCatalog;
   onAdd: (task: Task) => void;
   onRemove: (ref: TaskDependencyRef) => void;
-}) {
+}) => {
   const navigation = useTasksNavigation();
   const open = side === "blockedBy" ? refs.filter(isOpenRef) : refs;
   const resolved = side === "blockedBy" ? refs.filter((ref) => !isOpenRef(ref)) : [];
@@ -264,9 +264,9 @@ function DependencyList({
       <TaskPicker side={side} candidates={candidates} catalog={catalog} onPick={onAdd} />
     </section>
   );
-}
+};
 
-export function DependencySections({
+export const DependencySections = ({
   task,
   onChanged,
   onError,
@@ -274,7 +274,7 @@ export function DependencySections({
   task: Task;
   onChanged: () => void;
   onError: (message: string) => void;
-}) {
+}) => {
   const rpc = useTasksRpc();
   const creator = useCreatorThreadMetadata(task.createdByThreadId);
   // TaskDetail is task-id keyed. Demand and candidates end with that detail session.
@@ -356,4 +356,4 @@ export function DependencySections({
       ) : null}
     </>
   );
-}
+};

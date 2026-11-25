@@ -7,7 +7,7 @@ export interface PendingCommentCardProps {
   location?: ReactNode;
 }
 
-export function PendingCommentCard({ body, onRemove, location }: PendingCommentCardProps) {
+export const PendingCommentCard = ({ body, onRemove, location }: PendingCommentCardProps) => {
   return (
     <article className={`${CARD} gap-1.5 border-border bg-background`} aria-label="Pending comment">
       <div className="flex min-h-6 min-w-0 items-center gap-2 text-xs">
@@ -26,4 +26,4 @@ export function PendingCommentCard({ body, onRemove, location }: PendingCommentC
       <p className="whitespace-pre-wrap break-words leading-relaxed text-foreground">{body}</p>
     </article>
   );
-}
+};

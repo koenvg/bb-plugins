@@ -16,7 +16,7 @@ export function useWidePanel(root: RefObject<HTMLElement | null>, enabled = true
   return wide;
 }
 
-export function Outline({ model, wide }: { model: DocumentModel; wide: boolean }) {
+export const Outline = ({ model, wide }: { model: DocumentModel; wide: boolean }) => {
   const entries = model.headings.map((heading) => (
     <a
       key={heading.id}
@@ -41,4 +41,4 @@ export function Outline({ model, wide }: { model: DocumentModel; wide: boolean }
       </details>
     </nav>
   );
-}
+};

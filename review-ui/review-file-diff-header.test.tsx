@@ -27,7 +27,13 @@ const fileDiff =
     )[0] ?? missingValue("Expected a non-null value")
   ).files[0] ?? missingValue("Expected a non-null value");
 
-function Review({ controls = true, disabled = false }: { controls?: boolean; disabled?: boolean }) {
+const Review = ({
+  controls = true,
+  disabled = false,
+}: {
+  controls?: boolean;
+  disabled?: boolean;
+}) => {
   const [collapsed, setCollapsed] = useState(false);
   const [viewed, setViewed] = useState(false);
   const toggleCollapsed = () => setCollapsed((value) => !value);
@@ -62,7 +68,7 @@ function Review({ controls = true, disabled = false }: { controls?: boolean; dis
       }
     />
   );
-}
+};
 
 async function header(container: HTMLElement) {
   return waitFor(() => {

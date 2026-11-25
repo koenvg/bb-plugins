@@ -9,13 +9,13 @@ export interface InlineCommentFormProps {
   submitLabel?: string;
 }
 
-export function InlineCommentForm({
+export const InlineCommentForm = ({
   text,
   onTextChange,
   onSubmit,
   onCancel,
   submitLabel = "Add to review",
-}: InlineCommentFormProps) {
+}: InlineCommentFormProps) => {
   const labelId = useId();
   const box = useRef<HTMLTextAreaElement>(null);
   const blank = text.trim() === "";
@@ -67,4 +67,4 @@ export function InlineCommentForm({
       </div>
     </form>
   );
-}
+};

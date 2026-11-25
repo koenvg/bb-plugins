@@ -46,7 +46,7 @@ function statusText(view: QuotaStatus, selectedHostId: string | null) {
   }
   return "Quota unavailable. Try refreshing or check Codex Usage.";
 }
-export function QuotaSummary({
+export const QuotaSummary = ({
   view,
   selectedHostId,
   hosts,
@@ -55,7 +55,7 @@ export function QuotaSummary({
   now,
   onHostChange,
   onRefresh,
-}: QuotaSummaryProps) {
+}: QuotaSummaryProps) => {
   const accountNote = useId();
   const visible = visibleView(view, now);
   const snapshot = ready ? visible.snapshot : null;
@@ -167,4 +167,4 @@ export function QuotaSummary({
       </QuotaSelect>
     </header>
   );
-}
+};

@@ -70,7 +70,7 @@ export function isBareKey(event: {
   return !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
 }
 
-function MenuHeading({ label, shortcut }: { label: string; shortcut: string }) {
+const MenuHeading = ({ label, shortcut }: { label: string; shortcut: string }) => {
   return (
     <DropdownMenuLabel className="flex items-center gap-2">
       <span className="flex-1">{label}</span>
@@ -79,9 +79,9 @@ function MenuHeading({ label, shortcut }: { label: string; shortcut: string }) {
       </span>
     </DropdownMenuLabel>
   );
-}
+};
 
-function PickerOption({
+const PickerOption = ({
   icon,
   label,
   active,
@@ -91,7 +91,7 @@ function PickerOption({
   label: string;
   active: boolean;
   shortcut: number;
-}) {
+}) => {
   return (
     <>
       <span className="flex flex-1 items-center gap-2">
@@ -107,12 +107,12 @@ function PickerOption({
       </span>
     </>
   );
-}
+};
 
 const TRIGGER_CLASS =
   "relative z-10 inline-flex size-5 shrink-0 items-center justify-center rounded-sm hover:bg-state-active focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-state-active max-md:pointer-coarse:size-8";
 
-export function StatusEditor({
+export const StatusEditor = ({
   task,
   onEdit,
   open,
@@ -130,7 +130,7 @@ export function StatusEditor({
   modal?: boolean;
   className?: string;
   trigger?: ReactElement;
-}) {
+}) => {
   const dismissedOutside = useRef(false);
   const select = (status: TaskStatus) => {
     if (status !== task.status) onEdit(task, { status });
@@ -191,9 +191,9 @@ export function StatusEditor({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
-export function PriorityEditor({
+export const PriorityEditor = ({
   task,
   onEdit,
   open,
@@ -209,7 +209,7 @@ export function PriorityEditor({
   onCloseAutoFocus?: (event: Event) => void;
   className?: string;
   trigger?: ReactElement;
-}) {
+}) => {
   const select = (priority: TaskPriority) => {
     if (priority !== task.priority) onEdit(task, { priority });
   };
@@ -258,9 +258,9 @@ export function PriorityEditor({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
-export function TaskContextMenu({
+export const TaskContextMenu = ({
   task,
   onEdit,
   projectLabels,
@@ -272,7 +272,7 @@ export function TaskContextMenu({
   projectLabels: readonly Label[];
   children: ReactNode;
   referenceDate?: string;
-}) {
+}) => {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
@@ -284,7 +284,7 @@ export function TaskContextMenu({
       />
     </ContextMenu>
   );
-}
+};
 
 const TaskContextMenuContents = memo(function TaskContextMenuContents({
   task,

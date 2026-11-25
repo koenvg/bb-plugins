@@ -8,10 +8,10 @@ import { emptyActivity } from "../activity/activity-contract.js";
 
 const installed = await loadPluginApp(() => import("./app.js"));
 const panel = installed.navPanels[0]!;
-function NavigationBadge() {
+const NavigationBadge = () => {
   const badge = panel.experimental_useBadge?.();
   return badge ? <span title={badge.label}>{badge.text}</span> : null;
-}
+};
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

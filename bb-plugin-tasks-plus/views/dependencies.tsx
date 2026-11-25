@@ -20,7 +20,7 @@ export function openBlockers(task: Task): TaskDependencyRef[] {
   return (task.blockedBy ?? []).filter(isOpenRef);
 }
 
-export function DependencyBadges({ task, className }: { task: Task; className?: string }) {
+export const DependencyBadges = ({ task, className }: { task: Task; className?: string }) => {
   const blockers = openBlockers(task);
   const blockedBy =
     blockers.length > 0 ? `${blockers.length} task${blockers.length === 1 ? "" : "s"}` : null;
@@ -49,7 +49,7 @@ export function DependencyBadges({ task, className }: { task: Task; className?: 
       ) : null}
     </>
   );
-}
+};
 
 export function useBlockedWorkConfirm(): {
   confirmBlockedWork: (task: Task) => Promise<boolean>;

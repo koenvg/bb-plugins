@@ -10,7 +10,7 @@ const STATUS_COLOR_CLASS: Record<TaskStatus, string> = {
   canceled: "text-subtle-foreground",
 };
 
-export function StatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
+export const StatusIcon = ({ status, className }: { status: TaskStatus; className?: string }) => {
   const ring = (dashed: boolean) => (
     <circle
       cx="7"
@@ -68,7 +68,7 @@ export function StatusIcon({ status, className }: { status: TaskStatus; classNam
       ) : null}
     </svg>
   );
-}
+};
 
 const ACTIVE_BARS: Record<Exclude<TaskPriority, "urgent">, number> = {
   none: 0,
@@ -77,13 +77,13 @@ const ACTIVE_BARS: Record<Exclude<TaskPriority, "urgent">, number> = {
   high: 3,
 };
 
-export function PriorityIcon({
+export const PriorityIcon = ({
   priority,
   className,
 }: {
   priority: TaskPriority;
   className?: string;
-}) {
+}) => {
   if (priority === "urgent") {
     return (
       <svg
@@ -122,4 +122,4 @@ export function PriorityIcon({
       ))}
     </svg>
   );
-}
+};

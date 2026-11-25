@@ -30,7 +30,7 @@ function diagnostic(view: ActivityView): string {
   }
   return `Account activity ${view.state}. Status: ${view.reason}.`;
 }
-export function ActivityPanel({
+export const ActivityPanel = ({
   view,
   now,
   loading = false,
@@ -42,7 +42,7 @@ export function ActivityPanel({
   loading?: boolean;
   selectionPending?: boolean;
   onRefresh(): void;
-}) {
+}) => {
   const visible = selectionPending
     ? emptyActivity("selection-changed")
     : visibleActivity(view, now);
@@ -153,8 +153,8 @@ export function ActivityPanel({
       )}
     </section>
   );
-}
-function ActivityBody({ selection, read }: { selection: ActivitySelection; read: ActivityApi }) {
+};
+const ActivityBody = ({ selection, read }: { selection: ActivitySelection; read: ActivityApi }) => {
   const readRef = useRef(read);
   readRef.current = read;
   const [store] = useState(
@@ -206,8 +206,8 @@ function ActivityBody({ selection, read }: { selection: ActivitySelection; read:
       }}
     />
   );
-}
-export function AccountActivity({
+};
+export const AccountActivity = ({
   selection,
   selectionPending = false,
   selectionRevision = 0,
@@ -217,7 +217,7 @@ export function AccountActivity({
   selectionPending?: boolean;
   selectionRevision?: number;
   read: ActivityApi;
-}) {
+}) => {
   const [open, setOpen] = useState(false);
   return (
     <details
@@ -244,4 +244,4 @@ export function AccountActivity({
         ))}
     </details>
   );
-}
+};

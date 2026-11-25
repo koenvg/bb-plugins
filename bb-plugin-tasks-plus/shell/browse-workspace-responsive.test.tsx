@@ -7,7 +7,7 @@ import {
   setup,
   row,
   select,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
   edit,
   tasks,
   project,
@@ -19,7 +19,7 @@ import { rpcInput } from "../test-fixtures.js";
 import { storeListPreference } from "../views/list/list-preference.js";
 import { browsePreference } from "./browse-preference.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 function observePanel() {
   const callbacks = new Map<Element, ResizeObserverCallback>();

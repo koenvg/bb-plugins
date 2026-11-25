@@ -17,13 +17,13 @@ interface SendFeedbackDialogProps {
   onClose: () => void;
 }
 
-export function SendFeedbackDialog({
+export const SendFeedbackDialog = ({
   initialPrompt,
   sending,
   error,
   onSend,
   onClose,
-}: SendFeedbackDialogProps) {
+}: SendFeedbackDialogProps) => {
   const [text, setText] = useState(initialPrompt);
   const blank = text.trim() === "";
 
@@ -69,4 +69,4 @@ export function SendFeedbackDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

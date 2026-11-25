@@ -1,7 +1,7 @@
 import { FILE_ICON_SVGS } from "./svgs";
 import type { FileIconName } from "./svgs";
 
-export function FileTypeIcon({ name }: { name: FileIconName }) {
+export const FileTypeIcon = ({ name }: { name: FileIconName }) => {
   return (
     <span
       aria-hidden
@@ -10,4 +10,4 @@ export function FileTypeIcon({ name }: { name: FileIconName }) {
       dangerouslySetInnerHTML={{ __html: FILE_ICON_SVGS[name] }}
     />
   );
-}
+};

@@ -17,12 +17,12 @@ interface ProjectSwitcherProps {
   onSelect: (projectId: string) => void;
 }
 
-export function ProjectSwitcher({
+export const ProjectSwitcher = ({
   open,
   onOpenChange,
   focusReturnRef,
   ...props
-}: ProjectSwitcherProps) {
+}: ProjectSwitcherProps) => {
   const selectedRef = useRef(false);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
@@ -65,16 +65,16 @@ export function ProjectSwitcher({
       </DialogContent>
     </Dialog>
   );
-}
+};
 
-function ProjectChoices({
+const ProjectChoices = ({
   inventory,
   currentProjectId,
   onSelect,
   onClose,
 }: Omit<ProjectSwitcherProps, "open" | "onOpenChange" | "focusReturnRef"> & {
   onClose: () => void;
-}) {
+}) => {
   const folders = useFolders();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -204,9 +204,9 @@ function ProjectChoices({
       ) : null}
     </>
   );
-}
+};
 
-function SelectionAnnouncement({ projects }: { projects: Project[] }) {
+const SelectionAnnouncement = ({ projects }: { projects: Project[] }) => {
   const selectedId = useCommandState((state) => state.value);
   const project = projects.find((item) => item.id === selectedId);
   return (
@@ -214,4 +214,4 @@ function SelectionAnnouncement({ projects }: { projects: Project[] }) {
       {project ? `Selected ${project.name}, ${project.prefix}` : ""}
     </span>
   );
-}
+};

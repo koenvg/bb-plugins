@@ -16,7 +16,7 @@ const dateText = (value: string): string =>
     minute: "2-digit",
     timeZoneName: "short",
   }).format(new Date(value));
-function WindowRow({ window, now }: { window: QuotaWindow; now: number }) {
+const WindowRow = ({ window, now }: { window: QuotaWindow; now: number }) => {
   const hasReset = window.resetAt !== null && Number.isFinite(Date.parse(window.resetAt));
   return (
     <li className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border py-3 last:border-0">
@@ -35,7 +35,7 @@ function WindowRow({ window, now }: { window: QuotaWindow; now: number }) {
       </div>
     </li>
   );
-}
+};
 
 type Props = QuotaSummaryProps & {
   history?: ReactNode;
@@ -43,7 +43,7 @@ type Props = QuotaSummaryProps & {
 };
 
 /** Pure page body: the host owns the navigation row, panel chrome, and keyboard activation. */
-export function QuotaDashboard({ history, children, ...summary }: Props) {
+export const QuotaDashboard = ({ history, children, ...summary }: Props) => {
   return (
     <main className="h-full overflow-y-auto bg-background text-foreground">
       <div className="@container mx-auto w-full max-w-4xl px-5 py-5 md:px-8 md:py-6">
@@ -54,8 +54,8 @@ export function QuotaDashboard({ history, children, ...summary }: Props) {
       </div>
     </main>
   );
-}
-export function QuotaOtherLimits({ view, now }: { view: QuotaStatus; now: number }) {
+};
+export const QuotaOtherLimits = ({ view, now }: { view: QuotaStatus; now: number }) => {
   const snapshot = visibleView(view, now).snapshot;
   return snapshot?.additional.length ? (
     <details className="mt-4 text-sm">
@@ -78,7 +78,7 @@ export function QuotaOtherLimits({ view, now }: { view: QuotaStatus; now: number
       ))}
     </details>
   ) : null;
-}
+};
 
 function freshRemaining(visible: QuotaStatus, ready: boolean): number | null {
   return ready && visible.state === "fresh"
@@ -86,7 +86,7 @@ function freshRemaining(visible: QuotaStatus, ready: boolean): number | null {
     : null;
 }
 
-export function QuotaBattery({
+export const QuotaBattery = ({
   view,
   now,
   ready = true,
@@ -97,7 +97,7 @@ export function QuotaBattery({
   ready?: boolean;
   loading?: boolean;
   className?: string;
-}) {
+}) => {
   const remaining = freshRemaining(visibleView(view, now), ready);
   return (
     <svg
@@ -128,9 +128,9 @@ export function QuotaBattery({
       )}
     </svg>
   );
-}
+};
 
-export function QuotaBadge({
+export const QuotaBadge = ({
   view,
   hostName,
   now,
@@ -144,7 +144,7 @@ export function QuotaBadge({
   loading?: boolean;
   ready?: boolean;
   descriptionId?: string;
-}) {
+}) => {
   const visible = visibleView(view, now);
   const snapshot = ready ? visible.snapshot : null;
   const binding = snapshot?.general.find((window) => window.id === snapshot.bindingWindowId);
@@ -180,4 +180,4 @@ export function QuotaBadge({
       )}
     </>
   );
-}
+};

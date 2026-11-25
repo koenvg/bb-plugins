@@ -136,7 +136,7 @@ function scriptContainer(el: HTMLDivElement, scrollHeight: number): void {
   });
 }
 
-function Harness({
+const Harness = ({
   scopeKey,
   contentReady,
   scrollHeight,
@@ -152,7 +152,7 @@ function Harness({
   loading?: boolean;
   revision?: number;
   onReady: (el: HTMLDivElement) => void;
-}) {
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   useListScrollRestoration(ref, scopeKey, {
     contentReady,
@@ -174,7 +174,7 @@ function Harness({
       data-testid="scroll"
     />
   );
-}
+};
 
 describe("useListScrollRestoration", () => {
   beforeEach(() => window.sessionStorage.clear());

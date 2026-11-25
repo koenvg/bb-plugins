@@ -7,7 +7,7 @@ import { PromptContent } from "./prompt-content";
 type Confirmation = "discard" | "reset" | "reload";
 
 /** One fixed project and one native modal lifetime. Confirmations replace its editor view. */
-export function PromptDialog({
+export const PromptDialog = ({
   project,
   trigger,
   writeLock,
@@ -21,7 +21,7 @@ export function PromptDialog({
   onPending: (pending: boolean) => void;
   onConfirmed: (state: ProjectState) => void;
   onClose: () => void;
-}) {
+}) => {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const settings = useProjectSettings(project.id, writeLock, confirmation === "reset");
   const {
@@ -343,4 +343,4 @@ export function PromptDialog({
       </footer>
     </dialog>
   );
-}
+};

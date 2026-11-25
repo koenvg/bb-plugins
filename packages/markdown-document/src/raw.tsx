@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { LineRequest, SourceLines } from "./source-lines.js";
 
-export function RawDocument({
+export const RawDocument = ({
   sourceLines,
   request,
   annotations,
@@ -11,7 +11,7 @@ export function RawDocument({
   request: LineRequest;
   annotations: boolean;
   reveal: (target: HTMLElement) => void;
-}) {
+}) => {
   const raw = useRef<HTMLPreElement>(null);
   const retainFocus = useCallback((element: HTMLSpanElement | null) => {
     if (!element) return;
@@ -65,4 +65,4 @@ export function RawDocument({
         : sourceLines.text}
     </pre>
   );
-}
+};

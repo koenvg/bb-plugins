@@ -9,7 +9,7 @@ import {
 
 const NO_LINK = "__none__";
 
-export function BbProjectLinkPicker({
+export const BbProjectLinkPicker = ({
   value,
   onChange,
   bbProjects,
@@ -19,7 +19,7 @@ export function BbProjectLinkPicker({
   onChange: (value: string | null) => void;
   bbProjects: readonly BbProjectOption[];
   noneLabel?: string;
-}) {
+}) => {
   const unavailableSelection =
     value !== null && !bbProjects.some((project) => project.id === value) ? value : null;
   return (
@@ -47,4 +47,4 @@ export function BbProjectLinkPicker({
       </SelectContent>
     </Select>
   );
-}
+};

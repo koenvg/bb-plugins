@@ -22,7 +22,7 @@ const stopActivation = (event: React.KeyboardEvent) => {
 function identity(pr: WorkPr) {
   return `${new URL(pr.url).pathname.split("/").slice(1, 3).join("/")} #${pr.number}`;
 }
-function GitHubLink({ pr, compact = false }: { pr: WorkPr; compact?: boolean }) {
+const GitHubLink = ({ pr, compact = false }: { pr: WorkPr; compact?: boolean }) => {
   return (
     <a
       href={pr.url}
@@ -52,16 +52,16 @@ function GitHubLink({ pr, compact = false }: { pr: WorkPr; compact?: boolean }) 
       )}
     </a>
   );
-}
+};
 
 /** Read-only lifecycle, check/review conditions, bounded aggregates and drill-down. */
-export function PrSummary({
+export const PrSummary = ({
   taskKey,
   meta,
 }: {
   taskKey: string;
   meta: TaskWorkStatus | undefined;
-}) {
+}) => {
   const navigate = useBbNavigate();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -221,4 +221,4 @@ export function PrSummary({
       </Popover>
     </>
   );
-}
+};

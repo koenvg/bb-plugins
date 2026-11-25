@@ -40,12 +40,12 @@ function useResponsiveDialog() {
   return React.useContext(ResponsiveDialogContext);
 }
 
-function Dialog({
+const Dialog = ({
   children,
   open: controlledOpen,
   onOpenChange: controlledOnChange,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Root>) {
+}: React.ComponentProps<typeof DialogPrimitive.Root>) => {
   const responsiveRoot = useResponsiveRoot(controlledOpen, controlledOnChange);
   const generatedTitleId = React.useId();
   const generatedDescriptionId = React.useId();
@@ -85,12 +85,12 @@ function Dialog({
   );
 
   return <ResponsiveDialogContext.Provider value={ctx}>{body}</ResponsiveDialogContext.Provider>;
-}
+};
 
 const DialogTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger>
->(({ asChild, children, className, ...props }, ref) => {
+>(function ({ asChild, children, className, ...props }, ref) {
   const { isCompactViewport, open, onOpenChange } = useResponsiveDialog();
 
   if (isCompactViewport) {
@@ -132,48 +132,51 @@ interface DialogCloseProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
   asChild?: boolean;
 }
 
-const DialogClose = React.forwardRef<HTMLButtonElement, DialogCloseProps>(
-  ({ asChild, onClick, children, ...props }, ref) => {
-    const { isCompactViewport, onOpenChange } = useResponsiveDialog();
+const DialogClose = React.forwardRef<HTMLButtonElement, DialogCloseProps>(function (
+  { asChild, onClick, children, ...props },
+  ref,
+) {
+  const { isCompactViewport, onOpenChange } = useResponsiveDialog();
 
-    if (isCompactViewport) {
-      const Comp = asChild ? Slot : "button";
-      const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
-        onClick?.(event);
-        if (!event.defaultPrevented) {
-          onOpenChange(false);
-        }
-      };
-      return (
-        <Comp ref={ref} onClick={handleClick} {...props}>
-          {children}
-        </Comp>
-      );
-    }
-
+  if (isCompactViewport) {
+    const Comp = asChild ? Slot : "button";
+    const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+      onClick?.(event);
+      if (!event.defaultPrevented) {
+        onOpenChange(false);
+      }
+    };
     return (
-      <DialogPrimitive.Close ref={ref} asChild={asChild} onClick={onClick} {...props}>
+      <Comp ref={ref} onClick={handleClick} {...props}>
         {children}
-      </DialogPrimitive.Close>
+      </Comp>
     );
-  },
-);
+  }
+
+  return (
+    <DialogPrimitive.Close ref={ref} asChild={asChild} onClick={onClick} {...props}>
+      {children}
+    </DialogPrimitive.Close>
+  );
+});
 DialogClose.displayName = "DialogClose";
 
 const DialogOverlay = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    {...usePortalScopeProps()}
-    className={cn(
-      "fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className,
-    )}
-    {...props}
-  />
-));
+>(function ({ className, ...props }, ref) {
+  return (
+    <DialogPrimitive.Overlay
+      ref={ref}
+      {...usePortalScopeProps()}
+      className={cn(
+        "fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        className,
+      )}
+      {...props}
+    />
+  );
+});
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
@@ -181,76 +184,74 @@ type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.
   hideCloseButton?: boolean;
 };
 
-const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
-  (
-    {
-      className,
-      children,
-      hideCloseButton = false,
-      onAfterCloseAutoFocus,
-      onCloseAutoFocus,
-      ...props
-    },
-    ref,
-  ) => {
-    const { isCompactViewport, open, onOpenChange, titleId, descriptionId } = useResponsiveDialog();
-    useBrowserDimmingModal(open);
-    const scopeProps = usePortalScopeProps();
+const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(function (
+  {
+    className,
+    children,
+    hideCloseButton = false,
+    onAfterCloseAutoFocus,
+    onCloseAutoFocus,
+    ...props
+  },
+  ref,
+) {
+  const { isCompactViewport, open, onOpenChange, titleId, descriptionId } = useResponsiveDialog();
+  useBrowserDimmingModal(open);
+  const scopeProps = usePortalScopeProps();
 
-    if (isCompactViewport) {
-      const domProps = stripRadixContentProps(props);
-      return (
-        <ResponsiveDrawerShell
-          open={open}
-          onOpenChange={onOpenChange}
-          onCloseAutoFocus={onCloseAutoFocus}
-          onAfterCloseAutoFocus={onAfterCloseAutoFocus}
-          labelledBy={titleId}
-          describedBy={descriptionId}
-        >
-          <div
-            ref={ref}
-            className={cn(
-              "grid grid-cols-[minmax(0,1fr)] gap-4 overflow-y-auto px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]",
-              className,
-              "max-w-none",
-            )}
-            {...domProps}
-          >
-            {children}
-          </div>
-        </ResponsiveDrawerShell>
-      );
-    }
-
+  if (isCompactViewport) {
+    const domProps = stripRadixContentProps(props);
     return (
-      <DialogPrimitive.Portal>
-        <DialogOverlay />
-        <DialogPrimitive.Content
+      <ResponsiveDrawerShell
+        open={open}
+        onOpenChange={onOpenChange}
+        onCloseAutoFocus={onCloseAutoFocus}
+        onAfterCloseAutoFocus={onAfterCloseAutoFocus}
+        labelledBy={titleId}
+        describedBy={descriptionId}
+      >
+        <div
           ref={ref}
-          {...scopeProps}
-          onCloseAutoFocus={(event) => {
-            onCloseAutoFocus?.(event);
-            queueMicrotask(() => onAfterCloseAutoFocus?.());
-          }}
           className={cn(
-            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg grid-cols-[minmax(0,1fr)] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-sm duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
+            "grid grid-cols-[minmax(0,1fr)] gap-4 overflow-y-auto px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]",
             className,
+            "max-w-none",
           )}
-          {...props}
+          {...domProps}
         >
           {children}
-          {hideCloseButton ? null : (
-            <DialogPrimitive.Close className="absolute right-4 top-4 cursor-pointer rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-state-active data-[state=open]:text-foreground">
-              <Icon name="X" className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
-          )}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
+        </div>
+      </ResponsiveDrawerShell>
     );
-  },
-);
+  }
+
+  return (
+    <DialogPrimitive.Portal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        {...scopeProps}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          queueMicrotask(() => onAfterCloseAutoFocus?.());
+        }}
+        className={cn(
+          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg grid-cols-[minmax(0,1fr)] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-sm duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        {hideCloseButton ? null : (
+          <DialogPrimitive.Close className="absolute right-4 top-4 cursor-pointer rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-state-active data-[state=open]:text-foreground">
+            <Icon name="X" className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  );
+});
 DialogContent.displayName = "DialogContent";
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
@@ -269,7 +270,7 @@ DialogFooter.displayName = "DialogFooter";
 const DialogTitle = React.forwardRef<
   HTMLHeadingElement,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ asChild, className, id, children, ...props }, ref) => {
+>(function ({ asChild, className, id, children, ...props }, ref) {
   const { isCompactViewport, titleId, registerTitleId } = useResponsiveDialog();
   const resolvedId = id ?? titleId;
   React.useLayoutEffect(() => {
@@ -315,7 +316,7 @@ DialogTitle.displayName = "DialogTitle";
 const DialogDescription = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ asChild, className, id, children, ...props }, ref) => {
+>(function ({ asChild, className, id, children, ...props }, ref) {
   const { isCompactViewport, descriptionId, registerDescriptionId } = useResponsiveDialog();
   const resolvedId = id ?? descriptionId;
   React.useLayoutEffect(() => {

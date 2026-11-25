@@ -41,7 +41,7 @@ function RateBadges({
 export function createOutputFooter(useSnapshot: OutputSnapshotHook) {
   let open: (() => void) | null = null;
   let pending = false;
-  function Overlay() {
+  const Overlay = () => {
     const navigate = useBbNavigate();
     const id = useId();
     const [targets, setTargets] = useState<Target[]>([]);
@@ -140,7 +140,7 @@ export function createOutputFooter(useSnapshot: OutputSnapshotHook) {
         {targets.length > 0 && <RateBadges targets={targets} useSnapshot={useSnapshot} />}
       </>
     );
-  }
+  };
   return {
     component: Overlay,
     activate: () => {

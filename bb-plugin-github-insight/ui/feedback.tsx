@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export const BUTTON_CLASS =
   "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md border disabled:cursor-default border-border px-2 text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
 
-export function RefreshButton({
+export const RefreshButton = ({
   refreshing,
   refresh,
   className,
@@ -13,7 +13,7 @@ export function RefreshButton({
   refreshing: boolean;
   refresh: () => void;
   className?: string;
-}) {
+}) => {
   return (
     <button
       type="button"
@@ -28,7 +28,7 @@ export function RefreshButton({
       {refreshing ? "Refreshing…" : "Refresh"}
     </button>
   );
-}
+};
 
 interface SendToAgentButtonProps {
   count: number;
@@ -36,7 +36,7 @@ interface SendToAgentButtonProps {
   send: () => void;
 }
 
-export function SendToAgentButton({ count, sending, send }: SendToAgentButtonProps) {
+export const SendToAgentButton = ({ count, sending, send }: SendToAgentButtonProps) => {
   return (
     <button
       type="button"
@@ -48,7 +48,7 @@ export function SendToAgentButton({ count, sending, send }: SendToAgentButtonPro
       Send {count} to agent
     </button>
   );
-}
+};
 
 interface RefreshErrorProps {
   message: string;
@@ -57,7 +57,7 @@ interface RefreshErrorProps {
   busy: boolean;
 }
 
-export function RefreshError({ message, refreshedAt, retry, busy }: RefreshErrorProps) {
+export const RefreshError = ({ message, refreshedAt, retry, busy }: RefreshErrorProps) => {
   return (
     <div
       role="alert"
@@ -83,9 +83,9 @@ export function RefreshError({ message, refreshedAt, retry, busy }: RefreshError
       </button>
     </div>
   );
-}
+};
 
-export function Notice({ children }: { children: ReactNode }) {
+export const Notice = ({ children }: { children: ReactNode }) => {
   return (
     <div
       role="status"
@@ -94,4 +94,4 @@ export function Notice({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
-}
+};

@@ -37,13 +37,13 @@ function useLatest<T>(value: T) {
   return ref;
 }
 
-export function AnnotateControl({
+export const AnnotateControl = ({
   threadId,
   tabId,
   url,
   page,
   hiddenPins,
-}: BrowserTabProps & { hiddenPins: HiddenPins }) {
+}: BrowserTabProps & { hiddenPins: HiddenPins }) => {
   const rpc = useRpc<typeof rpcContract>();
   const sdk = useSdk();
   const capturer = useMemo(() => createTabCapturer(sdk), [sdk]);
@@ -186,9 +186,9 @@ export function AnnotateControl({
       )}
     </div>
   );
-}
+};
 
-export function PillSync({ hiddenPins }: { hiddenPins: HiddenPins }) {
+export const PillSync = ({ hiddenPins }: { hiddenPins: HiddenPins }) => {
   const rpc = useRpc<typeof rpcContract>();
   const tracker = useMemo(
     () =>
@@ -225,7 +225,7 @@ export function PillSync({ hiddenPins }: { hiddenPins: HiddenPins }) {
   }, [composerKey, tracker, latestComposers]);
 
   return null;
-}
+};
 
 export default definePluginApp((app) => {
   const hiddenPins = createHiddenPins();

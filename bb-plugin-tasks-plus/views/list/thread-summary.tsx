@@ -41,11 +41,11 @@ export function threadActivity(meta: TaskWorkStatus | undefined): "running" | "i
     : undefined;
 }
 
-export function ThreadActivitySummary({
+export const ThreadActivitySummary = ({
   statuses,
 }: {
   statuses: readonly (TaskWorkStatus | undefined)[] | undefined;
-}) {
+}) => {
   if (!statuses?.length) return null;
   const loading = statuses.some((status) => status === undefined);
   const inventoryUnavailable = statuses.some((status) => status?.availability === "unavailable");
@@ -111,15 +111,15 @@ export function ThreadActivitySummary({
       ) : null}
     </span>
   );
-}
+};
 
-export function ThreadSummary({
+export const ThreadSummary = ({
   taskKey,
   meta,
 }: {
   taskKey: string;
   meta: TaskWorkStatus | undefined;
-}) {
+}) => {
   const navigate = useBbNavigate();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -298,4 +298,4 @@ export function ThreadSummary({
       </PopoverContent>
     </Popover>
   );
-}
+};

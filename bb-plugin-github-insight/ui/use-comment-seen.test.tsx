@@ -24,7 +24,7 @@ const ROOT = { height: 400 } as DOMRectReadOnly;
 const inView = { isIntersecting: true, intersectionRatio: 1, rootBounds: ROOT };
 const outOfView = { isIntersecting: false, intersectionRatio: 0, rootBounds: ROOT };
 
-function Comment({ onSeen }: { onSeen: () => void }) {
+const Comment = ({ onSeen }: { onSeen: () => void }) => {
   const element = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useCommentSeen(element, root, true, onSeen);
@@ -33,7 +33,7 @@ function Comment({ onSeen }: { onSeen: () => void }) {
       <div ref={element}>New reply</div>
     </div>
   );
-}
+};
 
 function renderComment() {
   const onSeen = vi.fn();

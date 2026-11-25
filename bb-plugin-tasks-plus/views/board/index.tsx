@@ -70,7 +70,7 @@ interface DragState {
   dropIndex: number;
 }
 
-function WorkingAgentsChip({ threads }: { threads: TaskThread[] }) {
+const WorkingAgentsChip = ({ threads }: { threads: TaskThread[] }) => {
   if (threads.length === 0) return null;
   return (
     <span className="flex min-w-0 items-center gap-1 font-medium text-success">
@@ -80,7 +80,7 @@ function WorkingAgentsChip({ threads }: { threads: TaskThread[] }) {
       </span>
     </span>
   );
-}
+};
 
 interface TaskCardProps {
   task: Task;
@@ -94,7 +94,7 @@ interface TaskCardProps {
   menu?: ReactNode;
 }
 
-function TaskCard({
+const TaskCard = ({
   task,
   labelsById,
   meta,
@@ -104,7 +104,7 @@ function TaskCard({
   onPointerDown,
   onClick,
   menu,
-}: TaskCardProps) {
+}: TaskCardProps) => {
   const labels = task.labelIds
     .map((labelId) => labelsById.get(labelId))
     .filter((label): label is Label => label !== undefined);
@@ -176,11 +176,11 @@ function TaskCard({
       {menu}
     </div>
   );
-}
+};
 
 type CardMenu = "status" | "priority";
 
-function CardMenuAnchor({
+const CardMenuAnchor = ({
   task,
   menu,
   onEdit,
@@ -192,7 +192,7 @@ function CardMenuAnchor({
   onEdit: EditFn;
   onClose: () => void;
   onReturnFocus: () => void;
-}) {
+}) => {
   const Editor = menu === "status" ? StatusEditor : PriorityEditor;
   return (
     <Editor
@@ -215,9 +215,9 @@ function CardMenuAnchor({
       }
     />
   );
-}
+};
 
-function BoardSkeleton() {
+const BoardSkeleton = () => {
   return (
     <DelayedLoading>
       <div className="flex h-full items-start gap-3 overflow-x-auto p-4">
@@ -232,13 +232,13 @@ function BoardSkeleton() {
       </div>
     </DelayedLoading>
   );
-}
+};
 
 interface BoardViewProps {
   projectId: string;
 }
 
-export function BoardView({ projectId }: BoardViewProps) {
+export const BoardView = ({ projectId }: BoardViewProps) => {
   const rpc = useTasksRpc();
   const navigation = useTasksNavigation();
   const board = useBoardData(projectId);
@@ -582,4 +582,4 @@ export function BoardView({ projectId }: BoardViewProps) {
       </div>
     </div>
   );
-}
+};

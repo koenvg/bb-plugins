@@ -158,7 +158,7 @@ it("keeps a declined embedded-surface request for the destination side panel", a
 it("opens a visible compact PR panel when the destination mounts", async () => {
   const Banner = banner.component;
   let openDrawer = () => false;
-  function CompactHost() {
+  const CompactHost = () => {
     const { scope } = useComposer();
     const threadId = scope.kind === "thread" ? scope.threadId : null;
     const [drawerThreadId, setDrawerThreadId] = useState<string | null>(null);
@@ -176,7 +176,7 @@ it("opens a visible compact PR panel when the destination mounts", async () => {
         </aside>
       </>
     );
-  }
+  };
   requestPrPanel("thread-b", () => {});
   const slot = renderSlot(
     { component: CompactHost },

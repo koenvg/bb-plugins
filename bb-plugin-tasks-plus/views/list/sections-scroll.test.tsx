@@ -10,7 +10,7 @@ import { TASK_STATUSES } from "../../shared/contract.js";
 import { makeTask } from "../../test-fixtures.js";
 import { TasksRefreshProvider } from "../../shell/refresh.js";
 
-function List(props: ComponentProps<typeof ListView>) {
+const List = (props: ComponentProps<typeof ListView>) => {
   return (
     <div hidden={props.visible === false}>
       <TasksRefreshProvider>
@@ -18,7 +18,7 @@ function List(props: ComponentProps<typeof ListView>) {
       </TasksRefreshProvider>
     </div>
   );
-}
+};
 const records = TASK_STATUSES.map((status, index) =>
   makeTask({ id: `status-${index}`, key: `TSK-${index + 1}`, status }),
 );

@@ -138,7 +138,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     Element.prototype.scrollIntoView ??= () => {};
     const onOpen = vi.fn();
     let latest: TaskWorkStatus | undefined;
-    function Overview() {
+    const Overview = () => {
       const meta = useTaskListMeta([{ ...task, labelIds: [] }], "all").data?.get(task.id);
       return (
         <TaskRow
@@ -154,7 +154,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
           onOpenMenuChange={() => {}}
         />
       );
-    }
+    };
     const slot = renderSlot(
       {
         component: () => (

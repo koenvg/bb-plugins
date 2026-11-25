@@ -88,7 +88,7 @@ export function runTaskDetailAction(action: TaskDetailAction): void {
   });
 }
 
-export function TaskCommandProvider({
+export const TaskCommandProvider = ({
   taskKey,
   rootRef,
   children,
@@ -96,7 +96,7 @@ export function TaskCommandProvider({
   taskKey: string | null;
   rootRef: RefObject<HTMLElement | null>;
   children: ReactNode;
-}) {
+}) => {
   const session = useMemo<Session | null>(
     () =>
       taskKey === null
@@ -119,7 +119,7 @@ export function TaskCommandProvider({
     };
   }, [session]);
   return <TaskCommandContext.Provider value={session}>{children}</TaskCommandContext.Provider>;
-}
+};
 
 export function useTaskCommandReadiness(taskKey: string, ready: boolean): void {
   const session = useContext(TaskCommandContext);

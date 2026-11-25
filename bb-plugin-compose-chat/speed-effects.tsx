@@ -16,7 +16,7 @@ const glowHslByTheme = {
   light: "193.75 60 68.627451",
 } as const;
 
-function SpeedBorder({
+const SpeedBorder = ({
   target,
   effect,
   motion,
@@ -24,7 +24,7 @@ function SpeedBorder({
   target: SpeedTarget;
   effect: SpeedEffect;
   motion: boolean;
-}) {
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   const preset = target.theme === "light" ? lightSpeedPreset : speedPreset;
   const glowHsl = glowHslByTheme[target.theme];
@@ -162,10 +162,16 @@ function SpeedBorder({
       </div>
     </div>
   );
-}
+};
 
 /** SDK-owned additive decoration; the native composer is never rendered here. */
-export function SpeedBorders({ effect, motion = true }: { effect: SpeedEffect; motion?: boolean }) {
+export const SpeedBorders = ({
+  effect,
+  motion = true,
+}: {
+  effect: SpeedEffect;
+  motion?: boolean;
+}) => {
   const [targets, setTargets] = useState<SpeedTarget[]>([]);
   useEffect(() => {
     if (effect === "Off") {
@@ -183,9 +189,9 @@ export function SpeedBorders({ effect, motion = true }: { effect: SpeedEffect; m
     )),
     document.body,
   );
-}
+};
 
-export function SpeedBorderAppOverlay() {
+export const SpeedBorderAppOverlay = () => {
   const { values, isLoading } = useSettings();
   return (
     <SpeedBorders
@@ -193,4 +199,4 @@ export function SpeedBorderAppOverlay() {
       motion={values?.electricMotion === undefined ? true : values.electricMotion === true}
     />
   );
-}
+};

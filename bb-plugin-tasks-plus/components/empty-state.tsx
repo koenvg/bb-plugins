@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/icon";
 
-export function EmptyState({
+export const EmptyState = ({
   icon,
   title,
   description,
@@ -11,7 +11,7 @@ export function EmptyState({
   title: string;
   description?: string;
   action?: ReactNode;
-}) {
+}) => {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
       <div className="flex size-10 items-center justify-center rounded-md bg-secondary text-muted-foreground">
@@ -24,4 +24,4 @@ export function EmptyState({
       {action}
     </div>
   );
-}
+};

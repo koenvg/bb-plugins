@@ -7,10 +7,10 @@ import {
   row,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 it("keeps catalog reads out of native Ticket navigation and shares picker demand", async () => {
   let catalogReads = 0;

@@ -13,10 +13,10 @@ import {
   project,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const other = {
   ...project,
   id: "01HZZZZZZZZZZZZZZZZZZZZZP2",

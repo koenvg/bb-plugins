@@ -3,7 +3,7 @@ import "./running-glyph.css";
 // Clockwise outside-in, matching React Bits' 3×3 spiral lattice.
 const SPIRAL = [0, 1, 2, 7, 8, 3, 6, 5, 4];
 
-export function RunningGlyph() {
+export const RunningGlyph = () => {
   return (
     <svg
       data-running-glyph=""
@@ -29,4 +29,4 @@ export function RunningGlyph() {
       ))}
     </svg>
   );
-}
+};

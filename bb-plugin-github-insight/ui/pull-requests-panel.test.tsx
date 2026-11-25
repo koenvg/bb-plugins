@@ -29,7 +29,7 @@ const submitOutcomes: Promise<"cleared" | "kept">[] = [];
 
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@get-bb/plugin-sdk/app")>();
-  function DraftKeepingComposer(props: NewThreadComposerProps) {
+  const DraftKeepingComposer = (props: NewThreadComposerProps) => {
     const Composer = actual.experimental_NewThreadComposer;
     return (
       <Composer
@@ -46,7 +46,7 @@ vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
         }}
       />
     );
-  }
+  };
   return { ...actual, experimental_NewThreadComposer: DraftKeepingComposer };
 });
 

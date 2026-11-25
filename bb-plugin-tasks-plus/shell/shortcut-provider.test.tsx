@@ -10,7 +10,7 @@ it.each([false, true])(
   (reverse) => {
     const listAction = vi.fn();
     const detailAction = vi.fn();
-    function Actions({ pane }: { pane: "list" | "detail" }) {
+    const Actions = ({ pane }: { pane: "list" | "detail" }) => {
       useShortcuts(
         pane === "list"
           ? {
@@ -25,8 +25,8 @@ it.each([false, true])(
             },
       );
       return <button>{pane}</button>;
-    }
-    function Fixture() {
+    };
+    const Fixture = () => {
       const rootRef = useRef<HTMLDivElement>(null);
       const listRef = useRef<HTMLElement>(null);
       const detailRef = useRef<HTMLElement>(null);
@@ -51,7 +51,7 @@ it.each([false, true])(
           </ShortcutProvider>
         </div>
       );
-    }
+    };
     const view = render(<Fixture />);
     for (const pane of ["list", "detail"] as const) {
       const button = view.getByRole("button", { name: pane });

@@ -53,7 +53,7 @@ function deferred() {
   });
   return { promise, resolve };
 }
-function Harness({ source }: { source: Snapshot | null }) {
+const Harness = ({ source }: { source: Snapshot | null }) => {
   const context = useFileContext(source);
   return (
     <>
@@ -74,7 +74,7 @@ function Harness({ source }: { source: Snapshot | null }) {
       </output>
     </>
   );
-}
+};
 afterEach(cleanup);
 beforeEach(() => transport.call.mockReset());
 

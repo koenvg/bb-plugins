@@ -13,7 +13,7 @@ import { TaskDataProvider } from "../../shell/task-data.js";
 const TasksSessionContext = createContext<ReturnType<typeof createSafeTaskTransition> | null>(null);
 
 /** Mount once around the Tasks workspace, not once per selected ticket. */
-export function TasksSessionProvider({ children }: { children: ReactNode }) {
+export const TasksSessionProvider = ({ children }: { children: ReactNode }) => {
   const [transition] = useState(createSafeTaskTransition);
   useEffect(() => () => transition.cancel(), [transition]);
   return (
@@ -21,7 +21,7 @@ export function TasksSessionProvider({ children }: { children: ReactNode }) {
       <TaskDataProvider>{children}</TaskDataProvider>
     </TasksSessionContext.Provider>
   );
-}
+};
 
 export function useTasksSession() {
   return useContext(TasksSessionContext);

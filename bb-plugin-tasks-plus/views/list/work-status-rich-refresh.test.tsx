@@ -50,10 +50,10 @@ it.each(["checks", "ready"])(
     let latest: TaskWorkStatus | undefined;
     let reject!: (reason: Error) => void;
     let calls = 0;
-    function Probe() {
+    const Probe = () => {
       latest = useTaskListMeta([task], "all").data?.get(task.id);
       return <PrSummary taskKey={task.key} meta={latest} />;
-    }
+    };
     const slot = renderSlot(
       {
         component: () => (
@@ -238,10 +238,10 @@ it("shares optional detection and settled metadata successes, absence and failur
   });
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
-  function Probe() {
+  const Probe = () => {
     latest = useTaskListMeta(tasks, "all").data;
     return <button onClick={useTasksRefresh().refresh}>Refresh</button>;
-  }
+  };
   const slot = renderSlot(
     {
       component: () => (

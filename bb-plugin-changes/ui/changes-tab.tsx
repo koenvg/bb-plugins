@@ -29,13 +29,13 @@ import { usePendingReview } from "./use-pending-review";
 import { useViewed } from "./use-viewed";
 import type { Viewed } from "./use-viewed";
 
-export function ChangesTab({ threadId }: { threadId: string }) {
+export const ChangesTab = ({ threadId }: { threadId: string }) => {
   return <ChangesTabContent key={threadId} threadId={threadId} />;
-}
+};
 
 const ALL_CHANGES: DiffTarget = { kind: "all" };
 
-function ChangesTabContent({ threadId }: { threadId: string }) {
+const ChangesTabContent = ({ threadId }: { threadId: string }) => {
   const [target, setTarget] = useState<DiffTarget>(ALL_CHANGES);
   const [view, setView] = useState<DiffView>("unified");
   const { result, loading, generation, refresh } = useChanges(threadId, target);
@@ -146,7 +146,7 @@ function ChangesTabContent({ threadId }: { threadId: string }) {
       )}
     </div>
   );
-}
+};
 
 interface FileListProps {
   threadId: string;
@@ -160,7 +160,7 @@ interface FileListProps {
   view: DiffView;
 }
 
-function FileList({
+const FileList = ({
   threadId,
   changes,
   imagesActive,
@@ -170,7 +170,7 @@ function FileList({
   comments,
   openForms,
   view,
-}: FileListProps) {
+}: FileListProps) => {
   const linesByPath = useMemo(
     () =>
       new Map(
@@ -242,7 +242,7 @@ function FileList({
       })}
     </>
   );
-}
+};
 
 const NONE: readonly PendingComment[] = [];
 const NO_FORMS: readonly OpenForm[] = [];
@@ -342,7 +342,7 @@ function parseTarget(value: string): DiffTarget {
   return ALL_CHANGES;
 }
 
-function TargetPicker({
+const TargetPicker = ({
   target,
   commits,
   onChange,
@@ -350,7 +350,7 @@ function TargetPicker({
   target: DiffTarget;
   commits: readonly BranchCommit[];
   onChange: (target: DiffTarget) => void;
-}) {
+}) => {
   const selectedCommitMissing =
     target.kind === "commit" && !commits.some((commit) => commit.sha === target.sha);
   return (
@@ -373,7 +373,7 @@ function TargetPicker({
       ))}
     </select>
   );
-}
+};
 
 const ICON_BUTTON =
   "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50";
@@ -383,7 +383,7 @@ const VIEWS = [
   { view: "split", label: "Split view", icon: "Columns2" },
 ] as const;
 
-function ViewToggle({ view, onChange }: { view: DiffView; onChange: (view: DiffView) => void }) {
+const ViewToggle = ({ view, onChange }: { view: DiffView; onChange: (view: DiffView) => void }) => {
   return (
     <div
       role="group"
@@ -408,15 +408,15 @@ function ViewToggle({ view, onChange }: { view: DiffView; onChange: (view: DiffV
       ))}
     </div>
   );
-}
+};
 
-function DiffSummary({
+const DiffSummary = ({
   files,
   viewed,
 }: {
   files: readonly ChangedFile[];
   viewed: { viewed: number; markable: number } | null;
-}) {
+}) => {
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
   return (
@@ -433,9 +433,9 @@ function DiffSummary({
       )}
     </span>
   );
-}
+};
 
-function Notice({ children }: { children: ReactNode }) {
+const Notice = ({ children }: { children: ReactNode }) => {
   return (
     <div
       role="status"
@@ -444,9 +444,9 @@ function Notice({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
-}
+};
 
-function LoadError({
+const LoadError = ({
   message,
   retry,
   busy,
@@ -454,7 +454,7 @@ function LoadError({
   message: string;
   retry: () => void;
   busy: boolean;
-}) {
+}) => {
   return (
     <div
       role="alert"
@@ -471,4 +471,4 @@ function LoadError({
       </button>
     </div>
   );
-}
+};

@@ -239,13 +239,13 @@ function mountOutputView(
   };
 }
 
-export function OutputRateChart({
+export const OutputRateChart = ({
   view,
   availability,
 }: {
   view: OutputRateView;
   availability: Availability;
-}) {
+}) => {
   const container = useRef<HTMLDivElement>(null);
   const mounted = useRef<ReturnType<typeof mountOutputView> | null>(null);
   const [body, setBody] = useState<Body | null>(null);
@@ -330,4 +330,4 @@ export function OutputRateChart({
         : null}
     </div>
   );
-}
+};

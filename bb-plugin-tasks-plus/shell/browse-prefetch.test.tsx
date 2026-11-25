@@ -12,10 +12,10 @@ import {
   project,
   row,
   setup,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const records = [1, 2, 3, 4, 5, 6].map((n) =>
   makeTask({
     id: `task-${n}`,

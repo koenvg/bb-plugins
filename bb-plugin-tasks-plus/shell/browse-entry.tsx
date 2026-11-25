@@ -55,7 +55,7 @@ export function useBrowseRoute(
   return route;
 }
 
-export function BrowseEntryState({ projects }: { projects: ProjectInventory }) {
+export const BrowseEntryState = ({ projects }: { projects: ProjectInventory }) => {
   if (projects.isLoading || projects.error === null) {
     return (
       <div role="status" className="p-6 text-sm text-muted-foreground">
@@ -77,4 +77,4 @@ export function BrowseEntryState({ projects }: { projects: ProjectInventory }) {
       />
     </div>
   );
-}
+};

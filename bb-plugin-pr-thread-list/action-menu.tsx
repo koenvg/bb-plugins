@@ -19,7 +19,7 @@ export interface MenuItem {
 }
 
 /** Portals above the scrolling list, so menus at its lower edge stay visible. */
-export function ActionMenu({
+export const ActionMenu = ({
   label,
   items,
   icon = "⋯",
@@ -27,7 +27,7 @@ export function ActionMenu({
   label: string;
   items: readonly MenuItem[];
   icon?: ReactNode;
-}) {
+}) => {
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -165,7 +165,7 @@ export function ActionMenu({
         : null}
     </span>
   );
-}
+};
 
 function sectionsOf(items: readonly MenuItem[]) {
   const sections: { section: string | undefined; entries: MenuItem[] }[] = [];

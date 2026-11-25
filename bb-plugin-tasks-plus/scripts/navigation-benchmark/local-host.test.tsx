@@ -54,7 +54,7 @@ describe("production-mounting host boundary without test renderer", () => {
     let created = 0;
     let destroyed = 0;
     let snapshot: any;
-    function Consumer({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) {
+    const Consumer = ({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) => {
       const [mount] = useState(() => ++created);
       const rpc = useRpc();
       const context = useBbContext();
@@ -67,7 +67,7 @@ describe("production-mounting host boundary without test renderer", () => {
       }, []);
       snapshot = { rpc, context, navigate, controller, mount, subPath, ticketVisible };
       return <output>{subPath}</output>;
-    }
+    };
     host.lifecycle.mount(container, Consumer);
     await waitFor(() => expect(snapshot?.subPath).toBe("all"));
     const initial = snapshot;
@@ -133,10 +133,10 @@ describe("production-mounting host boundary without test renderer", () => {
   it("rejects a Ticket reference that has no captured registration", async () => {
     const { host, container } = setup(undefined, []);
     let controller: ReturnType<typeof experimental_useAppPanel> | undefined;
-    function Consumer() {
+    const Consumer = () => {
       controller = experimental_useAppPanel();
       return null;
-    }
+    };
     host.lifecycle.mount(container, Consumer);
     await waitFor(() => expect(controller).toBeDefined());
     expect(controller!.openTab({ tab: ticketRegistration })).toBe(false);
@@ -158,13 +158,13 @@ describe("production-mounting host boundary without test renderer", () => {
     const { host, container } = setup(rpcBackend);
     const received: unknown[] = [];
     let snapshot: any;
-    function Consumer({ subPath }: { subPath: string; ticketVisible: boolean }) {
+    const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
       const rpc = useRpc();
       const connection = useRealtimeConnectionState();
       useRealtime("tasks:changed", (payload) => received.push({ subPath, payload }));
       snapshot = { rpc, connection };
       return <output>{connection}</output>;
-    }
+    };
     host.lifecycle.mount(container, Consumer);
     await waitFor(() => expect(snapshot?.connection).toBe("connected"));
     const input = { nested: { title: "Original" } };
@@ -204,7 +204,7 @@ describe("production-mounting host boundary without test renderer", () => {
     const errors: string[] = [];
     const accepted: string[] = [];
     let navigate: ReturnType<typeof useBbNavigate>;
-    function Consumer({ subPath }: { subPath: string; ticketVisible: boolean }) {
+    const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
       navigate = useBbNavigate();
       const previous = useRef(subPath);
       useLayoutEffect(() => {
@@ -217,7 +217,7 @@ describe("production-mounting host boundary without test renderer", () => {
         }
       }, [subPath]);
       return <output>{subPath}</output>;
-    }
+    };
     host.lifecycle.mount(container, Consumer);
     await waitFor(() => expect(container.textContent).toBe("all"));
     editor.stage({ title: "Owned draft" });
@@ -235,7 +235,7 @@ describe("production-mounting host boundary without test renderer", () => {
     const { host, container } = setup();
     const visited: string[] = [];
     let mounts = 0;
-    function Consumer({ subPath }: { subPath: string; ticketVisible: boolean }) {
+    const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
       useState(() => {
         mounts += 1;
         return null;
@@ -244,7 +244,7 @@ describe("production-mounting host boundary without test renderer", () => {
         visited.push(subPath);
       }, [subPath]);
       return <output>{subPath}</output>;
-    }
+    };
     host.lifecycle.mount(container, Consumer);
     await waitFor(() => expect(container.textContent).toBe("all"));
     host.lifecycle.rerender("one");
@@ -275,10 +275,10 @@ describe("production-mounting host boundary without test renderer", () => {
       origins.push(editor.taskId);
     });
     let navigate: ReturnType<typeof useBbNavigate>;
-    function Consumer({ subPath }: { subPath: string; ticketVisible: boolean }) {
+    const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
       navigate = useBbNavigate();
       return <output>{subPath}</output>;
-    }
+    };
     host.lifecycle.mount(container, Consumer);
     await waitFor(() => expect(container.textContent).toBe("all"));
     editor.stage({ title: "Origin draft" });

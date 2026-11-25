@@ -6,7 +6,7 @@ import {
 } from "./pr-presentation.js";
 
 /** Only normalized evidence reaches presentation. No SDK or producer parsing in rows. */
-export function PrRichDetail({ pr }: { pr: WorkPr }) {
+export const PrRichDetail = ({ pr }: { pr: WorkPr }) => {
   const rich = pr.rich;
   const usable = ["available", "incomplete"].includes(pr.details);
   const terminal = pr.state === "merged" || pr.state === "closed";
@@ -76,4 +76,4 @@ export function PrRichDetail({ pr }: { pr: WorkPr }) {
       ) : null}
     </div>
   );
-}
+};

@@ -43,13 +43,13 @@ function useResponsiveMenu() {
   return React.useContext(ResponsiveMenuContext);
 }
 
-function DropdownMenu({
+const DropdownMenu = ({
   children,
   open: controlledOpen,
   onOpenChange: controlledOnChange,
   defaultOpen,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) => {
   const ctx = useResponsiveRoot(controlledOpen, controlledOnChange, defaultOpen);
 
   if (ctx.isCompactViewport) {
@@ -61,12 +61,12 @@ function DropdownMenu({
       <ResponsiveMenuContext.Provider value={ctx}>{children}</ResponsiveMenuContext.Provider>
     </DropdownMenuPrimitive.Root>
   );
-}
+};
 
 const DropdownMenuTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger>
->(({ asChild, children, className, ...props }, ref) => {
+>(function ({ asChild, children, className, ...props }, ref) {
   const { isCompactViewport, open, onOpenChange } = useResponsiveMenu();
 
   if (isCompactViewport) {
@@ -109,7 +109,7 @@ const DropdownMenuContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
     mobileTitle?: string;
   }
->(({ className, sideOffset = 4, children, mobileTitle, onCloseAutoFocus, ...props }, ref) => {
+>(function ({ className, sideOffset = 4, children, mobileTitle, onCloseAutoFocus, ...props }, ref) {
   const { isCompactViewport, open, onOpenChange } = useResponsiveMenu();
   const scopeProps = usePortalScopeProps();
 
@@ -179,173 +179,138 @@ type DropdownMenuItemProps = Omit<
 const DropdownMenuItem = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Item>,
   DropdownMenuItemProps
->(
-  (
-    {
-      className,
-      inset,
-      variant = "default",
-      onSelect,
-      disabled,
-      role = "menuitem",
-      "aria-checked": ariaChecked,
-      textValue: _textValue,
-      children,
-      onPointerEnter: callerPointerEnter,
-      onKeyDown: callerKeyDown,
-      onFocus: callerFocus,
-      onBlur: callerBlur,
-      ...domProps
-    },
-    ref,
-  ) => {
-    const { isCompactViewport, onOpenChange } = useResponsiveMenu();
-    const { hoverProps } = useMenuItemHover({
-      onPointerEnter: callerPointerEnter,
-      onKeyDown: callerKeyDown,
-    });
+>(function (
+  {
+    className,
+    inset,
+    variant = "default",
+    onSelect,
+    disabled,
+    role = "menuitem",
+    "aria-checked": ariaChecked,
+    textValue: _textValue,
+    children,
+    onPointerEnter: callerPointerEnter,
+    onKeyDown: callerKeyDown,
+    onFocus: callerFocus,
+    onBlur: callerBlur,
+    ...domProps
+  },
+  ref,
+) {
+  const { isCompactViewport, onOpenChange } = useResponsiveMenu();
+  const { hoverProps } = useMenuItemHover({
+    onPointerEnter: callerPointerEnter,
+    onKeyDown: callerKeyDown,
+  });
 
-    if (isCompactViewport) {
-      return (
-        <button
-          ref={ref as React.RefCallback<HTMLButtonElement> | null}
-          type="button"
-          role={role}
-          disabled={disabled}
-          aria-disabled={disabled || undefined}
-          aria-checked={ariaChecked}
-          className={cn(
-            "relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-2 text-left text-xs outline-none transition-colors focus:bg-state-hover focus:text-foreground active:bg-state-active active:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>[data-icon-root]]:size-4 [&>[data-icon-root]]:shrink-0",
-            inset && "pl-8",
-            variant === "destructive" && MENU_ITEM_DESTRUCTIVE_TOUCH_CLASS,
-            className,
-          )}
-          data-disabled={disabled ? "" : undefined}
-          onFocus={callerFocus}
-          onBlur={callerBlur}
-          onClick={() => {
-            if (disabled) return;
-            const event = createSelectEvent();
-            onSelect?.(event);
-            if (!event.defaultPrevented) {
-              onOpenChange(false);
-            }
-          }}
-        >
-          {children}
-        </button>
-      );
-    }
-
+  if (isCompactViewport) {
     return (
-      <DropdownMenuPrimitive.Item
-        ref={ref}
+      <button
+        ref={ref as React.RefCallback<HTMLButtonElement> | null}
+        type="button"
+        role={role}
+        disabled={disabled}
+        aria-disabled={disabled || undefined}
+        aria-checked={ariaChecked}
         className={cn(
-          "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-[0.3125rem] text-xs outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>[data-icon-root]]:size-4 [&>[data-icon-root]]:shrink-0",
-          LIST_HOVER_TRANSITION,
-          variant === "destructive"
-            ? MENU_ITEM_DESTRUCTIVE_STATE_CLASS
-            : MENU_ITEM_NEUTRAL_STATE_CLASS,
+          "relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-2 text-left text-xs outline-none transition-colors focus:bg-state-hover focus:text-foreground active:bg-state-active active:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>[data-icon-root]]:size-4 [&>[data-icon-root]]:shrink-0",
           inset && "pl-8",
+          variant === "destructive" && MENU_ITEM_DESTRUCTIVE_TOUCH_CLASS,
           className,
         )}
-        disabled={disabled}
-        role={role}
-        aria-checked={ariaChecked}
-        onSelect={onSelect}
-        textValue={_textValue}
+        data-disabled={disabled ? "" : undefined}
         onFocus={callerFocus}
         onBlur={callerBlur}
-        {...domProps}
-        {...hoverProps}
+        onClick={() => {
+          if (disabled) return;
+          const event = createSelectEvent();
+          onSelect?.(event);
+          if (!event.defaultPrevented) {
+            onOpenChange(false);
+          }
+        }}
       >
         {children}
-      </DropdownMenuPrimitive.Item>
+      </button>
     );
-  },
-);
+  }
+
+  return (
+    <DropdownMenuPrimitive.Item
+      ref={ref}
+      className={cn(
+        "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-[0.3125rem] text-xs outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>[data-icon-root]]:size-4 [&>[data-icon-root]]:shrink-0",
+        LIST_HOVER_TRANSITION,
+        variant === "destructive"
+          ? MENU_ITEM_DESTRUCTIVE_STATE_CLASS
+          : MENU_ITEM_NEUTRAL_STATE_CLASS,
+        inset && "pl-8",
+        className,
+      )}
+      disabled={disabled}
+      role={role}
+      aria-checked={ariaChecked}
+      onSelect={onSelect}
+      textValue={_textValue}
+      onFocus={callerFocus}
+      onBlur={callerBlur}
+      {...domProps}
+      {...hoverProps}
+    >
+      {children}
+    </DropdownMenuPrimitive.Item>
+  );
+});
 DropdownMenuItem.displayName = "DropdownMenuItem";
 
 const DropdownMenuCheckboxItem = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.CheckboxItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
->(
-  (
-    {
-      className,
-      children,
-      checked,
-      onSelect,
-      onCheckedChange,
-      disabled,
-      textValue: _textValue,
-      onPointerEnter: callerPointerEnter,
-      onKeyDown: callerKeyDown,
-      ...domProps
-    },
-    ref,
-  ) => {
-    const { isCompactViewport, onOpenChange } = useResponsiveMenu();
-    const { hoverProps } = useMenuItemHover({
-      onPointerEnter: callerPointerEnter,
-      onKeyDown: callerKeyDown,
-    });
+>(function (
+  {
+    className,
+    children,
+    checked,
+    onSelect,
+    onCheckedChange,
+    disabled,
+    textValue: _textValue,
+    onPointerEnter: callerPointerEnter,
+    onKeyDown: callerKeyDown,
+    ...domProps
+  },
+  ref,
+) {
+  const { isCompactViewport, onOpenChange } = useResponsiveMenu();
+  const { hoverProps } = useMenuItemHover({
+    onPointerEnter: callerPointerEnter,
+    onKeyDown: callerKeyDown,
+  });
 
-    if (isCompactViewport) {
-      return (
-        <button
-          ref={ref as React.RefCallback<HTMLButtonElement> | null}
-          type="button"
-          role="menuitemcheckbox"
-          aria-checked={checked === "indeterminate" ? "mixed" : checked === true}
-          disabled={disabled}
-          aria-disabled={disabled || undefined}
-          className={cn(
-            "relative flex w-full cursor-default select-none items-center rounded-sm py-2 pl-2 pr-8 text-left text-xs outline-none transition-colors focus:bg-state-hover focus:text-foreground active:bg-state-active active:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-            className,
-          )}
-          data-disabled={disabled ? "" : undefined}
-          onClick={() => {
-            if (disabled) return;
-            const event = createSelectEvent();
-            onSelect?.(event);
-            onCheckedChange?.(checked === "indeterminate" ? true : !checked);
-            if (!event.defaultPrevented) {
-              onOpenChange(false);
-            }
-          }}
-        >
-          <span
-            className={cn(
-              "absolute right-2 flex items-center justify-center",
-              COARSE_POINTER_CHECK_SLOT_CLASS,
-            )}
-          >
-            {(checked === true || checked === "indeterminate") && (
-              <Icon name="Check" className={COARSE_POINTER_CHECK_SLOT_CLASS} />
-            )}
-          </span>
-          {children}
-        </button>
-      );
-    }
-
+  if (isCompactViewport) {
     return (
-      <DropdownMenuPrimitive.CheckboxItem
-        ref={ref}
+      <button
+        ref={ref as React.RefCallback<HTMLButtonElement> | null}
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={checked === "indeterminate" ? "mixed" : checked === true}
+        disabled={disabled}
+        aria-disabled={disabled || undefined}
         className={cn(
-          "relative flex cursor-default select-none items-center rounded-sm py-[0.3125rem] pl-2 pr-8 text-xs outline-none focus:bg-state-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-          LIST_HOVER_TRANSITION,
-          MENU_ITEM_LAST_HOVERED_CLASS,
+          "relative flex w-full cursor-default select-none items-center rounded-sm py-2 pl-2 pr-8 text-left text-xs outline-none transition-colors focus:bg-state-hover focus:text-foreground active:bg-state-active active:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
           className,
         )}
-        checked={checked}
-        onSelect={onSelect}
-        onCheckedChange={onCheckedChange}
-        disabled={disabled}
-        textValue={_textValue}
-        {...domProps}
-        {...hoverProps}
+        data-disabled={disabled ? "" : undefined}
+        onClick={() => {
+          if (disabled) return;
+          const event = createSelectEvent();
+          onSelect?.(event);
+          onCheckedChange?.(checked === "indeterminate" ? true : !checked);
+          if (!event.defaultPrevented) {
+            onOpenChange(false);
+          }
+        }}
       >
         <span
           className={cn(
@@ -353,21 +318,52 @@ const DropdownMenuCheckboxItem = React.forwardRef<
             COARSE_POINTER_CHECK_SLOT_CLASS,
           )}
         >
-          <DropdownMenuPrimitive.ItemIndicator>
+          {(checked === true || checked === "indeterminate") && (
             <Icon name="Check" className={COARSE_POINTER_CHECK_SLOT_CLASS} />
-          </DropdownMenuPrimitive.ItemIndicator>
+          )}
         </span>
         {children}
-      </DropdownMenuPrimitive.CheckboxItem>
+      </button>
     );
-  },
-);
+  }
+
+  return (
+    <DropdownMenuPrimitive.CheckboxItem
+      ref={ref}
+      className={cn(
+        "relative flex cursor-default select-none items-center rounded-sm py-[0.3125rem] pl-2 pr-8 text-xs outline-none focus:bg-state-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        LIST_HOVER_TRANSITION,
+        MENU_ITEM_LAST_HOVERED_CLASS,
+        className,
+      )}
+      checked={checked}
+      onSelect={onSelect}
+      onCheckedChange={onCheckedChange}
+      disabled={disabled}
+      textValue={_textValue}
+      {...domProps}
+      {...hoverProps}
+    >
+      <span
+        className={cn(
+          "absolute right-2 flex items-center justify-center",
+          COARSE_POINTER_CHECK_SLOT_CLASS,
+        )}
+      >
+        <DropdownMenuPrimitive.ItemIndicator>
+          <Icon name="Check" className={COARSE_POINTER_CHECK_SLOT_CLASS} />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </DropdownMenuPrimitive.CheckboxItem>
+  );
+});
 DropdownMenuCheckboxItem.displayName = "DropdownMenuCheckboxItem";
 
-function DropdownMenuRadioGroup({
+const DropdownMenuRadioGroup = ({
   children,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) => {
   const { isCompactViewport } = useResponsiveMenu();
 
   if (isCompactViewport) {
@@ -375,48 +371,46 @@ function DropdownMenuRadioGroup({
   }
 
   return <DropdownMenuPrimitive.RadioGroup {...props}>{children}</DropdownMenuPrimitive.RadioGroup>;
-}
+};
 
 const DropdownMenuRadioItem = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.RadioItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
->(
-  (
-    { className, children, onPointerEnter: callerPointerEnter, onKeyDown: callerKeyDown, ...props },
-    ref,
-  ) => {
-    const { isCompactViewport } = useResponsiveMenu();
-    const { hoverProps } = useMenuItemHover({
-      onPointerEnter: callerPointerEnter,
-      onKeyDown: callerKeyDown,
-    });
+>(function (
+  { className, children, onPointerEnter: callerPointerEnter, onKeyDown: callerKeyDown, ...props },
+  ref,
+) {
+  const { isCompactViewport } = useResponsiveMenu();
+  const { hoverProps } = useMenuItemHover({
+    onPointerEnter: callerPointerEnter,
+    onKeyDown: callerKeyDown,
+  });
 
-    if (isCompactViewport) {
-      return null;
-    }
+  if (isCompactViewport) {
+    return null;
+  }
 
-    return (
-      <DropdownMenuPrimitive.RadioItem
-        ref={ref}
-        className={cn(
-          "relative flex cursor-default select-none items-center rounded-sm py-[0.3125rem] pl-8 pr-2 text-xs outline-none focus:bg-state-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-          LIST_HOVER_TRANSITION,
-          MENU_ITEM_LAST_HOVERED_CLASS,
-          className,
-        )}
-        {...props}
-        {...hoverProps}
-      >
-        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-          <DropdownMenuPrimitive.ItemIndicator>
-            <Icon name="Circle" className="h-2 w-2 fill-current" />
-          </DropdownMenuPrimitive.ItemIndicator>
-        </span>
-        {children}
-      </DropdownMenuPrimitive.RadioItem>
-    );
-  },
-);
+  return (
+    <DropdownMenuPrimitive.RadioItem
+      ref={ref}
+      className={cn(
+        "relative flex cursor-default select-none items-center rounded-sm py-[0.3125rem] pl-8 pr-2 text-xs outline-none focus:bg-state-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        LIST_HOVER_TRANSITION,
+        MENU_ITEM_LAST_HOVERED_CLASS,
+        className,
+      )}
+      {...props}
+      {...hoverProps}
+    >
+      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+        <DropdownMenuPrimitive.ItemIndicator>
+          <Icon name="Circle" className="h-2 w-2 fill-current" />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </DropdownMenuPrimitive.RadioItem>
+  );
+});
 DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName;
 
 const DropdownMenuLabel = React.forwardRef<
@@ -424,7 +418,7 @@ const DropdownMenuLabel = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
     inset?: boolean;
   }
->(({ className, inset, children, ...props }, ref) => {
+>(function ({ className, inset, children, ...props }, ref) {
   const { isCompactViewport } = useResponsiveMenu();
 
   if (isCompactViewport) {
@@ -461,7 +455,7 @@ DropdownMenuLabel.displayName = "DropdownMenuLabel";
 const DropdownMenuSeparator = React.forwardRef<
   HTMLHRElement,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
->(({ className, ...props }, ref) => {
+>(function ({ className, ...props }, ref) {
   const { isCompactViewport } = useResponsiveMenu();
 
   if (isCompactViewport) {
@@ -486,7 +480,7 @@ DropdownMenuSeparator.displayName = "DropdownMenuSeparator";
 const DropdownMenuGroup = React.forwardRef<
   HTMLDivElement,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Group>
->(({ children, ...props }, ref) => {
+>(function ({ children, ...props }, ref) {
   const { isCompactViewport } = useResponsiveMenu();
 
   if (isCompactViewport) {
@@ -514,58 +508,58 @@ const DropdownMenuSubTrigger = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
     inset?: boolean;
   }
->(
-  (
-    {
-      className,
-      inset,
-      children,
-      onPointerEnter: callerPointerEnter,
-      onKeyDown: callerKeyDown,
-      ...props
-    },
-    ref,
-  ) => {
-    const { hoverProps } = useMenuItemHover({
-      onPointerEnter: callerPointerEnter,
-      onKeyDown: callerKeyDown,
-    });
-
-    return (
-      <DropdownMenuPrimitive.SubTrigger
-        ref={ref}
-        className={cn(
-          "flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-[0.3125rem] text-xs outline-none focus:bg-state-hover focus:text-foreground data-[state=open]:bg-state-active data-[state=open]:text-foreground [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0",
-          LIST_HOVER_TRANSITION,
-          MENU_ITEM_LAST_HOVERED_CLASS,
-          inset && "pl-8",
-          className,
-        )}
-        {...props}
-        {...hoverProps}
-      >
-        {children}
-        <Icon name="ChevronRight" className="ml-auto" />
-      </DropdownMenuPrimitive.SubTrigger>
-    );
+>(function (
+  {
+    className,
+    inset,
+    children,
+    onPointerEnter: callerPointerEnter,
+    onKeyDown: callerKeyDown,
+    ...props
   },
-);
+  ref,
+) {
+  const { hoverProps } = useMenuItemHover({
+    onPointerEnter: callerPointerEnter,
+    onKeyDown: callerKeyDown,
+  });
+
+  return (
+    <DropdownMenuPrimitive.SubTrigger
+      ref={ref}
+      className={cn(
+        "flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-[0.3125rem] text-xs outline-none focus:bg-state-hover focus:text-foreground data-[state=open]:bg-state-active data-[state=open]:text-foreground [&_[data-icon-root]]:pointer-events-none [&_[data-icon-root]]:size-4 [&_[data-icon-root]]:shrink-0",
+        LIST_HOVER_TRANSITION,
+        MENU_ITEM_LAST_HOVERED_CLASS,
+        inset && "pl-8",
+        className,
+      )}
+      {...props}
+      {...hoverProps}
+    >
+      {children}
+      <Icon name="ChevronRight" className="ml-auto" />
+    </DropdownMenuPrimitive.SubTrigger>
+  );
+});
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
 
 const DropdownMenuSubContent = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
->(({ className, ...props }, ref) => (
-  <DropdownMenuPrimitive.SubContent
-    ref={ref}
-    {...usePortalScopeProps()}
-    className={cn(
-      "z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-      className,
-    )}
-    {...props}
-  />
-));
+>(function ({ className, ...props }, ref) {
+  return (
+    <DropdownMenuPrimitive.SubContent
+      ref={ref}
+      {...usePortalScopeProps()}
+      className={cn(
+        "z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        className,
+      )}
+      {...props}
+    />
+  );
+});
 DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName;
 
 const DropdownMenuShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => {

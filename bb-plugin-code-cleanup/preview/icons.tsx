@@ -11,10 +11,10 @@ const icons = {
   RotateCcw: Refresh01Icon,
   Info: InformationCircleIcon,
 };
-export function FixtureIcon({ name, fallback: _fallback, ...props }: ExperimentalIconProps) {
+export const FixtureIcon = ({ name, fallback: _fallback, ...props }: ExperimentalIconProps) => {
   const icon = icons[name as keyof typeof icons];
   if (!icon) {
     throw new Error(`Unknown fixture icon: ${name}`);
   }
   return <HugeiconsIcon icon={icon} {...props} data-icon={name} />;
-}
+};

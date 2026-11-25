@@ -4,7 +4,7 @@ import { ReviewVideoDiff } from "../../../review-ui/video-diff";
 import { imageBlobResult } from "../../../review-ui/image-diff";
 import type { ImageSide } from "../../../review-ui/image-diff";
 
-function Fixture() {
+const Fixture = () => {
   const load = useCallback(async (side: ImageSide, signal: AbortSignal) => {
     const response = await fetch(
       `/content?side=${side}&codec=${new URLSearchParams(location.search).get("codec") ?? "vp9"}`,
@@ -20,5 +20,5 @@ function Fixture() {
       load={load}
     />
   );
-}
+};
 createRoot(document.getElementById("root")!).render(<Fixture />);

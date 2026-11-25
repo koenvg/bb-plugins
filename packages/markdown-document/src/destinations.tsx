@@ -111,7 +111,7 @@ function grant(scope: DestinationScope, url: string, image: boolean) {
   return scope.policy.resolve(Object.freeze({ url, image }));
 }
 
-function NativeLink({
+const NativeLink = ({
   parsed,
   policy,
   children,
@@ -119,7 +119,7 @@ function NativeLink({
 }: LinkReferences & {
   parsed: Exclude<Destination, { kind: "fragment" }>;
   policy: NativePolicy;
-}) {
+}) => {
   const [failed, setFailed] = useState(false);
   const open =
     parsed.kind === "external" && policy.kind !== "deny" ? policy.openExternal : undefined;
@@ -171,9 +171,9 @@ function NativeLink({
       {failed ? <span role="status">Link could not be opened.</span> : null}
     </>
   );
-}
+};
 
-export function DestinationLink({
+export const DestinationLink = ({
   url,
   fragmentTarget,
   children,
@@ -181,7 +181,7 @@ export function DestinationLink({
 }: LinkReferences & {
   url: string;
   fragmentTarget: (fragment: string) => string | null;
-}) {
+}) => {
   const scope = useContext(DestinationContext);
   const { policy } = scope;
   const native = policy.kind === "attachment" || policy.kind === "bound-source" ? policy : null;
@@ -229,9 +229,9 @@ export function DestinationLink({
       {children}
     </span>
   );
-}
+};
 
-function LoadedImage({
+const LoadedImage = ({
   result,
   alt,
   title,
@@ -239,7 +239,7 @@ function LoadedImage({
   result: Extract<DestinationGrant, { kind: "image" }>;
   alt: string;
   title?: string;
-}) {
+}) => {
   const [failed, setFailed] = useState(false);
   if (failed)
     return (
@@ -257,9 +257,9 @@ function LoadedImage({
       onInlineError={() => setFailed(true)}
     />
   );
-}
+};
 
-export function DestinationImage({
+export const DestinationImage = ({
   url,
   alt = "",
   title,
@@ -267,7 +267,7 @@ export function DestinationImage({
   url: string;
   alt?: string;
   title?: string;
-}) {
+}) => {
   const scope = useContext(DestinationContext);
   const { policy, resources } = scope;
   if (policy.kind === "attachment" || policy.kind === "bound-source") {
@@ -314,4 +314,4 @@ export function DestinationImage({
       {alt || "Image"}
     </span>
   );
-}
+};

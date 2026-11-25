@@ -351,7 +351,7 @@ describe("unavailable state and failures", () => {
       let reads = 0;
       let visibleAtReconnect: string[] | undefined;
       let invocation: void | Promise<void>;
-      function ObserveConnectedCommit() {
+      const ObserveConnectedCommit = () => {
         const connection = useRealtimeConnectionState();
         const previous = useRef(connection);
         useLayoutEffect(() => {
@@ -362,7 +362,7 @@ describe("unavailable state and failures", () => {
           previous.current = connection;
         }, [connection]);
         return null;
-      }
+      };
       const slot = mount(
         { rpc: { listSnoozes: () => (++reads === 1 ? snoozeSnapshot(initial) : pending) } },
         false,

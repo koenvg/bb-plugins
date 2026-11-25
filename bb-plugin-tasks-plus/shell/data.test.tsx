@@ -19,7 +19,7 @@ interface ProbeProps {
   onFrame: (frame: Frame) => void;
 }
 
-function Probe({ taskKey, onFrame }: ProbeProps) {
+const Probe = ({ taskKey, onFrame }: ProbeProps) => {
   const query = useTasksQuery(
     async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
     ["tasks:changed"],
@@ -43,14 +43,14 @@ function Probe({ taskKey, onFrame }: ProbeProps) {
       <button onClick={refresh.refresh}>Refresh tasks</button>
     </>
   );
-}
-function Root(props: ProbeProps) {
+};
+const Root = (props: ProbeProps) => {
   return (
     <TasksRefreshProvider>
       <Probe {...props} />
     </TasksRefreshProvider>
   );
-}
+};
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason: Error) => void;
@@ -211,7 +211,7 @@ describe("Tasks query identity", () => {
   });
 });
 
-function StandaloneProbe() {
+const StandaloneProbe = () => {
   const refresh = useTasksRefreshSource();
   const query = useTasksQueryWithRefresh(
     refresh,
@@ -232,7 +232,7 @@ function StandaloneProbe() {
       </button>
     </>
   );
-}
+};
 
 describe("Tasks query without a context provider", () => {
   it("shares generation accounting and retains accepted data on read failure", async () => {
@@ -260,10 +260,10 @@ describe("Tasks query without a context provider", () => {
   });
 
   it("keeps the strict provider guard on the context adapter", () => {
-    function MissingProvider() {
+    const MissingProvider = () => {
       useTasksRefresh();
       return null;
-    }
+    };
     expect(() => renderSlot({ component: MissingProvider }, {})).toThrow(
       "useTasksRefresh must be used within TasksRefreshProvider",
     );

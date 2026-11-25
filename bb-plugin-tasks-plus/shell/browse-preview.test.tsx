@@ -11,10 +11,10 @@ import {
   select,
   setup,
   tasks,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 const lookups = (slot: ReturnType<typeof setup>, key: string) =>
   slot.inspection.rpcCalls.filter(
     (c) => c.method === "getTaskByKey" && rpcInput(c.input).taskKey === key,

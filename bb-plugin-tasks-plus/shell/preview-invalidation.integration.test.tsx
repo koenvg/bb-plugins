@@ -13,10 +13,10 @@ afterEach(async () => {
   cleanup();
   while (disposers.length) await disposers.pop()?.();
 });
-function Preview({ taskKey }: { taskKey: string }) {
+const Preview = ({ taskKey }: { taskKey: string }) => {
   const preview = useTaskPreview(taskKey);
   return <output aria-label={taskKey}>{JSON.stringify(preview)}</output>;
-}
+};
 
 function setup() {
   const { bb, harness } = createFakePluginHost({ pluginId: "tasks-plus" });

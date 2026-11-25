@@ -22,7 +22,7 @@ interface NavigationActions {
 
 // The vendored radio primitives are desktop-only. Keep one choice renderer
 // using the responsive Item contract for both floating menus and drawers.
-function NavigationChoice({
+const NavigationChoice = ({
   selected,
   onSelect,
   textValue,
@@ -32,7 +32,7 @@ function NavigationChoice({
   onSelect: () => void;
   textValue?: string;
   children: ReactNode;
-}) {
+}) => {
   return (
     <DropdownMenuItem
       role="menuitemradio"
@@ -49,9 +49,9 @@ function NavigationChoice({
       ) : null}
     </DropdownMenuItem>
   );
-}
+};
 
-export function ProjectPicker({
+export const ProjectPicker = ({
   route,
   projects: inventory,
   onNavigate,
@@ -59,7 +59,7 @@ export function ProjectPicker({
 }: NavigationActions & {
   route: ResolvedTasksRoute;
   projects: ReturnType<typeof useProjects>;
-}) {
+}) => {
   const folders = useFolders();
   const projects = inventory.data;
   const projectId = route.kind === "project" ? route.projectId : null;
@@ -162,13 +162,13 @@ export function ProjectPicker({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};
 
-export function TasksNavigationMenu({
+export const TasksNavigationMenu = ({
   route,
   onNavigate,
   onNewProject,
-}: NavigationActions & { route: ResolvedTasksRoute }) {
+}: NavigationActions & { route: ResolvedTasksRoute }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -235,4 +235,4 @@ export function TasksNavigationMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+};

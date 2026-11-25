@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export function ConfirmDialog({
+export const ConfirmDialog = ({
   open,
   onOpenChange,
   title,
@@ -25,7 +25,7 @@ export function ConfirmDialog({
   confirmLabel: string;
   confirmDisabled?: boolean;
   onConfirm: () => void;
-}) {
+}) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
@@ -52,4 +52,4 @@ export function ConfirmDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

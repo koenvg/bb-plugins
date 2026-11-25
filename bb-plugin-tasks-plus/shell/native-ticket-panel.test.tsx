@@ -9,10 +9,10 @@ import {
   tasks,
   row,
   setup,
-  useWorkspaceTestLifecycle,
+  registerWorkspaceTestLifecycle,
 } from "./browse-workspace.test-support.js";
 
-useWorkspaceTestLifecycle();
+registerWorkspaceTestLifecycle();
 
 describe("native Ticket tab", () => {
   it("keeps the list in Tasks and opens the editable ticket in the host tab", async () => {

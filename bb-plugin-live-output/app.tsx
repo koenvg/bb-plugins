@@ -11,7 +11,7 @@ const format = (value: number) => value.toLocaleString(undefined, { maximumFract
 const buttonClass =
   "rounded-md px-3 py-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:bg-muted aria-pressed:text-foreground text-muted-foreground";
 
-function LiveOutput({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) {
+const LiveOutput = ({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) => {
   const navigate = useBbNavigate();
   const { snapshot, disconnected } = useSnapshot();
   const [windowSize, setWindowSize] = useState<WindowSize>(smoothSeconds);
@@ -209,15 +209,15 @@ function LiveOutput({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) {
       </div>
     </main>
   );
-}
-function Stat({ label, value }: { label: string; value: string }) {
+};
+const Stat = ({ label, value }: { label: string; value: string }) => {
   return (
     <div>
       <dd className="text-lg tabular-nums">{value}</dd>
       <dt className="mt-1 text-xs text-muted-foreground">{label}</dt>
     </div>
   );
-}
+};
 export default definePluginApp((app) => {
   const useSnapshot = createOutputSnapshotHook();
   const Page = () => <LiveOutput useSnapshot={useSnapshot} />;

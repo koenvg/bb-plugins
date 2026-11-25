@@ -58,10 +58,10 @@ async function mount(
   const app = await loadPluginApp(pluginApp);
   let api: PluginComposerApi;
   const Opener = app.fileOpeners[0]!.component;
-  function ObservedOpener(props: PluginFileOpenerProps) {
+  const ObservedOpener = (props: PluginFileOpenerProps) => {
     api = useComposer();
     return <Opener {...props} />;
-  }
+  };
   const slot = renderSlot(
     { component: ObservedOpener },
     { ...selectedTarget, Original: () => <p>Original</p> },

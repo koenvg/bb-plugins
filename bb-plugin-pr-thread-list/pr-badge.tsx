@@ -18,13 +18,13 @@ const TONE = {
   neutral: "text-muted-foreground",
 };
 
-export function PrBadgeView({
+export const PrBadgeView = ({
   pullRequest,
   onActivate,
 }: {
   pullRequest: PrSummary | null;
   onActivate: () => void;
-}) {
+}) => {
   if (!pullRequest) return <span data-testid="pr-hook-consumer" hidden />;
   const view = presentPullRequest(pullRequest);
   const content = (
@@ -72,4 +72,4 @@ export function PrBadgeView({
       </button>
     </span>
   );
-}
+};

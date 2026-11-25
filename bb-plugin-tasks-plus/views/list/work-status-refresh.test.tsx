@@ -29,13 +29,13 @@ window.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 };
-function List(props: ComponentProps<typeof ListView>) {
+const List = (props: ComponentProps<typeof ListView>) => {
   return (
     <TasksRefreshProvider>
       <ListView {...props} />
     </TasksRefreshProvider>
   );
-}
+};
 afterEach(async () => {
   cleanup();
   window.localStorage.clear();
@@ -69,10 +69,10 @@ it("renders Idle to Running to Idle from background-only lifecycle publications 
   });
   registerTasksApi(bb, store);
   await registerLifecycle(bb, store);
-  function Probe() {
+  const Probe = () => {
     const query = useTaskListMeta([task], "all");
     return <ThreadSummary taskKey={task.key} meta={query.data?.get(task.id)} />;
-  }
+  };
   const slot = renderSlot(
     {
       component: () => (
@@ -155,18 +155,18 @@ it("shares thread reads across sequential visible chunks, retains every associat
       });
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
-  function Probe({ rows }: { rows: Task[] }) {
+  const Probe = ({ rows }: { rows: Task[] }) => {
     latest = useTaskListMeta(rows, "all").data;
     const refresh = useTasksRefresh();
     return <button onClick={refresh.refresh}>Refresh</button>;
-  }
-  function Root({ rows }: { rows: Task[] }) {
+  };
+  const Root = ({ rows }: { rows: Task[] }) => {
     return (
       <TasksRefreshProvider>
         <Probe rows={rows} />
       </TasksRefreshProvider>
     );
-  }
+  };
   const slot = renderSlot(
     { component: Root },
     { rows: tasks },
@@ -269,10 +269,10 @@ it("updates archived failure, unarchive and confirmed deletion through the mount
   });
   const before = store.tasks.listTaskThreads(task.id);
   registerTasksApi(bb, store);
-  function Probe() {
+  const Probe = () => {
     const query = useTaskListMeta([task], "all");
     return <ThreadSummary taskKey={task.key} meta={query.data?.get(task.id)} />;
-  }
+  };
   const slot = renderSlot(
     {
       component: () => (
@@ -371,10 +371,10 @@ it("shares settled environment successes, absence and failures across 501 sequen
   const before = store.tasks.listTaskThreads(tasks[0]!.id);
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
-  function Probe() {
+  const Probe = () => {
     latest = useTaskListMeta(tasks, "all").data;
     return <button onClick={useTasksRefresh().refresh}>Refresh PRs</button>;
-  }
+  };
   const slot = renderSlot(
     {
       component: () => (

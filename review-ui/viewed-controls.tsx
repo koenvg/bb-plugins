@@ -7,7 +7,7 @@ export interface CollapseButtonProps {
   icons: { collapsed: ReactNode; expanded: ReactNode };
 }
 
-export function CollapseButton({ path, collapsed, onToggle, icons }: CollapseButtonProps) {
+export const CollapseButton = ({ path, collapsed, onToggle, icons }: CollapseButtonProps) => {
   return (
     <button
       type="button"
@@ -19,7 +19,7 @@ export function CollapseButton({ path, collapsed, onToggle, icons }: CollapseBut
       {collapsed ? icons.collapsed : icons.expanded}
     </button>
   );
-}
+};
 
 export interface ViewedCheckboxProps {
   path: string;
@@ -28,7 +28,12 @@ export interface ViewedCheckboxProps {
   onToggle: () => void;
 }
 
-export function ViewedCheckbox({ path, checked, disabled = false, onToggle }: ViewedCheckboxProps) {
+export const ViewedCheckbox = ({
+  path,
+  checked,
+  disabled = false,
+  onToggle,
+}: ViewedCheckboxProps) => {
   return (
     <label className="ml-2 inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground has-[:disabled]:cursor-default has-[:disabled]:opacity-50">
       <input
@@ -41,4 +46,4 @@ export function ViewedCheckbox({ path, checked, disabled = false, onToggle }: Vi
       Viewed
     </label>
   );
-}
+};

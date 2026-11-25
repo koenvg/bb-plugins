@@ -24,7 +24,7 @@ function parseRequest(payload: unknown): PiExtensionUiPayloadData | null {
   return wrapped.success ? wrapped.data : null;
 }
 
-function ExtensionUiInteraction({ interaction, submit, cancel }: PluginPendingInteractionProps) {
+const ExtensionUiInteraction = ({ interaction, submit, cancel }: PluginPendingInteractionProps) => {
   const request = useMemo(() => parseRequest(interaction.payload), [interaction.payload]);
   const { shortcuts, registerChoiceHandler } = useQuestionFormHost();
   const [text, setText] = useState(request?.prefill ?? "");
@@ -177,8 +177,8 @@ function ExtensionUiInteraction({ interaction, submit, cancel }: PluginPendingIn
       ) : null}
     </form>
   );
-}
-function SubagentSupport() {
+};
+const SubagentSupport = () => {
   return (
     <div className="space-y-2 text-sm text-muted-foreground">
       <p>
@@ -192,7 +192,7 @@ function SubagentSupport() {
       <p>Installed lifecycle and recovery acceptance remain required.</p>
     </div>
   );
-}
+};
 
 export default definePluginApp((app) => {
   app.slots.experimental_tab({
