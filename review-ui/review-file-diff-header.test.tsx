@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { useState } from "react";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
@@ -19,9 +20,12 @@ beforeAll(() => {
 
 afterEach(cleanup);
 
-const fileDiff = parsePatchFiles(
-  "diff --git a/old.ts b/new.ts\nsimilarity index 90%\nrename from old.ts\nrename to new.ts\n--- a/old.ts\n+++ b/new.ts\n@@ -1 +1 @@\n-a\n+b\n",
-)[0]!.files[0]!;
+const fileDiff =
+  (
+    parsePatchFiles(
+      "diff --git a/old.ts b/new.ts\nsimilarity index 90%\nrename from old.ts\nrename to new.ts\n--- a/old.ts\n+++ b/new.ts\n@@ -1 +1 @@\n-a\n+b\n",
+    )[0] ?? missingValue("Expected a non-null value")
+  ).files[0] ?? missingValue("Expected a non-null value");
 
 function Review({ controls = true, disabled = false }: { controls?: boolean; disabled?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -64,7 +68,7 @@ async function header(container: HTMLElement) {
   return waitFor(() => {
     const root = container.querySelector("diffs-container")?.shadowRoot;
     expect(root?.querySelector("[data-title]")?.textContent).toBe("new.ts");
-    return root!;
+    return root ?? missingValue("Expected a non-null value");
   });
 }
 
@@ -73,13 +77,15 @@ it.each(["data-title", "data-prev-name"])(
   async (attribute) => {
     const view = render(<Review />);
     const root = await header(view.container);
-    const filename = root.querySelector<HTMLElement>(`[${attribute}]`)!;
+    const filename =
+      root.querySelector<HTMLElement>(`[${attribute}]`) ??
+      missingValue("Expected a non-null value");
     expect(filename.getAttribute("role")).toBe("button");
     expect(filename.tabIndex).toBe(0);
     expect(filename.getAttribute("aria-expanded")).toBe("true");
     expect(root.querySelector("pre")).not.toBeNull();
 
-    fireEvent.click(filename.querySelector("bdi")!);
+    fireEvent.click(filename.querySelector("bdi") ?? missingValue("Expected a non-null value"));
     expect(view.getByRole("button", { name: "Expand new.ts" }).getAttribute("aria-expanded")).toBe(
       "false",
     );
@@ -101,7 +107,8 @@ it.each(["data-title", "data-prev-name"])(
 it.each(["Enter", " "])("toggles a focused filename with %s", async (key) => {
   const view = render(<Review />);
   const root = await header(view.container);
-  const filename = root.querySelector<HTMLElement>("[data-title]")!;
+  const filename =
+    root.querySelector<HTMLElement>("[data-title]") ?? missingValue("Expected a non-null value");
   filename.focus();
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
   fireEvent(filename, event);
@@ -121,30 +128,43 @@ it("replaces handlers on repeated renders and keeps chevron and Viewed independe
   view.rerender(<Review />);
   view.rerender(<Review />);
 
-  fireEvent.click(root.querySelector("[data-title]")!);
+  fireEvent.click(root.querySelector("[data-title]") ?? missingValue("Expected a non-null value"));
   expect(view.getByRole("button", { name: "Expand new.ts" }).getAttribute("aria-expanded")).toBe(
     "false",
   );
   fireEvent.click(view.getByRole("button", { name: "Expand new.ts" }));
-  expect(root.querySelector("[data-title]")!.getAttribute("aria-expanded")).toBe("true");
+  expect(
+    (root.querySelector("[data-title]") ?? missingValue("Expected a non-null value")).getAttribute(
+      "aria-expanded",
+    ),
+  ).toBe("true");
   fireEvent.click(view.getByText("Viewed"));
   expect((view.getByRole("checkbox", { name: "Viewed new.ts" }) as HTMLInputElement).checked).toBe(
     true,
   );
-  expect(root.querySelector("[data-title]")!.getAttribute("aria-expanded")).toBe("true");
+  expect(
+    (root.querySelector("[data-title]") ?? missingValue("Expected a non-null value")).getAttribute(
+      "aria-expanded",
+    ),
+  ).toBe("true");
 
   view.rerender(<Review disabled />);
   fireEvent.click(view.getByText("Viewed"));
   expect((view.getByRole("checkbox", { name: "Viewed new.ts" }) as HTMLInputElement).checked).toBe(
     true,
   );
-  expect(root.querySelector("[data-title]")!.getAttribute("aria-expanded")).toBe("true");
+  expect(
+    (root.querySelector("[data-title]") ?? missingValue("Expected a non-null value")).getAttribute(
+      "aria-expanded",
+    ),
+  ).toBe("true");
 });
 
 it("keeps filenames inert without collapse controls, including after removing controls", async () => {
   const view = render(<Review controls={false} />);
   const root = await header(view.container);
-  const filename = root.querySelector<HTMLElement>("[data-title]")!;
+  const filename =
+    root.querySelector<HTMLElement>("[data-title]") ?? missingValue("Expected a non-null value");
   expect(filename.getAttribute("role")).toBeNull();
   expect(filename.getAttribute("aria-expanded")).toBeNull();
 

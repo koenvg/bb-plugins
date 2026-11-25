@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { type DestinationPolicy } from "@bb-plugins/markdown-document";
+import type { DestinationPolicy } from "@bb-plugins/markdown-document";
 import { ModelDocument as MarkdownDocument } from "./consumer.js";
 
 const policy: DestinationPolicy = { kind: "attachment", remoteImages: true };
@@ -94,12 +95,14 @@ it("aborts replacement and unmount and never displays a late fetched image", asy
     />,
   );
   await waitFor(() => expect(requests.length).toBe(2));
-  expect(requests[0]!.signal.aborted).toBe(true);
-  await act(async () => requests[0]!.resolve(image()));
+  expect((requests[0] ?? missingValue("Expected a non-null value")).signal.aborted).toBe(true);
+  await act(async () =>
+    (requests[0] ?? missingValue("Expected a non-null value")).resolve(image()),
+  );
   expect(screen.getByRole("img", { name: "new" }).textContent).toBe("new");
   expect(create.mock.calls).toEqual([]);
   unmount();
-  expect(requests[1]!.signal.aborted).toBe(true);
+  expect((requests[1] ?? missingValue("Expected a non-null value")).signal.aborted).toBe(true);
 });
 it("bounds concurrency and total requests while keeping rejected image labels", async () => {
   blobs();

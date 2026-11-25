@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { createDocumentModel, MarkdownDocument } from "@bb-plugins/markdown-document";
@@ -12,7 +13,11 @@ function documentCode(code: string, language = "json") {
   const source = `\`\`\`${language}\n${code}\`\`\`\n`;
   const model = createDocumentModel(source, "code-reader");
   const ui = render(<MarkdownDocument model={model} view="preview" />);
-  return { block: ui.container.querySelector("pre code")!, model, source };
+  return {
+    block: ui.container.querySelector("pre code") ?? missingValue("Expected a non-null value"),
+    model,
+    source,
+  };
 }
 describe("rendered fenced code", () => {
   it("highlights explicitly selected JSON without reformatting compact source", () => {
@@ -128,7 +133,8 @@ describe("rendered fenced code", () => {
     const source = '```json\r\n{"value":true}  ';
     const model = createDocumentModel(source, "eof-code");
     const ui = render(<MarkdownDocument model={model} view="preview" />);
-    const block = ui.container.querySelector("pre code")!;
+    const block =
+      ui.container.querySelector("pre code") ?? missingValue("Expected a non-null value");
     expect(block.textContent).toBe('{"value":true}  \n');
     expect(block.querySelector(".token")).not.toBeNull();
     expect(model.sourceLines.lines.join("")).toBe(source);

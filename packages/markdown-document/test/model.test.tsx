@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, within } from "@testing-library/react";
 import {
@@ -43,9 +44,11 @@ describe("document navigation model", () => {
       [1, "BB plugins", 9],
       [2, "Details", 13],
     ]);
-    expect(model.fragmentTarget("#details")).toBe(model.headings[1]!.id);
+    expect(model.fragmentTarget("#details")).toBe(
+      (model.headings[1] ?? missingValue("Expected a non-null value")).id,
+    );
     expect(ui.container.querySelector("a")?.getAttribute("data-heading-target")).toBe(
-      model.headings[1]!.id,
+      (model.headings[1] ?? missingValue("Expected a non-null value")).id,
     );
     expect(model.requests).toEqual([]);
     expect(model.sourceLines.lines.join("")).toBe(text);
@@ -111,7 +114,7 @@ describe("document navigation model", () => {
     expect(headings.map((h) => h.id)).toEqual(model.headings.map((h) => h.id));
     expect(headings.map((h) => h.textContent)).toEqual(model.headings.map((h) => h.text));
     expect(model.fragmentTarget("#%E6%97%A5%E6%9C%AC%E8%AA%9E-caf%C3%A9-1")).toBe(
-      model.headings[2]!.id,
+      (model.headings[2] ?? missingValue("Expected a non-null value")).id,
     );
     expect(model.fragmentTarget("#missing")).toBeNull();
     expect(model.fragmentTarget("#%zz")).toBeNull();
@@ -168,8 +171,12 @@ describe("document navigation model", () => {
       "level-six",
       "section",
     ]);
-    expect(model.fragmentTarget("#alt-bold-gone--x")).toBe(model.headings[3]!.id);
-    expect(model.fragmentTarget("#")).toBe(model.headings[6]!.id);
+    expect(model.fragmentTarget("#alt-bold-gone--x")).toBe(
+      (model.headings[3] ?? missingValue("Expected a non-null value")).id,
+    );
+    expect(model.fragmentTarget("#")).toBe(
+      (model.headings[6] ?? missingValue("Expected a non-null value")).id,
+    );
     expect(model.headings.map((h) => h.level)).toEqual([1, 2, 3, 4, 5, 6, 1]);
     const ui = render(
       <MarkdownDocument model={model} view="preview" destinations={localDestinations} />,
@@ -180,7 +187,9 @@ describe("document navigation model", () => {
         .map((h) => h.textContent),
     ).toEqual(model.headings.map((h) => h.text));
     expect(ui.container.querySelector("img")).toBeNull();
-    expect(model.fragmentTarget("#foo-2")).toBe(model.headings[2]!.id);
+    expect(model.fragmentTarget("#foo-2")).toBe(
+      (model.headings[2] ?? missingValue("Expected a non-null value")).id,
+    );
   });
   it.each(["", "# Actual\r\n\r\n"])(
     "keeps used footnotes reader-local and does not invent source headings for prefix %j",

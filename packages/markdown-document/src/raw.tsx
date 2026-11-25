@@ -34,11 +34,11 @@ export function RawDocument({
       boundaries.add(range.end);
     }
     const ordered = [...boundaries].sort((a, b) => a - b);
-    return ordered.slice(0, -1).map((start, index) => ({
-      start: start + 1,
-      end: ordered[index + 1]!,
-      text: lines.slice(start, ordered[index + 1]).join(""),
-    }));
+    return ordered.slice(1).map((end, index) => {
+      const start = ordered[index];
+      if (start === undefined) throw new Error("Source boundary is missing");
+      return { start: start + 1, end, text: lines.slice(start, end).join("") };
+    });
   }, [sourceLines, annotations, range?.start, range?.end]);
   useEffect(() => {
     const range = sourceLines.target(request);

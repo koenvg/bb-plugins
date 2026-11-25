@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -55,12 +56,12 @@ describe("production project table persistence and consumer refresh", () => {
           projectId: target.id,
           title: `Child ${status}`,
           status,
-          parentTaskId: roots[0]!.id,
+          parentTaskId: (roots[0] ?? missingValue("Expected a non-null value")).id,
         }),
       );
       const ownedTasks = [...roots, ...children];
       const taskThread = store.tasks.upsertTaskThread({
-        taskId: roots[0]!.id,
+        taskId: (roots[0] ?? missingValue("Expected a non-null value")).id,
         threadId: thread.id,
         title: "Retained BB worker",
         presetName: "Fixture",
@@ -82,13 +83,13 @@ describe("production project table persistence and consumer refresh", () => {
         ]),
       );
       const editor = renderSlot(
-        app.navPanels[0]!,
+        app.navPanels[0] ?? missingValue("Expected a non-null value"),
         { subPath: "manage" },
         { rpc, context: { projectId: workspace.id } },
       );
       slots.push(editor);
       const browse = renderSlot(
-        app.navPanels[0]!,
+        app.navPanels[0] ?? missingValue("Expected a non-null value"),
         { subPath: `${survivor.id}?view=list` },
         { rpc },
       );
@@ -189,7 +190,8 @@ describe("production project table persistence and consumer refresh", () => {
           linkedBbProjectId: workspace.id,
         });
         const task = store.tasks.createTask({ projectId: project.id, title: "Fixture task" });
-        const original = store.tasks.getProject(project.id)!;
+        const original =
+          store.tasks.getProject(project.id) ?? missingValue("Expected a non-null value");
         const expectedColor = choice === null ? original.color : "mediumpurple";
         const rpc = Object.fromEntries(
           Object.keys(tasksRpcContract).map((method) => [
@@ -211,10 +213,14 @@ describe("production project table persistence and consumer refresh", () => {
           ]),
         );
         const options = { rpc, context: { projectId: workspace.id } };
-        const editor = renderSlot(app.navPanels[0]!, { subPath: "manage" }, options);
+        const editor = renderSlot(
+          app.navPanels[0] ?? missingValue("Expected a non-null value"),
+          { subPath: "manage" },
+          options,
+        );
         slots.push(editor);
         const browse = renderSlot(
-          app.navPanels[0]!,
+          app.navPanels[0] ?? missingValue("Expected a non-null value"),
           { subPath: `${project.id}?view=list` },
           options,
         );

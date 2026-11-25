@@ -1306,5 +1306,98 @@ export default defineConfig({
         "unicorn/no-useless-fallback-in-spread": "warn",
       },
     },
+    {
+      files: ["bb-plugin-tasks-plus/views/manage/project-delete-dialog.test.tsx"],
+      rules: {
+        "typescript/consistent-type-imports": core.rules["typescript/consistent-type-imports"],
+      },
+    },
+    {
+      files: [
+        "bb-plugin-tasks-plus/views/manage/project-delete-dialog.test.tsx",
+        "bb-plugin-tasks-plus/views/manage/projects-section.tsx",
+        "bb-plugin-tasks-plus/views/thread-header/thread-header.test.tsx",
+        "bb-plugin-tasks-plus/webhooks/settings-section.tsx",
+        "review-ui/image-diff.tsx",
+      ],
+      rules: {
+        "typescript/consistent-type-definitions":
+          core.rules["typescript/consistent-type-definitions"],
+      },
+    },
+    {
+      files: [
+        "bb-plugin-tasks-plus/views/manage/project-delete-dialog.test.tsx",
+        "bb-plugin-tasks-plus/views/manage/projects-section.integration.test.tsx",
+        "bb-plugin-tasks-plus/views/manage/projects-section.test.tsx",
+        "bb-plugin-tasks-plus/views/manage/shared.test.tsx",
+        "bb-plugin-tasks-plus/views/manage/shared.tsx",
+        "bb-plugin-tasks-plus/views/thread-header/index.tsx",
+        "bb-plugin-tasks-plus/views/thread-header/thread-header.test.tsx",
+        "bb-plugin-tasks-plus/webhooks/index.test.ts",
+        "bb-plugin-tasks-plus/webhooks/index.ts",
+        "packages/markdown-document/src/destinations.tsx",
+        "packages/markdown-document/src/image-preview.tsx",
+        "packages/markdown-document/src/index.tsx",
+        "packages/markdown-document/src/raw.tsx",
+        "packages/markdown-document/src/source-lines.ts",
+        "packages/markdown-document/test/code.test.tsx",
+        "packages/markdown-document/test/highlighting.test.tsx",
+        "packages/markdown-document/test/image-preview.test.tsx",
+        "packages/markdown-document/test/images.test.tsx",
+        "packages/markdown-document/test/model.test.tsx",
+        "packages/markdown-document/test/navigation.test.tsx",
+        "packages/markdown-document/test/parity.ts",
+        "packages/markdown-document/test/public.test.tsx",
+        "review-ui/review-file-diff-header.test.tsx",
+        "review-ui/review-file-diff.test.tsx",
+        "review-ui/video-diff.test.tsx",
+        "verification/BBP-35/live-check.ts",
+      ],
+      rules: { "typescript/no-non-null-assertion": core.rules["typescript/no-non-null-assertion"] },
+    },
+    {
+      files: [
+        "bb-plugin-tasks-plus/views/manage/projects-section.tsx",
+        "scripts/browser-fixture-runner.mjs",
+        "scripts/browser-preview-servers.test.mjs",
+        "scripts/sdk.test.mjs",
+        "scripts/verify-concurrent-browser-worktrees.mjs",
+        "verification/BBP-57/clean-build.mjs",
+        "verification/pi-subagents/deadline-guard.test.mjs",
+      ],
+      rules: { "typescript/no-dynamic-delete": core.rules["typescript/no-dynamic-delete"] },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/stats/index.tsx"],
+      rules: { "typescript/array-type": core.rules["typescript/array-type"] },
+    },
+    {
+      files: [
+        "bb-plugin-tasks-plus/webhooks/index.ts",
+        "packages/markdown-document/src/source-lines.ts",
+      ],
+      rules: {
+        "typescript/method-signature-style": core.rules["typescript/method-signature-style"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/webhooks/index.ts"],
+      rules: { "typescript/parameter-properties": core.rules["typescript/parameter-properties"] },
+    },
+    {
+      files: [
+        "packages/markdown-document/test/images.test.tsx",
+        "packages/markdown-document/test/navigation.test.tsx",
+      ],
+      rules: {
+        "typescript/no-import-type-side-effects":
+          core.rules["typescript/no-import-type-side-effects"],
+      },
+    },
+    {
+      files: ["verification/BBP-35/live-check.ts"],
+      rules: { "typescript/no-explicit-any": core.rules["typescript/no-explicit-any"] },
+    },
   ],
 });

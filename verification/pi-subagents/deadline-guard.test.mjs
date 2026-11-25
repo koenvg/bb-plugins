@@ -71,7 +71,7 @@ test("binding rejects wrong thread, session, run, item and generation", () => {
     "parentResponseHasOwnedResult",
   ]) {
     const r = receipt();
-    delete r[key];
+    Reflect.deleteProperty(r, key);
     assert.equal(acceptsReceipt(plan(), scope, r), false);
   }
 });

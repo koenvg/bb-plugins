@@ -69,9 +69,15 @@ function testMessage(outcome: DeliveryOutcome) {
   }
 }
 
-type Feedback = { message: string; error?: boolean };
+interface Feedback {
+  message: string;
+  error?: boolean;
+}
 type Pending = { kind: "add" } | { kind: "test" | "delete" | "rename"; id: string };
-type Selection = { kind: "delete" | "rename"; endpoint: EndpointSummary };
+interface Selection {
+  kind: "delete" | "rename";
+  endpoint: EndpointSummary;
+}
 
 function RowAction({
   label,

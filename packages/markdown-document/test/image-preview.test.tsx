@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
@@ -137,7 +138,9 @@ it("reuses the owned blob across reopen and closes synchronously before error re
   fireEvent.click(within(dialog).getByRole("button"));
   expect(revoke).not.toHaveBeenCalled();
   open();
-  fireEvent.error(screen.getAllByRole("img", { name: "Chart" })[0]!);
+  fireEvent.error(
+    screen.getAllByRole("img", { name: "Chart" })[0] ?? missingValue("Expected a non-null value"),
+  );
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(create).toHaveBeenCalledTimes(1);

@@ -1,6 +1,11 @@
 export function measureDocument() {
-  const root = document.querySelector<HTMLElement>(".md-document")!;
-  const prose = root.querySelector<HTMLElement>(".mr-prose")!;
+  function query<T extends Element>(parent: ParentNode, selector: string): T {
+    const node = parent.querySelector<T>(selector);
+    if (!node) throw new Error(`Missing parity element: ${selector}`);
+    return node;
+  }
+  const root = query<HTMLElement>(document, ".md-document");
+  const prose = query<HTMLElement>(root, ".mr-prose");
   const selectors = [
     ".mr-prose",
     "h1",
@@ -45,7 +50,7 @@ export function measureDocument() {
     ),
     styles: Object.fromEntries(
       selectors.map((selector) => {
-        const node = root.querySelector(selector)!;
+        const node = query(root, selector);
         const style = getComputedStyle(node);
         return [
           selector,
@@ -55,17 +60,17 @@ export function measureDocument() {
         ];
       }),
     ),
-    codeText: root.querySelector("pre code")!.textContent,
+    codeText: query(root, "pre code").textContent,
     tokens: root.querySelectorAll("pre code .token").length,
-    orderedStart: root.querySelector("ol")!.getAttribute("start"),
+    orderedStart: query(root, "ol").getAttribute("start"),
     checkboxes: Array.from(
       root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
       (node) => [node.checked, node.disabled],
     ),
     overflow: {
       page: document.documentElement.scrollWidth > innerWidth,
-      code: root.querySelector("pre")!.scrollWidth > root.querySelector("pre")!.clientWidth,
-      table: getComputedStyle(root.querySelector(".mr-table-scroll")!).overflowX,
+      code: query(root, "pre").scrollWidth > query(root, "pre").clientWidth,
+      table: getComputedStyle(query(root, ".mr-table-scroll")).overflowX,
     },
   };
 }

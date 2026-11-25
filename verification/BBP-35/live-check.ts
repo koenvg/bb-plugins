@@ -7,10 +7,13 @@ import { createReviewService } from "../../bb-plugin-github-insight/review/revie
 
 const [owner, repo, out, prNumber] = process.argv.slice(2) as [string, string, string, string];
 const number = Number(prNumber);
-const handlers = (
-  hostEntry as unknown as { handlers: Record<string, (r: unknown, c: unknown) => Promise<any>> }
-).handlers;
-const context = { signal: new AbortController().signal };
+const handlers = hostEntry.handlers;
+const context = { signal: new AbortController().signal } as Parameters<
+  typeof handlers.uploadImage
+>[1];
+const unsupported = (): never => {
+  throw new Error("Operation outside live-check scope");
+};
 
 function crc32(bytes: Uint8Array) {
   let c = ~0;
@@ -46,29 +49,38 @@ const png = Buffer.concat([
 writeFileSync(join(out, "probe.png"), png);
 writeFileSync(join(out, "not-image.png"), "hello");
 
-const notImage = await handlers.uploadImage!(
+const notImage = await handlers.uploadImage(
   { owner, repo, path: "not-image.png", cwd: out },
   context,
 );
 console.log("not an image ->", JSON.stringify(notImage));
-const uploaded = await handlers.uploadImage!({ owner, repo, path: "probe.png", cwd: out }, context);
+const uploaded = await handlers.uploadImage({ owner, repo, path: "probe.png", cwd: out }, context);
 console.log("upload ->", JSON.stringify(uploaded));
 if (!uploaded.ok) process.exit(1);
 
 const body = `Gradient probe\n\n<img alt="probe" src="${uploaded.url}">`;
-const target = { ref: { owner, repo, number }, hostId: "local" };
-const unwrap = (r: any) => {
+const target = { ref: { owner, repo, number }, hostId: "local", openOnBb: false };
+const unwrap = (r: { ok: true; data: unknown } | { ok: false; failure: unknown }) => {
   if (!r.ok) throw new Error(JSON.stringify(r.failure));
   return r.data;
 };
 const service = createReviewService({
   resolvePr: async () => ({ kind: "pr", target }),
   renderMarkdown: async (_t: unknown, text: string) => {
-    const r = await handlers.renderMarkdown!({ owner, repo, text }, context);
+    const r = await handlers.renderMarkdown({ owner, repo, text }, context);
     if (!r.ok) throw new Error(JSON.stringify(r.failure));
     return r.html;
   },
   drafts: {
+    save: unsupported,
+    delete: unsupported,
+    liveDrafts: unsupported,
+    saveComment: unsupported,
+    comment: unsupported,
+    editComment: unsupported,
+    deleteComment: unsupported,
+    saveSummary: unsupported,
+    deleteReviewDrafts: unsupported,
     knownDrafts: async () => ({}),
     comments: async () => [
       {
@@ -85,14 +97,22 @@ const service = createReviewService({
     ],
     summary: async () => null,
   },
-  fetchPrHead: async () => unwrap(await handlers.fetchPrHead!({ owner, repo, number }, context)),
+  fetchPrHead: async () => unwrap(await handlers.fetchPrHead({ owner, repo, number }, context)),
   fetchPrFilesPage: async (_t: unknown, page: number) =>
-    unwrap(await handlers.fetchPrFiles!({ owner, repo, number, page }, context)),
+    unwrap(await handlers.fetchPrFiles({ owner, repo, number, page }, context)),
   fetchReviewThreadsPage: async (_t: unknown, after: string | null) =>
-    unwrap(await handlers.fetchReviewThreads!({ owner, repo, number, after }, context)),
+    unwrap(await handlers.fetchReviewThreads({ owner, repo, number, after }, context)),
   signMedia: createMediaSigner(Date.now),
-} as any);
-const loaded: any = await (service as any).loadDrafts("thr");
+  viewed: { get: unsupported, update: unsupported },
+  newCommentBasis: unsupported,
+  markCommentsSeen: unsupported,
+  publishDrafts: unsupported,
+  sendMessage: unsupported,
+  now: Date.now,
+  newDraftId: unsupported,
+});
+const loaded = await service.loadDrafts("thr");
+if (loaded.kind !== "ok") throw new Error(JSON.stringify(loaded));
 console.log("draftMedia ->", JSON.stringify(loaded.drafts?.draftMedia ?? loaded).slice(0, 220));
 const signed = Object.values(loaded.drafts?.draftMedia ?? {})[0] as string | undefined;
 if (signed) {

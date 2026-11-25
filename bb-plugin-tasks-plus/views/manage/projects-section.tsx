@@ -19,7 +19,10 @@ function isReady(inventory: Inventory) {
   return inventory.data !== undefined && !inventory.isLoading && inventory.error === null;
 }
 
-type Mutation = { id: string; kind: "save" | "delete" };
+interface Mutation {
+  id: string;
+  kind: "save" | "delete";
+}
 
 export function ProjectsSection() {
   const inventory = useProjects();
@@ -45,7 +48,7 @@ export function ProjectsSection() {
       );
       if (confirmed.length === 0) return previous;
       const next = { ...previous };
-      for (const [id] of confirmed) delete next[id];
+      for (const [id] of confirmed) Reflect.deleteProperty(next, id);
       return next;
     });
   }, [inventory]);

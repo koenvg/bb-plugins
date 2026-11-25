@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { ReviewVideoDiff } from "./video-diff";
@@ -59,7 +60,7 @@ describe("video revision previews", () => {
     const screen = render(<ReviewVideoDiff {...labels} active load={load} />);
     fireEvent.click(screen.getByRole("button", { name: "Load before video" }));
     screen.rerender(<ReviewVideoDiff {...labels} active={false} load={load} />);
-    expect(load.mock.calls[0]![1].aborted).toBe(true);
+    expect((load.mock.calls[0] ?? missingValue("Expected a non-null value"))[1].aborted).toBe(true);
     await act(async () => finish(ready));
     expect(URL.createObjectURL).not.toHaveBeenCalled();
     screen.rerender(<ReviewVideoDiff {...labels} active load={load} />);

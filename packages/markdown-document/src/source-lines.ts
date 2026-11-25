@@ -9,7 +9,7 @@ export interface LineTarget {
 export interface SourceLines {
   readonly text: string;
   readonly lines: readonly string[];
-  target(request: unknown): LineTarget | null;
+  target: (request: unknown) => LineTarget | null;
 }
 
 export function createSourceLines(text: string): SourceLines {
@@ -19,7 +19,8 @@ export function createSourceLines(text: string): SourceLines {
     const result: string[] = [];
     const pattern = /([^\r\n]*)(\r\n|\r|\n|$)/g;
     for (;;) {
-      const match = pattern.exec(text)!;
+      const match = pattern.exec(text);
+      if (!match) throw new Error("Source line pattern did not match");
       result.push(match[0]);
       if (!match[2]) break;
     }
