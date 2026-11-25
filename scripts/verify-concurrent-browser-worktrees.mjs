@@ -142,7 +142,7 @@ test('own changed checkout on simultaneous browser runs',async({page,context,bas
         "BB_FIXTURE_RUN_DIR",
         "BB_FIXTURE_PORT",
       ])
-        delete env[key];
+        Reflect.deleteProperty(env, key);
       cancellation.signal.throwIfAborted();
       const child = spawn(
         process.execPath,

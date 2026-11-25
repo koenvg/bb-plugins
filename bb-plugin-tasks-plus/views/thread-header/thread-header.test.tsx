@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { useLayoutEffect } from "react";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -39,7 +40,9 @@ interface ProbeProps {
   onData?: (data: ThreadTaskData) => void;
 }
 function Probe({ threadIds, onData }: ProbeProps) {
-  const data = threadTaskAction.useData!({ threadIds });
+  const data = (threadTaskAction.useData ?? missingValue("Expected a non-null value"))({
+    threadIds,
+  });
   const sdk = useSdk();
   const navigate = useBbNavigate();
   const experimental_panel = experimental_useAppPanel();
@@ -86,7 +89,9 @@ function RefreshRoot() {
     </TasksRefreshProvider>
   );
 }
-type Response = { tasks: Task[] };
+interface Response {
+  tasks: Task[];
+}
 function deferred() {
   let resolve!: (value: Response) => void;
   let reject!: (error: Error) => void;
@@ -112,7 +117,7 @@ function setup(load: (id: string) => Response | Promise<Response>, ids = ["A"], 
     slot,
     frames,
     openTab,
-    current: () => frames.at(-1)!,
+    current: () => frames.at(-1) ?? missingValue("Expected a non-null value"),
     change: (threadIds: string[]) =>
       slot.lifecycle.rerender(<Probe threadIds={threadIds} onData={onData} />),
   };

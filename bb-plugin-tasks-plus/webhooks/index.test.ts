@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createWebhooks } from "./index";
@@ -21,7 +22,12 @@ async function service(settings?: Record<string, string>) {
   const define = vi.spyOn(bb.settings, "define");
   const webhooks = await createWebhooks(bb);
   bb.onDispose(webhooks.dispose);
-  return { webhooks, harness, bb, settings: define.mock.results[0]!.value };
+  return {
+    webhooks,
+    harness,
+    bb,
+    settings: (define.mock.results[0] ?? missingValue("Expected a non-null value")).value,
+  };
 }
 
 function stalledFetch() {
@@ -29,9 +35,9 @@ function stalledFetch() {
   vi.stubGlobal(
     "fetch",
     vi.fn((_url, options: RequestInit) => {
-      signals.push(options.signal!);
+      signals.push(options.signal ?? missingValue("Expected a non-null value"));
       return new Promise<Response>((_resolve, reject) => {
-        options.signal!.addEventListener(
+        (options.signal ?? missingValue("Expected a non-null value")).addEventListener(
           "abort",
           () => reject(new Error("private url and authorization")),
           { once: true },

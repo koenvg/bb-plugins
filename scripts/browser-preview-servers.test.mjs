@@ -50,7 +50,7 @@ function start(preview, parent, port, args = [], preload, runtime) {
   const env = { ...process.env, TMPDIR: parent, TMP: parent, TEMP: parent };
   delete env.BB_FIXTURE_RUN_DIR;
   delete env.BB_FIXTURE_PORT;
-  delete env[preview.key];
+  Reflect.deleteProperty(env, preview.key);
   if (port !== undefined) env[preview.key] = port;
   if (preload) env.DEBUG = "vite:deps";
   if (runtime) env.BB_PLAYWRIGHT_RUNTIME = runtime;

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { useState } from "react";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,8 +14,10 @@ describe("ColorSwatchPicker keyboard navigation", () => {
     const radios = view.getAllByRole("radio");
     const entry = radios.filter((radio) => radio.tabIndex === 0);
     expect(entry).toHaveLength(1);
-    expect(entry[0]!.getAttribute("aria-label")).toBe(value === "steelblue" ? "Blue" : "Indigo");
-    entry[0]!.focus();
+    expect((entry[0] ?? missingValue("Expected a non-null value")).getAttribute("aria-label")).toBe(
+      value === "steelblue" ? "Blue" : "Indigo",
+    );
+    (entry[0] ?? missingValue("Expected a non-null value")).focus();
     expect(radios.filter((radio) => radio.getAttribute("aria-checked") === "true")).toHaveLength(
       value === "steelblue" ? 1 : 0,
     );
@@ -47,7 +50,11 @@ describe("ColorSwatchPicker keyboard navigation", () => {
       ["ArrowDown", "Indigo", "slateblue"],
       ...COLOR_PALETTE.slice(1).map((swatch) => ["ArrowRight", swatch.label, swatch.value]),
     ]) {
-      expect(fireEvent.keyDown(document.activeElement!, { key })).toBe(false);
+      expect(
+        fireEvent.keyDown(document.activeElement ?? missingValue("Expected a non-null value"), {
+          key,
+        }),
+      ).toBe(false);
       const radio = view.getByRole("radio", { name: label });
       expect(document.activeElement).toBe(radio);
       expect(radio.tabIndex).toBe(0);

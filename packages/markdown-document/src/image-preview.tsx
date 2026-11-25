@@ -74,7 +74,8 @@ export function ImagePresentation({
   const [openedIn, setOpenedIn] = useState<PresentationSession | null>(null);
   useLayoutEffect(() => {
     let current = true;
-    const element = image.current!;
+    const element = image.current;
+    if (!element) throw new Error("Image is not mounted");
     const decoded = () => {
       if (current) setReady(true);
     };
@@ -167,8 +168,10 @@ function ImageDialog({
   const dismissRef = useRef(dismiss);
   dismissRef.current = dismiss;
   useLayoutEffect(() => {
-    const element = dialog.current!;
-    const ownerWindow = element.ownerDocument.defaultView!;
+    const element = dialog.current;
+    if (!element) throw new Error("Dialog is not mounted");
+    const ownerWindow = element.ownerDocument.defaultView;
+    if (!ownerWindow) throw new Error("Dialog window is unavailable");
     element.showModal();
     closeButton.current?.focus({ preventScroll: true });
     const escape = (event: KeyboardEvent) => {
@@ -184,7 +187,9 @@ function ImageDialog({
     };
   }, [dialog]);
   const outside = (x: number, y: number) => {
-    const rect = dialog.current!.getBoundingClientRect();
+    const element = dialog.current;
+    if (!element) throw new Error("Dialog is not mounted");
+    const rect = element.getBoundingClientRect();
     return x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
   };
   return (

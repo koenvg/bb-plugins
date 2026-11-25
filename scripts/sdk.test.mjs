@@ -330,7 +330,7 @@ for (const initialGroup of ["dependencies", "devDependencies"]) {
     const original = f.manifest();
     if (initialGroup === "dependencies") {
       original.dependencies[sdk] = original.devDependencies[sdk];
-      delete original.devDependencies[sdk];
+      Reflect.deleteProperty(original.devDependencies, sdk);
       f.json(join(f.root, names[0], "package.json"), original);
     }
     f.commit();
@@ -357,7 +357,7 @@ for (const initialGroup of ["dependencies", "devDependencies"]) {
     assert.deepEqual(applied.report.projections[0].changes, expected);
     original.dependencies[sdk] = "0.6.104";
     original.dependencies[alias] = `npm:${sdk}@0.6.104`;
-    delete original.devDependencies[sdk];
+    Reflect.deleteProperty(original.devDependencies, sdk);
     original.devDependencies.sonner = "^2.0.7";
     assert.deepEqual(f.manifest(), original);
     assert.equal(
@@ -373,7 +373,7 @@ test("runtime contract SDK in dependencies still rejects an unsupported engine b
   runtimeContract(f);
   const pkg = f.manifest();
   pkg.dependencies[sdk] = pkg.devDependencies[sdk];
-  delete pkg.devDependencies[sdk];
+  Reflect.deleteProperty(pkg.devDependencies, sdk);
   pkg.engines.bbPluginSdk = ">=0.7";
   f.json(join(f.root, names[0], "package.json"), pkg);
   f.commit();

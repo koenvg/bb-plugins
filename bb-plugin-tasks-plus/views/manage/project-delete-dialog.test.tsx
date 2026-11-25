@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { tasksRpcContract, type Project, type Task } from "../../shared/contract.js";
+import type { tasksRpcContract, Project, Task } from "../../shared/contract.js";
 import { TASKS_PAGE_MAX_LIMIT } from "../../shared/pagination.js";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
 import { COMPACT_VIEWPORT_QUERY } from "../../components/ui/hooks/use-compact-viewport.js";
@@ -14,7 +15,10 @@ afterEach(() => {
 });
 
 type DeleteResult = ReturnType<typeof tasksRpcContract.deleteProject.output.parse>;
-type TaskPage = { tasks: Task[]; nextCursor?: string | null };
+interface TaskPage {
+  tasks: Task[];
+  nextCursor?: string | null;
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -47,13 +51,14 @@ function setup() {
     },
     save: (input) => ({
       project: {
-        ...state.projects.find((row) => row.id === input.projectId)!,
+        ...(state.projects.find((row) => row.id === input.projectId) ??
+          missingValue("Expected a non-null value")),
         name: String(input.name),
       },
     }),
   };
   const slot = renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected a non-null value"),
     { subPath: "manage" },
     {
       rpc: {
@@ -241,7 +246,7 @@ describe("production project deletion safeguards", () => {
       await act(async () => {
         fireEvent.click(button);
         fireEvent.click(button);
-        fireEvent.submit(work.closest("form")!);
+        fireEvent.submit(work.closest("form") ?? missingValue("Expected a non-null value"));
         fireEvent.click(deleteWork);
         fireEvent.click(cancel);
         fireEvent.change(input, { target: { value: "WORK" } });
@@ -290,14 +295,19 @@ describe("production project deletion safeguards", () => {
     env.handlers.save = () => save.promise;
     fireEvent.change(home, { target: { value: "Pending save" } });
     await act(async () => {
-      fireEvent.submit(home.closest("form")!);
+      fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
       fireEvent.click(trigger);
     });
     expect(env.calls("updateProject")).toHaveLength(1);
     expect(env.calls("deleteProject")).toEqual([]);
     expect(within(document.body).queryByRole("dialog")).toBeNull();
     await act(async () => {
-      save.resolve({ project: { ...env.state.projects[0]!, name: "Pending save" } });
+      save.resolve({
+        project: {
+          ...(env.state.projects[0] ?? missingValue("Expected a non-null value")),
+          name: "Pending save",
+        },
+      });
     });
     await waitFor(() => expect(trigger).toHaveProperty("disabled", false));
   });
@@ -318,7 +328,9 @@ describe("production project deletion safeguards", () => {
         });
       if (state === "removed")
         await act(async () => {
-          read.resolve({ projects: [env.state.projects[1]!] });
+          read.resolve({
+            projects: [env.state.projects[1] ?? missingValue("Expected a non-null value")],
+          });
         });
       await waitFor(() => expect(button).toHaveProperty("disabled", true));
       fireEvent.click(button);
@@ -349,7 +361,7 @@ describe("production project deletion safeguards", () => {
       "HOME",
     );
     expect(work).toHaveProperty("disabled", true);
-    fireEvent.submit(work.closest("form")!);
+    fireEvent.submit(work.closest("form") ?? missingValue("Expected a non-null value"));
     expect(env.calls("updateProject")).toEqual([]);
     expect(env.calls("deleteProject")).toHaveLength(1);
     await act(async () => {
@@ -367,7 +379,9 @@ describe("production project deletion safeguards", () => {
     const env = setup();
     await load(env);
     env.handlers.remove = () => ({ ok: true, deleted: false });
-    env.handlers.projects = () => ({ projects: [env.state.projects[1]!] });
+    env.handlers.projects = () => ({
+      projects: [env.state.projects[1] ?? missingValue("Expected a non-null value")],
+    });
     const dialog = await open(env);
     const { button } = await confirm(dialog);
     fireEvent.click(button);
@@ -408,7 +422,9 @@ describe("production project deletion safeguards", () => {
     expect(env.slot.queryByRole("textbox", { name: "Project name for HOME" })).toBeNull();
     expect(env.slot.getByText("Deleted Home Lab (HOME) and all its tasks.")).toBeDefined();
     expect(work).toHaveProperty("value", "Surviving draft");
-    env.handlers.projects = () => ({ projects: [env.state.projects[1]!] });
+    env.handlers.projects = () => ({
+      projects: [env.state.projects[1] ?? missingValue("Expected a non-null value")],
+    });
     fireEvent.click(env.slot.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(env.slot.queryByRole("alert")).toBeNull());
     expect(work).toHaveProperty("value", "Surviving draft");

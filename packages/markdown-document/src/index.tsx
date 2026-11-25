@@ -85,7 +85,8 @@ export function MarkdownDocument({
     const anchor = (event.target as Element | null)?.closest?.("a[data-heading-target]");
     if (!anchor) return;
     event.preventDefault();
-    if (event.button < 2) navigate(anchor.getAttribute("data-heading-target")!);
+    const target = anchor.getAttribute("data-heading-target");
+    if (event.button < 2 && target !== null) navigate(target);
   };
   const showOutline =
     outline &&

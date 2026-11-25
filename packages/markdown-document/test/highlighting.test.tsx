@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { refractor } from "refractor/core";
@@ -10,12 +11,14 @@ afterEach(() => {
 });
 
 function fence(label: string, body: string, closed = true) {
-  return render(
-    <MarkdownDocument
-      model={createDocumentModel(`\`\`\`${label}\n${body}${closed ? "\n```" : ""}`, "highlight")}
-      view="preview"
-    />,
-  ).container.querySelector("pre code")!;
+  return (
+    render(
+      <MarkdownDocument
+        model={createDocumentModel(`\`\`\`${label}\n${body}${closed ? "\n```" : ""}`, "highlight")}
+        view="preview"
+      />,
+    ).container.querySelector("pre code") ?? missingValue("Expected a non-null value")
+  );
 }
 
 describe("public fence highlighting", () => {
@@ -65,7 +68,10 @@ describe("public fence highlighting", () => {
     const expected = prefix + payload + suffix;
     const spy = vi.spyOn(refractor, "highlight");
     const code = fence("js", expected.slice(0, -1));
-    expect(new TextEncoder().encode(code.textContent!).byteLength).toBe(bytes);
+    expect(
+      new TextEncoder().encode(code.textContent ?? missingValue("Expected a non-null value"))
+        .byteLength,
+    ).toBe(bytes);
     expect(code.textContent).toBe(expected);
     if (bytes === 20480) {
       expect(code.querySelector(".token.keyword")?.textContent).toBe("const");
@@ -172,10 +178,19 @@ describe("public fence highlighting", () => {
         />,
       );
       const [bad, good] = Array.from(container.querySelectorAll("pre code"));
-      expect(bad!.textContent).toBe("const bad = true;\n");
-      expect(bad!.querySelectorAll("span")).toHaveLength(0);
-      expect(good!.textContent).toBe("const good = true;\n");
-      expect(good!.querySelector(".token.keyword")?.textContent).toBe("const");
+      expect((bad ?? missingValue("Expected a non-null value")).textContent).toBe(
+        "const bad = true;\n",
+      );
+      expect(
+        (bad ?? missingValue("Expected a non-null value")).querySelectorAll("span"),
+      ).toHaveLength(0);
+      expect((good ?? missingValue("Expected a non-null value")).textContent).toBe(
+        "const good = true;\n",
+      );
+      expect(
+        (good ?? missingValue("Expected a non-null value")).querySelector(".token.keyword")
+          ?.textContent,
+      ).toBe("const");
     },
   );
 });

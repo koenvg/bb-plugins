@@ -75,8 +75,11 @@ export function checkedDestination(url: string, image: boolean): boolean {
   if (/^[a-z][a-z\d+.-]*:/i.test(decoded) && !remote) return false;
   if (decoded.startsWith("/") || (!remote && decoded.includes("?"))) return false;
   const path = remote
-    ? url.replace(/^https?:\/\/[^/?#]+/i, "").split(/[?#]/, 1)[0]!
-    : url.split("#", 1)[0]!;
+    ? url
+        .replace(/^https?:\/\/[^/?#]+/i, "")
+        .split(/[?#]/, 1)
+        .join("")
+    : url.split("#", 1).join("");
   if (
     /%2f|%5c/i.test(path) ||
     path
@@ -138,9 +141,9 @@ function NativeLink({
     try {
       const result =
         parsed.kind === "external"
-          ? await open!(parsed.url)
+          ? await open?.(parsed.url)
           : parsed.kind === "source"
-            ? await source!(parsed.destination)
+            ? await source?.(parsed.destination)
             : false;
       setFailed(!result);
     } catch {

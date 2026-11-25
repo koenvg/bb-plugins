@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
 export type ImageSide = "before" | "after";
-export type ImageLabel = { path: string; revision: string };
+export interface ImageLabel {
+  path: string;
+  revision: string;
+}
 export type ImageResult =
   | { kind: "ready"; blob: Blob }
   | { kind: "absent" }

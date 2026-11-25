@@ -77,7 +77,9 @@ export function ColorSwatchPicker({
             event.stopPropagation();
             const nextIndex = (index + step + COLOR_PALETTE.length) % COLOR_PALETTE.length;
             buttons.current[nextIndex]?.focus();
-            onChange(COLOR_PALETTE[nextIndex]!.value, "navigate");
+            const next = COLOR_PALETTE[nextIndex];
+            if (!next) throw new Error("Color palette index out of range");
+            onChange(next.value, "navigate");
           }}
           className={cn(
             "size-5 rounded-md",

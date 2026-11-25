@@ -128,7 +128,7 @@ async function run() {
     directory = await mkdtemp(join(tmpdir(), "bb-browser-fixture-"));
     if (cancellation) throw failure;
     const env = { ...process.env, BB_FIXTURE_PORT: "0", BB_FIXTURE_RUN_DIR: directory };
-    delete env[originKey];
+    Reflect.deleteProperty(env, originKey);
     const preview = spawnOwned([resolve(entry)], env);
     owners.push(preview);
     let ready;

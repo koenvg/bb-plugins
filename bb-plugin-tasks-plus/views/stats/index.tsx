@@ -66,7 +66,7 @@ function MeasuresTable({
   rows,
 }: {
   title: string;
-  rows: Array<StatsMeasures & { id: string; name: string; color?: string }>;
+  rows: (StatsMeasures & { id: string; name: string; color?: string })[];
 }) {
   return (
     <section className="stats-breakdown">

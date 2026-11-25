@@ -26,7 +26,8 @@ function useThreadTaskData({ threadIds }: PluginThreadActionDataInput): ThreadTa
       );
       const next = new Map<string, readonly Task[]>();
       threadIds.forEach((id, index) => {
-        const result = results[index]!;
+        const result = results[index];
+        if (!result) throw new Error("Task result is missing");
         const tasks = result.status === "fulfilled" ? result.value : published.current.get(id);
         if (tasks !== undefined) next.set(id, tasks);
       });

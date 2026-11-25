@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -309,8 +310,13 @@ describe("public document interface", () => {
         navigation={navigation}
       />,
     );
-    fireEvent.click(screen.getAllByRole("link", { name: "日本語" })[1]!);
-    expect(document.activeElement).toBe(document.getElementById(model.headings[1]!.id));
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "日本語" })[1] ??
+        missingValue("Expected a non-null value"),
+    );
+    expect(document.activeElement).toBe(
+      document.getElementById((model.headings[1] ?? missingValue("Expected a non-null value")).id),
+    );
     expect(model.headings.map((h) => [h.fragment, h.line])).toEqual([
       ["日本語", 1],
       ["日本語-1", 3],
@@ -325,7 +331,9 @@ describe("public document interface", () => {
         <MarkdownDocument model={model} view="preview" destinations={localDestinations} outline />
       </div>,
     );
-    const outside = container.querySelector<HTMLElement>("[data-outside]")!;
+    const outside =
+      container.querySelector<HTMLElement>("[data-outside]") ??
+      missingValue("Expected a non-null value");
     outside.scrollTop = 64;
     document.documentElement.scrollTop = 240;
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -337,7 +345,11 @@ describe("public document interface", () => {
     });
     try {
       fireEvent.click(screen.getByRole("link", { name: "Jump" }));
-      expect(document.activeElement).toBe(document.getElementById(model.headings[0]!.id));
+      expect(document.activeElement).toBe(
+        document.getElementById(
+          (model.headings[0] ?? missingValue("Expected a non-null value")).id,
+        ),
+      );
       expect(outside.scrollTop).toBe(64);
       expect(document.documentElement.scrollTop).toBe(240);
       fireEvent.click(screen.getByRole("link", { name: "Target" }));
@@ -399,7 +411,9 @@ describe("public document interface", () => {
       render(<MarkdownDocument model={model} view="preview" destinations={policy} outline />);
       expect(screen.queryByRole("navigation")).toBeNull();
       expect(screen.getByText("jump").tagName).toBe("SPAN");
-      expect(screen.getByRole("heading", { name: "Target" }).id).toBe(model.headings[0]!.id);
+      expect(screen.getByRole("heading", { name: "Target" }).id).toBe(
+        (model.headings[0] ?? missingValue("Expected a non-null value")).id,
+      );
     },
   );
 });

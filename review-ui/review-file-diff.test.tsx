@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -51,9 +52,11 @@ vi.mock("@pierre/diffs/react", () => ({
 
 afterEach(cleanup);
 
-const fileDiff = parsePatchFiles(
-  "diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-a\n+b\n",
-)[0]!.files[0]!;
+const fileDiff =
+  (
+    parsePatchFiles("diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-a\n+b\n")[0] ??
+    missingValue("Expected a non-null value")
+  ).files[0] ?? missingValue("Expected a non-null value");
 
 it("passes the view and reports the side and line of a gutter click, new side by default", () => {
   const onAddComment = vi.fn();
@@ -110,7 +113,7 @@ it("wraps each annotation in an element with inline-size containment", () => {
     />,
   );
 
-  const wrapper = view.getByText("card").parentElement!;
+  const wrapper = view.getByText("card").parentElement ?? missingValue("Expected a non-null value");
   expect(wrapper.style.contain).toBe("inline-size");
 });
 

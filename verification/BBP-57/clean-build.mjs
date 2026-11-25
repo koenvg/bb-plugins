@@ -27,7 +27,8 @@ for (const name of ["bun", "git", "sqlite3"]) {
   symlinkSync(path, join(bin, name));
 }
 const environment = { ...process.env, PATH: `${bin}:/usr/bin:/bin`, NODE_PATH: "" };
-for (const name of Object.keys(environment)) if (name.startsWith("BB_")) delete environment[name];
+for (const name of Object.keys(environment))
+  if (name.startsWith("BB_")) Reflect.deleteProperty(environment, name);
 if (spawnSync("bb", ["--version"], { env: environment }).error?.code !== "ENOENT")
   throw new Error("Ambient BB must be absent");
 const files = execFileSync(

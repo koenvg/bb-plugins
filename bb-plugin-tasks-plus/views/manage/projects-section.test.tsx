@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -53,7 +54,8 @@ function setup(initial = fixtures()) {
     input: Record<string, unknown>,
   ) => { project: Project } | Promise<{ project: Project }> = (input) => {
     const saved = {
-      ...rows.find((row) => row.id === input.projectId)!,
+      ...(rows.find((row) => row.id === input.projectId) ??
+        missingValue("Expected a non-null value")),
       name: String(input.name),
       color: String(input.color),
     };
@@ -61,7 +63,7 @@ function setup(initial = fixtures()) {
     return { project: saved };
   };
   const slot = renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected a non-null value"),
     { subPath: "manage" },
     {
       rpc: {
@@ -199,7 +201,9 @@ describe("Manage production project table", () => {
       });
       const cancel = within(dialog).getByRole("button", { name: "Cancel" });
       await waitFor(() => expect(document.activeElement).toBe(cancel));
-      const description = document.getElementById(dialog.getAttribute("aria-describedby")!);
+      const description = document.getElementById(
+        dialog.getAttribute("aria-describedby") ?? missingValue("Expected a non-null value"),
+      );
       expect(description?.className).toContain("text-sm");
       expect(description?.querySelector('[role="status"]')).not.toBeNull();
       expect(description?.textContent).toContain(
@@ -353,7 +357,7 @@ describe("Manage production project table", () => {
     env.setUpdate(() => request.promise);
     act(() => {
       fireEvent.click(env.slot.getByRole("button", { name: "Save HOME" }));
-      fireEvent.submit(home.closest("form")!);
+      fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
       fireEvent.click(env.slot.getByRole("button", { name: "Save WORK" }));
       fireEvent.click(blockedChoice);
     });
@@ -370,7 +374,11 @@ describe("Manage production project table", () => {
     expect(env.slot.getByRole("button", { name: "Colour for HOME: Purple" })).toBeDefined();
     expect(env.slot.getByRole("button", { name: "Colour for WORK: Green" })).toBeDefined();
     env.setUpdate(() => ({
-      project: { ...fixtures()[0]!, name: "Returned HOME", color: "indianred" },
+      project: {
+        ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+        name: "Returned HOME",
+        color: "indianred",
+      },
     }));
     fireEvent.click(env.slot.getByRole("button", { name: "Save HOME" }));
     await waitFor(() => expect(home).toHaveProperty("value", "Returned HOME"));
@@ -414,17 +422,17 @@ describe("Manage production project table", () => {
     for (const value of ["  Home Lab  ", "", "   "]) {
       fireEvent.change(home, { target: { value } });
       expect(save).toHaveProperty("disabled", true);
-      fireEvent.submit(home.closest("form")!);
+      fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
     }
     expect(env.calls).toEqual([]);
     expect(home.getAttribute("aria-invalid")).toBe("true");
     await chooseColor(env, "HOME", "Purple");
     expect(save).toHaveProperty("disabled", true);
-    fireEvent.submit(home.closest("form")!);
+    fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
     expect(env.calls).toEqual([]);
     fireEvent.click(env.slot.getByRole("button", { name: "Cancel HOME" }));
     fireEvent.change(home, { target: { value: "  Renamed  " } });
-    fireEvent.submit(home.closest("form")!);
+    fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
     await waitFor(() => expect(home).toHaveProperty("value", "Renamed"));
     expect(env.calls).toEqual([{ projectId: project.id, name: "Renamed", color: "#aBbCcD" }]);
     expect(env.getRows()[0]).toEqual({ ...fixtures()[0], name: "Renamed" });
@@ -446,7 +454,7 @@ describe("Manage production project table", () => {
     env.setUpdate(() => request.promise);
     act(() => {
       fireEvent.click(env.slot.getByRole("button", { name: "Save HOME" }));
-      fireEvent.submit(home.closest("form")!);
+      fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
       fireEvent.click(env.slot.getByRole("button", { name: "Save WORK" }));
       fireEvent.change(home, { target: { value: "Must not change" } });
       fireEvent.change(work, { target: { value: "Must not change" } });
@@ -468,7 +476,12 @@ describe("Manage production project table", () => {
     );
     expect(home).toHaveProperty("value", "Retry HOME");
     expect(work).toHaveProperty("value", "Keep WORK");
-    env.setUpdate(() => ({ project: { ...fixtures()[0]!, name: "Returned HOME" } }));
+    env.setUpdate(() => ({
+      project: {
+        ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+        name: "Returned HOME",
+      },
+    }));
     fireEvent.click(env.slot.getByRole("button", { name: "Save HOME" }));
     await waitFor(() => expect(home).toHaveProperty("value", "Returned HOME"));
     expect(env.calls).toHaveLength(2);
@@ -536,7 +549,7 @@ describe("Manage production project table", () => {
     expect(home).toHaveProperty("value", "Keep draft");
     expect(env.slot.getByRole("button", { name: "Colour for HOME: Purple" })).toBeDefined();
     expect(env.slot.getByRole("button", { name: "Save HOME" })).toHaveProperty("disabled", true);
-    fireEvent.submit(home.closest("form")!);
+    fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
     expect(env.calls).toEqual([]);
     await act(async () => {
       refresh.resolve({ projects: fixtures() });
@@ -586,7 +599,7 @@ describe("Manage production project table", () => {
     expect(home).toHaveProperty("value", "Keep through failure");
     expect(env.slot.getByRole("button", { name: "Colour for HOME: Purple" })).toBeDefined();
     expect(env.slot.getByRole("button", { name: "Save HOME" })).toHaveProperty("disabled", true);
-    fireEvent.submit(home.closest("form")!);
+    fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
     expect(env.calls).toEqual([]);
     expect(env.slot.queryByText(/No projects yet/)).toBeNull();
     const reads = env.slot.rpcCalls.filter((call) => call.method === "listProjects").length;
@@ -624,8 +637,15 @@ describe("Manage production project table", () => {
     fireEvent.change(work, { target: { value: "Keep WORK draft" } });
     await chooseColor(env, "HOME", "Purple");
     await chooseColor(env, "WORK", "Green");
-    const replacement = { ...fixtures()[0]!, id: "01HZZZZZZZZZZZZZZZZZZZZZP3", prefix: "OPS" };
-    await changeInventory(env, [fixtures()[1]!, replacement]);
+    const replacement = {
+      ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+      id: "01HZZZZZZZZZZZZZZZZZZZZZP3",
+      prefix: "OPS",
+    };
+    await changeInventory(env, [
+      fixtures()[1] ?? missingValue("Expected a non-null value"),
+      replacement,
+    ]);
     expect(env.slot.queryByRole("textbox", { name: "Project name for HOME" })).toBeNull();
     expect(env.slot.getByRole("textbox", { name: "Project name for WORK" })).toBe(work);
     expect(work).toHaveProperty("value", "Keep WORK draft");
@@ -661,7 +681,11 @@ describe("Manage production project table", () => {
     expect(env.slot.getByRole("button", { name: "Colour for HOME: Purple" })).toBeDefined();
     await act(async () => {
       save.resolve({
-        project: { ...fixtures()[0]!, name: "Returned baseline", color: "indianred" },
+        project: {
+          ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+          name: "Returned baseline",
+          color: "indianred",
+        },
       });
       await save.promise;
     });
@@ -695,7 +719,11 @@ describe("Manage production project table", () => {
     await env.slot.emitRealtime("projects:changed", {});
     await act(async () => {
       save.resolve({
-        project: { ...fixtures()[0]!, name: "Returned baseline", color: "indianred" },
+        project: {
+          ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+          name: "Returned baseline",
+          color: "indianred",
+        },
       });
       await save.promise;
     });
@@ -739,7 +767,13 @@ describe("Manage production project table", () => {
     env.setList(() => overlapping.promise);
     await env.slot.emitRealtime("projects:changed", {});
     await act(async () => {
-      save.resolve({ project: { ...fixtures()[0]!, name: "Saved response", color: "indianred" } });
+      save.resolve({
+        project: {
+          ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+          name: "Saved response",
+          color: "indianred",
+        },
+      });
       await save.promise;
     });
     await waitFor(() => expect(home).toHaveProperty("value", "Saved response"));
@@ -772,7 +806,12 @@ describe("Manage production project table", () => {
     fireEvent.click(env.slot.getByRole("button", { name: "Cancel HOME" }));
     expect(home).toHaveProperty("value", "Later independent");
     expect(env.slot.getByRole("button", { name: "Colour for HOME: #Ff00Aa" })).toBeDefined();
-    env.setUpdate(() => ({ project: { ...freshRows[0]!, name: "Next save" } }));
+    env.setUpdate(() => ({
+      project: {
+        ...(freshRows[0] ?? missingValue("Expected a non-null value")),
+        name: "Next save",
+      },
+    }));
     fireEvent.change(home, { target: { value: "Next save" } });
     fireEvent.click(env.slot.getByRole("button", { name: "Save HOME" }));
     await waitFor(() => expect(env.calls).toHaveLength(2));
@@ -791,7 +830,13 @@ describe("Manage production project table", () => {
     env.setList(() => read.promise);
     await env.slot.emitRealtime("projects:changed", {});
     await act(async () => {
-      save.resolve({ project: { ...fixtures()[0]!, name: "Saved response", color: "indianred" } });
+      save.resolve({
+        project: {
+          ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+          name: "Saved response",
+          color: "indianred",
+        },
+      });
       await save.promise;
     });
     await waitFor(() => expect(home).toHaveProperty("value", "Saved response"));
@@ -854,7 +899,12 @@ describe("Manage production project table", () => {
     expect(reserved.getAttribute("aria-hidden")).toBe("true");
     expect(reserved.closest("tr")?.contains(home)).toBe(true);
     await act(async () => {
-      retry.resolve({ project: { ...fixtures()[0]!, name: "Retry layout" } });
+      retry.resolve({
+        project: {
+          ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+          name: "Retry layout",
+        },
+      });
       await retry.promise;
     });
     await waitFor(() =>
@@ -886,12 +936,16 @@ describe("Manage production project table", () => {
       expect(env.slot.getByRole("button", { name: "Save HOME" }).getAttribute("aria-busy")).toBe(
         "true",
       );
-      fireEvent.submit(home.closest("form")!);
+      fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
       expect(env.calls).toHaveLength(1);
     } finally {
       await act(async () => {
         save.resolve({
-          project: { ...fixtures()[0]!, name: "Pending tab draft", color: "mediumpurple" },
+          project: {
+            ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+            name: "Pending tab draft",
+            color: "mediumpurple",
+          },
         });
         await save.promise;
       });
@@ -913,11 +967,16 @@ describe("Manage production project table", () => {
       await chooseColor(env, "HOME", "Purple");
       await chooseColor(env, "WORK", "Green");
       fireEvent.click(env.slot.getByRole("button", { name: "Save HOME" }));
-      await changeInventory(env, [fixtures()[1]!]);
+      await changeInventory(env, [fixtures()[1] ?? missingValue("Expected a non-null value")]);
       expect(env.slot.queryByRole("textbox", { name: "Project name for HOME" })).toBeNull();
       expect(work).toHaveProperty("disabled", true);
       if (outcome === "success")
-        save.resolve({ project: { ...fixtures()[0]!, name: "Removed pending draft" } });
+        save.resolve({
+          project: {
+            ...(fixtures()[0] ?? missingValue("Expected a non-null value")),
+            name: "Removed pending draft",
+          },
+        });
       else save.reject(new Error("Removed row failed"));
       await waitFor(() => expect(work).toHaveProperty("disabled", false));
       expect(work).toHaveProperty("value", "Keep other draft");

@@ -39,13 +39,13 @@ interface TaskCreatedEvent {
   test?: true;
 }
 export interface Webhooks {
-  create(scope: WebhookScope, json: string): Promise<EndpointSummary>;
-  list(): Promise<EndpointSummary[]>;
-  rename(id: string, name: unknown): Promise<EndpointSummary>;
-  delete(id: string): Promise<EndpointSummary>;
-  test(id: string): Promise<{ endpoint: EndpointSummary; outcome: DeliveryOutcome }>;
-  taskCreated(task: CreatedTask, project: string): void;
-  dispose(): void;
+  create: (scope: WebhookScope, json: string) => Promise<EndpointSummary>;
+  list: () => Promise<EndpointSummary[]>;
+  rename: (id: string, name: unknown) => Promise<EndpointSummary>;
+  delete: (id: string) => Promise<EndpointSummary>;
+  test: (id: string) => Promise<{ endpoint: EndpointSummary; outcome: DeliveryOutcome }>;
+  taskCreated: (task: CreatedTask, project: string) => void;
+  dispose: () => void;
 }
 interface DeliveryJob {
   endpoint: Endpoint;
@@ -56,7 +56,7 @@ interface DeliveryJob {
   retry?: ReturnType<typeof setTimeout>;
   requestTimer?: ReturnType<typeof setTimeout>;
   controller?: AbortController;
-  resolve(outcome: DeliveryOutcome): void;
+  resolve: (outcome: DeliveryOutcome) => void;
 }
 
 const MAX_CONFIG_BYTES = 64 * 1024;
@@ -77,8 +77,10 @@ const messages = {
 } as const;
 
 export class WebhookError extends Error {
-  constructor(readonly code: keyof typeof messages) {
+  readonly code: keyof typeof messages;
+  constructor(code: keyof typeof messages) {
     super(messages[code]);
+    this.code = code;
   }
 }
 
@@ -350,7 +352,8 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
   }
   function pump(): void {
     while (!disposed && active < CONCURRENCY && ready.length) {
-      const job = ready.shift()!;
+      const job = ready.shift();
+      if (!job) throw new Error("Delivery queue is empty");
       if (!jobs.has(job)) continue;
       active++;
       void deliver(job);
@@ -422,7 +425,9 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
         const index = document.endpoints.findIndex((endpoint) => endpoint.id === id);
         if (index === -1) throw new WebhookError("not_found");
         const name = displayName(draft);
-        const endpoint = { ...document.endpoints[index]! };
+        const existing = document.endpoints[index];
+        if (!existing) throw new WebhookError("not_found");
+        const endpoint = { ...existing };
         if (name === undefined) delete endpoint.name;
         else endpoint.name = name;
         const endpoints = [...document.endpoints];

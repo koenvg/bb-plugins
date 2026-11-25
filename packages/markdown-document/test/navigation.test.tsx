@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { type DestinationPolicy } from "@bb-plugins/markdown-document";
+import type { DestinationPolicy } from "@bb-plugins/markdown-document";
 import { ModelDocument as MarkdownDocument } from "./consumer.js";
 
 afterEach(() => {
@@ -51,7 +52,7 @@ it("derives formatted Unicode headings, raw-skipped labels and suffix collisions
     "section",
   ]);
   expect(container.querySelector("h1 strong")?.textContent).toBe("bold");
-  fireEvent.click(links[3]!);
+  fireEvent.click(links[3] ?? missingValue("Expected a non-null value"));
   expect(document.activeElement).toBe(headings[3]);
 });
 it("keeps repeated namespaces, fragments and generated footnote ID references document-local", () => {
