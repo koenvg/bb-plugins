@@ -3,7 +3,8 @@ import type { QuotaStatus } from "./contract.js";
 import type { QuotaWindow } from "./quota.js";
 import { visibleView } from "../account/freshness.js";
 import { resetCountdown } from "./reset-countdown.js";
-import { QuotaSummary, type QuotaSummaryProps } from "./quota-summary.js";
+import { QuotaSummary } from "./quota-summary.js";
+import type { QuotaSummaryProps } from "./quota-summary.js";
 
 const percentText = (value: number): string => `${Math.round(value)}%`;
 const dateText = (value: string): string =>

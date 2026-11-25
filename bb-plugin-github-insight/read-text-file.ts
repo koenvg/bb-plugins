@@ -19,8 +19,9 @@ export async function readTextFile({
       constants.O_RDONLY | constants.O_NONBLOCK,
     );
     try {
-      if (!(await handle.stat()).isFile())
+      if (!(await handle.stat()).isFile()) {
         return { ok: false, message: `Not a regular file: ${path}` };
+      }
       const buffer = Buffer.alloc(MAX_TEXT_FILE_BYTES + 1);
       const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
       if (bytesRead > MAX_TEXT_FILE_BYTES) {
@@ -34,7 +35,9 @@ export async function readTextFile({
       await handle.close();
     }
   } catch (error) {
-    if (errorCode(error) === "ENOENT") return { ok: false, message: `File not found: ${path}` };
+    if (errorCode(error) === "ENOENT") {
+      return { ok: false, message: `File not found: ${path}` };
+    }
     return {
       ok: false,
       message: `Cannot read ${path}: ${error instanceof Error ? error.message : String(error)}`,

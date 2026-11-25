@@ -15,11 +15,17 @@ export function createLocalCommitsLookup(deps: LocalCommitsLookupDeps) {
   async function localCommitsAhead(threadId: string): Promise<LocalCommitsAhead> {
     try {
       const cached = await deps.cachedPr(threadId);
-      if (cached.kind !== "cached" || cached.insight.pr.isCrossRepository) return UNKNOWN;
+      if (cached.kind !== "cached" || cached.insight.pr.isCrossRepository) {
+        return UNKNOWN;
+      }
       const environmentId = await deps.environmentIdOf(threadId);
-      if (environmentId === null) return UNKNOWN;
+      if (environmentId === null) {
+        return UNKNOWN;
+      }
       const { hostId, path } = await deps.environment(environmentId);
-      if (path === null) return UNKNOWN;
+      if (path === null) {
+        return UNKNOWN;
+      }
       return await deps.countLocalCommitsAhead(hostId, {
         path,
         branch: cached.insight.pr.headRefName,

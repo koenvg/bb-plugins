@@ -1,8 +1,5 @@
-import {
-  keepUncertainUsage,
-  uncertainCandidate,
-  type UncertainReason,
-} from "./import-uncertain.js";
+import { keepUncertainUsage, uncertainCandidate } from "./import-uncertain.js";
+import type { UncertainReason } from "./import-uncertain.js";
 import { realpath } from "node:fs/promises";
 import { basename, join, normalize } from "node:path";
 import { setImmediate as yieldWork } from "node:timers/promises";
@@ -16,15 +13,10 @@ import {
 } from "../storage/history-projection.js";
 import { confinedFile, revalidateFile } from "./import-source.js";
 import { parseLine, importedHeaderSchema, entryIdentity, importedUsage } from "./import-parser.js";
-import {
-  diagnostic,
-  omit,
-  type Frozen,
-  type Generation,
-  type Candidate,
-  type ImportOptions,
-} from "./import-state.js";
+import { diagnostic, omit } from "./import-state.js";
+import type { Frozen, Generation, Candidate, ImportOptions } from "./import-state.js";
 import { validateFrozen } from "./import-catalog.js";
+
 export async function header(
   db: HistoryDatabase,
   g: Generation,
@@ -67,7 +59,9 @@ export async function header(
     } catch {
       uncertainty = "workspace-unverified";
     }
-    if (!f.workspaces.some((w) => w.resolved === workspace)) uncertainty = "workspace-unverified";
+    if (!f.workspaces.some((w) => w.resolved === workspace)) {
+      uncertainty = "workspace-unverified";
+    }
     if (uncertainty && !f.includeUncertain) {
       omit(db, g, c, uncertainty);
       return;
@@ -77,19 +71,21 @@ export async function header(
     // Parent is a claim until its independently verified confined source and entry chain agree.
     let parent: string | null = null;
     if (h.parentSession) {
-      const claimed = normalize(h.parentSession),
-        allowed = f.roots.find(
-          (r) =>
-            claimed === join(r.configured, basename(claimed)) ||
-            claimed === join(r.resolved, basename(claimed)),
-        );
+      const claimed = normalize(h.parentSession);
+      const allowed = f.roots.find(
+        (r) =>
+          claimed === join(r.configured, basename(claimed)) ||
+          claimed === join(r.resolved, basename(claimed)),
+      );
       if (!allowed) {
         if (!f.includeUncertain) {
           omit(db, g, c, "unresolved-ancestry");
           return;
         }
         uncertainty ??= "unresolved-ancestry";
-      } else parent = join(allowed.resolved, basename(claimed));
+      } else {
+        parent = join(allowed.resolved, basename(claimed));
+      }
     }
     if (
       parent &&
@@ -124,12 +120,17 @@ export async function header(
       });
     }
   } catch {
-    if (o.signal.aborted) throw o.signal.reason;
+    if (o.signal.aborted) {
+      throw o.signal.reason;
+    }
     omit(db, g, c, source ? "source-changed" : "missing-source");
   } finally {
-    if (source) await source.file.close();
-    if (g.bytes !== previousBytes)
+    if (source) {
+      await source.file.close();
+    }
+    if (g.bytes !== previousBytes) {
       db.prepare("UPDATE import_generations SET bytes=? WHERE id=?").run(g.bytes, g.id);
+    }
   }
 }
 type Entry = { parent_entry: string | null; event_id: string | null };
@@ -139,18 +140,24 @@ function projectEntry(db: HistoryDatabase, g: Generation, f: Frozen, c: Candidat
     diagnostic(db, g, "invalid-record");
     return;
   }
-  const e = parsed.data,
-    usage = importedUsage(value, c.session!, c.workspace!, c.provider ? c.name : null);
+  const e = parsed.data;
+  const usage = importedUsage(value, c.session!, c.workspace!, c.provider ? c.name : null);
   const uncertainty = f.includeUncertain ? uncertainCandidate(db, g.id, c.path) : undefined;
   if (uncertainty) {
-    if (usage.kind === "usage") keepUncertainUsage(db, g, e.id, usage.record, uncertainty);
-    else if (usage.kind === "invalid") diagnostic(db, g, "invalid-record");
+    if (usage.kind === "usage") {
+      keepUncertainUsage(db, g, e.id, usage.record, uncertainty);
+    } else if (usage.kind === "invalid") {
+      diagnostic(db, g, "invalid-record");
+    }
     return;
   }
   const exclude = (code: "unresolved-ancestry" | "unresolved-overlap") => {
     if (usage.kind === "usage") {
-      if (f.includeUncertain) keepUncertainUsage(db, g, e.id, usage.record, code);
-      else excludeCompactIdentity(db, usage.record.eventId);
+      if (f.includeUncertain) {
+        keepUncertainUsage(db, g, e.id, usage.record, code);
+      } else {
+        excludeCompactIdentity(db, usage.record.eventId);
+      }
     }
     diagnostic(db, g, code);
   };
@@ -225,13 +232,14 @@ function projectEntry(db: HistoryDatabase, g: Generation, f: Frozen, c: Candidat
         return;
       }
       eventId = original.eventId;
-      g.replayed++;
+      g.replayed += 1;
     } else {
       const admission = admitImportedUsage(db, usage.record, e.id);
-      if (admission.kind === "unresolved-overlap") exclude("unresolved-overlap");
-      else {
+      if (admission.kind === "unresolved-overlap") {
+        exclude("unresolved-overlap");
+      } else {
         eventId = admission.owner?.eventId ?? null;
-        g.records++;
+        g.records += 1;
       }
     }
   }
@@ -261,7 +269,9 @@ export async function slice(
       const parent = db
         .prepare("SELECT * FROM import_candidates WHERE generation=? AND path=? AND state='done'")
         .get(g.id, c.parent) as Candidate | undefined;
-      if (!parent) throw Error("Import parent unavailable");
+      if (!parent) {
+        throw Error("Import parent unavailable");
+      }
       const p = await confinedFile(f.roots[parent.root], parent.name, JSON.parse(parent.stamp!));
       try {
         await revalidateFile(p.file, f.roots[parent.root], parent.name, p.stamp);
@@ -288,7 +298,9 @@ export async function slice(
       const end = bytes.subarray(0, bytesRead).indexOf(10, at);
       if (end < 0) {
         if (c.dropping || bytesRead - at >= 1024 * 1024) {
-          if (!c.dropping) operations.push({ code: "oversize-record" });
+          if (!c.dropping) {
+            operations.push({ code: "oversize-record" });
+          }
           c.dropping = 1;
           at = bytesRead;
         } else if (c.offset + bytesRead === source.stamp.size) {
@@ -297,10 +309,12 @@ export async function slice(
         }
         break;
       }
-      budget.rows--;
-      if (c.dropping) c.dropping = 0;
-      else if (end - at > 1024 * 1024) operations.push({ code: "oversize-record" });
-      else {
+      budget.rows -= 1;
+      if (c.dropping) {
+        c.dropping = 0;
+      } else if (end - at > 1024 * 1024) {
+        operations.push({ code: "oversize-record" });
+      } else {
         try {
           operations.push({ value: parseLine(bytes.subarray(at, end)) });
         } catch {
@@ -318,8 +332,11 @@ export async function slice(
     db.transaction(() => {
       for (const op of operations) {
         o.signal.throwIfAborted();
-        if (op.code) diagnostic(db, g, op.code);
-        else projectEntry(db, g, f, c, op.value);
+        if (op.code) {
+          diagnostic(db, g, op.code);
+        } else {
+          projectEntry(db, g, f, c, op.value);
+        }
       }
       c.offset += at;
       db.prepare(
@@ -333,9 +350,13 @@ export async function slice(
       );
     });
   } catch {
-    if (o.signal.aborted) throw o.signal.reason;
+    if (o.signal.aborted) {
+      throw o.signal.reason;
+    }
     omit(db, g, c, "source-changed");
   } finally {
-    if (source) await source.file.close();
+    if (source) {
+      await source.file.close();
+    }
   }
 }

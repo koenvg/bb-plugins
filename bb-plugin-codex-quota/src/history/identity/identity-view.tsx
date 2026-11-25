@@ -1,4 +1,5 @@
 import type { AttributionView } from "./identity-contract.js";
+
 export function IdentityTotals({
   view,
   onOpenThread,

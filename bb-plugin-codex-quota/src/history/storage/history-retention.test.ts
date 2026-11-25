@@ -2,10 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "./history-storage.js";
+import { openHistoryDatabase } from "./history-storage.js";
+import type { HistoryDatabase } from "./history-storage.js";
 import { initializeHistory, projectCompactRecord, collectionView } from "./history-projection.js";
 import { maintainHistory, retentionCutoffs, readCalendarTotals } from "./history-retention.js";
 import { parseCompact } from "../collection/usage-record.js";
+
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
   for (const f of fixtures.splice(0)) {
@@ -14,8 +16,8 @@ afterEach(async () => {
   }
 });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bbp23-retention-")),
-    db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const root = await mkdtemp(join(tmpdir(), "bbp23-retention-"));
+  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
   fixtures.push({ root, db });
   initializeHistory(db, "2026-01-01T00:00:00.000Z");
   return db;
@@ -107,13 +109,17 @@ it("expires details but keeps original instant, tokens, cost and replay ownershi
 });
 it("advances a durable cutoff, prunes bounded batches, resumes after reopen and rejects expired replay", async () => {
   const db = await fixture();
-  for (let i = 1; i <= 7; i++) put(db, event(i, "2026-01-01T00:00:00.000Z"));
+  for (let i = 1; i <= 7; i += 1) {
+    put(db, event(i, "2026-01-01T00:00:00.000Z"));
+  }
   expect(maintainHistory(db, now, 2).pending).toBe(true);
   expect(collectionView(db, true, false).workspaces[0].events).toBe(5);
   const f = fixtures[0];
   db.close();
   f.db = (await openHistoryDatabase(join(f.root, "usage.sqlite")))!;
-  for (let i = 0; i < 8; i++) maintainHistory(f.db, now, 2);
+  for (let i = 0; i < 8; i += 1) {
+    maintainHistory(f.db, now, 2);
+  }
   expect(collectionView(f.db, true, false).workspaces).toEqual([]);
   put(f.db, event(1, "2026-01-01T00:00:00.000Z"));
   put(f.db, event(50, "2026-01-01T00:00:00.000Z"));

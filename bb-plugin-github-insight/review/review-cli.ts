@@ -1,4 +1,5 @@
-import { cliCommand, defineCli, PluginCliError, type PluginCliContext } from "@get-bb/plugin-sdk";
+import { cliCommand, defineCli, PluginCliError } from "@get-bb/plugin-sdk";
+import type { PluginCliContext } from "@get-bb/plugin-sdk";
 import type {
   ReadTextFileRequest,
   ReadTextFileResult,
@@ -6,7 +7,8 @@ import type {
   UploadImageRequest,
   UploadImageResult,
 } from "../contract";
-import { parseAttachSpec, withAttachments, type Attachment } from "../core/attachments";
+import { parseAttachSpec, withAttachments } from "../core/attachments";
+import type { Attachment } from "../core/attachments";
 import type { PrTarget } from "../pr-lookup";
 import {
   formatReviewDrafts,
@@ -14,8 +16,10 @@ import {
   reviewCommentEntries,
   reviewListEntries,
 } from "../core/review-list";
-import { formatQueueList, queueListOf, type QueueList } from "../core/queue-list";
-import { MAX_THREAD_PAGES, type ReviewThread } from "../core/review-threads";
+import { formatQueueList, queueListOf } from "../core/queue-list";
+import type { QueueList } from "../core/queue-list";
+import { MAX_THREAD_PAGES } from "../core/review-threads";
+import type { ReviewThread } from "../core/review-threads";
 import type { ThreadPlacement } from "../core/thread-placement";
 import type { PrLoad, ReviewService } from "./review-service";
 
@@ -69,8 +73,12 @@ export function createReviewCli(deps: ReviewCliDeps) {
   }
 
   function loaded<T>(load: PrLoad<T>, threadId: string) {
-    if (load.kind === "no_pr") throw new PluginCliError("No pull request for this thread");
-    if (load.kind === "error") throw new PluginCliError(load.message);
+    if (load.kind === "no_pr") {
+      throw new PluginCliError("No pull request for this thread");
+    }
+    if (load.kind === "error") {
+      throw new PluginCliError(load.message);
+    }
     return { ...load, threadId };
   }
 
@@ -90,9 +98,13 @@ export function createReviewCli(deps: ReviewCliDeps) {
     ctx: PluginCliContext,
   ) {
     const path = options["body-file"];
-    if (path === undefined) return options.body ?? "";
+    if (path === undefined) {
+      return options.body ?? "";
+    }
     const result = await deps.readTextFile(hostId, { path, cwd: ctx.cwd ?? null });
-    if (!result.ok) throw new PluginCliError(result.message);
+    if (!result.ok) {
+      throw new PluginCliError(result.message);
+    }
     return result.text;
   }
 
@@ -104,14 +116,18 @@ export function createReviewCli(deps: ReviewCliDeps) {
     const attachments: Attachment[] = [];
     for (const spec of specs) {
       const { path, alt } = parseAttachSpec(spec);
-      if (path === "") throw new PluginCliError(`--attach needs a file path: ${spec}`);
+      if (path === "") {
+        throw new PluginCliError(`--attach needs a file path: ${spec}`);
+      }
       const result = await deps.uploadImage(target.hostId, {
         owner: target.ref.owner,
         repo: target.ref.repo,
         path,
         cwd: ctx.cwd ?? null,
       });
-      if (!result.ok) throw new PluginCliError(`Could not attach ${path}: ${result.message}`);
+      if (!result.ok) {
+        throw new PluginCliError(`Could not attach ${path}: ${result.message}`);
+      }
       attachments.push({ alt, url: result.url });
     }
     return attachments;
@@ -124,7 +140,9 @@ export function createReviewCli(deps: ReviewCliDeps) {
         hint: "The queue loads when bb starts, then every 5 minutes. Try again in a moment.",
       });
     }
-    if (load.kind === "error") throw new PluginCliError(load.message);
+    if (load.kind === "error") {
+      throw new PluginCliError(load.message);
+    }
     return load.list;
   }
 
@@ -185,10 +203,13 @@ export function createReviewCli(deps: ReviewCliDeps) {
                 : `Only the first ${MAX_THREAD_PAGES} pages of review threads were read.`,
             });
           }
-          if (thread.resolved)
+          if (thread.resolved) {
             throw new PluginCliError(`Review thread ${reviewThreadId} is resolved`);
+          }
           const body = await readBody(target.hostId, options, ctx);
-          if (body.trim() === "") throw new PluginCliError("Draft is empty");
+          if (body.trim() === "") {
+            throw new PluginCliError("Draft is empty");
+          }
           await deps.review.saveDraft(threadId, target.ref, reviewThreadId, {
             body,
             updatedAt: deps.now(),
@@ -265,17 +286,23 @@ export function createReviewCli(deps: ReviewCliDeps) {
           const draftId = positionals["draft-id"];
           const { threadId, target } = await loadTarget(ctx);
           const current = await deps.review.commentDraft(target.ref, draftId);
-          if (current === null) throw unknownCommentDraft(draftId);
+          if (current === null) {
+            throw unknownCommentDraft(draftId);
+          }
           const replacesText = options.body !== undefined || options["body-file"] !== undefined;
           const text = replacesText ? await readBody(target.hostId, options, ctx) : current.body;
           const body = withAttachments(text, await uploadAttachments(target, options.attach, ctx));
-          if (body.trim() === "") throw new PluginCliError("Comment is empty");
+          if (body.trim() === "") {
+            throw new PluginCliError("Comment is empty");
+          }
           const edited = await deps.review.editCommentDraft(threadId, target.ref, draftId, {
             body,
             updatedAt: deps.now(),
             source: "agent",
           });
-          if (!edited) throw unknownCommentDraft(draftId);
+          if (!edited) {
+            throw unknownCommentDraft(draftId);
+          }
           return { exitCode: 0, stdout: `Updated comment draft ${draftId}\n` };
         },
       }),
@@ -286,7 +313,9 @@ export function createReviewCli(deps: ReviewCliDeps) {
           const draftId = positionals["draft-id"];
           const { threadId, target } = await loadTarget(ctx);
           const deleted = await deps.review.deleteCommentDraft(threadId, target.ref, draftId);
-          if (!deleted) throw unknownCommentDraft(draftId);
+          if (!deleted) {
+            throw unknownCommentDraft(draftId);
+          }
           return { exitCode: 0, stdout: `Deleted comment draft ${draftId}\n` };
         },
       }),
@@ -298,7 +327,9 @@ export function createReviewCli(deps: ReviewCliDeps) {
         run: async ({ options }, ctx) => {
           const { threadId, target } = await loadReview(ctx);
           const body = await readBody(target.hostId, options, ctx);
-          if (body.trim() === "") throw new PluginCliError("Summary is empty");
+          if (body.trim() === "") {
+            throw new PluginCliError("Summary is empty");
+          }
           await deps.review.saveSummaryDraft(threadId, target.ref, {
             body,
             updatedAt: deps.now(),

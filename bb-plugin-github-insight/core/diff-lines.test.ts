@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkAnchor, diffLines, type Anchor } from "./diff-lines";
+import { checkAnchor, diffLines } from "./diff-lines";
+import type { Anchor } from "./diff-lines";
 import type { ReviewFile } from "./pr-files";
 
 const file: ReviewFile = {

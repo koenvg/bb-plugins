@@ -15,17 +15,20 @@ import { createHostHistory } from "../history-host.js";
 import { openHistoryDatabase, loadHistoryStorage } from "./history-storage.js";
 import { readCalendarTotals } from "./history-retention.js";
 import { controlCollector } from "../collection/collector-control.js";
+
 const roots: string[] = [];
 afterEach(async () => {
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 const at = Date.parse("2026-10-01T12:00:00.000Z");
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp23-recovery-"));
   roots.push(root);
-  const dataDir = join(root, "data"),
-    agent = join(root, "agent"),
-    context = { dataDir, signal: new AbortController().signal };
+  const dataDir = join(root, "data");
+  const agent = join(root, "agent");
+  const context = { dataDir, signal: new AbortController().signal };
   const history = createHostHistory({ agentDir: () => agent, now: () => at });
   await history.control("install", context);
   return {
@@ -102,8 +105,8 @@ it("quarantines only confirmed corrupt owned storage, preserves sidecars and rec
   expect((await reload.read(f.context)).collection!.workspaces[0].totalTokens).toBe(5);
 });
 it("does not quarantine permission/IO/capability failures or raw error messages", async () => {
-  const f = await fixture(),
-    bytes = await readFile(f.path);
+  const f = await fixture();
+  const bytes = await readFile(f.path);
   for (const code of ["EACCES", "EIO", "SQLITE_BUSY", "SQLITE_CANTOPEN"]) {
     const failing = createHostHistory({
       agentDir: () => f.agent,
@@ -119,8 +122,8 @@ it("does not quarantine permission/IO/capability failures or raw error messages"
   expect((await readdir(f.directory)).some((n) => n.startsWith("quarantine-"))).toBe(false);
 });
 it("leaves a newer schema and all sidecars untouched even with a saved unfinished recovery receipt", async () => {
-  const f = await fixture(),
-    db = (await openHistoryDatabase(f.path))!;
+  const f = await fixture();
+  const db = (await openHistoryDatabase(f.path))!;
   db.exec("PRAGMA user_version=99");
   db.close();
   await writeFile(f.path + "-wal", "private-newer-wal");
@@ -133,15 +136,16 @@ it("leaves a newer schema and all sidecars untouched even with a saved unfinishe
   const factory = (await loadHistoryStorage())!;
   const history = createHostHistory({
     storage: async () => (p, r) => {
-      calls++;
+      calls += 1;
       return factory(p, r);
     },
     agentDir: () => f.agent,
   });
-  for (const action of [undefined, "repair", "install"] as const)
+  for (const action of [undefined, "repair", "install"] as const) {
     expect(
       await (action ? history.control(action, f.context) : history.read(f.context)),
     ).toMatchObject({ reason: "storage-incompatible" });
+  }
   expect(calls).toBe(0);
   expect(
     await Promise.all([f.path, f.path + "-wal", f.path + "-shm"].map((p) => readFile(p))),
@@ -162,8 +166,10 @@ it("does not follow a sidecar symlink or recreate missing control", async () => 
   expect(await readFile(f.path, "utf8")).toBe("confirmed-corruption");
 });
 it("resumes durable quarantine after the database move without touching unrelated files", async () => {
-  const f = await fixture(),
-    boundary = JSON.parse(await readFile(join(f.directory, "retention-boundary-v2.json"), "utf8"));
+  const f = await fixture();
+  const boundary = JSON.parse(
+    await readFile(join(f.directory, "retention-boundary-v2.json"), "utf8"),
+  );
   const directory = "quarantine-00000000-0000-4000-8000-000000000099";
   const { mkdir } = await import("node:fs/promises");
   await mkdir(join(f.directory, directory));
@@ -264,8 +270,9 @@ it.each([false, true])(
         phase: JSON.parse(await readFile(receiptPath, "utf8")).phase,
       }).toEqual({ state: "available", reason: "ok", phase: "complete" });
       expect(readiness.health).toMatchObject({ state: "recovered" });
-      if (prepare)
+      if (prepare) {
         expect(preparation).toEqual({ state: "unavailable", reason: "storage-unavailable" });
+      }
       expect(afterPreparation).toEqual({ names, receipt, control, quarantined });
       expect(await readFile(join(f.directory, directory, "usage-v1.sqlite"))).toEqual(quarantined);
       expect(await readFile(join(f.directory, "collector-control-v1.json"))).toEqual(control);
@@ -284,10 +291,12 @@ it.each([
 ])("native preparation cannot create an index beside established %s evidence", async (evidence) => {
   const f = await fixture();
   await rm(f.path);
-  for (const name of await readdir(f.directory))
+  for (const name of await readdir(f.directory)) {
     await rm(join(f.directory, name), { recursive: true });
-  if (evidence.startsWith("quarantine-")) await mkdir(join(f.directory, evidence));
-  else
+  }
+  if (evidence.startsWith("quarantine-")) {
+    await mkdir(join(f.directory, evidence));
+  } else {
     await writeFile(
       join(f.directory, evidence),
       evidence === "collector-control-v1.json"
@@ -298,6 +307,7 @@ it.each([
           })
         : "retained-evidence",
     );
+  }
   const home = join(f.root, "codex");
   await mkdir(join(home, "sessions"), { recursive: true });
   const history = createHostHistory({ codexHome: () => home, now: () => at });

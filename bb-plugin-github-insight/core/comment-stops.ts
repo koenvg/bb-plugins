@@ -1,6 +1,7 @@
 import type { DiffSide } from "./diff-lines";
 import type { ListedCommentDraft } from "./review-drafts";
-import { visibleThreads, type ThreadPlacement } from "./thread-placement";
+import { visibleThreads } from "./thread-placement";
+import type { ThreadPlacement } from "./thread-placement";
 
 export interface CommentStop {
   kind: "thread" | "draft";

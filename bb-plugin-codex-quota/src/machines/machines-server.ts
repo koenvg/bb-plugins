@@ -7,21 +7,17 @@ import {
   calendarReportSchema,
   calendarQuerySchema,
   calendarUnavailable,
-  type CalendarQuery,
-  type CalendarReport,
 } from "../history/calendar/calendar-contract.js";
+import type { CalendarQuery, CalendarReport } from "../history/calendar/calendar-contract.js";
 import {
   preparationSchema,
   preparationUnavailable,
 } from "../history/report-preparation-contract.js";
 import { accountObservationSchema } from "../quota/contract.js";
-import { createReportCache, type SummaryStorage } from "./report-cache.js";
-import {
-  MAX_MACHINES,
-  type Machine,
-  type MachineAccounts,
-  type MachineReports,
-} from "./machines-contract.js";
+import { createReportCache } from "./report-cache.js";
+import type { SummaryStorage } from "./report-cache.js";
+import { MAX_MACHINES } from "./machines-contract.js";
+import type { Machine, MachineAccounts, MachineReports } from "./machines-contract.js";
 
 const noQuota = (reason: "host-offline" | "unsupported" | "identity-changed") => ({
   state: "unavailable" as const,
@@ -65,7 +61,9 @@ export function createMachineCoordinator(deps: Dependencies) {
       AbortSignal.timeout(3000),
       ...(deadline ? [deadline] : []),
     ]);
-    if (signal.aborted) return Promise.resolve(null);
+    if (signal.aborted) {
+      return Promise.resolve(null);
+    }
     return abortable(
       deps.get(id).catch(() => null),
       signal,
@@ -81,7 +79,9 @@ export function createMachineCoordinator(deps: Dependencies) {
         const stored = proofSchema.safeParse(
           await deps.storage.get<unknown>(aliasPrefix + "challenge"),
         );
-        if (stored.success) return stored.data;
+        if (stored.success) {
+          return stored.data;
+        }
         await deps.storage.set(aliasPrefix + "challenge", fresh);
       } catch {
         persistentIdentity = false;
@@ -89,7 +89,9 @@ export function createMachineCoordinator(deps: Dependencies) {
       return fresh;
     })());
   const label = (proof: string) => {
-    if (!labels.has(proof)) labels.set(proof, `account-${randomUUID()}`);
+    if (!labels.has(proof)) {
+      labels.set(proof, `account-${randomUUID()}`);
+    }
     return labels.get(proof)!;
   };
   const catalog = async (savedOnly = false) => {
@@ -99,7 +101,9 @@ export function createMachineCoordinator(deps: Dependencies) {
       AbortSignal.any([lifetime.signal, AbortSignal.timeout(8000)]),
       null,
     );
-    if (!all) throw new Error("Machine catalog unavailable");
+    if (!all) {
+      throw new Error("Machine catalog unavailable");
+    }
     lifetime.signal.throwIfAborted();
     const machines = all.slice(0, MAX_MACHINES);
     let persistence = true;
@@ -110,11 +114,16 @@ export function createMachineCoordinator(deps: Dependencies) {
         persistence = false;
       });
       if (!savedOnly) {
-        for (const id of aliases.keys()) if (!ids.has(id)) aliases.delete(id);
+        for (const id of aliases.keys()) {
+          if (!ids.has(id)) {
+            aliases.delete(id);
+          }
+        }
         try {
           for (const key of await deps.storage.list(aliasPrefix)) {
-            if (key !== aliasPrefix + "challenge" && !ids.has(key.slice(aliasPrefix.length)))
+            if (key !== aliasPrefix + "challenge" && !ids.has(key.slice(aliasPrefix.length))) {
               await deps.storage.delete(key);
+            }
           }
         } catch {
           /* Reads remain usable; report persistence is checked separately. */
@@ -129,7 +138,9 @@ export function createMachineCoordinator(deps: Dependencies) {
     work: (signal: AbortSignal) => Promise<unknown>,
     deadline?: AbortSignal,
   ): Promise<T | null> {
-    if (machine.status !== "connected" || lifetime.signal.aborted || deadline?.aborted) return null;
+    if (machine.status !== "connected" || lifetime.signal.aborted || deadline?.aborted) {
+      return null;
+    }
     const signal = AbortSignal.any([
       lifetime.signal,
       AbortSignal.timeout(12_000),
@@ -139,10 +150,14 @@ export function createMachineCoordinator(deps: Dependencies) {
       (async () => {
         try {
           const before = await deps.get(machine.id);
-          if (signal.aborted || before?.status !== "connected") return null;
+          if (signal.aborted || before?.status !== "connected") {
+            return null;
+          }
           const raw = await work(signal);
           const after = await deps.get(machine.id);
-          if (signal.aborted || after?.status !== "connected") return null;
+          if (signal.aborted || after?.status !== "connected") {
+            return null;
+          }
           const parsed = schema.safeParse(raw);
           return parsed.success ? parsed.data : null;
         } catch {
@@ -162,7 +177,7 @@ export function createMachineCoordinator(deps: Dependencies) {
     await Promise.all(
       Array.from({ length: Math.min(4, machines.length) }, async () => {
         while (next < machines.length && !lifetime.signal.aborted) {
-          const index = next++;
+          const index = (next += 1) - 1;
           results[index] = await work(machines[index]!);
         }
       }),
@@ -190,8 +205,11 @@ export function createMachineCoordinator(deps: Dependencies) {
         }
       } finally {
         const remaining = mutations.get(hostId)! - 1;
-        if (remaining) mutations.set(hostId, remaining);
-        else mutations.delete(hostId);
+        if (remaining) {
+          mutations.set(hostId, remaining);
+        } else {
+          mutations.delete(hostId);
+        }
       }
     },
     async lastKnown(query: CalendarQuery): Promise<MachineReports> {
@@ -202,7 +220,9 @@ export function createMachineCoordinator(deps: Dependencies) {
         const revision = before.get(machine.id) ?? 0;
         let report: CalendarReport = calendarUnavailable("host-offline");
         let cached = false;
-        if (blocked.has(machine.id)) persistence = false;
+        if (blocked.has(machine.id)) {
+          persistence = false;
+        }
         if (usable(machine.id, revision)) {
           try {
             const previous = await cache.read(machine.id, query);
@@ -215,7 +235,9 @@ export function createMachineCoordinator(deps: Dependencies) {
           }
         }
         const current = await verified(machine.id);
-        if (blocked.has(machine.id)) persistence = false;
+        if (blocked.has(machine.id)) {
+          persistence = false;
+        }
         if (!usable(machine.id, revision)) {
           report = calendarUnavailable("selection-changed");
           cached = false;
@@ -225,8 +247,12 @@ export function createMachineCoordinator(deps: Dependencies) {
           : null;
       });
       for (const row of rows) {
-        if (!row) continue;
-        if (blocked.has(row.machine.id)) persistence = false;
+        if (!row) {
+          continue;
+        }
+        if (blocked.has(row.machine.id)) {
+          persistence = false;
+        }
         if (!usable(row.machine.id, before.get(row.machine.id) ?? 0)) {
           row.report = calendarUnavailable("selection-changed");
           row.cached = false;
@@ -251,8 +277,9 @@ export function createMachineCoordinator(deps: Dependencies) {
             deadline,
           )) ?? preparationUnavailable("host-offline"),
       );
-      if (!rows.some((row) => row.state !== "unavailable"))
+      if (!rows.some((row) => row.state !== "unavailable")) {
         return preparationUnavailable("not-configured");
+      }
       const progress = createHash("sha256").update(JSON.stringify(rows)).digest("hex");
       return {
         state: rows.some((row) => row.state === "pending")
@@ -289,8 +316,9 @@ export function createMachineCoordinator(deps: Dependencies) {
           }
         } else if (proof) {
           aliases.set(machine.id, proof);
-          if (persistentIdentity)
+          if (persistentIdentity) {
             await deps.storage.set(aliasPrefix + machine.id, proof).catch(() => undefined);
+          }
         } else {
           aliases.delete(machine.id);
           await deps.storage.delete(aliasPrefix + machine.id).catch(() => undefined);
@@ -311,12 +339,13 @@ export function createMachineCoordinator(deps: Dependencies) {
           observation?.activity ??
           emptyActivity(machine.status === "connected" ? "unsupported" : "host-offline");
         const age = activity.snapshot ? now - Date.parse(activity.snapshot.observedAt) : 0;
-        if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS)
+        if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS) {
           activity = emptyActivity("expired");
-        else if (age >= FRESH_MS && activity.state === "fresh")
+        } else if (age >= FRESH_MS && activity.state === "fresh") {
           activity = { ...activity, state: "stale", reason: "aged" };
+        }
         const old = groups.get(key);
-        if (!old)
+        if (!old) {
           groups.set(key, {
             key,
             identity: proof ? "verified" : "unknown",
@@ -324,11 +353,15 @@ export function createMachineCoordinator(deps: Dependencies) {
             quota,
             activity,
           });
-        else {
+        } else {
           old.machines.push(machine.id);
           // Account-wide feeds are observations, not quantities to sum across machines.
-          if (better(quota, old.quota)) old.quota = quota;
-          if (better(activity, old.activity)) old.activity = activity;
+          if (better(quota, old.quota)) {
+            old.quota = quota;
+          }
+          if (better(activity, old.activity)) {
+            old.activity = activity;
+          }
         }
       }
       lifetime.signal.throwIfAborted();
@@ -349,7 +382,9 @@ export function createMachineCoordinator(deps: Dependencies) {
       const reportRevisions = new Map<string, number>();
       const rows = await batch(machines, async (machine) => {
         let revision = revisionOf(machine.id);
-        if (blocked.has(machine.id)) persistence = false;
+        if (blocked.has(machine.id)) {
+          persistence = false;
+        }
         const admit = () => usable(machine.id, revision);
         const preparation = input.prepare
           ? ((await onMachine(
@@ -368,25 +403,29 @@ export function createMachineCoordinator(deps: Dependencies) {
           )) ??
           calendarUnavailable(machine.status === "connected" ? "unsupported" : "host-offline");
         let cached = false;
-        if (!admit()) report = calendarUnavailable("selection-changed");
-        else if (report.state !== "unavailable") {
+        if (!admit()) {
+          report = calendarUnavailable("selection-changed");
+        } else if (report.state !== "unavailable") {
           if (
             JSON.stringify(report.query) !== JSON.stringify(calendarQuerySchema.parse(input.query))
-          )
+          ) {
             report = calendarUnavailable("unsupported");
-          else
+          } else {
             await cache.save(machine.id, report, admit).catch(() => {
               persistence = false;
             });
+          }
         } else if (
           ["not-configured", "storage-incompatible", "range-unavailable"].includes(report.reason)
         ) {
           revision += 1;
           revisions.set(machine.id, revision);
           try {
-            if (report.reason === "range-unavailable")
+            if (report.reason === "range-unavailable") {
               await cache.removeQuery(machine.id, input.query, admit);
-            else await cache.remove(machine.id, admit);
+            } else {
+              await cache.remove(machine.id, admit);
+            }
           } catch {
             persistence = false;
             blocked.add(machine.id);
@@ -403,7 +442,9 @@ export function createMachineCoordinator(deps: Dependencies) {
           }
         }
         const current = await verified(machine.id, deadline);
-        if (blocked.has(machine.id)) persistence = false;
+        if (blocked.has(machine.id)) {
+          persistence = false;
+        }
         if (
           revisionOf(machine.id) !== revision ||
           mutations.has(machine.id) ||
@@ -416,8 +457,12 @@ export function createMachineCoordinator(deps: Dependencies) {
         return current ? { machine: current, preparation, report, cached } : null;
       });
       for (const row of rows) {
-        if (!row) continue;
-        if (blocked.has(row.machine.id)) persistence = false;
+        if (!row) {
+          continue;
+        }
+        if (blocked.has(row.machine.id)) {
+          persistence = false;
+        }
         if (
           !usable(row.machine.id, reportRevisions.get(row.machine.id) ?? -1) &&
           row.report.state !== "unavailable"

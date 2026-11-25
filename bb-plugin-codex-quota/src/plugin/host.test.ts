@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
-import hostEntry from "./host.js";
-import { createQuotaHostEntry } from "./host.js";
+import hostEntry, { createQuotaHostEntry } from "./host.js";
 import type { QuotaSnapshot } from "../quota/quota.js";
 import type { HostHistory } from "../history/history-host.js";
 
@@ -28,7 +27,7 @@ describe("Codex Quota host entry", () => {
             {
               id: "primary_window",
               name: "Primary",
-              remainingPercent: ++calls === 1 ? 42 : 65,
+              remainingPercent: (calls += 1) === 1 ? 42 : 65,
               resetAt: null,
             },
           ],
@@ -119,7 +118,7 @@ describe("Codex Quota host entry", () => {
     const entry = createQuotaHostEntry({
       auth: async () => ({ status: "ok", token: "secret", identity: "account-a" }),
       read: async () => {
-        if (++calls === 1) {
+        if ((calls += 1) === 1) {
           started();
           await delayed;
         }
@@ -152,7 +151,7 @@ describe("Codex Quota host entry", () => {
           ? { status: "ok", token: "secret", identity: "account-a" }
           : { status: "auth-unavailable" },
       read: async () => {
-        calls++;
+        calls += 1;
         return {
           status: "ok" as const,
           snapshot: {
@@ -185,7 +184,7 @@ describe("Codex Quota host entry", () => {
       createQuotaHostEntry({
         auth: async () => ({ status: "ok", token: "secret", identity: "account-a" }),
         read: async () => {
-          calls++;
+          calls += 1;
           return { status: "network" as const, snapshot: null };
         },
         now: () => observedAt,

@@ -154,9 +154,15 @@ for (const entry of cases) {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       const params = new URLSearchParams({ theme: entry.theme, layout: entry.layout });
-      if (entry.disabled) params.set("disabled", "1");
-      if (entry.long) params.set("long", "1");
-      if (entry.split) params.set("split", entry.split);
+      if (entry.disabled) {
+        params.set("disabled", "1");
+      }
+      if (entry.long) {
+        params.set("long", "1");
+      }
+      if (entry.split) {
+        params.set("split", entry.split);
+      }
       const response = await page.goto(`/tests/preview.html?${params}`);
       expect(response?.ok()).toBe(true);
       await expect(page).toHaveTitle("Compose Chat fixture");

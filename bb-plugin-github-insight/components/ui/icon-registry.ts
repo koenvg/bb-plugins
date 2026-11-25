@@ -125,9 +125,13 @@ let extendedIcons: ExtendedIconMap | null = null;
 const listeners = new Set<() => void>();
 
 export function registerExtendedIcons(map: ExtendedIconMap): void {
-  if (extendedIcons === map) return;
+  if (extendedIcons === map) {
+    return;
+  }
   extendedIcons = map;
-  for (const listener of listeners) listener();
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 export function getExtendedIcons(): ExtendedIconMap | null {
@@ -151,7 +155,9 @@ const appIconListeners = new Set<() => void>();
 
 export function setAppIcons(next: ReadonlyMap<string, AppIconDefinition>): void {
   appIcons = next;
-  for (const listener of appIconListeners) listener();
+  for (const listener of appIconListeners) {
+    listener();
+  }
 }
 
 export function getAppIcon(name: string): AppIconDefinition | undefined {
@@ -170,7 +176,9 @@ const pluginAssetIconListeners = new Set<() => void>();
 
 export function setPluginAssetIcons(next: ReadonlyMap<string, string>): void {
   pluginAssetIcons = next;
-  for (const listener of pluginAssetIconListeners) listener();
+  for (const listener of pluginAssetIconListeners) {
+    listener();
+  }
 }
 
 export function getPluginAssetIcon(glyph: string): string | undefined {

@@ -7,7 +7,8 @@ import type {
   RunPrActionRequest,
   UpdatePullRequestBranchRequest,
 } from "../contract";
-import { write, type Written } from "../github/gh-write";
+import { write } from "../github/gh-write";
+import type { Written } from "../github/gh-write";
 import type { CachedPr } from "../refresh/insight-service";
 import type { PrTarget } from "../pr-lookup";
 
@@ -76,11 +77,19 @@ function writeFor(cached: Cached, request: RunPrActionRequest): GitHubWrite | nu
 }
 
 function gitHubWriteOf(cached: CachedPr, request: RunPrActionRequest): Written<GitHubWrite> {
-  if (cached.kind === "no_pr") return { ok: false, message: NO_PR_MESSAGE };
-  if (cached.kind === "error") return { ok: false, message: cached.message };
-  if (cached.kind === "not_cached") return { ok: false, message: NOT_READ_MESSAGE };
+  if (cached.kind === "no_pr") {
+    return { ok: false, message: NO_PR_MESSAGE };
+  }
+  if (cached.kind === "error") {
+    return { ok: false, message: cached.message };
+  }
+  if (cached.kind === "not_cached") {
+    return { ok: false, message: NOT_READ_MESSAGE };
+  }
   const headGuarded = request.action !== "disable-auto-merge";
-  if (headGuarded && cached.insight.pr.headOid !== request.expectedHeadOid) return STALE;
+  if (headGuarded && cached.insight.pr.headOid !== request.expectedHeadOid) {
+    return STALE;
+  }
   const send = writeFor(cached, request);
   return send === null ? STALE : { ok: true, value: send };
 }
@@ -88,9 +97,13 @@ function gitHubWriteOf(cached: CachedPr, request: RunPrActionRequest): Written<G
 export function createPrWrites(deps: PrWritesDeps) {
   async function runPrAction(request: RunPrActionRequest): Promise<ActionResult> {
     const call = gitHubWriteOf(await deps.cachedPr(request.threadId), request);
-    if (!call.ok) return { kind: "error", message: call.message };
+    if (!call.ok) {
+      return { kind: "error", message: call.message };
+    }
     const written = await write(() => call.value(deps));
-    if (!written.ok) return { kind: "error", message: written.message };
+    if (!written.ok) {
+      return { kind: "error", message: written.message };
+    }
     await deps.refreshAfterWrite(request.threadId).catch((error: unknown) => {
       deps.warn(`Could not refresh the PR insight of thread ${request.threadId}: ${String(error)}`);
     });

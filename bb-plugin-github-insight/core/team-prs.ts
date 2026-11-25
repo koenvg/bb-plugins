@@ -77,8 +77,12 @@ function isViewerOrTeam(
   viewer: string,
   teams: ReadonlySet<string>,
 ): boolean {
-  if (reviewer?.__typename === "User") return reviewer.login?.toLowerCase() === viewer;
-  if (reviewer?.__typename === "Team") return teams.has(reviewer.combinedSlug?.toLowerCase() ?? "");
+  if (reviewer?.__typename === "User") {
+    return reviewer.login?.toLowerCase() === viewer;
+  }
+  if (reviewer?.__typename === "Team") {
+    return teams.has(reviewer.combinedSlug?.toLowerCase() ?? "");
+  }
   return false;
 }
 
@@ -109,11 +113,13 @@ async function scanRepo(
   const refs: PullRequestRef[] = [];
   let after: string | null = null;
   let through = since;
-  for (let page = 0; page < TEAM_SCAN_MAX_PAGES; page++) {
+  for (let page = 0; page < TEAM_SCAN_MAX_PAGES; page += 1) {
     const parsed = parseTeamPrPage(await source.fetchPage({ repo, since, after }), teams);
     refs.push(...parsed.refs);
     through = parsed.lastUpdatedAt ?? through;
-    if (parsed.after === null) return { refs, through: startedAt };
+    if (parsed.after === null) {
+      return { refs, through: startedAt };
+    }
     after = parsed.after;
   }
   // The search returns the oldest update first, so a capped scan resumes after its last PR.

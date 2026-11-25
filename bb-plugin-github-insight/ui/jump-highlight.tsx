@@ -15,7 +15,9 @@ export function useJumpHighlight(kind: CommentStop["kind"], id: string): boolean
   const token = mark !== null && mark.stop.kind === kind && mark.stop.id === id ? mark.token : null;
   const [fadedToken, setFadedToken] = useState<number | null>(null);
   useEffect(() => {
-    if (token === null) return;
+    if (token === null) {
+      return;
+    }
     const timer = setTimeout(() => setFadedToken(token), HIGHLIGHT_MS);
     return () => clearTimeout(timer);
   }, [token]);

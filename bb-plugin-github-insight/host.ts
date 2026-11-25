@@ -3,7 +3,8 @@ import { imageMergeBaseArgs, readPrImage } from "./github/pr-image-content";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
-import { hostContract, type GhResult, type RenderMarkdownResult } from "./contract";
+import { hostContract } from "./contract";
+import type { GhResult, RenderMarkdownResult } from "./contract";
 import {
   disableAutoMergeArgs,
   enableAutoMergeArgs,
@@ -111,7 +112,9 @@ async function fetchReviewQueue(batches: string[][], signal: AbortSignal): Promi
   const results = await Promise.all(batches.map((args) => runGhJsonRetryingTimeout(args, signal)));
   const failures = results.filter((result) => !result.ok);
   const failure = failures.find(({ failure }) => failure.kind !== "failed") ?? failures[0];
-  if (failure !== undefined) return failure;
+  if (failure !== undefined) {
+    return failure;
+  }
   return { ok: true, data: results.filter((result) => result.ok).map(({ data }) => data) };
 }
 
@@ -145,7 +148,9 @@ async function ghFailureResult(
   signal: AbortSignal,
 ): Promise<Extract<GhResult, { ok: false }>> {
   const failure = classifyGhFailure(ghProcessError(error));
-  if (failure.kind !== "rate_limited") return { ok: false, failure };
+  if (failure.kind !== "rate_limited") {
+    return { ok: false, failure };
+  }
   return {
     ok: false,
     failure: { ...failure, resetAt: await readRateLimitReset(signal) },

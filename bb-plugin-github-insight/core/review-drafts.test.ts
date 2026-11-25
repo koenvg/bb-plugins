@@ -4,9 +4,8 @@ import {
   readCommentDraft,
   readSummaryDraft,
   summaryDraftEntry,
-  type CommentDraft,
-  type SummaryDraft,
 } from "./review-drafts";
+import type { CommentDraft, SummaryDraft } from "./review-drafts";
 
 const comment: CommentDraft = {
   path: "src/a.ts",

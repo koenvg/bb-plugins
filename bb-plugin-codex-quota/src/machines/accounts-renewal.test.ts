@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { visibleView } from "../account/freshness.js";
-import { QuotaCache, type QuotaRead } from "../quota/quota-cache.js";
+import { QuotaCache } from "../quota/quota-cache.js";
+import type { QuotaRead } from "../quota/quota-cache.js";
 import { MachineAccountsStore, footerAllowance } from "./accounts-store.js";
 import { accountsFixture, quotaFixture } from "./machines.test-support.js";
 
@@ -44,7 +45,9 @@ function pollingAccount(rpcMs = 12_000, cachedRpcMs = rpcMs) {
   const samples: { at: number; state: string; label: string; observedAt: string | null }[] = [];
   const unsubscribe = store.subscribe(() => {
     const { data, now } = store.getSnapshot();
-    if (!data) return;
+    if (!data) {
+      return;
+    }
     samples.push({
       at: now - start,
       state: visibleView(data.accounts[0]!.quota, now).state,
@@ -155,8 +158,11 @@ describe("account polling through the host quota cache", () => {
     account = pollingAccount();
     await vi.advanceTimersByTimeAsync(225_000);
     expect(account.load).toHaveBeenCalledTimes(2);
-    if (action === "abort") account.controller.abort();
-    else account.cache.invalidate();
+    if (action === "abort") {
+      account.controller.abort();
+    } else {
+      account.cache.invalidate();
+    }
     await vi.advanceTimersByTimeAsync(21_000);
 
     expect(displayed().quota).toMatchObject({ state: "unavailable", snapshot: null });

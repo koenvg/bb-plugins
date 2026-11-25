@@ -38,7 +38,9 @@ function threadSection({ thread, line, outdated }: OpenThread): string[] {
 }
 
 function snippetOf(diffHunk: string): string | null {
-  if (diffHunk === "") return null;
+  if (diffHunk === "") {
+    return null;
+  }
   return diffHunk.split("\n").slice(-SNIPPET_LINES).join("\n");
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildAutoMergeAction, type AutoMergeActionInput } from "./auto-merge";
+import { buildAutoMergeAction } from "./auto-merge";
+import type { AutoMergeActionInput } from "./auto-merge";
 
 const running = { code: "checks_running", text: "3 checks running" } as const;
 const reviewRequired = { code: "review_required", text: "Review required" } as const;

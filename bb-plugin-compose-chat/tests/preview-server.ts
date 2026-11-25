@@ -62,7 +62,9 @@ try {
   });
   cancellation.signal.throwIfAborted();
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Expected owned loopback listener");
+  if (!address || typeof address === "string") {
+    throw new Error("Expected owned loopback listener");
+  }
   const origin = new URL(`http://127.0.0.1:${address.port}`).origin;
   console.log(`Synthetic preview ready at ${origin}`);
   reportPreviewReady(origin);
@@ -70,7 +72,9 @@ try {
     cancellation.signal.addEventListener("abort", () => resolve(), { once: true }),
   );
 } catch (error) {
-  if (!cancellation.signal.aborted) throw error;
+  if (!cancellation.signal.aborted) {
+    throw error;
+  }
 } finally {
   try {
     if (server.listening) {

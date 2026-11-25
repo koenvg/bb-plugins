@@ -40,7 +40,9 @@ export function createTeamPrs(kv: Pick<PluginKvStorage, "get" | "set">) {
       const { refs } = await read();
       const byKey = new Map(refs.map((ref) => [teamPrKey(ref), ref]));
       for (const ref of scan.refs) {
-        if (!byKey.has(teamPrKey(ref))) byKey.set(teamPrKey(ref), lowercased(ref));
+        if (!byKey.has(teamPrKey(ref))) {
+          byKey.set(teamPrKey(ref), lowercased(ref));
+        }
       }
       await write({ refs: [...byKey.values()], scannedThrough: scan.scannedThrough });
     },
@@ -48,7 +50,9 @@ export function createTeamPrs(kv: Pick<PluginKvStorage, "get" | "set">) {
     async remove(gone: readonly PullRequestRef[]): Promise<void> {
       const removed = new Set(gone.map(teamPrKey));
       const stored = await read();
-      if (!stored.refs.some((ref) => removed.has(teamPrKey(ref)))) return;
+      if (!stored.refs.some((ref) => removed.has(teamPrKey(ref)))) {
+        return;
+      }
       await write({ ...stored, refs: stored.refs.filter((ref) => !removed.has(teamPrKey(ref))) });
     },
   };

@@ -29,10 +29,20 @@ export interface MergeActionInput {
 }
 
 export function buildMergeAction(input: MergeActionInput): MergeAction {
-  if (input.prState !== "open") return { kind: "none" };
-  if (input.isInMergeQueue) return { kind: "queued" };
-  if (input.blockers.length > 0) return { kind: "none" };
-  if (input.isMergeQueueEnabled) return { kind: "enqueue" };
-  if (!input.allowedMethods[input.defaultMethod]) return { kind: "none" };
+  if (input.prState !== "open") {
+    return { kind: "none" };
+  }
+  if (input.isInMergeQueue) {
+    return { kind: "queued" };
+  }
+  if (input.blockers.length > 0) {
+    return { kind: "none" };
+  }
+  if (input.isMergeQueueEnabled) {
+    return { kind: "enqueue" };
+  }
+  if (!input.allowedMethods[input.defaultMethod]) {
+    return { kind: "none" };
+  }
   return { kind: "merge", method: input.defaultMethod };
 }

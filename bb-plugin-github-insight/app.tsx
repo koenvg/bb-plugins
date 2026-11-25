@@ -33,5 +33,7 @@ export default definePluginApp((app) => {
     banners: [{ id: "merge-blockers", component: ComposerBanner }],
   });
   app.contentScripts.register(hideHostPrStrip);
-  for (const command of GITHUB_COMMANDS) app.commands.register(command);
+  for (const command of GITHUB_COMMANDS) {
+    app.commands.register(command);
+  }
 });

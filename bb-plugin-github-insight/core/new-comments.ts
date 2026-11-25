@@ -36,7 +36,9 @@ export function newCommentIds(
   since: number | null,
   seen: ReadonlySet<string>,
 ): string[] {
-  if (since === null) return [];
+  if (since === null) {
+    return [];
+  }
   return comments
     .filter((comment) => Date.parse(comment.postedAt) > since && !seen.has(comment.id))
     .map((comment) => comment.id);

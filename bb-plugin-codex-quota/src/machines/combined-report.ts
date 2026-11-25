@@ -33,8 +33,8 @@ const uncovered: Day["coverage"] = {
   truncated: false,
 };
 function money(values: CalendarMoney[]): CalendarMoney {
-  const records = sum(values.map((value) => value.records)),
-    pricedRecords = sum(values.map((value) => value.pricedRecords));
+  const records = sum(values.map((value) => value.records));
+  const pricedRecords = sum(values.map((value) => value.pricedRecords));
   const cost =
     values.some((value) => value.reason === "unsafe-sum") || !pricedRecords
       ? null
@@ -97,7 +97,9 @@ export type CombinedReport = {
  */
 export function combineReports(input: MachineReports, query: CalendarQuery): CombinedReport | null {
   for (const row of input.machines) {
-    if (row.report.state === "unavailable") continue;
+    if (row.report.state === "unavailable") {
+      continue;
+    }
     const actual = row.report.query;
     if (
       actual.group !== query.group ||
@@ -106,13 +108,16 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
       !!actual.comparison !== !!query.comparison ||
       JSON.stringify(actual.scope) !== JSON.stringify(query.scope) ||
       (!row.cached && actual.startDate !== query.startDate)
-    )
+    ) {
       throw new Error("Report query mismatch");
+    }
   }
   const available = input.machines.flatMap((row) =>
     row.report.state === "unavailable" ? [] : [{ ...row, report: row.report }],
   );
-  if (!available.length) return null;
+  if (!available.length) {
+    return null;
+  }
   const incomplete =
     input.truncated ||
     available.length !== input.machines.length ||
@@ -193,7 +198,9 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
       ),
     };
   });
-  for (const day of days) sum([day.totalTokens, day.uncertain?.totalTokens ?? 0]);
+  for (const day of days) {
+    sum([day.totalTokens, day.uncertain?.totalTokens ?? 0]);
+  }
   sum(days.flatMap((day) => [day.totalTokens, day.uncertain?.totalTokens ?? 0]));
   const ranking = available
     .filter((row) => row.report.query.startDate === query.startDate)

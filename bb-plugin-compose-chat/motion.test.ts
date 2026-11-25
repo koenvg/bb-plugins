@@ -1,14 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import postcss from "postcss";
+import { parse } from "postcss";
 
 const css = readFileSync(new URL("./motion.css", import.meta.url), "utf8");
-const root = postcss.parse(css);
+const root = parse(css);
 
 describe("Native working-state lattice", () => {
   it("scopes effects to inline activity titles, not the composer status or other shimmers", () => {
     root.walkRules((rule) => {
-      if (rule.parent?.type === "atrule" && rule.parent.name === "keyframes") return;
+      if (rule.parent?.type === "atrule" && rule.parent.name === "keyframes") {
+        return;
+      }
       expect(rule.selector).toMatch(/^:root\[data-compose-chat/);
       if (rule.selector.includes("animate-shine")) {
         expect(rule.selector).toMatch(/\[data-timeline-row-list\]\s+\[data-timeline-row-id\]/);
@@ -24,7 +26,9 @@ describe("Native working-state lattice", () => {
       (node) => node.type === "rule" && node.selector.endsWith("> .animate-shine"),
     );
     expect(labelRule?.type).toBe("rule");
-    if (labelRule?.type !== "rule") return;
+    if (labelRule?.type !== "rule") {
+      return;
+    }
     const declarations = new Map(
       labelRule.nodes.filter((node) => node.type === "decl").map((node) => [node.prop, node.value]),
     );
@@ -38,7 +42,9 @@ describe("Native working-state lattice", () => {
       (node) => node.type === "rule" && node.selector.endsWith(".animate-shine::before"),
     );
     expect(dotRule?.type).toBe("rule");
-    if (dotRule?.type !== "rule") return;
+    if (dotRule?.type !== "rule") {
+      return;
+    }
     expect(
       dotRule.nodes.some(
         (node) =>
@@ -73,7 +79,9 @@ describe("Native working-state lattice", () => {
           .endsWith("span:has(> .leading-5 > .animate-shine) > [data-icon-root]"),
     );
     expect(iconRule?.type).toBe("rule");
-    if (iconRule?.type !== "rule") return;
+    if (iconRule?.type !== "rule") {
+      return;
+    }
     expect(
       iconRule.nodes.some(
         (node) => node.type === "decl" && node.prop === "display" && node.value === "none",
@@ -95,7 +103,9 @@ describe("Native working-state lattice", () => {
         const dots = decl.value.split(",").map((value) => value.trim());
         expect(dots).toHaveLength(9);
         const head = dots.filter((value) => value.endsWith("var(--compose-lattice-head)"));
-        if (head.length) frames.push(head.map((value) => value.split(" var(")[0]).join(","));
+        if (head.length) {
+          frames.push(head.map((value) => value.split(" var(")[0]).join(","));
+        }
       });
     });
     expect(frames).toEqual(groups.map((group) => group.join(",")));

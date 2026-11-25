@@ -1,5 +1,6 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { importViewSchema, importUnavailable, type ImportCommand } from "./import-contract.js";
+import { importViewSchema, importUnavailable } from "./import-contract.js";
+import type { ImportCommand } from "./import-contract.js";
 import type { HistoryRequest } from "../history-contract.js";
 import { historyReadinessSchema } from "../history-contract.js";
 import type { SelectedHost } from "../../selection/selected-host.js";
@@ -24,12 +25,15 @@ export function createImportHandler(deps: Dependencies) {
     const { hostId, generation, command } = input;
     if (command.action === "cancel") {
       for (const [pending, scope] of work) {
-        if (scope.hostId === hostId && scope.generation === generation) pending.abort();
+        if (scope.hostId === hostId && scope.generation === generation) {
+          pending.abort();
+        }
       }
     }
     const controller = new AbortController();
-    if (command.action === "start" || command.action === "resume")
+    if (command.action === "start" || command.action === "resume") {
       work.set(controller, { hostId, generation });
+    }
     try {
       return await deps.session.request(input, {
         schema: importViewSchema,
@@ -44,8 +48,9 @@ export function createImportHandler(deps: Dependencies) {
             const attribution = prepared.success
               ? (prepared.data.collection?.attribution ?? prepared.data.attribution)
               : null;
-            if (command.action === "start" && attribution && attribution.discovery !== "complete")
+            if (command.action === "start" && attribution && attribution.discovery !== "complete") {
               return importUnavailable("metadata-incomplete");
+            }
           }
           const knownWorkspaces: string[] = [];
           if (command.action === "configure" || command.action === "start") {
@@ -53,10 +58,13 @@ export function createImportHandler(deps: Dependencies) {
               const page = await deps.sdk.environments.list({ offset, limit: 50, signal });
               signal.throwIfAborted();
               for (const env of page) {
-                if (env.hostId === hostId && env.path && knownWorkspaces.length < 50)
+                if (env.hostId === hostId && env.path && knownWorkspaces.length < 50) {
                   knownWorkspaces.push(env.path);
+                }
               }
-              if (page.length < 50) break;
+              if (page.length < 50) {
+                break;
+              }
             }
           }
           signal.throwIfAborted();

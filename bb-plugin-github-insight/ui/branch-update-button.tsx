@@ -15,9 +15,15 @@ const UPDATE_ACTIONS: ReadonlySet<PrAction> = new Set(["update-merge", "update-r
 type LocalCommitsCheck = { kind: "checking" } | LocalCommitsAhead;
 
 function rebaseBlocker(check: LocalCommitsCheck): string | null {
-  if (check.kind === "checking") return "Checking local commits…";
-  if (check.kind === "unknown") return "Cannot check local commits";
-  if (check.count > 0) return `${countOf(check.count, "unpushed commit")}. Push first.`;
+  if (check.kind === "checking") {
+    return "Checking local commits…";
+  }
+  if (check.kind === "unknown") {
+    return "Cannot check local commits";
+  }
+  if (check.count > 0) {
+    return `${countOf(check.count, "unpushed commit")}. Push first.`;
+  }
   return null;
 }
 
@@ -41,19 +47,25 @@ export function BranchUpdateButton({ threadId, pr, onUpdated }: BranchUpdateButt
 
   async function update(action: "update-merge" | "update-rebase") {
     const result = await run({ action, expectedHeadOid: pr.headOid });
-    if (result?.kind === "ok") onUpdated();
+    if (result?.kind === "ok") {
+      onUpdated();
+    }
   }
 
   async function toggleMenu() {
     const opening = !menuOpen;
     setMenuOpen(opening);
-    if (!opening) return;
-    const check = ++latestCheck.current;
+    if (!opening) {
+      return;
+    }
+    const check = (latestCheck.current += 1);
     setLocalCommits({ kind: "checking" });
     const result = await rpc
       .call("localCommitsAhead", { threadId })
       .catch((): LocalCommitsAhead => ({ kind: "unknown" }));
-    if (check === latestCheck.current) setLocalCommits(result);
+    if (check === latestCheck.current) {
+      setLocalCommits(result);
+    }
   }
 
   const blocker = rebaseBlocker(localCommits);

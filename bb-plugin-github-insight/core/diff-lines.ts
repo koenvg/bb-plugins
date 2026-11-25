@@ -17,12 +17,12 @@ export function diffLines(patch: string): DiffLines {
       oldLine = Number(header[1]);
       newLine = Number(header[2]);
     } else if (text.startsWith("+")) {
-      lines.additions.add(newLine++);
+      lines.additions.add((newLine += 1) - 1);
     } else if (text.startsWith("-")) {
-      lines.deletions.add(oldLine++);
+      lines.deletions.add((oldLine += 1) - 1);
     } else if (text.startsWith(" ")) {
-      lines.additions.add(newLine++);
-      lines.deletions.add(oldLine++);
+      lines.additions.add((newLine += 1) - 1);
+      lines.deletions.add((oldLine += 1) - 1);
     }
   }
   return lines;
@@ -44,16 +44,22 @@ export function checkAnchor(
   { path, side, line, startLine }: Anchor,
 ): AnchorCheck {
   const file = files.find((candidate) => candidate.path === path);
-  if (file === undefined) return { ok: false, reason: `Not a file of this pull request: ${path}` };
-  if (file.patch === null) return { ok: false, reason: `No diff available for ${path}` };
+  if (file === undefined) {
+    return { ok: false, reason: `Not a file of this pull request: ${path}` };
+  }
+  if (file.patch === null) {
+    return { ok: false, reason: `No diff available for ${path}` };
+  }
   if (startLine !== null && startLine > line) {
     return { ok: false, reason: `Start line ${startLine} is after line ${line}` };
   }
   const lines = diffLines(file.patch);
   const sideLines = side === "RIGHT" ? lines.additions : lines.deletions;
   const first = startLine ?? line;
-  for (let candidate = first; candidate <= line; candidate++) {
-    if (sideLines.has(candidate)) continue;
+  for (let candidate = first; candidate <= line; candidate += 1) {
+    if (sideLines.has(candidate)) {
+      continue;
+    }
     const subject = first === line ? `Line ${line} is not` : `Lines ${first}-${line} are not all`;
     return {
       ok: false,
@@ -67,9 +73,11 @@ function rangesText(lines: Set<number>): string {
   const sorted = [...lines].sort((a, b) => a - b);
   const ranges: string[] = [];
   let start = sorted[0];
-  for (let index = 0; index < sorted.length; index++) {
+  for (let index = 0; index < sorted.length; index += 1) {
     const current = sorted[index]!;
-    if (sorted[index + 1] === current + 1) continue;
+    if (sorted[index + 1] === current + 1) {
+      continue;
+    }
     ranges.push(start === current ? `${current}` : `${start}-${current}`);
     start = sorted[index + 1];
   }

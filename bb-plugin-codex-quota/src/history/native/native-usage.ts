@@ -24,16 +24,21 @@ function sourcePath(home: string, relative: string) {
         !part || part === "." || part === ".." || part.includes("\\") || part.includes("\0"),
     ) ||
     relative.length > 16384
-  )
+  ) {
     throw Error("Native confinement unavailable");
+  }
   return join(home, relative);
 }
 const MAX_LINE = 1024 * 1024;
 function scalar(raw: unknown, max = 256): string | null {
-  if (typeof raw !== "string" || raw.length === 0 || raw.length > max) return null;
-  for (let index = 0; index < raw.length; index++) {
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > max) {
+    return null;
+  }
+  for (let index = 0; index < raw.length; index += 1) {
     const code = raw.charCodeAt(index);
-    if (code < 32 || code === 127) return null;
+    if (code < 32 || code === 127) {
+      return null;
+    }
   }
   return raw;
 }
@@ -90,7 +95,9 @@ export function createNativeUsage(options: Options = {}) {
   async function close() {
     const held = directory;
     directory = null;
-    if (held) await held.close();
+    if (held) {
+      await held.close();
+    }
   }
   async function available() {
     for (const root of ["sessions", "archived_sessions"]) {
@@ -98,7 +105,9 @@ export function createNativeUsage(options: Options = {}) {
         await lstat(join(home(), root));
         return true;
       } catch (error) {
-        if (!missing(error)) throw error;
+        if (!missing(error)) {
+          throw error;
+        }
       }
     }
     return false;
@@ -121,10 +130,11 @@ export function createNativeUsage(options: Options = {}) {
         entry: 0,
       };
     }
-    if (!discovery.directories.length && !discovery.reading)
+    if (!discovery.directories.length && !discovery.reading) {
       discovery.directories = ["sessions", "archived_sessions"];
-    let incomplete = saved?.incomplete ?? 0,
-      discovered = 0;
+    }
+    let incomplete = saved?.incomplete ?? 0;
+    let discovered = 0;
     db.prepare("INSERT OR REPLACE INTO native_discovery VALUES (1,?,1,?)").run(
       JSON.stringify(discovery),
       incomplete,
@@ -134,7 +144,9 @@ export function createNativeUsage(options: Options = {}) {
         signal.throwIfAborted();
         if (!directory) {
           const name = discovery.reading || discovery.directories.shift();
-          if (!name) break;
+          if (!name) {
+            break;
+          }
           discovery.reading = name;
           directoryPath = sourcePath(discovery.home, name);
           try {
@@ -144,26 +156,31 @@ export function createNativeUsage(options: Options = {}) {
           } catch (error) {
             discovery.reading = "";
             discovery.entry = 0;
-            if (!missing(error)) incomplete = 1;
+            if (!missing(error)) {
+              incomplete = 1;
+            }
             continue;
           }
         }
         // Reopen after a process interruption. Skipped entries consume the same bounded discovery budget.
         const item = await directory.read();
-        discovered++;
+        discovered += 1;
         if (!item) {
           await close();
           discovery.reading = "";
           discovery.entry = 0;
           continue;
         }
-        entry++;
-        if (entry <= discovery.entry) continue;
+        entry += 1;
+        if (entry <= discovery.entry) {
+          continue;
+        }
         discovery.entry = entry;
-        if ((await proveDirectory(directoryPath)) !== directoryProof)
+        if ((await proveDirectory(directoryPath)) !== directoryProof) {
           throw Error("Native directory changed");
-        const relative = join(discovery.reading, item.name),
-          path = sourcePath(discovery.home, relative);
+        }
+        const relative = join(discovery.reading, item.name);
+        const path = sourcePath(discovery.home, relative);
         if (item.isSymbolicLink()) {
           incomplete = 1;
           continue;
@@ -173,7 +190,9 @@ export function createNativeUsage(options: Options = {}) {
           continue;
         }
         if (!item.isFile() || !item.name.endsWith(".jsonl")) {
-          if (!item.isFile()) incomplete = 1;
+          if (!item.isFile()) {
+            incomplete = 1;
+          }
           continue;
         }
         const stat = await lstat(path);
@@ -190,22 +209,25 @@ export function createNativeUsage(options: Options = {}) {
           JSON.stringify(emptyContext()),
         );
       }
-      let bytes = 2 * 1024 * 1024,
-        lines = Math.min(options.lines ?? 256, 256);
+      let bytes = 2 * 1024 * 1024;
+      let lines = Math.min(options.lines ?? 256, 256);
       // Small reads rotate by acknowledged progress; a large active file cannot monopolize the pass.
       let sources = db
         .prepare(
           "SELECT * FROM native_sources WHERE (offset<size OR identity='') AND name>? ORDER BY name LIMIT 128",
         )
         .all(discovery.fileAfter ?? "") as Source[];
-      if (!sources.length)
+      if (!sources.length) {
         sources = db
           .prepare(
             "SELECT * FROM native_sources WHERE offset<size OR identity='' ORDER BY name LIMIT 128",
           )
           .all() as Source[];
+      }
       for (const source of sources) {
-        if (bytes <= 0 || lines <= 0 || performance.now() >= deadline) break;
+        if (bytes <= 0 || lines <= 0 || performance.now() >= deadline) {
+          break;
+        }
         signal.throwIfAborted();
         discovery.fileAfter = source.name;
         let opened;
@@ -218,9 +240,9 @@ export function createNativeUsage(options: Options = {}) {
           continue;
         }
         try {
-          let offset = source.offset,
-            context: Context = JSON.parse(source.context),
-            bad = source.incomplete;
+          let offset = source.offset;
+          let context: Context = JSON.parse(source.context);
+          let bad = source.incomplete;
           delete (context as Context & { tier?: unknown }).tier;
           if (
             source.identity !== opened.identity ||
@@ -252,10 +274,12 @@ export function createNativeUsage(options: Options = {}) {
             signal.throwIfAborted();
             const end = chunk.indexOf(10, consumed);
             if (end < 0 || end >= bytesRead) {
-              if (bytesRead - consumed >= MAX_LINE) bad = 1;
+              if (bytesRead - consumed >= MAX_LINE) {
+                bad = 1;
+              }
               break;
             }
-            lines--;
+            lines -= 1;
             if (end - consumed > MAX_LINE) {
               bad = 1;
               break;
@@ -268,8 +292,8 @@ export function createNativeUsage(options: Options = {}) {
               );
               const payload = object(row.payload);
               if (row.type === "session_meta") {
-                const thread = scalar(payload.id),
-                  workspace = scalar(payload.cwd, 16384);
+                const thread = scalar(payload.id);
+                const workspace = scalar(payload.cwd, 16384);
                 if (!context.thread) {
                   if (!thread || !workspace || !isAbsolute(workspace)) {
                     context.blocked = true;
@@ -288,8 +312,11 @@ export function createNativeUsage(options: Options = {}) {
                 context.model = scalar(payload.model, 128);
               } else if (row.type === "token_usage_record") {
                 const fact = decodeFact(db, row, context, options.now?.() ?? Date.now());
-                if (fact) facts.push(fact);
-                else bad = 1;
+                if (fact) {
+                  facts.push(fact);
+                } else {
+                  bad = 1;
+                }
               } else if (
                 row.type === "event_msg" &&
                 payload.type === "token_count" &&
@@ -306,8 +333,8 @@ export function createNativeUsage(options: Options = {}) {
           }
           await opened.verify();
           signal.throwIfAborted();
-          const next = offset + consumed,
-            edge = Buffer.alloc(Math.min(64, next));
+          const next = offset + consumed;
+          const edge = Buffer.alloc(Math.min(64, next));
           await opened.file.read(edge, 0, edge.length, next - edge.length);
           await opened.verify();
           signal.throwIfAborted();
@@ -365,9 +392,9 @@ function decodeFact(
   context: Context,
   now: number,
 ): RecordedUsageFact | null {
-  const payload = object(row.payload),
-    usage = object(payload.usage),
-    id = responseId(payload.response_id);
+  const payload = object(row.payload);
+  const usage = object(payload.usage);
+  const id = responseId(payload.response_id);
   const timestamp = z.iso.datetime({ offset: true }).safeParse(row.timestamp);
   if (
     context.blocked ||
@@ -377,14 +404,15 @@ function decodeFact(
     payload.thread_id !== context.thread ||
     !timestamp.success ||
     Date.parse(timestamp.data) > now
-  )
+  ) {
     return null;
-  const input = usage.input_tokens,
-    cached = usage.cached_input_tokens,
-    output = usage.output_tokens,
-    reasoning = usage.reasoning_output_tokens,
-    total = usage.total_tokens,
-    write = usage.cache_write_input_tokens ?? 0;
+  }
+  const input = usage.input_tokens;
+  const cached = usage.cached_input_tokens;
+  const output = usage.output_tokens;
+  const reasoning = usage.reasoning_output_tokens;
+  const total = usage.total_tokens;
+  const write = usage.cache_write_input_tokens ?? 0;
   if (
     ![input, cached, output, reasoning, total, write].every(count) ||
     !count(input) ||
@@ -397,8 +425,9 @@ function decodeFact(
     reasoning > output ||
     !Number.isSafeInteger(input + output) ||
     total !== input + output
-  )
+  ) {
     return null;
+  }
   const turnMatches = !!context.turn && payload.turn_id === context.turn;
   const key = responseKey(db, id);
   return {
@@ -421,9 +450,11 @@ function decodeFact(
   };
 }
 function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) {
-  if (fact.source.kind !== "codex-native") throw Error("Native admission unavailable");
-  const key = responseKey(db, fact.source.responseId),
-    retention = effectiveRetentionState(db, now);
+  if (fact.source.kind !== "codex-native") {
+    throw Error("Native admission unavailable");
+  }
+  const key = responseKey(db, fact.source.responseId);
+  const retention = effectiveRetentionState(db, now);
   const proof = hash(
     JSON.stringify({
       ...fact,
@@ -443,18 +474,23 @@ function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) 
       }
     | undefined;
   if (owner?.native_evidence && owner.native_evidence !== proof) {
-    if (owner.native_event) excludeNative(db, owner.native_event);
+    if (owner.native_event) {
+      excludeNative(db, owner.native_event);
+    }
     db.prepare("UPDATE usage_response_owners SET native_conflicted=1 WHERE response_key=?").run(
       key,
     );
     return;
   }
-  if (owner?.native_event || owner?.pi_event) return;
+  if (owner?.native_event || owner?.pi_event) {
+    return;
+  }
   if (
     fact.occurredAt < retention.compact_cutoff ||
     db.prepare("SELECT event_id FROM usage_expired WHERE event_id=?").get(fact.eventId)
-  )
+  ) {
     return;
+  }
   const classes = fact.classes ?? {
     input: 0,
     output: 0,
@@ -482,7 +518,7 @@ function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) 
     capturedCost: null,
   });
   insertCompact(db, payload, 1, 1);
-  if (fact.classes && fact.occurredAt >= retention.detail_cutoff)
+  if (fact.classes && fact.occurredAt >= retention.detail_cutoff) {
     db.prepare("INSERT INTO usage_events VALUES (?,?,?,?,?,1,1)").run(
       fact.eventId,
       `codex-native:${fact.source.providerThreadId}`,
@@ -490,14 +526,18 @@ function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) 
       fact.totalTokens,
       payload,
     );
-  else db.prepare("UPDATE usage_compact SET detail_available=0 WHERE event_id=?").run(fact.eventId);
+  } else {
+    db.prepare("UPDATE usage_compact SET detail_available=0 WHERE event_id=?").run(fact.eventId);
+  }
   db.prepare(
     "INSERT INTO workspace_totals VALUES (?,?,1) ON CONFLICT(workspace) DO UPDATE SET total_tokens=total_tokens+excluded.total_tokens,events=events+1",
   ).run(fact.workspace, fact.totalTokens);
   const totals = db
     .prepare("SELECT total_tokens,events FROM workspace_totals WHERE workspace=?")
     .get(fact.workspace) as { total_tokens: number; events: number };
-  if (![totals.total_tokens, totals.events].every(count)) throw Error("Native total unavailable");
+  if (![totals.total_tokens, totals.events].every(count)) {
+    throw Error("Native total unavailable");
+  }
   recordSourceMetadata(
     db,
     fact.eventId,

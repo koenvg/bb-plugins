@@ -2,7 +2,8 @@ import { z } from "zod";
 import { reviewDecisionSchema } from "./blockers";
 import { actorSchema, isOtherPerson } from "./actor";
 import { othersPrComments, othersReviewTexts, postedAt } from "./new-comments";
-import { githubReviewStateSchema, reviewVerdictSchema, type ReviewVerdict } from "./pr-head";
+import { githubReviewStateSchema, reviewVerdictSchema } from "./pr-head";
+import type { ReviewVerdict } from "./pr-head";
 import type { PullRequestRef } from "./pr-ref";
 
 export const REVIEW_QUEUE_PAGE_SIZE = 50;
@@ -12,9 +13,13 @@ const GITHUB_REMOTE =
   /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([^/]+)\/([^/]+?)(?:\.git)?\/?$/i;
 
 export function parseGithubRepo(remoteUrl: string | null): string | null {
-  if (remoteUrl === null) return null;
+  if (remoteUrl === null) {
+    return null;
+  }
   const match = GITHUB_REMOTE.exec(remoteUrl.trim());
-  if (match === null) return null;
+  if (match === null) {
+    return null;
+  }
   return `${match[1]}/${match[2]}`.toLowerCase();
 }
 
@@ -180,9 +185,11 @@ export function parseReviewQueue(
   const gone: PullRequestRef[] = [];
   trackedRefs.forEach((ref, index) => {
     const node = trackedNodeSchema.parse(data[trackedAlias(index)])?.pullRequest ?? null;
-    if (node === null || closedBefore(node, now - TEAM_PR_WINDOW_MS) || isAuthor(node, viewer))
+    if (node === null || closedBefore(node, now - TEAM_PR_WINDOW_MS) || isAuthor(node, viewer)) {
       gone.push(ref);
-    else tracked.push({ ...toQueuePr(node, viewer), activity: activityOf(node, viewer) });
+    } else {
+      tracked.push({ ...toQueuePr(node, viewer), activity: activityOf(node, viewer) });
+    }
   });
   return { requests: toQueueList(data.reviewRequests, viewer), tracked, gone };
 }
@@ -200,7 +207,9 @@ function yourReviewOf(node: PrNode, viewer: string): ReviewVerdict | null {
   const opinion = node.latestOpinionatedReviews.nodes.find((review) =>
     isViewer(review.author?.login, viewer),
   )?.state;
-  if (opinion === "APPROVED" || opinion === "CHANGES_REQUESTED") return opinion;
+  if (opinion === "APPROVED" || opinion === "CHANGES_REQUESTED") {
+    return opinion;
+  }
   const latestState = node.viewerLatestReview?.state;
   return latestState === "DISMISSED" || latestState === "COMMENTED" ? latestState : null;
 }

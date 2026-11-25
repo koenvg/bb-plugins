@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  parseTeamPrPage,
-  parseViewerTeams,
-  scanTeamPrs,
-  TEAM_SCAN_MAX_PAGES,
-  type RepoSince,
-} from "./team-prs";
+import { parseTeamPrPage, parseViewerTeams, scanTeamPrs, TEAM_SCAN_MAX_PAGES } from "./team-prs";
+import type { RepoSince } from "./team-prs";
 
 const TEAMS = new Set(["collibra/ai-governance"]);
 
@@ -146,7 +141,9 @@ describe("scanTeamPrs", () => {
 
   it("rejects when a page fails, so nothing counts as scanned", async () => {
     const { source } = sourceOf(({ repo }) => {
-      if (repo === "collibra/dgc-core") throw new Error("gh: HTTP 502");
+      if (repo === "collibra/dgc-core") {
+        throw new Error("gh: HTTP 502");
+      }
       return page([]);
     });
 

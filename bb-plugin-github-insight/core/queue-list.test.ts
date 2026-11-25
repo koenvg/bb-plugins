@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ok, queuePr, reviewThread, view } from "../test/review-queue-fixtures";
-import { formatQueueList, queueListOf, type QueueList } from "./queue-list";
+import { formatQueueList, queueListOf } from "./queue-list";
+import type { QueueList } from "./queue-list";
 
 function listed(result: Parameters<typeof queueListOf>[0]): QueueList {
   const load = queueListOf(result);
-  if (load.kind !== "ok") throw new Error(`expected ok, got ${load.kind}`);
+  if (load.kind !== "ok") {
+    throw new Error(`expected ok, got ${load.kind}`);
+  }
   return load.list;
 }
 

@@ -2,7 +2,8 @@ import { videoResultSchema } from "./core/video-content";
 import { imagePathSchema, imageSideSchema, imageResultSchema } from "./core/image-content";
 import { prImageRefsSchema, prImageBasisSchema } from "./core/pr-image-basis";
 import { repoFileSchema } from "./core/repo-file";
-import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@get-bb/plugin-sdk";
+import type { NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { draftsSchema } from "./core/drafts";
 import { mergeMethodSchema } from "./core/merge-action";
@@ -496,7 +497,6 @@ export type StartReviewRequest = z.infer<typeof startReviewRequestSchema>;
 
 export const startReviewResultSchema = z.object({ threadId: z.string() });
 export type StartReviewResult = z.infer<typeof startReviewResultSchema>;
-
 const primaryHostSchema = z.object({ hostId: z.string().nullable() });
 
 export const prActionSchema = z.enum([

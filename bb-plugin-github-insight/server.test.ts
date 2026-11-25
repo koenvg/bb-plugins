@@ -19,15 +19,8 @@ import type {
 import type { PrSummary } from "./core/summary";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
-import {
-  failed,
-  linkedPr,
-  ok,
-  prHeadResponse,
-  setup,
-  type HostCall,
-  type PullRequestResult,
-} from "./test/plugin-harness";
+import { failed, linkedPr, ok, prHeadResponse, setup } from "./test/plugin-harness";
+import type { HostCall, PullRequestResult } from "./test/plugin-harness";
 
 function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
   return {
@@ -43,7 +36,9 @@ function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
 
 function pages(first: unknown = pageOne) {
   return ({ method, input }: HostCall) => {
-    if (method === "fetchCheckRunDetails") return ok(checkRunDetails);
+    if (method === "fetchCheckRunDetails") {
+      return ok(checkRunDetails);
+    }
     const { after } = input as { after: string | null };
     return ok(after === null ? first : pageTwo);
   };
@@ -71,7 +66,7 @@ function metadataUpdates(harness: Awaited<ReturnType<typeof setup>>) {
 }
 
 async function settle() {
-  for (let round = 0; round < 5; round++) {
+  for (let round = 0; round < 5; round += 1) {
     await new Promise((resolve) => setImmediate(resolve));
   }
 }
@@ -724,7 +719,9 @@ describe("pr-poller", () => {
         ],
         pullRequests,
         host: (call) => {
-          if (call.method !== "fetchOverviewPage") return pages()(call);
+          if (call.method !== "fetchOverviewPage") {
+            return pages()(call);
+          }
           const { number } = call.input as { number: number };
           return pages({
             ...pageOne,
@@ -901,7 +898,9 @@ describe("pr-poller", () => {
       ),
       host: (call) => {
         const { after } = call.input as { after?: string | null };
-        if (after !== null) return pages()(call);
+        if (after !== null) {
+          return pages()(call);
+        }
         return new Promise((resolve) => {
           pending.push(() => resolve(pages()(call)));
         });
@@ -1026,7 +1025,9 @@ describe("pr-poller", () => {
       error: null,
     });
     harness.sdk.stub("environments.get", async ({ environmentId }: { environmentId: string }) => {
-      if (environmentId === "env_1") throw new Error("HTTP 409: Environment unavailable");
+      if (environmentId === "env_1") {
+        throw new Error("HTTP 409: Environment unavailable");
+      }
       return { hostId: "host-1" };
     });
     vi.advanceTimersByTime(60_000);
@@ -1179,7 +1180,9 @@ describe("pr-poller", () => {
       pullRequests: { env_1: linkedPr(25337) },
       host: (call) => {
         const { after } = call.input as { after?: string | null };
-        if (after !== null) return pages()(call);
+        if (after !== null) {
+          return pages()(call);
+        }
         return new Promise((resolve) => {
           finish = () => resolve(pages()(call));
         });
@@ -1278,8 +1281,9 @@ describe("refresh on idle", () => {
       threads: [{ id: "thr_1", environmentId: "env_1" }],
       pullRequests: { env_1: linkedPr(25337) },
       host: (call) => {
-        if (overviewRefreshes(harness).length > 1 || call.method !== "fetchOverviewPage")
+        if (overviewRefreshes(harness).length > 1 || call.method !== "fetchOverviewPage") {
           return answer(call);
+        }
         return new Promise((resolve) => {
           release = () => resolve(answer(call));
         });
@@ -1607,9 +1611,15 @@ describe("prSummary metadata", () => {
 });
 
 function recordedReviewHost({ method }: HostCall) {
-  if (method === "fetchPrFiles") return ok(prFiles[0]);
-  if (method === "fetchReviewThreads") return ok(reviewThreads);
-  if (method === "fetchPrHead") return ok(prHeadResponse());
+  if (method === "fetchPrFiles") {
+    return ok(prFiles[0]);
+  }
+  if (method === "fetchReviewThreads") {
+    return ok(reviewThreads);
+  }
+  if (method === "fetchPrHead") {
+    return ok(prHeadResponse());
+  }
   throw new Error(`unexpected host call ${method}`);
 }
 
@@ -1677,7 +1687,9 @@ describe("getReview", () => {
       threadId: "thr_1",
     })) as ReviewResult;
 
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     expect(result.files.map((file) => file.path)).toEqual([
       "apps/shell/e2e/catalog/integrations/components/asset/generic-configuration/createDatabricksOutboundSyncConfigurationComponent.ts",
       "apps/shell/e2e/catalog/integrations/components/helpers/clickWithScrollHelper.ts",
@@ -1707,7 +1719,9 @@ describe("getReview", () => {
       threadId: "thr_1",
     })) as ReviewResult;
 
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     expect(result.threads.placed[0]!.thread.comments[0]!.body).toBe(
       `![shot](${SIGNED_ATTACHMENT_URL})`,
     );
@@ -1735,7 +1749,9 @@ describe("getReview", () => {
       threadId: "thr_1",
     })) as ReviewResult;
 
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     expect(result.head).toEqual({
       prNodeId: "PR_kwDOUoz3mM8AAAABGSCovQ",
       oid: "def456",
@@ -1994,10 +2010,15 @@ describe("reply and resolve", () => {
   function writeHost(results: { reply?: unknown; resolve?: unknown } = {}) {
     const overview = pages();
     return (call: HostCall) => {
-      if (call.method === "replyToThread") return results.reply ?? replyResponse("SUBMITTED");
-      if (call.method === "setThreadResolved") return results.resolve ?? ok({ data: {} });
-      if (call.method === "fetchOverviewPage" || call.method === "fetchCheckRunDetails")
+      if (call.method === "replyToThread") {
+        return results.reply ?? replyResponse("SUBMITTED");
+      }
+      if (call.method === "setThreadResolved") {
+        return results.resolve ?? ok({ data: {} });
+      }
+      if (call.method === "fetchOverviewPage" || call.method === "fetchCheckRunDetails") {
         return overview(call);
+      }
       throw new Error(`unexpected host call ${call.method}`);
     };
   }
@@ -2084,7 +2105,9 @@ describe("reply and resolve", () => {
 
   it("keeps the posted reply when the resolve after it throws", async () => {
     const harness = await setupWithPr(({ method }) => {
-      if (method === "replyToThread") return replyResponse("SUBMITTED");
+      if (method === "replyToThread") {
+        return replyResponse("SUBMITTED");
+      }
       throw new Error("host call timed out");
     });
 
@@ -2198,7 +2221,9 @@ describe("reply and resolve", () => {
       const firstPage =
         call.method === "fetchOverviewPage" &&
         (call.input as { after: string | null }).after === null;
-      if (!firstPage || overviewRefreshes(harness).length > 1) return write(call);
+      if (!firstPage || overviewRefreshes(harness).length > 1) {
+        return write(call);
+      }
       return new Promise((resolve) => {
         releaseFirst = () => resolve(write(call));
       });
@@ -2417,8 +2442,12 @@ describe("drafts from the tab", () => {
       ) {
         return recordedReviewHost({ method, input: null });
       }
-      if (method === "replyToThread") return reply;
-      if (method === "setThreadResolved") return ok({ data: {} });
+      if (method === "replyToThread") {
+        return reply;
+      }
+      if (method === "setThreadResolved") {
+        return ok({ data: {} });
+      }
       throw new Error(`unexpected host call ${method}`);
     };
   }
@@ -2435,7 +2464,9 @@ describe("drafts from the tab", () => {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
     })) as ReviewResult;
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     return result.drafts;
   }
 
@@ -2545,7 +2576,9 @@ describe("comment and summary drafts from the tab", () => {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
     })) as ReviewResult;
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     return result;
   }
 
@@ -2673,7 +2706,9 @@ describe("createCommentDraft", () => {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
     })) as ReviewResult;
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     return result.commentDrafts;
   }
 
@@ -2819,7 +2854,9 @@ describe("createCommentDraft", () => {
     })) as CreateCommentDraftResult;
 
     expect(result).toEqual({ kind: "created", draftId: expect.stringMatching(/^[a-z0-9]{8}$/) });
-    if (result.kind !== "created") throw new Error("expected a created draft");
+    if (result.kind !== "created") {
+      throw new Error("expected a created draft");
+    }
     expect(await harness.kv.get(`comment:collibra/frontend#25259:${result.draftId}`)).toEqual({
       v: 1,
       path: DRAFT_FILE,
@@ -2914,10 +2951,15 @@ describe("submitReview", () => {
   ) {
     const overview = pages();
     return (call: HostCall) => {
-      if (call.method === "fetchPrHead") return ok(prHeadResponse(options.head));
-      if (call.method === "submitReview") return options.submit ?? SUBMITTED;
-      if (call.method === "fetchOverviewPage" || call.method === "fetchCheckRunDetails")
+      if (call.method === "fetchPrHead") {
+        return ok(prHeadResponse(options.head));
+      }
+      if (call.method === "submitReview") {
+        return options.submit ?? SUBMITTED;
+      }
+      if (call.method === "fetchOverviewPage" || call.method === "fetchCheckRunDetails") {
         return overview(call);
+      }
       return recordedReviewHost(call);
     };
   }
@@ -2941,7 +2983,9 @@ describe("submitReview", () => {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
     })) as ReviewResult;
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     return result;
   }
 
@@ -2953,7 +2997,6 @@ describe("submitReview", () => {
       event: "APPROVE",
       body: "Ship it",
     });
-
     expect(result).toEqual({ kind: "submitted" });
     expect(writes(harness)).toEqual([
       {
@@ -3236,7 +3279,9 @@ function queueHost(teamPage = teamPrPage(), trackedResponse: unknown = reviewQue
     if (method === "fetchViewerTeams") {
       return ok([[{ slug: "core", organization: { login: "acme" } }]]);
     }
-    if (method === "fetchTeamPrPage") return ok(teamPage);
+    if (method === "fetchTeamPrPage") {
+      return ok(teamPage);
+    }
     const { tracked } = input as { tracked: unknown[] };
     return ok([tracked.length === 0 ? reviewQueue : trackedResponse]);
   };
@@ -3306,7 +3351,9 @@ describe("review queue", () => {
       method: "fetchReviewQueue",
       input: { tracked: [{ owner: "acme", repo: "api", number: 41 }] },
     });
-    if (result.kind !== "ok") throw new Error(result.message);
+    if (result.kind !== "ok") {
+      throw new Error(result.message);
+    }
     const api = result.needsReview.find((group) => group.repo === "acme/api")!;
     expect(api.prs.map(({ number, state }) => [number, state])).toContainEqual([41, "merged"]);
     expect(api.prs.map(({ number }) => number)).not.toContain(42);
@@ -3349,7 +3396,9 @@ describe("review queue", () => {
     expect(new Set(harness.experimental_hostRpcCalls.map((call) => call.hostId))).toEqual(
       new Set(["host-7"]),
     );
-    if (result.kind !== "ok") throw new Error(result.message);
+    if (result.kind !== "ok") {
+      throw new Error(result.message);
+    }
     const api = result.needsReview.find((group) => group.repo === "acme/api")!;
     expect(
       api.prs.map(({ number, projectIds, thread }) => ({ number, projectIds, thread })),
@@ -3413,7 +3462,9 @@ describe("review queue", () => {
 
     const result = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
 
-    if (result.kind !== "ok") throw new Error(result.message);
+    if (result.kind !== "ok") {
+      throw new Error(result.message);
+    }
     const api = result.needsReview.find((group) => group.repo === "acme/api")!;
     expect(api.prs.map(({ number, thread }) => ({ number, thread }))).toEqual([
       {
@@ -3446,12 +3497,13 @@ describe("review queue", () => {
     expect(result).toEqual({ kind: "error", message: "No host available", lastGood: null });
     expect(harness.experimental_hostRpcCalls).toHaveLength(0);
   });
-
   it("publishes a seen queue after the panel marks the PRs it shows", async () => {
     const harness = await setup({ threads: [], host: queueHost() });
     const loaded = (await harness.behavior.callRpc("refreshReviewQueue", {})) as LoadedReviewQueue;
     const loadCalls = harness.experimental_hostRpcCalls.length;
-    if (loaded.kind !== "ok") throw new Error(loaded.message);
+    if (loaded.kind !== "ok") {
+      throw new Error(loaded.message);
+    }
     expect(loaded.hasUnseen).toBe(true);
     const prs = loaded.needsReview.flatMap((group) =>
       group.prs.map(({ repo, number }) => ({ repo, number })),
@@ -3533,7 +3585,9 @@ describe("startReview", () => {
 
     expect(harness.experimental_hostRpcCalls).toHaveLength(loadCalls);
     const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
-    if (update.kind !== "ok") throw new Error(update.message);
+    if (update.kind !== "ok") {
+      throw new Error(update.message);
+    }
     const row = update.needsReview.flatMap((group) => group.prs).find((pr) => pr.number === 15)!;
     expect(row.thread?.id).toBe("thr_review");
   });
@@ -3804,8 +3858,11 @@ describe("runPrAction", () => {
     let merged = false;
     const overview = mergeHost();
     const harness = await setupWithPr((call) => {
-      if (call.method === "mergePullRequest") merged = true;
-      else if (merged) return failed({ kind: "failed", message: "HTTP 502" });
+      if (call.method === "mergePullRequest") {
+        merged = true;
+      } else if (merged) {
+        return failed({ kind: "failed", message: "HTTP 502" });
+      }
       return overview(call);
     });
     await harness.behavior.callRpc("getInsight", { threadId: "thr_1" });
@@ -3875,8 +3932,12 @@ describe("localCommitsAhead", () => {
   function counting(count: unknown = { kind: "count", count: 2 }, first: unknown = pageOne) {
     const overview = pages(first);
     return (call: HostCall) => {
-      if (call.method !== "countLocalCommitsAhead") return overview(call);
-      if (count instanceof Error) throw count;
+      if (call.method !== "countLocalCommitsAhead") {
+        return overview(call);
+      }
+      if (count instanceof Error) {
+        throw count;
+      }
       return count;
     };
   }

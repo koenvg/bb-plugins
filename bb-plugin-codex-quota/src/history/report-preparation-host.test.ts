@@ -12,7 +12,9 @@ import { usageRecordSchema } from "./collection/usage-record.js";
 const roots: string[] = [];
 const now = Date.parse("2026-10-01T12:00:00Z");
 afterEach(async () => {
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 it("prepares multiple host batches without reading bodies, maintaining history, or changing controls and assets", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "bbp143-host-"));
@@ -31,7 +33,7 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
   const body = "must not read transcript or collector data";
   await writeFile(join(directory, "usage-v1.jsonl"), body);
   db.transaction(() => {
-    for (let n = 0; n < 801; n++)
+    for (let n = 0; n < 801; n += 1) {
       projectCompactRecord(
         db,
         usageRecordSchema.parse({
@@ -54,6 +56,7 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
           capturedCost: null,
         }),
       );
+    }
   });
   const retention = db.prepare("SELECT * FROM history_retention").all();
   const original = db
@@ -106,12 +109,16 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
         },
       });
       expect(result.state).toBe("available");
-      if (result.state !== "available") throw Error(JSON.stringify(result));
+      if (result.state !== "available") {
+        throw Error(JSON.stringify(result));
+      }
       progress.add(result.progress);
-    } while (result.state === "available" && result.attribution.backlog && ++calls < 20);
+    } while (result.state === "available" && result.attribution.backlog && (calls += 1) < 20);
     expect(calls).toBe(4);
     expect(progress.size).toBe(5);
-    if (result.state !== "available") throw Error("Preparation unavailable");
+    if (result.state !== "available") {
+      throw Error("Preparation unavailable");
+    }
     expect(result.attribution).toMatchObject({
       discovery: "complete",
       backlog: false,

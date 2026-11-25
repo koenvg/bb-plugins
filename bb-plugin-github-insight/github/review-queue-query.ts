@@ -50,7 +50,9 @@ interface IndexedRef {
 }
 
 function variableDefinitions(tracked: readonly IndexedRef[]): string {
-  if (tracked.length === 0) return "";
+  if (tracked.length === 0) {
+    return "";
+  }
   const definitions = tracked.map(
     ({ index: i }) => `$o${i}: String!, $r${i}: String!, $n${i}: Int!`,
   );

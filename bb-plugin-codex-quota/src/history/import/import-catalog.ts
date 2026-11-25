@@ -3,7 +3,9 @@ import { basename, join, normalize } from "node:path";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import type { ImportConfiguration } from "./import-contract.js";
 import { proveRoot, revalidateRoot } from "./import-source.js";
-import { diagnostic, type Frozen, type Generation } from "./import-state.js";
+import { diagnostic } from "./import-state.js";
+import type { Frozen, Generation } from "./import-state.js";
+
 export async function freeze(
   configuration: ImportConfiguration,
   known: string[],
@@ -21,7 +23,9 @@ export async function freeze(
         }
       } catch {}
     }
-    if (!verified) throw Error("Import workspace unavailable");
+    if (!verified) {
+      throw Error("Import workspace unavailable");
+    }
     workspaces.push({
       recorded: normalize(recorded),
       resolved: proof.resolved,
@@ -31,18 +35,22 @@ export async function freeze(
   const roots = await Promise.all(
     [configuration.bbRoot, ...configuration.ordinaryRoots].map(proveRoot),
   );
-  if (new Set(roots.map((r) => r.resolved)).size !== roots.length)
+  if (new Set(roots.map((r) => r.resolved)).size !== roots.length) {
     throw Error("Import roots overlap");
+  }
   return { roots, workspaces, catalog };
 }
 export async function validateFrozen(frozen: Frozen) {
-  for (const root of frozen.roots) await revalidateRoot(root);
-  for (const w of frozen.workspaces)
+  for (const root of frozen.roots) {
+    await revalidateRoot(root);
+  }
+  for (const w of frozen.workspaces) {
     await revalidateRoot({
       configured: w.recorded,
       resolved: w.resolved,
       identity: w.identity,
     });
+  }
 }
 function addCandidate(
   db: HistoryDatabase,
@@ -82,7 +90,9 @@ export async function discover(db: HistoryDatabase, g: Generation, f: Frozen, si
       g.id,
     );
   });
-  if (providers.length === 100) return;
+  if (providers.length === 100) {
+    return;
+  }
   if (g.root_cursor < f.roots.length) {
     const root = f.roots[g.root_cursor];
     await revalidateRoot(root);
@@ -92,15 +102,21 @@ export async function discover(db: HistoryDatabase, g: Generation, f: Frozen, si
       while (seen < 256) {
         signal.throwIfAborted();
         const entry = await directory.read();
-        if (!entry) break;
-        seen++;
-        if (entry.name.endsWith(".jsonl")) addCandidate(db, g, f, g.root_cursor, entry.name, null);
+        if (!entry) {
+          break;
+        }
+        seen += 1;
+        if (entry.name.endsWith(".jsonl")) {
+          addCandidate(db, g, f, g.root_cursor, entry.name, null);
+        }
       }
-      if (seen === 256) diagnostic(db, g, "discovery-limit");
+      if (seen === 256) {
+        diagnostic(db, g, "discovery-limit");
+      }
     } finally {
       await directory.close();
     }
-    g.root_cursor++;
+    g.root_cursor += 1;
     db.prepare("UPDATE import_generations SET root_cursor=? WHERE id=?").run(g.root_cursor, g.id);
     return;
   }

@@ -27,26 +27,42 @@ export function createSelectedHost(deps: {
   const active = new Set<AbortController>();
   const selection = () => ({ ...selected });
   const abortReads = () => {
-    for (const controller of active) controller.abort();
+    for (const controller of active) {
+      controller.abort();
+    }
   };
   const reject = (input: HostRequest): Failure | null => {
-    if (lifecycle.signal.aborted) return "selection-changed";
-    if (!selected.hostId) return "no-selection";
-    if (input.generation !== selected.generation) return "selection-changed";
+    if (lifecycle.signal.aborted) {
+      return "selection-changed";
+    }
+    if (!selected.hostId) {
+      return "no-selection";
+    }
+    if (input.generation !== selected.generation) {
+      return "selection-changed";
+    }
     return input.hostId !== selected.hostId ? "foreign-host" : null;
   };
   return {
     selection,
     async select(hostId: string | null): Promise<HostSelection> {
-      const request = ++selectionRequest;
-      if (lifecycle.signal.aborted) return selection();
+      const request = (selectionRequest += 1);
+      if (lifecycle.signal.aborted) {
+        return selection();
+      }
       try {
-        if (hostId !== null && !(await cancellable(() => deps.enrolled(hostId), lifecycle.signal)))
+        if (
+          hostId !== null &&
+          !(await cancellable(() => deps.enrolled(hostId), lifecycle.signal))
+        ) {
           return selection();
+        }
       } catch {
         return selection();
       }
-      if (lifecycle.signal.aborted || request !== selectionRequest) return selection();
+      if (lifecycle.signal.aborted || request !== selectionRequest) {
+        return selection();
+      }
       if (selected.hostId !== hostId) {
         selected = { hostId, generation: selected.generation + 1 };
         abortReads();
@@ -55,7 +71,9 @@ export function createSelectedHost(deps: {
     },
     async request<T>(input: HostRequest, options: RequestOptions<T>): Promise<T> {
       const failure = reject(input);
-      if (failure) return options.unavailable(failure);
+      if (failure) {
+        return options.unavailable(failure);
+      }
       const controller = new AbortController();
       const signal = AbortSignal.any([
         controller.signal,
@@ -70,13 +88,23 @@ export function createSelectedHost(deps: {
       active.add(controller);
       try {
         const host = await cancellable(() => deps.enrolled(input.hostId), signal);
-        if (changed()) return options.unavailable("selection-changed");
-        if (!host || host.status !== "connected") return options.unavailable("host-offline");
+        if (changed()) {
+          return options.unavailable("selection-changed");
+        }
+        if (!host || host.status !== "connected") {
+          return options.unavailable("host-offline");
+        }
         const result = await cancellable(() => options.call(signal), signal);
-        if (changed()) return options.unavailable("selection-changed");
+        if (changed()) {
+          return options.unavailable("selection-changed");
+        }
         const current = await cancellable(() => deps.enrolled(input.hostId), signal);
-        if (changed()) return options.unavailable("selection-changed");
-        if (!current || current.status !== "connected") return options.unavailable("host-offline");
+        if (changed()) {
+          return options.unavailable("selection-changed");
+        }
+        if (!current || current.status !== "connected") {
+          return options.unavailable("host-offline");
+        }
         const parsed = options.schema.safeParse(result);
         return parsed.success ? parsed.data : options.unavailable("unsupported");
       } catch {

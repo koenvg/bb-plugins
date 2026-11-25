@@ -1,14 +1,12 @@
 import type { PluginKvStorage } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import type { InsightResult } from "../contract";
-import { prInsightSchema, type PrInsight, type PrReading } from "../core/overview";
-import { prKey, type PullRequestRef } from "../core/pr-ref";
-import {
-  buildSummary,
-  shouldWriteSummary,
-  type PrSummary,
-  type WrittenSummary,
-} from "../core/summary";
+import { prInsightSchema } from "../core/overview";
+import type { PrInsight, PrReading } from "../core/overview";
+import { prKey } from "../core/pr-ref";
+import type { PullRequestRef } from "../core/pr-ref";
+import { buildSummary, shouldWriteSummary } from "../core/summary";
+import type { PrSummary, WrittenSummary } from "../core/summary";
 import { GhFailureError, RATE_LIMITED_TEXT } from "../github/gh-failure";
 import type { LookupOptions, PrResolution, PrTarget } from "../pr-lookup";
 import type { RateLimitPause } from "../github/rate-limit-pause";
@@ -72,13 +70,17 @@ function storedReadingKey(key: string): string {
 }
 
 function toResult(entry: CacheEntry): InsightResult {
-  if (entry.good === null) return { kind: "error", message: entry.error };
+  if (entry.good === null) {
+    return { kind: "error", message: entry.error };
+  }
   const { insight, refreshedAt } = entry.good;
   return { kind: "ok", insight, refreshedAt, error: entry.error };
 }
 
 function sameData(previous: CacheEntry | undefined, next: CacheEntry): boolean {
-  if (previous === undefined) return false;
+  if (previous === undefined) {
+    return false;
+  }
   const data = (entry: CacheEntry) =>
     JSON.stringify({ insight: entry.good?.insight ?? null, error: entry.error });
   return data(previous) === data(next);
@@ -139,7 +141,9 @@ export function createInsightService(deps: InsightServiceDeps) {
     const now = Date.now();
     await Promise.all(
       [...threadIds].map(async (threadId) => {
-        if (!shouldWriteSummary(writtenSummaries.get(threadId), summary, now)) return;
+        if (!shouldWriteSummary(writtenSummaries.get(threadId), summary, now)) {
+          return;
+        }
         try {
           await deps.writeSummary(threadId, summary);
           writtenSummaries.set(threadId, { summary, writtenAt: now });
@@ -154,7 +158,9 @@ export function createInsightService(deps: InsightServiceDeps) {
   async function removeSummaries(threadIds: Iterable<string>) {
     await Promise.all(
       [...threadIds].map(async (threadId) => {
-        if (removedSummaries.has(threadId)) return;
+        if (removedSummaries.has(threadId)) {
+          return;
+        }
         try {
           await deps.removeSummary(threadId);
           removedSummaries.add(threadId);
@@ -167,7 +173,9 @@ export function createInsightService(deps: InsightServiceDeps) {
   }
 
   async function storeReading(key: string, entry: CacheEntry) {
-    if (entry.good === null || entry.error !== null) return;
+    if (entry.good === null || entry.error !== null) {
+      return;
+    }
     const { insight, pullRequestId, refreshedAt } = entry.good;
     try {
       await deps.kv.set(storedReadingKey(key), {
@@ -186,7 +194,9 @@ export function createInsightService(deps: InsightServiceDeps) {
   ): Promise<CacheEntry | null> {
     try {
       const stored = storedReadingSchema.safeParse(await deps.kv.get(storedReadingKey(key)));
-      if (!stored.success) return null;
+      if (!stored.success) {
+        return null;
+      }
       const { reading, refreshedAt } = stored.data;
       return {
         good: { ...reading, refreshedAt },
@@ -212,7 +222,9 @@ export function createInsightService(deps: InsightServiceDeps) {
   }
 
   function syncSummaries(entry: CacheEntry): Promise<void> {
-    if (entry.good === null) return removeSummaries(entry.threadIds);
+    if (entry.good === null) {
+      return removeSummaries(entry.threadIds);
+    }
     const summary = buildSummary({ ...entry.good, error: entry.summaryError });
     return writeSummaries(summary, entry.threadIds);
   }
@@ -250,7 +262,9 @@ export function createInsightService(deps: InsightServiceDeps) {
     const key = prKey(group.target.ref);
     const current = running.get(key);
     if (current !== undefined) {
-      for (const threadId of group.threadIds) current.group.threadIds.add(threadId);
+      for (const threadId of group.threadIds) {
+        current.group.threadIds.add(threadId);
+      }
       return current.done;
     }
     const done = runRefresh(key, group).finally(() => running.delete(key));
@@ -280,15 +294,21 @@ export function createInsightService(deps: InsightServiceDeps) {
     await Promise.all(
       [...threadsByEnvironment].map(async ([environmentId, threadIds]) => {
         const resolution = await deps.resolveEnvironmentPr(environmentId);
-        if (resolution.kind === "no_pr") threadIdsWithoutPr.push(...threadIds);
+        if (resolution.kind === "no_pr") {
+          threadIdsWithoutPr.push(...threadIds);
+        }
         if (resolution.kind === "error") {
           everyPrResolved = false;
           deps.warn(`PR lookup for environment ${environmentId} failed: ${resolution.message}`);
         }
-        if (resolution.kind !== "pr") return;
+        if (resolution.kind !== "pr") {
+          return;
+        }
         const key = prKey(resolution.target.ref);
         const group = groups.get(key) ?? { target: resolution.target, threadIds: new Set() };
-        for (const threadId of threadIds) group.threadIds.add(threadId);
+        for (const threadId of threadIds) {
+          group.threadIds.add(threadId);
+        }
         groups.set(key, group);
       }),
     );
@@ -296,14 +316,18 @@ export function createInsightService(deps: InsightServiceDeps) {
   }
 
   async function poll(): Promise<void> {
-    if (isPaused()) return;
+    if (isPaused()) {
+      return;
+    }
     const { groups, threadIdsWithoutPr, everyPrResolved } = await groupThreadsByPr();
     const due = groups.filter((group) => !isSettled(group.target));
     await Promise.all([
       removeSummaries(threadIdsWithoutPr),
       everyPrResolved ? pruneStoredReadings(groups) : undefined,
       forEachLimited(due, MAX_PARALLEL_REFRESHES, async (group) => {
-        if (!isPaused()) await refreshPr(group);
+        if (!isPaused()) {
+          await refreshPr(group);
+        }
       }),
     ]);
   }
@@ -333,14 +357,18 @@ export function createInsightService(deps: InsightServiceDeps) {
 
   function resultWhilePaused(entry: CacheEntry): InsightResult {
     const result = toResult(entry);
-    if (result.kind !== "ok" || result.error !== null || !isPaused()) return result;
+    if (result.kind !== "ok" || result.error !== null || !isPaused()) {
+      return result;
+    }
     return { ...result, error: RATE_LIMITED_TEXT };
   }
 
   return {
     async getInsight(threadId: string): Promise<InsightResult> {
       const resolution = await deps.resolvePr(threadId);
-      if (resolution.kind !== "pr") return resolution;
+      if (resolution.kind !== "pr") {
+        return resolution;
+      }
       const key = prKey(resolution.target.ref);
       const entry = entries.get(key);
       if (entry !== undefined) {
@@ -351,46 +379,68 @@ export function createInsightService(deps: InsightServiceDeps) {
       if (stored !== null) {
         const current = entries.get(key) ?? stored;
         entries.set(key, current);
-        if (!isPaused()) void refreshThread(threadId, resolution.target);
+        if (!isPaused()) {
+          void refreshThread(threadId, resolution.target);
+        }
         return resultWhilePaused(current);
       }
-      if (isPaused()) return { kind: "error", message: RATE_LIMITED_TEXT };
+      if (isPaused()) {
+        return { kind: "error", message: RATE_LIMITED_TEXT };
+      }
       return toResult(await refreshThread(threadId, resolution.target));
     },
 
     async refresh(threadId: string): Promise<InsightResult> {
       const resolution = await deps.resolvePr(threadId, FRESH);
-      if (resolution.kind !== "pr") return resolution;
+      if (resolution.kind !== "pr") {
+        return resolution;
+      }
       return toResult(await refreshThread(threadId, resolution.target));
     },
 
     async getPrInsight(ref: PullRequestRef): Promise<InsightResult> {
       const key = prKey(ref);
       const known = entries.get(key) ?? (await readStoredReading(key, new Set()));
-      if (known !== null && !entries.has(key)) entries.set(key, known);
+      if (known !== null && !entries.has(key)) {
+        entries.set(key, known);
+      }
       const entry = entries.get(key) ?? null;
-      if (entry !== null && !isStale(entry)) return resultWhilePaused(entry);
+      if (entry !== null && !isStale(entry)) {
+        return resultWhilePaused(entry);
+      }
       const target = isPaused() ? null : await primaryTarget(ref);
       if (target === null) {
-        if (entry !== null) return resultWhilePaused(entry);
+        if (entry !== null) {
+          return resultWhilePaused(entry);
+        }
         return { kind: "error", message: isPaused() ? RATE_LIMITED_TEXT : NO_PRIMARY_HOST_TEXT };
       }
-      if (entry === null) return toResult(await refreshLinkedThreads(target));
-      if (!isSettled(target)) void refreshLinkedThreads(target);
+      if (entry === null) {
+        return toResult(await refreshLinkedThreads(target));
+      }
+      if (!isSettled(target)) {
+        void refreshLinkedThreads(target);
+      }
       return resultWhilePaused(entry);
     },
 
     async refreshPrInsight(ref: PullRequestRef): Promise<InsightResult> {
       const target = await primaryTarget(ref);
-      if (target === null) return { kind: "error", message: NO_PRIMARY_HOST_TEXT };
+      if (target === null) {
+        return { kind: "error", message: NO_PRIMARY_HOST_TEXT };
+      }
       return toResult(await refreshLinkedThreads(target));
     },
 
     async cachedPr(threadId: string): Promise<CachedPr> {
       const resolution = await deps.resolvePr(threadId);
-      if (resolution.kind !== "pr") return resolution;
+      if (resolution.kind !== "pr") {
+        return resolution;
+      }
       const entry = entries.get(prKey(resolution.target.ref));
-      if (entry === undefined || entry.good === null) return { kind: "not_cached" };
+      if (entry === undefined || entry.good === null) {
+        return { kind: "not_cached" };
+      }
       return {
         kind: "cached",
         target: resolution.target,
@@ -401,23 +451,33 @@ export function createInsightService(deps: InsightServiceDeps) {
 
     async refreshAfterWrite(threadId: string): Promise<void> {
       const resolution = await deps.resolvePr(threadId, FRESH);
-      if (resolution.kind !== "pr") return;
+      if (resolution.kind !== "pr") {
+        return;
+      }
       await running.get(prKey(resolution.target.ref))?.done;
       await refreshThread(threadId, resolution.target);
     },
 
     async refreshOnIdle(threadId: string, signal: AbortSignal): Promise<void> {
       try {
-        if (isPaused()) return;
+        if (isPaused()) {
+          return;
+        }
         let resolution = await deps.resolvePr(threadId, FRESH);
         // BB can link a PR that the agent just opened a few seconds after the turn ends.
         if (resolution.kind === "no_pr") {
           await sleep(IDLE_RETRY_MS, signal);
-          if (signal.aborted || isPaused()) return;
+          if (signal.aborted || isPaused()) {
+            return;
+          }
           resolution = await deps.resolvePr(threadId, FRESH);
         }
-        if (resolution.kind === "error") throw new Error(resolution.message);
-        if (resolution.kind !== "pr" || isSettled(resolution.target) || isPaused()) return;
+        if (resolution.kind === "error") {
+          throw new Error(resolution.message);
+        }
+        if (resolution.kind !== "pr" || isSettled(resolution.target) || isPaused()) {
+          return;
+        }
         await refreshThread(threadId, resolution.target);
       } catch (error) {
         deps.warn(`PR refresh on idle for thread ${threadId} failed: ${errorText(error)}`);
@@ -435,7 +495,9 @@ export function createInsightService(deps: InsightServiceDeps) {
           poll().catch((error) => deps.warn(`PR poll failed: ${errorText(error)}`)),
           aborted,
         ]);
-        if (signal.aborted) return;
+        if (signal.aborted) {
+          return;
+        }
         await sleep(Math.max(POLL_INTERVAL_MS, deps.pause.pausedUntil() - Date.now()), signal);
       }
     },

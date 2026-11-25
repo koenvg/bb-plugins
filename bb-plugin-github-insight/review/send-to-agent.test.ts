@@ -6,16 +6,23 @@ import {
   reviewThreadsWithAttachment,
   SIGNED_ATTACHMENT_URL,
 } from "../test/attachment";
-import { failed, linkedPr, ok, prHeadResponse, setup, type HostCall } from "../test/plugin-harness";
+import { failed, linkedPr, ok, prHeadResponse, setup } from "../test/plugin-harness";
+import type { HostCall } from "../test/plugin-harness";
 
 const PLACED = "PRRT_kwDOHI7l-86jxula";
 const OUTDATED = "PRRT_kwDOHI7l-86jx0SN";
 const RESOLVED = "PRRT_kwDOHI7l-86jvKxS";
 
 function reviewHost({ method }: HostCall) {
-  if (method === "fetchPrFiles") return ok(prFiles[0]);
-  if (method === "fetchReviewThreads") return ok(reviewThreads);
-  if (method === "fetchPrHead") return ok(prHeadResponse());
+  if (method === "fetchPrFiles") {
+    return ok(prFiles[0]);
+  }
+  if (method === "fetchReviewThreads") {
+    return ok(reviewThreads);
+  }
+  if (method === "fetchPrHead") {
+    return ok(prHeadResponse());
+  }
   throw new Error(`unexpected host call ${method}`);
 }
 

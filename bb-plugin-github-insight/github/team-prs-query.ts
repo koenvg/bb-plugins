@@ -34,6 +34,8 @@ function searchTime(iso: string): string {
 export function teamPrPageArgs({ repo, since, after }: TeamPrPageRequest): string[] {
   const q = `is:pr repo:${repo} -author:@me updated:>=${searchTime(since)} sort:updated-asc`;
   const args = ["api", "graphql", "-f", `query=${TEAM_PR_QUERY}`, "-f", `q=${q}`];
-  if (after !== null) args.push("-f", `after=${after}`);
+  if (after !== null) {
+    args.push("-f", `after=${after}`);
+  }
   return args;
 }

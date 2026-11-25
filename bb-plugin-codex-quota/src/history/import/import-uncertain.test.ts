@@ -9,7 +9,8 @@ import { acceptIdentityBatch } from "../identity/identity-storage.js";
 import { createImportOperation } from "./import-host.js";
 import { readHostCalendar } from "../calendar/calendar-host.js";
 import { calendarQuerySchema, calendarReportSchema } from "../calendar/calendar-contract.js";
-import { importCommandSchema, type ImportCommand } from "./import-contract.js";
+import { importCommandSchema } from "./import-contract.js";
+import type { ImportCommand } from "./import-contract.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -46,12 +47,13 @@ const message = (id = "entry-a", tokens = 5, time = at) => ({
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "codex-uncertain-"));
   roots.push(root);
-  const dataDir = join(root, "data"),
-    sources = join(root, "sources"),
-    workspace = join(root, "workspace"),
-    other = join(root, "outside-bb");
-  for (const dir of [join(dataDir, "history"), sources, workspace, other])
+  const dataDir = join(root, "data");
+  const sources = join(root, "sources");
+  const workspace = join(root, "workspace");
+  const other = join(root, "outside-bb");
+  for (const dir of [join(dataDir, "history"), sources, workspace, other]) {
     await mkdir(dir, { recursive: true });
+  }
   const path = join(dataDir, "history/usage-v1.sqlite");
   const db = (await openHistoryDatabase(path))!;
   initializeHistory(db, at, false);
@@ -69,7 +71,7 @@ async function fixture() {
     })),
   });
   let reads = 0;
-  const run = createImportOperation({ now: () => now, bodyRead: () => reads++, rows: 2 });
+  const run = createImportOperation({ now: () => now, bodyRead: () => (reads += 1) - 1, rows: 2 });
   const context = {
     hostId: "host-a",
     dataDir,
@@ -109,8 +111,9 @@ async function fixture() {
       action: "start",
       ...(includeUncertain ? { includeUncertain: true } : {}),
     });
-    for (let n = 0; n < 50 && view.generation?.state === "stopped"; n++)
+    for (let n = 0; n < 50 && view.generation?.state === "stopped"; n += 1) {
       view = await call({ action: "resume" });
+    }
     expect(view.reason).toBe("ok");
     expect(view.generation?.state).toBe("completed");
     return view;
@@ -125,7 +128,9 @@ async function fixture() {
       { now: () => now },
     );
     expect(view.state).not.toBe("unavailable");
-    if (view.state === "unavailable") throw Error(view.reason);
+    if (view.state === "unavailable") {
+      throw Error(view.reason);
+    }
     return view;
   };
   return { root, db, sources, workspace, other, write, complete, report, call, reads: () => reads };
@@ -142,8 +147,8 @@ it("keeps uncertain import and stats opt-in, with recorded tokens and prices unc
     const imported = await f.complete(true);
     expect(imported.generation?.includeUncertain).toBe(true);
     expect(imported.generation?.uncertainRecords).toBe(1);
-    const normal = await f.report(),
-      estimated = await f.report(true);
+    const normal = await f.report();
+    const estimated = await f.report(true);
     expect(normal.summary).toEqual(baseline.summary);
     expect(normal.summary.uncertain).toBeUndefined();
     expect(estimated.summary.totalTokens).toBe(5);

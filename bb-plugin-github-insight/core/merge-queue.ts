@@ -26,6 +26,8 @@ const QUEUE_STATE: Record<NonNullable<MergeQueueEntry>["state"], MergeQueueState
 };
 
 export function toMergeQueue(entry: MergeQueueEntry): MergeQueue {
-  if (entry === null) return null;
+  if (entry === null) {
+    return null;
+  }
   return { position: entry.position, state: QUEUE_STATE[entry.state] };
 }

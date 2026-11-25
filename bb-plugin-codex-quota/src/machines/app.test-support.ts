@@ -78,7 +78,7 @@ export async function dashboardFixture() {
   let generation = 0;
   const selectHost = vi.fn(async (input: unknown) => ({
     hostId: (input as { hostId: string }).hostId,
-    generation: ++generation,
+    generation: (generation += 1),
   }));
   const historyReadiness = vi.fn(async (_input: unknown): Promise<unknown> => missingHistory);
   const historicalImport = vi.fn(async (_input: unknown): Promise<unknown> =>

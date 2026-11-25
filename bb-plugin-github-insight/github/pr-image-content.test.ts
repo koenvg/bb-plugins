@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 const state = vi.hoisted(() => ({
   calls: [] as unknown[][],
   stdout: (_args: string[]): string | Buffer => "",

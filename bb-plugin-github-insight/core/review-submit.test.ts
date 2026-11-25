@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { submitRules, type SubmitRulesInput } from "./review-submit";
+import { submitRules } from "./review-submit";
+import type { SubmitRulesInput } from "./review-submit";
 
 const otherPr: SubmitRulesInput = {
   viewerIsAuthor: false,

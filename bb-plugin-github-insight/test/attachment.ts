@@ -9,10 +9,11 @@ export const ATTACHMENT_HTML = `<p><img src="${SIGNED_ATTACHMENT_URL}" alt="shot
 
 export function reviewThreadsWithAttachment() {
   const page = structuredClone(reviewThreads);
-  for (const thread of page.data.repository.pullRequest.reviewThreads.nodes)
+  for (const thread of page.data.repository.pullRequest.reviewThreads.nodes) {
     for (const comment of thread.comments.nodes) {
       comment.body = ATTACHMENT_BODY;
       comment.bodyHTML = ATTACHMENT_HTML;
     }
+  }
   return page;
 }

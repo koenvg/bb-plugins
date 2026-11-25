@@ -2,7 +2,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ImportPanel } from "./import-view.js";
-import { importUnavailable, type ImportView } from "./import-contract.js";
+import { importUnavailable } from "./import-contract.js";
+import type { ImportView } from "./import-contract.js";
+
 afterEach(cleanup);
 type Input = import("../history-contract.js").HistoryRequest & {
   command: import("./import-contract.js").ImportCommand;

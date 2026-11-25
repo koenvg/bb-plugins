@@ -67,24 +67,34 @@ export class QuotaSelectionStore {
   getSnapshot = () => this.state;
   private publish(next: Partial<State>) {
     this.state = { ...this.state, ...next };
-    for (const listener of this.listeners) listener();
+    for (const listener of this.listeners) {
+      listener();
+    }
   }
 
   /** An owner supplies clock ticks and revalidation; passive icons are not owners. */
   retainOwner(): () => void {
-    if (++this.owners === 1) this.publish({ hasActiveOwner: true });
+    if ((this.owners += 1) === 1) {
+      this.publish({ hasActiveOwner: true });
+    }
     let released = false;
     return () => {
-      if (released) return;
+      if (released) {
+        return;
+      }
       released = true;
-      if (--this.owners === 0) this.publish({ hasActiveOwner: false });
+      if ((this.owners -= 1) === 0) {
+        this.publish({ hasActiveOwner: false });
+      }
     };
   }
 
   start(api: QuotaApi): () => void {
-    if (this.owner) this.stop(this.owner);
+    if (this.owner) {
+      this.stop(this.owner);
+    }
     this.disposed = false;
-    this.revision++;
+    this.revision += 1;
     this.connecting = null;
     this.reading = null;
     this.selecting = null;
@@ -112,38 +122,55 @@ export class QuotaSelectionStore {
   }
 
   private stop(owner: RefreshOwner): void {
-    if (owner.timer !== null) clearTimeout(owner.timer);
-    if (owner.aging !== null) clearInterval(owner.aging);
+    if (owner.timer !== null) {
+      clearTimeout(owner.timer);
+    }
+    if (owner.aging !== null) {
+      clearInterval(owner.aging);
+    }
     owner.timer = owner.aging = null;
     owner.release();
-    if (this.owner !== owner) return;
+    if (this.owner !== owner) {
+      return;
+    }
     this.owner = null;
     this.disposed = true;
-    this.revision++;
+    this.revision += 1;
     this.connecting = null;
     this.reading = null;
     this.selecting = null;
   }
 
   async resume(): Promise<void> {
-    if (this.disposed) return;
+    if (this.disposed) {
+      return;
+    }
     this.tick();
-    if (this.owner) await this.run(this.owner, true, true);
+    if (this.owner) {
+      await this.run(this.owner, true, true);
+    }
   }
 
   private async run(owner: RefreshOwner, force: boolean, onlyIfDue = false): Promise<void> {
-    if (this.selecting !== null) return;
+    if (this.selecting !== null) {
+      return;
+    }
     const revision = this.revision;
     const before = this.state.selection;
     const synced = await this.connect(owner.api);
-    if (this.owner !== owner) return;
+    if (this.owner !== owner) {
+      return;
+    }
     if (onlyIfDue && this.now() < owner.dueAt) {
-      if (owner.timer === null && Number.isFinite(owner.dueAt))
+      if (owner.timer === null && Number.isFinite(owner.dueAt)) {
         this.schedule(owner, owner.dueAt - this.now());
+      }
       return;
     }
     if (!synced) {
-      if (this.revision === revision) this.settled(owner);
+      if (this.revision === revision) {
+        this.settled(owner);
+      }
       return;
     }
     if (!this.state.selection.hostId) {
@@ -157,8 +184,12 @@ export class QuotaSelectionStore {
   }
 
   private schedule(owner: RefreshOwner, delay: number): void {
-    if (this.owner !== owner) return;
-    if (owner.timer !== null) clearTimeout(owner.timer);
+    if (this.owner !== owner) {
+      return;
+    }
+    if (owner.timer !== null) {
+      clearTimeout(owner.timer);
+    }
     owner.dueAt = this.now() + delay;
     owner.timer = setTimeout(() => {
       owner.timer = null;
@@ -167,7 +198,9 @@ export class QuotaSelectionStore {
   }
 
   private resetSchedule(owner: RefreshOwner): void {
-    if (owner.timer !== null) clearTimeout(owner.timer);
+    if (owner.timer !== null) {
+      clearTimeout(owner.timer);
+    }
     owner.timer = null;
     owner.dueAt = 0;
     owner.failures = 0;
@@ -184,20 +217,28 @@ export class QuotaSelectionStore {
   }
 
   async connect(api: QuotaApi): Promise<boolean> {
-    if (this.disposed || this.selecting !== null) return false;
-    if (this.connecting) return this.connecting;
+    if (this.disposed || this.selecting !== null) {
+      return false;
+    }
+    if (this.connecting) {
+      return this.connecting;
+    }
     const revision = this.revision;
     const task = (async () => {
       try {
         const selection = await api.selection();
-        if (this.revision !== revision) return false;
+        if (this.revision !== revision) {
+          return false;
+        }
         const changed =
           selection.hostId !== this.state.selection.hostId ||
           selection.generation !== this.state.selection.generation;
         if (changed) {
-          this.revision++;
+          this.revision += 1;
           this.reading = null;
-          if (this.owner) this.resetSchedule(this.owner);
+          if (this.owner) {
+            this.resetSchedule(this.owner);
+          }
           this.publish({
             selection,
             selectionPending: false,
@@ -211,7 +252,9 @@ export class QuotaSelectionStore {
         }
         return true;
       } catch {
-        if (this.revision !== revision) return false;
+        if (this.revision !== revision) {
+          return false;
+        }
         const previous = visibleView(this.state.view, this.now());
         this.publish({
           view: previous.snapshot
@@ -227,16 +270,22 @@ export class QuotaSelectionStore {
     try {
       return await task;
     } finally {
-      if (this.connecting === task) this.connecting = null;
+      if (this.connecting === task) {
+        this.connecting = null;
+      }
     }
   }
 
   async selectHost(api: QuotaApi, hostId: string | null): Promise<void> {
-    if (this.disposed) return;
-    const revision = ++this.revision;
+    if (this.disposed) {
+      return;
+    }
+    const revision = (this.revision += 1);
     this.selecting = revision;
     this.connecting = null;
-    if (this.owner) this.resetSchedule(this.owner);
+    if (this.owner) {
+      this.resetSchedule(this.owner);
+    }
     this.reading = null;
     // Other selected-host views must invalidate at switch start, not after quota/auth completes.
     this.publish({
@@ -248,7 +297,9 @@ export class QuotaSelectionStore {
     });
     try {
       const selection = await api.selectHost({ hostId });
-      if (this.revision !== revision) return;
+      if (this.revision !== revision) {
+        return;
+      }
       this.selecting = null;
       this.publish({
         selection,
@@ -257,7 +308,9 @@ export class QuotaSelectionStore {
         loading: false,
         ready: selection.hostId !== hostId || hostId === null,
       });
-      if (selection.hostId === hostId && hostId !== null) await this.refresh(api);
+      if (selection.hostId === hostId && hostId !== null) {
+        await this.refresh(api);
+      }
     } catch {
       if (this.revision === revision) {
         this.selecting = null;
@@ -270,23 +323,33 @@ export class QuotaSelectionStore {
       }
     } finally {
       if (this.owner && this.revision === revision && this.owner.timer === null && !this.reading) {
-        if (!this.state.selection.hostId && this.state.view.reason === "no-selection")
+        if (!this.state.selection.hostId && this.state.view.reason === "no-selection") {
           this.schedule(this.owner, 60_000);
-        else this.settled(this.owner);
+        } else {
+          this.settled(this.owner);
+        }
       }
     }
   }
 
   async refresh(api: QuotaApi, force = false): Promise<void> {
-    if (this.disposed || this.selecting !== null) return;
+    if (this.disposed || this.selecting !== null) {
+      return;
+    }
     const { hostId, generation } = this.state.selection;
-    if (!hostId) return;
+    if (!hostId) {
+      return;
+    }
     const revision = this.revision;
     const key = `${revision}:${hostId}:${generation}`;
-    if (this.reading?.key === key) return this.reading.promise;
+    if (this.reading?.key === key) {
+      return this.reading.promise;
+    }
     const owner = this.owner;
     if (owner) {
-      if (owner.timer !== null) clearTimeout(owner.timer);
+      if (owner.timer !== null) {
+        clearTimeout(owner.timer);
+      }
       owner.timer = null;
       owner.dueAt = Infinity;
     }
@@ -320,8 +383,12 @@ export class QuotaSelectionStore {
     try {
       await task;
     } finally {
-      if (this.reading?.promise === task) this.reading = null;
-      if (owner && this.owner === owner && this.revision === revision) this.settled(owner);
+      if (this.reading?.promise === task) {
+        this.reading = null;
+      }
+      if (owner && this.owner === owner && this.revision === revision) {
+        this.settled(owner);
+      }
     }
   }
 

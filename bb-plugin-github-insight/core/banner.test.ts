@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bannerParts } from "./banner";
-import { buildBlockers, type Blocker } from "./blockers";
+import { buildBlockers } from "./blockers";
+import type { Blocker } from "./blockers";
 import type { PrInsight } from "./overview";
 import type { Reviewer } from "./reviewers";
 

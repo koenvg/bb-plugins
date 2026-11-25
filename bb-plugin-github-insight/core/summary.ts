@@ -31,10 +31,14 @@ function jsonBytes(value: unknown): number {
 }
 
 function shorten(text: string): string {
-  if (jsonBytes(text) <= MAX_TEXT_BYTES) return text;
+  if (jsonBytes(text) <= MAX_TEXT_BYTES) {
+    return text;
+  }
   let shortened = "";
   for (const character of text) {
-    if (jsonBytes(`${shortened}${character}…`) > MAX_TEXT_BYTES) break;
+    if (jsonBytes(`${shortened}${character}…`) > MAX_TEXT_BYTES) {
+      break;
+    }
     shortened += character;
   }
   return `${shortened}…`;
@@ -114,8 +118,12 @@ export function shouldWriteSummary(
   next: PrSummary,
   now: number,
 ): boolean {
-  if (previous === undefined) return true;
-  if (withoutTime(previous.summary) !== withoutTime(next)) return true;
+  if (previous === undefined) {
+    return true;
+  }
+  if (withoutTime(previous.summary) !== withoutTime(next)) {
+    return true;
+  }
   return (
     previous.summary.updatedAt !== next.updatedAt &&
     now - previous.writtenAt >= SUMMARY_HEARTBEAT_MS

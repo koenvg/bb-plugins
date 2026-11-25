@@ -166,12 +166,13 @@ it.each(["loading", "unavailable"] as const)(
         }
       />,
     );
-    if (state === "unavailable")
+    if (state === "unavailable") {
       await screen.findByText(/No usable recorded history for this range/);
-    else
+    } else {
       expect(screen.getByText("Loading recorded usage…").textContent).toBe(
         "Loading recorded usage…",
       );
+    }
     const subtotal = screen.getByLabelText("Recorded token subtotal");
     expect(subtotal.textContent).toBe("—");
     expect(subtotal.getAttribute("title")).toBeNull();
@@ -179,8 +180,8 @@ it.each(["loading", "unavailable"] as const)(
 );
 
 it("uses full token units for each tooltip row and keeps the daily facts exact", () => {
-  const view = calendarSnapshot(query),
-    day = view.days[14];
+  const view = calendarSnapshot(query);
+  const day = view.days[14];
   day.totalTokens = 5_880_000_001;
   day.classes = {
     state: "available",

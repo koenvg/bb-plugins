@@ -16,7 +16,9 @@ export function createSeenPrs(kv: Pick<PluginKvStorage, "get" | "set">) {
 
     async remove(keys: string[]): Promise<void> {
       const entry = seenEntrySchema.safeParse(await kv.get(KEY));
-      if (!entry.success) return;
+      if (!entry.success) {
+        return;
+      }
       const removed = new Set(keys);
       await kv.set(KEY, { v: 1, keys: entry.data.keys.filter((key) => !removed.has(key)) });
     },

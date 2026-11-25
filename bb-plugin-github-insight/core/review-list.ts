@@ -1,8 +1,10 @@
-import { draftAttachments, type Attachment } from "./attachments";
+import { draftAttachments } from "./attachments";
+import type { Attachment } from "./attachments";
 import type { Drafts } from "./drafts";
 import type { ListedCommentDraft, SummaryDraft } from "./review-drafts";
 import { capCommentBody } from "./review-threads";
-import { openThreads, type ThreadPlacement } from "./thread-placement";
+import { openThreads } from "./thread-placement";
+import type { ThreadPlacement } from "./thread-placement";
 
 export interface ReviewListComment {
   author: string;
@@ -39,7 +41,9 @@ export function reviewListEntries(placement: ThreadPlacement, drafts: Drafts): R
 }
 
 export function formatReviewList(entries: readonly ReviewListEntry[]): string {
-  if (entries.length === 0) return "No unresolved review threads\n";
+  if (entries.length === 0) {
+    return "No unresolved review threads\n";
+  }
   return entries.map(formatEntry).join("\n");
 }
 
@@ -53,7 +57,9 @@ function formatEntry(entry: ReviewListEntry): string {
     lines.push(`  ${comment.author}, ${comment.createdAt}:`);
     lines.push(...comment.body.split("\n").map((text) => `    ${text}`));
   }
-  if (entry.hasMoreComments) lines.push("  More comments on GitHub");
+  if (entry.hasMoreComments) {
+    lines.push("  More comments on GitHub");
+  }
   return `${lines.join("\n")}\n`;
 }
 
@@ -86,8 +92,9 @@ export function formatReviewDrafts(
     }
     sections.push(`${lines.join("\n")}\n`);
   }
-  if (summary !== null)
+  if (summary !== null) {
     sections.push(`${["Summary draft:", ...indented(summary.body)].join("\n")}\n`);
+  }
   return sections.join("\n");
 }
 

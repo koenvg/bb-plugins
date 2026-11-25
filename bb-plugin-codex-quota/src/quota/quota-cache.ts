@@ -58,19 +58,22 @@ export class QuotaCache {
     this.pending = null;
     this.lastFailure = null;
     this.lastAttempt = -Infinity;
-    this.generation++;
+    this.generation += 1;
   }
 
   peek(identity: string): QuotaView {
-    if (this.identity !== identity || !this.snapshot) return empty("unavailable");
+    if (this.identity !== identity || !this.snapshot) {
+      return empty("unavailable");
+    }
     const age = this.now() - Date.parse(this.snapshot.observedAt);
     if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS) {
       this.snapshot = null;
       this.lastFailure = null;
       return empty("expired");
     }
-    if (this.lastFailure)
+    if (this.lastFailure) {
       return { state: "stale", reason: this.lastFailure, snapshot: this.snapshot };
+    }
     return {
       state: age < FRESH_MS ? "fresh" : "stale",
       reason: age < FRESH_MS ? "ok" : "aged",
@@ -90,15 +93,22 @@ export class QuotaCache {
       this.identity = identity;
     }
     const current = this.peek(identity);
-    if (signal?.aborted) return empty("selection-changed");
-    if (this.pending) return this.pending;
+    if (signal?.aborted) {
+      return empty("selection-changed");
+    }
+    if (this.pending) {
+      return this.pending;
+    }
     if (
       !force &&
       current.state === "fresh" &&
       this.now() - Date.parse(current.snapshot!.observedAt) < RENEW_AFTER_MS
-    )
+    ) {
       return current;
-    if (this.now() - this.lastAttempt < RETRY_MS) return current;
+    }
+    if (this.now() - this.lastAttempt < RETRY_MS) {
+      return current;
+    }
     this.lastAttempt = this.now();
     const generation = this.generation;
     const task = (async (): Promise<QuotaView> => {
@@ -109,7 +119,9 @@ export class QuotaCache {
         result = { status: "network", snapshot: null };
       }
       if (signal?.aborted) {
-        if (generation === this.generation) this.invalidate();
+        if (generation === this.generation) {
+          this.invalidate();
+        }
         return empty("selection-changed");
       }
       let currentIdentity: string | null;
@@ -119,7 +131,9 @@ export class QuotaCache {
         currentIdentity = null;
       }
       if (signal?.aborted) {
-        if (generation === this.generation) this.invalidate();
+        if (generation === this.generation) {
+          this.invalidate();
+        }
         return empty("selection-changed");
       }
       if (
@@ -127,7 +141,9 @@ export class QuotaCache {
         this.identity !== identity ||
         currentIdentity !== identity
       ) {
-        if (generation === this.generation) this.invalidate();
+        if (generation === this.generation) {
+          this.invalidate();
+        }
         return empty(currentIdentity === null ? "identity-unavailable" : "identity-changed");
       }
       if (result.status === "ok") {
@@ -144,7 +160,9 @@ export class QuotaCache {
     })();
     this.pending = task;
     void task.finally(() => {
-      if (this.pending === task) this.pending = null;
+      if (this.pending === task) {
+        this.pending = null;
+      }
     });
     return task;
   }

@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import appDefinition from "../app.js";
 import { SpeedBorders } from "../speed-effects.js";
 import { readSpeedEffect } from "../speed-settings.js";
+
 export default appDefinition;
 
 /** The fixture uses the real decorator; only the SDK settings delivery is fake. */

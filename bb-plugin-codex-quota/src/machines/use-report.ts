@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
-import { reportsSchema, type MachineReports } from "./machines-contract.js";
+import { reportsSchema } from "./machines-contract.js";
+import type { MachineReports } from "./machines-contract.js";
 import { combineReports } from "./combined-report.js";
 
 export type ReportReader = (input: {
@@ -37,17 +38,19 @@ export function useMachineReport(
       setPending(false);
       return;
     }
-    let active = true,
-      livePublished = false,
-      running = false,
-      trailing = false;
+    let active = true;
+    let livePublished = false;
+    let running = false;
+    let trailing = false;
     const validate = (raw: unknown) => {
       const value = reportsSchema.parse(raw);
       combineReports(value, query);
       return value;
     };
     const request = () => {
-      if (!active) return;
+      if (!active) {
+        return;
+      }
       if (running) {
         trailing = true;
         return;
@@ -59,7 +62,9 @@ export function useMachineReport(
           active ? readers.current.read({ query, prepare: false, refresh: false }) : null,
         )
         .then((raw) => {
-          if (!active) return;
+          if (!active) {
+            return;
+          }
           const value = validate(raw);
           livePublished = true;
           setSource({ key, value });
@@ -72,28 +77,35 @@ export function useMachineReport(
           }
         })
         .finally(() => {
-          if (!active) return;
+          if (!active) {
+            return;
+          }
           running = false;
           if (trailing) {
             trailing = false;
             request();
-          } else setPending(false);
+          } else {
+            setPending(false);
+          }
         });
     };
     schedule.current = request;
     setFailed(false);
     // Neither optional storage nor remote collection can hold the other's first result.
-    if (readers.current.snapshot)
+    if (readers.current.snapshot) {
       void Promise.resolve()
         .then(() => (active ? readers.current.snapshot!({ query }) : null))
         .then((raw) => {
-          if (!active || livePublished) return;
+          if (!active || livePublished) {
+            return;
+          }
           const value = lastKnown(validate(raw));
           setSource((old) =>
             old?.key === key && combineReports(old.value, query) ? old : { key, value },
           );
         })
         .catch(() => undefined);
+    }
     request();
     return () => {
       active = false;
@@ -101,7 +113,9 @@ export function useMachineReport(
     };
   }, [key]);
   useEffect(() => {
-    if (scheduled.current === trigger) return;
+    if (scheduled.current === trigger) {
+      return;
+    }
     scheduled.current = trigger;
     schedule.current?.();
   }, [trigger]);

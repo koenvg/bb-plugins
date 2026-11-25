@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { setImmediate as yieldWork } from "node:timers/promises";
 import type { HistoryDatabase } from "../storage/history-storage.js";
-import { importCommandSchema, type ImportCommand, type ImportView } from "./import-contract.js";
+import { importCommandSchema } from "./import-contract.js";
+import type { ImportCommand, ImportView } from "./import-contract.js";
 import {
   initializeImport,
   unfinished,
@@ -9,13 +10,11 @@ import {
   importStatus,
   diagnostic,
   omit,
-  type Frozen,
-  type Generation,
-  type Candidate,
-  type ImportOptions,
 } from "./import-state.js";
+import type { Frozen, Generation, Candidate, ImportOptions } from "./import-state.js";
 import { freeze, validateFrozen, discover } from "./import-catalog.js";
 import { header, slice } from "./import-reader.js";
+
 export type { ImportOptions } from "./import-state.js";
 
 async function cycle(db: HistoryDatabase, g: Generation, o: ImportOptions) {
@@ -70,8 +69,10 @@ async function cycle(db: HistoryDatabase, g: Generation, o: ImportOptions) {
             g.id,
             waiting.path,
           );
-        } else omit(db, g, waiting, "unresolved-ancestry");
-        budget.rows--;
+        } else {
+          omit(db, g, waiting, "unresolved-ancestry");
+        }
+        budget.rows -= 1;
         continue;
       }
       db.prepare("UPDATE import_generations SET state='completed' WHERE id=?").run(g.id);
@@ -94,21 +95,29 @@ export async function executeImport(
   const owningHost = db.prepare("SELECT host FROM import_host WHERE id=1").get() as
     | { host: string }
     | undefined;
-  if (owningHost && owningHost.host !== host)
+  if (owningHost && owningHost.host !== host) {
     return { reason: "foreign-host", configuration: null, generation: null };
+  }
   const receipt = db
     .prepare("SELECT host_id,generation,complete FROM identity_receipt WHERE id=1")
     .get() as { host_id: string | null; generation: number; complete: number };
-  if (receipt.host_id && receipt.host_id !== host)
+  if (receipt.host_id && receipt.host_id !== host) {
     return { reason: "foreign-host", configuration: null, generation: null };
+  }
   let g = unfinished(db, host);
-  if (command.action === "status") return importStatus(db, host);
+  if (command.action === "status") {
+    return importStatus(db, host);
+  }
   if (command.action === "cancel") {
-    if (g) db.prepare("UPDATE import_generations SET state='canceled' WHERE id=?").run(g.id);
+    if (g) {
+      db.prepare("UPDATE import_generations SET state='canceled' WHERE id=?").run(g.id);
+    }
     return importStatus(db, host, g ? "ok" : "no-generation");
   }
   if (command.action === "configure") {
-    if (g) return importStatus(db, host, "unfinished-generation");
+    if (g) {
+      return importStatus(db, host, "unfinished-generation");
+    }
     try {
       await freeze(command.configuration, known, receipt.generation);
       o.signal.throwIfAborted();
@@ -129,10 +138,16 @@ export async function executeImport(
     }
   }
   if (command.action === "start") {
-    if (g) return importStatus(db, host, "unfinished-generation");
+    if (g) {
+      return importStatus(db, host, "unfinished-generation");
+    }
     const configuration = config(db, host);
-    if (!configuration) return importStatus(db, host, "not-configured");
-    if (!receipt.complete) return importStatus(db, host, "metadata-incomplete");
+    if (!configuration) {
+      return importStatus(db, host, "not-configured");
+    }
+    if (!receipt.complete) {
+      return importStatus(db, host, "metadata-incomplete");
+    }
     let f: Frozen;
     try {
       f = await freeze(configuration, known, receipt.generation);
@@ -141,8 +156,8 @@ export async function executeImport(
     }
     f.includeUncertain = command.includeUncertain === true;
     o.signal.throwIfAborted();
-    const end = new Date((o.now ?? Date.now)()),
-      start = new Date(end);
+    const end = new Date((o.now ?? Date.now)());
+    const start = new Date(end);
     const day = start.getUTCDate();
     start.setUTCDate(1);
     start.setUTCMonth(start.getUTCMonth() - 3);
@@ -154,7 +169,9 @@ export async function executeImport(
       "INSERT INTO import_generations VALUES (?,?,'stopped',?,?,?,'discover','',1,0,0,0,0,'[]')",
     ).run(randomUUID(), host, start.toISOString(), end.toISOString(), JSON.stringify(f));
     g = unfinished(db, host)!;
-  } else if (!g) return importStatus(db, host, "no-generation");
+  } else if (!g) {
+    return importStatus(db, host, "no-generation");
+  }
   try {
     await cycle(db, g!, o);
   } catch {

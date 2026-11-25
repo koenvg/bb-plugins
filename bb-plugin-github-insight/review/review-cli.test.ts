@@ -3,15 +3,8 @@ import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
 import type { ReviewResult, UploadImageRequest, UploadImageResult } from "../contract";
 import plugin from "../server";
-import {
-  failed,
-  linkedPr,
-  ok,
-  prHeadResponse,
-  setup,
-  type HostCall,
-  type PullRequestResult,
-} from "../test/plugin-harness";
+import { failed, linkedPr, ok, prHeadResponse, setup } from "../test/plugin-harness";
+import type { HostCall, PullRequestResult } from "../test/plugin-harness";
 import { ok as okQueue, queuePr, reviewThread, view } from "../test/review-queue-fixtures";
 
 afterEach(() => {
@@ -62,14 +55,26 @@ describe("review CLI", () => {
   ) {
     let uploads = 0;
     return ({ method, input }: HostCall) => {
-      if (method === "uploadImage")
-        return options.upload?.(input as UploadImageRequest) ?? { ok: true, url: asset(++uploads) };
-      if (method === "renderMarkdown") return { ok: true, html: "" };
-      if (method === "fetchPrFiles") return ok(prFiles[0]);
-      if (method === "fetchReviewThreads") return ok(options.threads?.() ?? reviewThreads);
-      if (method === "fetchPrHead")
+      if (method === "uploadImage") {
+        return (
+          options.upload?.(input as UploadImageRequest) ?? { ok: true, url: asset((uploads += 1)) }
+        );
+      }
+      if (method === "renderMarkdown") {
+        return { ok: true, html: "" };
+      }
+      if (method === "fetchPrFiles") {
+        return ok(prFiles[0]);
+      }
+      if (method === "fetchReviewThreads") {
+        return ok(options.threads?.() ?? reviewThreads);
+      }
+      if (method === "fetchPrHead") {
         return ok(prHeadResponse({ oid: options.headOid?.(), state: options.state }));
-      if (method === "readTextFile") return options.file ?? { ok: true, text: "From file" };
+      }
+      if (method === "readTextFile") {
+        return options.file ?? { ok: true, text: "From file" };
+      }
       throw new Error(`unexpected host call ${method}`);
     };
   }
@@ -86,7 +91,9 @@ describe("review CLI", () => {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
     })) as ReviewResult;
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     return result.drafts;
   }
 
@@ -94,7 +101,9 @@ describe("review CLI", () => {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
     })) as ReviewResult;
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     return result.commentDrafts;
   }
 
@@ -1012,7 +1021,9 @@ describe("review CLI", () => {
       const result = (await harness.behavior.callRpc("getReview", {
         threadId: "thr_1",
       })) as ReviewResult;
-      if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+      if (result.kind !== "ok") {
+        throw new Error(`expected ok, got ${result.kind}`);
+      }
       return result.summaryDraft;
     }
 

@@ -35,7 +35,9 @@ const quotaReasonText: Record<QuotaStatus["reason"], string | null> = {
 };
 
 export function accountDetails(data: MachineAccounts | null, now: number) {
-  if (!data) return ["Account allowance unavailable"];
+  if (!data) {
+    return ["Account allowance unavailable"];
+  }
   return data.accounts.map((account, index) => {
     const view = visibleView(account.quota, now);
     const binding = view.snapshot?.general.find(
@@ -132,8 +134,8 @@ export function AccountsOverview({
       ) : (
         <div className={single ? "" : "grid grid-cols-1 gap-3 sm:grid-cols-2"}>
           {data.accounts.map((account, index) => {
-            const view = visibleView(account.quota, now),
-              snapshot = view.snapshot;
+            const view = visibleView(account.quota, now);
+            const snapshot = view.snapshot;
             const binding = snapshot?.general.find(
               (window) => window.id === snapshot.bindingWindowId,
             );

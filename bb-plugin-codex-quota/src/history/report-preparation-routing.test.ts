@@ -19,7 +19,9 @@ import { join } from "node:path";
 
 const roots: string[] = [];
 afterEach(async () => {
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 it("settles a large catalog over bounded RPC batches without management, account or transcript calls", async () => {
   const root = await mkdtemp(join(tmpdir(), "bbp143-routing-"));
@@ -95,7 +97,7 @@ it("settles a large catalog over bounded RPC batches without management, account
       result = (await harness.behavior.callRpc("reportPreparation", {
         hostId: "host_a",
         generation: selection.generation,
-        refresh: calls++ === 0,
+        refresh: (calls += 1) - 1 === 0,
       })) as import("./report-preparation-contract.js").Preparation;
       const metadata = harness.inspection.sdk.calls
         .slice(before)
@@ -261,16 +263,20 @@ it.each([
         generation: number;
       };
       let result: import("./report-preparation-contract.js").Preparation | undefined;
-      for (let batch = 0; batch < 10; batch++) {
+      for (let batch = 0; batch < 10; batch += 1) {
         result = (await harness.behavior.callRpc("reportPreparation", {
           hostId: "host_a",
           generation: selection.generation,
           refresh: batch === 0,
         })) as import("./report-preparation-contract.js").Preparation;
-        if (result.state !== "pending") break;
+        if (result.state !== "pending") {
+          break;
+        }
       }
       expect(result?.state).toBe(expected);
-      if (expected === "unavailable") expect(result).toMatchObject({ reason: "unsupported" });
+      if (expected === "unavailable") {
+        expect(result).toMatchObject({ reason: "unsupported" });
+      }
       expect(harness.experimental_hostRpcCalls.every((c) => c.method === "reportPreparation")).toBe(
         true,
       );

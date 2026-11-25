@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isOtherPerson } from "./actor";
-import { postedAt, type PostedComment } from "./new-comments";
+import { postedAt } from "./new-comments";
+import type { PostedComment } from "./new-comments";
 
 export const MAX_THREAD_PAGES = 5;
 export const MAX_COMMENT_BODY_CHARS = 4000;
@@ -76,7 +77,9 @@ export const reviewThreadSchema = z.object({
 export type ReviewThread = z.infer<typeof reviewThreadSchema>;
 
 export function capCommentBody(body: string): string {
-  if (body.length <= MAX_COMMENT_BODY_CHARS) return body;
+  if (body.length <= MAX_COMMENT_BODY_CHARS) {
+    return body;
+  }
   return `${body.slice(0, MAX_COMMENT_BODY_CHARS)}\n[cut at ${MAX_COMMENT_BODY_CHARS} characters]`;
 }
 
@@ -126,7 +129,9 @@ export interface CollectedReviewThreads {
 
 function othersCommentsOf(page: ThreadsPage): PostedComment[] {
   const viewer = page.data.viewer?.login;
-  if (viewer === undefined) return [];
+  if (viewer === undefined) {
+    return [];
+  }
   return threadsOf(page).nodes.flatMap((thread) =>
     thread.comments.nodes
       .filter((comment) => isOtherPerson(comment.author, viewer))

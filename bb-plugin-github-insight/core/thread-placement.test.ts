@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import recordedFiles from "../test/fixtures/pr-25259-files.json";
 import recordedThreads from "../test/fixtures/pr-25259-review-threads.json";
-import { parsePrFiles, type ReviewFile } from "./pr-files";
-import { parseReviewThreads, type ReviewThread } from "./review-threads";
+import { parsePrFiles } from "./pr-files";
+import type { ReviewFile } from "./pr-files";
+import { parseReviewThreads } from "./review-threads";
+import type { ReviewThread } from "./review-threads";
 import { commentHolders, openThreadCounts, placeThreads, visibleThreads } from "./thread-placement";
 
 const file: ReviewFile = {

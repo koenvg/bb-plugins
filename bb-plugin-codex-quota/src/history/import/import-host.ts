@@ -2,17 +2,17 @@ import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { safeDirectory } from "../collection/collector-control.js";
 import { validHostDataDir } from "../collection/collector-compatibility.js";
-import {
-  loadHistoryStorage,
-  inspectHistoryStorage,
-  type HistoryDatabaseFactory,
-} from "../storage/history-storage.js";
+import { loadHistoryStorage, inspectHistoryStorage } from "../storage/history-storage.js";
+import type { HistoryDatabaseFactory } from "../storage/history-storage.js";
 import { initializeHistory } from "../storage/history-projection.js";
 import { initializeIdentityStorage } from "../identity/identity-storage.js";
 import { maintainHistory, retentionState } from "../storage/history-retention.js";
 import { importStatus } from "./import-state.js";
-import { executeImport, type ImportOptions } from "./import-engine.js";
-import { importUnavailable, type ImportCommand, type ImportView } from "./import-contract.js";
+import { executeImport } from "./import-engine.js";
+import type { ImportOptions } from "./import-engine.js";
+import { importUnavailable } from "./import-contract.js";
+import type { ImportCommand, ImportView } from "./import-contract.js";
+
 export type ImportContext = {
   hostId: string;
   dataDir: string;
@@ -29,37 +29,46 @@ export function createImportOperation(
   } = {},
 ) {
   return async (command: ImportCommand, context: ImportContext): Promise<ImportView> => {
-    if (context.signal.aborted) return importUnavailable("selection-changed");
-    const directory = join(context.dataDir, "history"),
-      path = join(directory, "usage-v1.sqlite");
+    if (context.signal.aborted) {
+      return importUnavailable("selection-changed");
+    }
+    const directory = join(context.dataDir, "history");
+    const path = join(directory, "usage-v1.sqlite");
     try {
       const factory = await (deps.storage ?? loadHistoryStorage)();
       context.signal.throwIfAborted();
-      if (!factory || !validHostDataDir(context.dataDir))
+      if (!factory || !validHostDataDir(context.dataDir)) {
         return importUnavailable("storage-unavailable");
+      }
       let exists = false;
       try {
         const dir = await lstat(directory);
-        if (!dir.isDirectory() || dir.isSymbolicLink())
+        if (!dir.isDirectory() || dir.isSymbolicLink()) {
           return importUnavailable("storage-incompatible");
+        }
         const file = await lstat(path);
-        if (!file.isFile() || file.isSymbolicLink())
+        if (!file.isFile() || file.isSymbolicLink()) {
           return importUnavailable("storage-incompatible");
+        }
         exists = true;
         const state = await inspectHistoryStorage(factory, path);
-        if (state !== "compatible")
+        if (state !== "compatible") {
           return importUnavailable(
             state === "incompatible" ? "storage-incompatible" : "storage-unavailable",
           );
+        }
       } catch (e) {
-        if (!e || typeof e !== "object" || !("code" in e) || e.code !== "ENOENT") throw e;
+        if (!e || typeof e !== "object" || !("code" in e) || e.code !== "ENOENT") {
+          throw e;
+        }
       }
-      if (!exists && command.action !== "configure")
+      if (!exists && command.action !== "configure") {
         return importUnavailable(
           command.action === "status" || command.action === "start"
             ? "not-configured"
             : "no-generation",
         );
+      }
       if (!exists) {
         await safeDirectory(context.dataDir);
         await safeDirectory(directory);
@@ -76,8 +85,9 @@ export function createImportOperation(
         ) {
           maintainHistory(db, (deps.now ?? Date.now)());
           context.signal.throwIfAborted();
-          if (command.action !== "status" && !retentionState(db).backfill_done)
+          if (command.action !== "status" && !retentionState(db).backfill_done) {
             return { ...importStatus(db, context.hostId), reason: "metadata-incomplete" };
+          }
         }
         const options: ImportOptions = {
           signal: context.signal,

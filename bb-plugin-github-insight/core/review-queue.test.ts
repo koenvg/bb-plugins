@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fixture from "../test/fixtures/review-queue.json";
 import trackedFixture from "../test/fixtures/review-queue-tracked.json";
-import { parseGithubRepo, parseReviewQueue, type QueueList, type QueuePr } from "./review-queue";
+import { parseGithubRepo, parseReviewQueue } from "./review-queue";
+import type { QueueList, QueuePr } from "./review-queue";
 
 const NOW = Date.parse("2026-10-02T10:00:00Z");
 const DAY = 24 * 3_600_000;

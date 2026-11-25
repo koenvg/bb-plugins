@@ -6,7 +6,8 @@ import { latestStart, shiftDate, validTimezone } from "../history/calendar/calen
 import { compactEstimate } from "../history/calendar/calendar-money-view.js";
 import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
 import type { PreparationRequest } from "../history/report-preparation-contract.js";
-import { useMachineReport, type SnapshotReader } from "./use-report.js";
+import { useMachineReport } from "./use-report.js";
+import type { SnapshotReader } from "./use-report.js";
 
 const allMachines = { hostId: "all-machines", generation: 0 };
 type Props = {
@@ -77,7 +78,7 @@ export function MachineReportPanel({ now, read, snapshot, prepare }: Props) {
     view && (view.summary.totalTokens > 0 || view.days.every((day) => day.coverage.zero))
       ? tokenCountText(view.summary.totalTokens)
       : null;
-  if (!timezone)
+  if (!timezone) {
     return (
       <section
         aria-label="All-machine recorded usage"
@@ -86,6 +87,7 @@ export function MachineReportPanel({ now, read, snapshot, prepare }: Props) {
         Viewer time zone unavailable. Reopen the dashboard after you set a valid time zone.
       </section>
     );
+  }
   return (
     <section
       className="@container min-w-0 text-sm"

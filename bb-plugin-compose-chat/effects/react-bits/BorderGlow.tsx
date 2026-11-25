@@ -28,7 +28,8 @@ SOFTWARE.
 */
 "use client";
 
-import { useRef, useCallback, useEffect, type ReactNode } from "react";
+import { useRef, useCallback, useEffect } from "react";
+import type { ReactNode } from "react";
 import "./BorderGlow.css";
 
 interface BorderGlowProps {
@@ -48,7 +49,9 @@ interface BorderGlowProps {
 
 function parseHSL(hslStr: string): { h: number; s: number; l: number } {
   const match = hslStr.match(/([\d.]+)\s*([\d.]+)%?\s*([\d.]+)%?/);
-  if (!match) return { h: 40, s: 80, l: 80 };
+  if (!match) {
+    return { h: 40, s: 80, l: 80 };
+  }
   return { h: parseFloat(match[1]), s: parseFloat(match[2]), l: parseFloat(match[3]) };
 }
 
@@ -58,7 +61,7 @@ function buildGlowVars(glowColor: string, intensity: number): Record<string, str
   const opacities = [100, 60, 50, 40, 30, 20, 10];
   const keys = ["", "-60", "-50", "-40", "-30", "-20", "-10"];
   const vars: Record<string, string> = {};
-  for (let i = 0; i < opacities.length; i++) {
+  for (let i = 0; i < opacities.length; i += 1) {
     vars[`--glow-color${keys[i]}`] = `hsl(${base} / ${Math.min(opacities[i] * intensity, 100)}%)`;
   }
   return vars;
@@ -86,7 +89,7 @@ const COLOR_MAP = [0, 1, 2, 0, 1, 2, 1];
 
 function buildGradientVars(colors: string[]): Record<string, string> {
   const vars: Record<string, string> = {};
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 7; i += 1) {
     const c = colors[Math.min(COLOR_MAP[i], colors.length - 1)];
     vars[GRADIENT_KEYS[i]] =
       `radial-gradient(at ${GRADIENT_POSITIONS[i]}, ${c} 0px, transparent 50%)`;
@@ -97,7 +100,9 @@ function buildGradientVars(colors: string[]): Record<string, string> {
 
 function isLightColor(color: string): boolean {
   const value = color.trim().replace("#", "");
-  if (!/^[\da-f]{3}([\da-f]{3})?$/i.test(value)) return false;
+  if (!/^[\da-f]{3}([\da-f]{3})?$/i.test(value)) {
+    return false;
+  }
   const hex =
     value.length === 3
       ? value
@@ -142,8 +147,11 @@ function animateValue({
     const elapsed = performance.now() - t0;
     const t = Math.min(elapsed / duration, 1);
     onUpdate(start + (end - start) * ease(t));
-    if (t < 1) requestAnimationFrame(tick);
-    else if (onEnd) onEnd();
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else if (onEnd) {
+      onEnd();
+    }
   }
   setTimeout(() => requestAnimationFrame(tick), delay);
 }
@@ -176,8 +184,12 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
       const dy = y - cy;
       let kx = Infinity;
       let ky = Infinity;
-      if (dx !== 0) kx = cx / Math.abs(dx);
-      if (dy !== 0) ky = cy / Math.abs(dy);
+      if (dx !== 0) {
+        kx = cx / Math.abs(dx);
+      }
+      if (dy !== 0) {
+        ky = cy / Math.abs(dy);
+      }
       return Math.min(Math.max(1 / Math.min(kx, ky), 0), 1);
     },
     [getCenterOfElement],
@@ -188,10 +200,14 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
       const [cx, cy] = getCenterOfElement(el);
       const dx = x - cx;
       const dy = y - cy;
-      if (dx === 0 && dy === 0) return 0;
+      if (dx === 0 && dy === 0) {
+        return 0;
+      }
       const radians = Math.atan2(dy, dx);
       let degrees = radians * (180 / Math.PI) + 90;
-      if (degrees < 0) degrees += 360;
+      if (degrees < 0) {
+        degrees += 360;
+      }
       return degrees;
     },
     [getCenterOfElement],
@@ -200,7 +216,9 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const card = cardRef.current;
-      if (!card) return;
+      if (!card) {
+        return;
+      }
 
       const rect = card.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -216,7 +234,9 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
   );
 
   useEffect(() => {
-    if (!animated || !cardRef.current) return;
+    if (!animated || !cardRef.current) {
+      return;
+    }
     const card = cardRef.current;
     const angleStart = 110;
     const angleEnd = 465;

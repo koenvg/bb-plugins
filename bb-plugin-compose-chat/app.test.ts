@@ -109,8 +109,11 @@ describe("Compose Chat's public content-script lifecycle", () => {
       expect(document.documentElement.getAttribute(motionMarker)).toBe("previous");
     } finally {
       document.documentElement.removeAttribute(motionMarker);
-      if (original) Object.defineProperty(document, "visibilityState", original);
-      else Reflect.deleteProperty(document, "visibilityState");
+      if (original) {
+        Object.defineProperty(document, "visibilityState", original);
+      } else {
+        Reflect.deleteProperty(document, "visibilityState");
+      }
     }
   });
 });

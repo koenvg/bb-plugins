@@ -102,7 +102,9 @@ async function confirm() {
   fireEvent.click(within(dialog).getByRole("button", { name: "Squash and merge" }));
 }
 afterEach(() => {
-  for (const slot of mounted) expect(slot.inspection.navigateCalls).toEqual([]);
+  for (const slot of mounted) {
+    expect(slot.inspection.navigateCalls).toEqual([]);
+  }
   mounted.length = 0;
   cleanup();
   forgetInsights();
@@ -142,7 +144,9 @@ describe("palette command delivered during banner mount", () => {
         expect(within(dialog).getByText("Method: Rebase and merge")).toBeTruthy();
         expect(f.write).not.toHaveBeenCalled();
         fireEvent.click(within(dialog).getByRole("button", { name: "Rebase and merge" }));
-      } else expect(screen.queryByRole("alertdialog")).toBeNull();
+      } else {
+        expect(screen.queryByRole("alertdialog")).toBeNull();
+      }
       await act(async () => {});
       expect(f.write).toHaveBeenCalledExactlyOnceWith({
         threadId: "flow",
@@ -167,7 +171,9 @@ describe("shared tab and banner merge progress", () => {
       await screen.findByText("#7");
       const label = action === "merge" ? "Squash and merge" : "Enqueue";
       fireEvent.click(within(panel.container).getByRole("button", { name: label }));
-      if (action === "merge") await confirm();
+      if (action === "merge") {
+        await confirm();
+      }
       const busy = action === "merge" ? "Merging…" : "Enqueuing…";
       expect(within(chat.container).getByRole("button", { name: busy })).toHaveProperty(
         "disabled",
@@ -337,8 +343,9 @@ describe("palette merge without side-panel navigation", () => {
       await chat.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
       await panel.behavior.emitRealtime("insight.updated", { threadIds: ["flow"] });
 
-      for (const slot of [chat, panel])
+      for (const slot of [chat, panel]) {
         expect(within(slot.container).getByText(newText)).toBeTruthy();
+      }
       expect(screen.queryByRole("alert")).toBeNull();
       expect(screen.queryByRole("alertdialog")).toBeNull();
       expect(f.refresh).not.toHaveBeenCalled();
@@ -609,7 +616,9 @@ describe("palette merge without side-panel navigation", () => {
       if (hasReadError) {
         expect(screen.getByRole("alert").textContent).toContain(text);
         expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
-      } else expect(screen.queryByRole("alert")).toBeNull();
+      } else {
+        expect(screen.queryByRole("alert")).toBeNull();
+      }
       expect(openPanel).not.toHaveBeenCalled();
     },
   );

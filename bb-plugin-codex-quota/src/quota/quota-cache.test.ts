@@ -30,7 +30,7 @@ describe("host-owned account cache", () => {
     let calls = 0;
     let active = "account-a";
     const loadA = () => {
-      calls++;
+      calls += 1;
       return first.promise;
     };
     const a1 = cache.read("account-a", loadA, async () => active, true);
@@ -89,7 +89,7 @@ describe("host-owned account cache", () => {
     ).toBe("fresh");
     now += 299_999;
     expect(cache.peek("a").state).toBe("fresh");
-    now++;
+    now += 1;
     expect(cache.peek("a")).toMatchObject({ state: "stale", reason: "aged", snapshot: snapshot() });
     now = start + 86_400_000;
     expect(cache.peek("a")).toEqual({ state: "unavailable", reason: "expired", snapshot: null });
@@ -159,7 +159,7 @@ describe("host-owned account cache", () => {
     const cache = new QuotaCache(() => now);
     let calls = 0;
     const load = async () => {
-      calls++;
+      calls += 1;
       return success(now);
     };
     await cache.read("a", load, async () => "a");

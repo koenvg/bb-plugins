@@ -2,7 +2,8 @@ import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { openHistoryDatabase, type HistoryDatabase } from "../storage/history-storage.js";
+import { openHistoryDatabase } from "../storage/history-storage.js";
+import type { HistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory } from "../storage/history-projection.js";
 import { acceptIdentityBatch } from "../identity/identity-storage.js";
 import { executeImport } from "./import-engine.js";
@@ -15,8 +16,8 @@ it.each([false, true])(
     let db: HistoryDatabase | undefined;
     let observer: HistoryDatabase | undefined;
     try {
-      const source = join(root, "source"),
-        workspace = join(root, "workspace");
+      const source = join(root, "source");
+      const workspace = join(root, "workspace");
       await mkdir(source);
       await mkdir(workspace);
       db = (await openHistoryDatabase(path))!;
@@ -57,14 +58,14 @@ it.each([false, true])(
       const observeCommit = () => {
         const next = dataVersion();
         if (next !== version) {
-          durableCommits++;
+          durableCommits += 1;
         }
         version = next;
       };
 
-      let depth = 0,
-        commits = 0,
-        standalone = 0;
+      let depth = 0;
+      let commits = 0;
+      let standalone = 0;
       const storage = db;
       const measured: HistoryDatabase = {
         exec: (sql) => storage.exec(sql),
@@ -77,26 +78,28 @@ it.each([false, true])(
             run(...args) {
               const result = statement.run(...args);
               if (!depth) {
-                standalone++;
+                standalone += 1;
                 observeCommit();
               }
-              if (cancel) setImmediate(() => controller.abort());
+              if (cancel) {
+                setImmediate(() => controller.abort());
+              }
               return result;
             },
           };
         },
         transaction(work) {
           const result = storage.transaction(() => {
-            depth++;
+            depth += 1;
             try {
               const value = work();
               expect(value).not.toBeInstanceOf(Promise);
               return value;
             } finally {
-              depth--;
+              depth -= 1;
             }
           });
-          commits++;
+          commits += 1;
           observeCommit();
           return result;
         },

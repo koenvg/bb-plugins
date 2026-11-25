@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { patchIdentity } from "./patch-identity";
-import { gitPatch, type ReviewFile } from "./pr-files";
+import { gitPatch } from "./pr-files";
+import type { ReviewFile } from "./pr-files";
 import { fileIdentities, viewedSummary } from "./viewed-marks";
 
 const PATCH = "@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep";

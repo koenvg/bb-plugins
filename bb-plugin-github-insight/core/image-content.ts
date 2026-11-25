@@ -45,8 +45,12 @@ export function imagePath(
   file: { path: string; previousPath: string | null; status: string },
   side: ImageSide,
 ): string | null {
-  if (side === "before" && ["added", "untracked"].includes(file.status)) return null;
-  if (side === "after" && ["deleted", "removed"].includes(file.status)) return null;
+  if (side === "before" && ["added", "untracked"].includes(file.status)) {
+    return null;
+  }
+  if (side === "after" && ["deleted", "removed"].includes(file.status)) {
+    return null;
+  }
   const path =
     side === "before" && ["renamed", "copied"].includes(file.status)
       ? file.previousPath
@@ -54,8 +58,9 @@ export function imagePath(
   return imagePathSchema.parse(path);
 }
 export function imageBytes(bytes: Buffer): ImageWireResult {
-  if (bytes.length > MAX_IMAGE_BYTES)
+  if (bytes.length > MAX_IMAGE_BYTES) {
     return imageError("too_large", "Image exceeds the 4 MiB preview limit");
+  }
   const hex = bytes.subarray(0, 12).toString("hex");
   const mime = hex.startsWith("89504e470d0a1a0a")
     ? "image/png"
@@ -75,18 +80,21 @@ export function imageWire(value: {
   contentEncoding: string;
   sizeBytes: number;
 }): ImageWireResult {
-  if (value.sizeBytes > MAX_IMAGE_BYTES || value.content.length > 5592408)
+  if (value.sizeBytes > MAX_IMAGE_BYTES || value.content.length > 5592408) {
     return imageError("too_large", "Image exceeds the 4 MiB preview limit");
+  }
   if (
     value.contentEncoding !== "base64" ||
     !Number.isInteger(value.sizeBytes) ||
     value.sizeBytes < 1 ||
     value.content.length % 4 !== 0 ||
     !/^[A-Za-z0-9+/]*={0,2}$/.test(value.content)
-  )
+  ) {
     return imageError("unsupported", "Invalid image encoding");
+  }
   const bytes = Buffer.from(value.content, "base64");
-  if (bytes.length !== value.sizeBytes || bytes.toString("base64") !== value.content)
+  if (bytes.length !== value.sizeBytes || bytes.toString("base64") !== value.content) {
     return imageError("unsupported", "Invalid image size or encoding");
+  }
   return imageBytes(bytes);
 }

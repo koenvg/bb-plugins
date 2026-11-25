@@ -8,8 +8,8 @@ import {
   imageContentType,
   isAttachmentUrl,
   MAX_ATTACHMENT_BYTES,
-  type ImageContentType,
 } from "../core/attachments";
+import type { ImageContentType } from "../core/attachments";
 import { classifyGhFailure, ghFailureText, ghProcessError } from "./gh-failure";
 
 export interface UploadImageDeps {
@@ -34,15 +34,21 @@ export async function uploadImage(
   deps: UploadImageDeps,
 ): Promise<UploadImageResult> {
   const image = await readImage(path, cwd);
-  if (!image.ok) return image;
+  if (!image.ok) {
+    return image;
+  }
   const repositoryId = await ghOutput(
     deps,
     ["api", `repos/${owner}/${repo}`, "--jq", ".id"],
     signal,
   );
-  if (!repositoryId.ok) return repositoryId;
+  if (!repositoryId.ok) {
+    return repositoryId;
+  }
   const token = await ghOutput(deps, ["auth", "token"], signal);
-  if (!token.ok) return token;
+  if (!token.ok) {
+    return token;
+  }
   const { bytes, type } = image.value;
   const url = new URL("https://uploads.github.com/user-attachments/assets");
   url.searchParams.set("content_type", type);
@@ -53,10 +59,14 @@ export async function uploadImage(
     headers: { Authorization: `token ${token.value}`, "Content-Type": type },
     body: bytes,
   };
-  for (let tries = 1; ; tries++) {
+  for (let tries = 1; ; tries += 1) {
     const attempt = await post(deps.fetch, url, request, signal);
-    if (attempt.kind === "done") return attempt.result;
-    if (tries === UPLOAD_ATTEMPTS) return { ok: false, message: attempt.message };
+    if (attempt.kind === "done") {
+      return attempt.result;
+    }
+    if (tries === UPLOAD_ATTEMPTS) {
+      return { ok: false, message: attempt.message };
+    }
   }
 }
 
@@ -75,7 +85,9 @@ async function readImage(
     );
     try {
       const stat = await handle.stat();
-      if (!stat.isFile()) return { ok: false, message: "Not a regular file" };
+      if (!stat.isFile()) {
+        return { ok: false, message: "Not a regular file" };
+      }
       if (stat.size > MAX_ATTACHMENT_BYTES) {
         return {
           ok: false,
@@ -84,13 +96,17 @@ async function readImage(
       }
       const bytes = new Uint8Array(await handle.readFile());
       const type = imageContentType(bytes);
-      if (type === null) return { ok: false, message: "Not a PNG, JPEG, or GIF image" };
+      if (type === null) {
+        return { ok: false, message: "Not a PNG, JPEG, or GIF image" };
+      }
       return { ok: true, value: { bytes, type } };
     } finally {
       await handle.close();
     }
   } catch (error) {
-    if (errorCode(error) === "ENOENT") return { ok: false, message: "File not found" };
+    if (errorCode(error) === "ENOENT") {
+      return { ok: false, message: "File not found" };
+    }
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
 }

@@ -39,6 +39,8 @@ export function reviewThreadsPageArgs(request: PrPageRequest): string[] {
     "-F",
     `number=${request.number}`,
   ];
-  if (request.after !== null) args.push("-f", `after=${request.after}`);
+  if (request.after !== null) {
+    args.push("-f", `after=${request.after}`);
+  }
   return args;
 }

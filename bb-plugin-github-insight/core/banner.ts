@@ -1,4 +1,5 @@
-import { countOf, type Blocker } from "./blockers";
+import { countOf } from "./blockers";
+import type { Blocker } from "./blockers";
 import type { PrInsight } from "./overview";
 
 const CHECK_COUNT_CODES: ReadonlySet<Blocker["code"]> = new Set([
@@ -9,7 +10,9 @@ const CHECK_COUNT_CODES: ReadonlySet<Blocker["code"]> = new Set([
 
 export function bannerParts(insight: PrInsight): string[] {
   const { pr, blockers, reviewers } = insight;
-  if (pr.state === "merged" || pr.state === "closed" || blockers.length === 0) return [];
+  if (pr.state === "merged" || pr.state === "closed" || blockers.length === 0) {
+    return [];
+  }
 
   const textOf = (code: Blocker["code"]) => blockers.find((blocker) => blocker.code === code)?.text;
   const pendingReviews = reviewers.filter((reviewer) => reviewer.state === "pending").length;

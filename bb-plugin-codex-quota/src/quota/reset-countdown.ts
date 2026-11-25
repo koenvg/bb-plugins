@@ -8,9 +8,15 @@ const unitText = (value: number, unit: string): string =>
 /** Uses elapsed time, not calendar days; reaching a reset never implies renewed quota. */
 export function resetCountdown(resetAt: string | null, now: number): string {
   const remaining = (resetAt === null ? NaN : Date.parse(resetAt)) - now;
-  if (!Number.isFinite(remaining)) return "Reset unknown";
-  if (remaining <= 0) return "Reset due";
-  if (remaining < MINUTE) return "Less than a minute left";
+  if (!Number.isFinite(remaining)) {
+    return "Reset unknown";
+  }
+  if (remaining <= 0) {
+    return "Reset due";
+  }
+  if (remaining < MINUTE) {
+    return "Less than a minute left";
+  }
 
   const units: [number, string][] =
     remaining >= DAY

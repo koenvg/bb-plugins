@@ -24,12 +24,12 @@ const deferred = () => {
 it.each(["save", "removeQuery", "remove"] as const)(
   "retires a queued %s after its admission revision changes",
   async (operation) => {
-    const storage = memorySummaries(),
-      cache = createReportCache(storage, () => now);
+    const storage = memorySummaries();
+    const cache = createReportCache(storage, () => now);
     await cache.save("host_one", recordedFixture(query, now));
-    const get = storage.get,
-      entered = deferred(),
-      release = deferred();
+    const get = storage.get;
+    const entered = deferred();
+    const release = deferred();
     let hold = true;
     storage.get = async <T>(key: string) => {
       if (hold) {
@@ -63,8 +63,8 @@ it.each(["save", "removeQuery", "remove"] as const)(
 );
 
 it("requires the requested start to meet the compact cutoff even when cached days overlap", async () => {
-  const storage = memorySummaries(),
-    cache = createReportCache(storage, () => now);
+  const storage = memorySummaries();
+  const cache = createReportCache(storage, () => now);
   const retained = { ...query, startDate: "2026-06-23" };
   await cache.save("host_one", recordedFixture(retained, now));
   expect(
@@ -74,9 +74,9 @@ it("requires the requested start to meet the compact cutoff even when cached day
 });
 
 it("keeps only eight query payloads and preserves daily exact totals when rankings exceed the KV bound", async () => {
-  const storage = memorySummaries(),
-    cache = createReportCache(storage, () => now);
-  for (let n = 0; n < 9; n++) {
+  const storage = memorySummaries();
+  const cache = createReportCache(storage, () => now);
+  for (let n = 0; n < 9; n += 1) {
     const q = { ...query, scope: { kind: "workspace" as const, workspace: `/workspace-${n}` } };
     const report = recordedFixture(q, now);
     report.ranking = Array.from({ length: 50 }, (_, i) => ({
@@ -103,8 +103,8 @@ it("keeps only eight query payloads and preserves daily exact totals when rankin
 });
 
 it("decodes legacy speed keys before both cache validation paths without deleting valid history", async () => {
-  const storage = memorySummaries(),
-    cache = createReportCache(storage, () => now);
+  const storage = memorySummaries();
+  const cache = createReportCache(storage, () => now);
   await cache.save("host_one", recordedFixture(query, now));
   const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
   const legacy = await storage.get<any>(key);
@@ -131,8 +131,8 @@ it("decodes legacy speed keys before both cache validation paths without deletin
 });
 
 it.each([-1, 601])("rejects genuine malformed legacy model attribution %s", async (tokens) => {
-  const storage = memorySummaries(),
-    cache = createReportCache(storage, () => now);
+  const storage = memorySummaries();
+  const cache = createReportCache(storage, () => now);
   await cache.save("host_one", recordedFixture(query, now));
   const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
   const legacy = await storage.get<any>(key);
@@ -146,8 +146,8 @@ it.each([-1, 601])("rejects genuine malformed legacy model attribution %s", asyn
 });
 
 it("preserves captured model money and comparison summaries through legacy cache decoding", async () => {
-  const storage = memorySummaries(),
-    cache = createReportCache(storage, () => now);
+  const storage = memorySummaries();
+  const cache = createReportCache(storage, () => now);
   const compared = { ...query, includeUncertain: false, comparison: true };
   const original = calendarModelCostSnapshot(compared);
   original.comparison!.reasons = comparisonReasons(original, original.comparison!.prior);
@@ -169,8 +169,8 @@ it("preserves captured model money and comparison summaries through legacy cache
 it.each([-1, Number.MAX_SAFE_INTEGER + 1, "600"])(
   "rejects malformed legacy scalar totals %s rather than accepting obsolete buckets",
   async (totalTokens) => {
-    const storage = memorySummaries(),
-      cache = createReportCache(storage, () => now);
+    const storage = memorySummaries();
+    const cache = createReportCache(storage, () => now);
     await cache.save("host_one", recordedFixture(query, now));
     const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
     const legacy = await storage.get<any>(key);

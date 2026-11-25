@@ -55,8 +55,12 @@ export function countOf(count: number, noun: string): string {
 }
 
 export function buildBlockers(input: BlockerInput): Blocker[] {
-  if (input.prState === "merged" || input.prState === "closed") return [];
-  if (input.mergeQueue !== null) return [];
+  if (input.prState === "merged" || input.prState === "closed") {
+    return [];
+  }
+  if (input.mergeQueue !== null) {
+    return [];
+  }
 
   const withStatus = (status: Check["status"]) =>
     input.checks.filter((check) => check.status === status);

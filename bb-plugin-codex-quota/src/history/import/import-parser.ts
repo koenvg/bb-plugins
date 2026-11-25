@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { usageRecordSchema } from "../collection/usage-record.js";
+
 const scalar = z
   .string()
   .min(1)
@@ -60,12 +61,14 @@ export function importedUsage(
     v.type !== "message" ||
     v.message?.role !== "assistant" ||
     v.message.provider !== "openai-codex"
-  )
+  ) {
     return { kind: "ignored" as const };
-  const m = v.message,
-    u = m.usage;
-  if (!u || !Number.isFinite(m.timestamp) || Math.abs(m.timestamp!) > 8.64e15)
+  }
+  const m = v.message;
+  const u = m.usage;
+  if (!u || !Number.isFinite(m.timestamp) || Math.abs(m.timestamp!) > 8.64e15) {
     return { kind: "invalid" as const };
+  }
   const h = createHash("sha256")
     .update(JSON.stringify(["bb-import-v1", sessionId, v.id]))
     .digest("hex");

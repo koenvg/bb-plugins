@@ -55,7 +55,8 @@ describe("Live speed-border settings", () => {
   it("uses Glow by default and rejects malformed persisted choices safely", () => {
     expect(readSpeedEffect(undefined)).toBe("Glow");
     expect(readSpeedEffect("Electric")).toBe("Electric");
-    for (const value of ["Off", "", "broken", true, 9, null, {}])
+    for (const value of ["Off", "", "broken", true, 9, null, {}]) {
       expect(readSpeedEffect(value)).toBe("Off");
+    }
   });
 });

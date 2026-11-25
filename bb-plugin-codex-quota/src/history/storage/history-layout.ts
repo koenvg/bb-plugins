@@ -159,15 +159,20 @@ function singleton(db: HistoryDatabase, table: string) {
 }
 /** Complete version-specific ownership layouts. Optional additive groups must be complete too. */
 function coreHistoryLayout(db: HistoryDatabase, version: number) {
-  if (!matches(db, base) || !singleton(db, "history_counters")) return false;
-  if (version === 1 && present(db, retention)) return false;
+  if (!matches(db, base) || !singleton(db, "history_counters")) {
+    return false;
+  }
+  if (version === 1 && present(db, retention)) {
+    return false;
+  }
   if (version >= 2) {
     if (
       !matches(db, retention) ||
       !singleton(db, "history_retention") ||
       !singleton(db, "history_owner")
-    )
+    ) {
       return false;
+    }
     const state = db
       .prepare(
         "SELECT backfill_done,detail_cutoff,compact_cutoff,backfill_cursor FROM history_retention WHERE id=1",
@@ -183,15 +188,24 @@ function coreHistoryLayout(db: HistoryDatabase, version: number) {
       ) ||
       typeof owner.host_key !== "string" ||
       !owner.host_key.length
-    )
+    ) {
       return false;
+    }
   }
-  if ((version >= 3 || present(db, legacy)) && !matches(db, legacy)) return false;
-  for (const group of [writer, identity, imports])
-    if ((version >= 4 || present(db, group)) && !matches(db, group)) return false;
-  if ((version >= 4 || present(db, writer)) && !singleton(db, "history_writer_observation"))
+  if ((version >= 3 || present(db, legacy)) && !matches(db, legacy)) {
     return false;
-  if ((version >= 4 || present(db, identity)) && !singleton(db, "identity_receipt")) return false;
+  }
+  for (const group of [writer, identity, imports]) {
+    if ((version >= 4 || present(db, group)) && !matches(db, group)) {
+      return false;
+    }
+  }
+  if ((version >= 4 || present(db, writer)) && !singleton(db, "history_writer_observation")) {
+    return false;
+  }
+  if ((version >= 4 || present(db, identity)) && !singleton(db, "identity_receipt")) {
+    return false;
+  }
   return true;
 }
 

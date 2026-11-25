@@ -15,14 +15,18 @@ import type {
   SubmitReviewResult,
 } from "../contract";
 import { draftsCommit } from "../core/draft-commits";
-import { pullRequestUrl, type PullRequestRef } from "../core/pr-ref";
+import { pullRequestUrl } from "../core/pr-ref";
+import type { PullRequestRef } from "../core/pr-ref";
 import { hasText } from "../core/review-drafts";
-import { closedReason, submitRules, type ReviewEvent } from "../core/review-submit";
+import { closedReason, submitRules } from "../core/review-submit";
+import type { ReviewEvent } from "../core/review-submit";
 import type { ReviewUpdated } from "../core/review-updated";
-import { write, type Written } from "../github/gh-write";
+import { write } from "../github/gh-write";
+import type { Written } from "../github/gh-write";
 import { submitReviewError } from "../github/review-mutations";
 import { isPendingReply } from "../github/review-thread-mutations";
-import { RECHECK_NO_PR, type LookupOptions, type PrResolution, type PrTarget } from "../pr-lookup";
+import { RECHECK_NO_PR } from "../pr-lookup";
+import type { LookupOptions, PrResolution, PrTarget } from "../pr-lookup";
 import type { DraftStore } from "./draft-store";
 import type { BasisLoad, PrReview, ReviewLoad, ReviewService } from "./review-service";
 
@@ -59,10 +63,16 @@ function reviewInput(
     body,
     commentCount: comments.length,
   }).find((candidate) => candidate.event === event);
-  if (rule === undefined) return { ok: false, message: OWN_PR_MESSAGE };
-  if (rule.disabledReason !== null) return { ok: false, message: rule.disabledReason };
+  if (rule === undefined) {
+    return { ok: false, message: OWN_PR_MESSAGE };
+  }
+  if (rule.disabledReason !== null) {
+    return { ok: false, message: rule.disabledReason };
+  }
   const commit = draftsCommit(commentDrafts, head.oid);
-  if (!commit.ok) return commit;
+  if (!commit.ok) {
+    return commit;
+  }
   return {
     ok: true,
     value: {
@@ -84,7 +94,9 @@ function reviewInput(
 export function createReviewWrites(deps: ReviewWritesDeps) {
   async function targetOf(threadId: string): Promise<Written<PrTarget>> {
     const resolution = await deps.resolvePr(threadId, RECHECK_NO_PR);
-    if (resolution.kind === "pr") return { ok: true, value: resolution.target };
+    if (resolution.kind === "pr") {
+      return { ok: true, value: resolution.target };
+    }
     return { ok: false, message: resolution.kind === "error" ? resolution.message : NO_PR_MESSAGE };
   }
 
@@ -101,18 +113,26 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     resolve,
   }: ReplyRequest): Promise<ReplyResult> {
     const target = await targetOf(threadId);
-    if (!target.ok) return { kind: "post_failed", message: target.message };
+    if (!target.ok) {
+      return { kind: "post_failed", message: target.message };
+    }
     const posted = await write(() => deps.replyToThread(target.value, reviewThreadId, body));
-    if (!posted.ok) return { kind: "post_failed", message: posted.message };
+    if (!posted.ok) {
+      return { kind: "post_failed", message: posted.message };
+    }
     await deps.drafts.delete(target.value.ref, reviewThreadId).catch((error: unknown) => {
       deps.warn(
         `Posted a reply to ${reviewThreadId}, but could not delete its draft: ${String(error)}`,
       );
     });
     const pendingReviewUrl = isPendingReply(posted.value) ? pullRequestUrl(target.value.ref) : null;
-    if (!resolve) return { kind: "posted", pendingReviewUrl, resolveError: null };
+    if (!resolve) {
+      return { kind: "posted", pendingReviewUrl, resolveError: null };
+    }
     const resolved = await write(() => deps.setThreadResolved(target.value, reviewThreadId, true));
-    if (resolved.ok) await refreshAfterWrite(threadId);
+    if (resolved.ok) {
+      await refreshAfterWrite(threadId);
+    }
     return {
       kind: "posted",
       pendingReviewUrl,
@@ -126,11 +146,15 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     resolved,
   }: SetResolvedRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
-    if (!target.ok) return { kind: "error", message: target.message };
+    if (!target.ok) {
+      return { kind: "error", message: target.message };
+    }
     const written = await write(() =>
       deps.setThreadResolved(target.value, reviewThreadId, resolved),
     );
-    if (written.ok) await refreshAfterWrite(threadId);
+    if (written.ok) {
+      await refreshAfterWrite(threadId);
+    }
     return written.ok ? { kind: "ok" } : { kind: "error", message: written.message };
   }
 
@@ -140,7 +164,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     body,
   }: SaveDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
-    if (!target.ok) return { kind: "error", message: target.message };
+    if (!target.ok) {
+      return { kind: "error", message: target.message };
+    }
     await deps.drafts.save(target.value.ref, reviewThreadId, {
       body,
       updatedAt: deps.now(),
@@ -154,7 +180,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     reviewThreadId,
   }: DiscardDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
-    if (!target.ok) return { kind: "error", message: target.message };
+    if (!target.ok) {
+      return { kind: "error", message: target.message };
+    }
     await deps.drafts.delete(target.value.ref, reviewThreadId);
     deps.publishDrafts({ threadId });
     return { kind: "ok" };
@@ -172,7 +200,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     }
     const { basis, target } = loaded;
     const closed = closedReason(basis.head.state);
-    if (closed !== null) return { kind: "error", message: closed };
+    if (closed !== null) {
+      return { kind: "error", message: closed };
+    }
     const created = await deps.createLocalCommentDraft(threadId, target.ref, basis, {
       anchor: { path, side, line, startLine: null },
       source: "user",
@@ -186,7 +216,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     body,
   }: SaveCommentDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
-    if (!target.ok) return { kind: "error", message: target.message };
+    if (!target.ok) {
+      return { kind: "error", message: target.message };
+    }
     const edited = await deps.drafts.editComment(target.value.ref, draftId, {
       body,
       updatedAt: deps.now(),
@@ -200,7 +232,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     draftId,
   }: DeleteCommentDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
-    if (!target.ok) return { kind: "error", message: target.message };
+    if (!target.ok) {
+      return { kind: "error", message: target.message };
+    }
     await deps.drafts.deleteComment(target.value.ref, draftId);
     deps.publishDrafts({ threadId });
     return { kind: "ok" };
@@ -211,7 +245,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     body,
   }: SaveSummaryDraftRequest): Promise<ActionResult> {
     const target = await targetOf(threadId);
-    if (!target.ok) return { kind: "error", message: target.message };
+    if (!target.ok) {
+      return { kind: "error", message: target.message };
+    }
     await deps.drafts.saveSummary(target.value.ref, {
       body,
       updatedAt: deps.now(),
@@ -234,11 +270,14 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
       };
     }
     const input = reviewInput(loaded.review, event, body);
-    if (!input.ok) return { kind: "error", message: input.message, url: null };
+    if (!input.ok) {
+      return { kind: "error", message: input.message, url: null };
+    }
     const { ref } = loaded.target;
     const submitted = await write(() => deps.submitReview(loaded.target, input.value));
-    if (!submitted.ok)
+    if (!submitted.ok) {
       return { kind: "error", ...submitReviewError(submitted.message, pullRequestUrl(ref)) };
+    }
     await deps.drafts.deleteReviewDrafts(ref).catch((error: unknown) => {
       deps.warn(
         `Submitted a review on thread ${threadId}, but could not delete its drafts: ${String(error)}`,
@@ -246,7 +285,9 @@ export function createReviewWrites(deps: ReviewWritesDeps) {
     });
     deps.publish({ threadId });
     await refreshAfterWrite(threadId);
-    if (loaded.review.head.viewerIsAuthor) return { kind: "submitted" };
+    if (loaded.review.head.viewerIsAuthor) {
+      return { kind: "submitted" };
+    }
     const marked = await deps.markReviewed(ref, input.value.commitOid);
     return marked.kind === "error"
       ? { kind: "submitted", markError: marked.message }

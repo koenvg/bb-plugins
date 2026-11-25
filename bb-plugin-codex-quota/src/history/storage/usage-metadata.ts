@@ -29,7 +29,9 @@ export function recordSourceMetadata(
   providerThread: string | null = null,
   classesAvailable = true,
 ) {
-  if (!db.prepare("SELECT event_id FROM usage_compact WHERE event_id=?").get(eventId)) return;
+  if (!db.prepare("SELECT event_id FROM usage_compact WHERE event_id=?").get(eventId)) {
+    return;
+  }
   // Schema 5 retains historical columns. New rows use inert values without rewriting old evidence.
   db.prepare("INSERT OR IGNORE INTO usage_metadata VALUES (?,?, '','',0,?,?)").run(
     eventId,
@@ -47,15 +49,21 @@ export function recordPiMetadata(
   const row = db.prepare("SELECT accepted FROM usage_compact WHERE event_id=?").get(eventId) as
     | { accepted: number }
     | undefined;
-  if (!row) return;
+  if (!row) {
+    return;
+  }
   recordSourceMetadata(db, eventId, "pi");
   const id = responseId(metadata?.responseId);
-  if (!id || !row.accepted) return;
+  if (!id || !row.accepted) {
+    return;
+  }
   const key = responseKey(db, id);
   const prior = db
     .prepare("SELECT native_event FROM usage_response_owners WHERE response_key=?")
     .get(key) as { native_event: string | null } | undefined;
-  if (prior?.native_event) excludeNative(db, prior.native_event);
+  if (prior?.native_event) {
+    excludeNative(db, prior.native_event);
+  }
   db.prepare(`INSERT INTO usage_response_owners VALUES (?,?,NULL,NULL,0)
     ON CONFLICT(response_key) DO UPDATE SET pi_event=coalesce(pi_event,excluded.pi_event)`).run(
     key,
@@ -66,7 +74,9 @@ export function excludeNative(db: HistoryDatabase, eventId: string) {
   const row = db
     .prepare("SELECT workspace,total,accepted FROM usage_compact WHERE event_id=?")
     .get(eventId) as { workspace: string; total: number; accepted: number } | undefined;
-  if (!row?.accepted) return;
+  if (!row?.accepted) {
+    return;
+  }
   db.prepare(
     "UPDATE workspace_totals SET total_tokens=total_tokens-?,events=events-1 WHERE workspace=?",
   ).run(row.total, row.workspace);

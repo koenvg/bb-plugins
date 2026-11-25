@@ -17,7 +17,9 @@ export function checkOneCommit(
   headOid: string,
 ): OneCommitCheck {
   const { older } = splitByCommit(drafts, headOid);
-  if (older.length === 0) return { ok: true };
+  if (older.length === 0) {
+    return { ok: true };
+  }
   const commits = [...new Set(older.map((draft) => draft.commitOid))].join(", ");
   const subject = older.length === 1 ? "1 comment draft is" : `${older.length} comment drafts are`;
   return { ok: false, message: `${subject} at commit ${commits}, but the PR head is ${headOid}` };

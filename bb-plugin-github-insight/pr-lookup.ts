@@ -1,8 +1,10 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { parsePullRequestUrl, type PullRequestRef } from "./core/pr-ref";
+import { parsePullRequestUrl } from "./core/pr-ref";
+import type { PullRequestRef } from "./core/pr-ref";
 import { isRateLimitMessage, RATE_LIMITED_TEXT } from "./github/gh-failure";
 import type { RateLimitPause } from "./github/rate-limit-pause";
-import { lookupPullRequest, type PullRequestResult } from "./pr-status";
+import { lookupPullRequest } from "./pr-status";
+import type { PullRequestResult } from "./pr-status";
 
 export interface PrTarget {
   ref: PullRequestRef;
@@ -73,7 +75,9 @@ export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps)
       stored.delete(environmentId);
       return { kind: "error", message: error instanceof Error ? error.message : String(error) };
     }
-    if (linked.outcome === "absent") return store(environmentId, { kind: "no_pr" }, NO_PR_TTL_MS);
+    if (linked.outcome === "absent") {
+      return store(environmentId, { kind: "no_pr" }, NO_PR_TTL_MS);
+    }
     if (linked.outcome === "unavailable") {
       if (linked.message.includes("no git remotes found")) {
         return store(environmentId, { kind: "no_pr" }, NO_PR_TTL_MS);
@@ -103,12 +107,16 @@ export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps)
   // A lookup through a disconnected host can hang. Later callers stop waiting on it after a while.
   function lookUpOnce(environmentId: string): Promise<PrResolution> {
     const current = running.get(environmentId);
-    if (current !== undefined) return current.done;
+    if (current !== undefined) {
+      return current.done;
+    }
     let release = () => {};
     const released = new Promise<void>((resolve) => (release = resolve));
     const forget = () => {
       clearTimeout(timer);
-      if (running.get(environmentId)?.done === done) running.delete(environmentId);
+      if (running.get(environmentId)?.done === done) {
+        running.delete(environmentId);
+      }
       release();
     };
     const timer = setTimeout(forget, LOOKUP_SHARE_MS);
@@ -128,12 +136,16 @@ export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps)
   ): Promise<PrResolution> {
     if (!fresh) {
       const known = stored.get(environmentId);
-      if (pause.isPaused()) return known?.resolution ?? RATE_LIMITED;
+      if (pause.isPaused()) {
+        return known?.resolution ?? RATE_LIMITED;
+      }
       const reusable =
         known !== undefined &&
         Date.now() < known.expiresAt &&
         !(recheckNoPr && known.resolution.kind === "no_pr");
-      if (reusable) return known.resolution;
+      if (reusable) {
+        return known.resolution;
+      }
       return lookUpOnce(environmentId);
     }
     return lookUpAfterRunning(environmentId);
@@ -141,7 +153,9 @@ export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps)
 
   async function resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution> {
     const { environmentId } = await sdk.threads.get({ threadId });
-    if (environmentId === null) return { kind: "no_pr" };
+    if (environmentId === null) {
+      return { kind: "no_pr" };
+    }
     return resolveEnvironmentPr(environmentId, options);
   }
 

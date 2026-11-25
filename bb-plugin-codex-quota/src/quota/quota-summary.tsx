@@ -3,6 +3,7 @@ import type { QuotaStatus } from "./contract.js";
 import { visibleView } from "../account/freshness.js";
 import { resetCountdown } from "./reset-countdown.js";
 import { QuotaSelect } from "./quota-select.js";
+
 export type QuotaSummaryProps = {
   view: QuotaStatus;
   now: number;
@@ -22,7 +23,9 @@ const observedText = (value: string) =>
     timeZoneName: "short",
   }).format(new Date(value));
 function statusText(view: QuotaStatus, selectedHostId: string | null) {
-  if (!selectedHostId) return "Select a host to view Codex quota.";
+  if (!selectedHostId) {
+    return "Select a host to view Codex quota.";
+  }
   if (
     [
       "auth-required",
@@ -32,10 +35,15 @@ function statusText(view: QuotaStatus, selectedHostId: string | null) {
       "auth-unavailable",
       "credential-store-failed",
     ].includes(view.reason)
-  )
+  ) {
     return "Pi Codex sign-in required or unavailable on this host.";
-  if (view.reason === "host-offline") return "Selected host is offline. Quota unavailable.";
-  if (view.reason === "expired") return "Observation expired. Quota unavailable.";
+  }
+  if (view.reason === "host-offline") {
+    return "Selected host is offline. Quota unavailable.";
+  }
+  if (view.reason === "expired") {
+    return "Observation expired. Quota unavailable.";
+  }
   return "Quota unavailable. Try refreshing or check Codex Usage.";
 }
 export function QuotaSummary({
@@ -49,8 +57,8 @@ export function QuotaSummary({
   onRefresh,
 }: QuotaSummaryProps) {
   const accountNote = useId();
-  const visible = visibleView(view, now),
-    snapshot = ready ? visible.snapshot : null;
+  const visible = visibleView(view, now);
+  const snapshot = ready ? visible.snapshot : null;
   const binding = snapshot?.general.find((window) => window.id === snapshot.bindingWindowId);
   const status = !ready
     ? ""

@@ -41,7 +41,9 @@ export function parseFailureAnnotations(response: unknown): Map<string, Annotati
   const runs = checkRunDetailsSchema.parse(response).data.nodes;
   const byRunId = new Map<string, Annotation[]>();
   for (const run of runs) {
-    if (run === null) continue;
+    if (run === null) {
+      continue;
+    }
     byRunId.set(
       run.id,
       run.annotations.nodes

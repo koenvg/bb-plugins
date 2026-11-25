@@ -2,7 +2,8 @@ import { experimental_useAppPanel, useComposer } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { MergeActionButton, MergeConfirmation } from "./merge-action-button";
-import { prStatusView, type StatusRow } from "./pr-status-view";
+import { prStatusView } from "./pr-status-view";
+import type { StatusRow } from "./pr-status-view";
 import { RefreshError } from "./feedback";
 import { useInsight } from "./use-insight";
 import { usePaletteMerge } from "./use-palette-merge";
@@ -15,7 +16,9 @@ const TEXT_BUTTON_CLASS =
 
 export function ComposerBanner() {
   const { scope } = useComposer();
-  if (scope.kind !== "thread") return null;
+  if (scope.kind !== "thread") {
+    return null;
+  }
   return <ThreadBanner key={scope.threadId} threadId={scope.threadId} />;
 }
 
@@ -40,8 +43,12 @@ function ThreadBanner({ threadId }: { threadId: string }) {
 
   function normalBanner() {
     if (result?.kind !== "ok") {
-      if (preparing) return <BannerStatus text="Loading pull request…" />;
-      if (result === null) return <BannerStatus text={progress ?? "Loading pull request…"} />;
+      if (preparing) {
+        return <BannerStatus text="Loading pull request…" />;
+      }
+      if (result === null) {
+        return <BannerStatus text={progress ?? "Loading pull request…"} />;
+      }
       return progress ? <BannerStatus text={progress} /> : null;
     }
     const normal = prStatusView(result.insight);
@@ -129,7 +136,9 @@ function ThreadBanner({ threadId }: { threadId: string }) {
           running={running}
           open
           onOpenChange={(open) => {
-            if (!open) palette.dismiss();
+            if (!open) {
+              palette.dismiss();
+            }
           }}
           confirm={palette.confirm}
         />

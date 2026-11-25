@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import timelines from "../test/fixtures/pr-timelines.json";
-import { groupTimeline, mergeEvents, parseTimelinePage, type TimelineEvent } from "./timeline";
+import { groupTimeline, mergeEvents, parseTimelinePage } from "./timeline";
+import type { TimelineEvent } from "./timeline";
 
 const keepMedia = (markdown: string) => markdown;
 

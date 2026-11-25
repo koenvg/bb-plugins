@@ -5,7 +5,9 @@ export function runChecks() {
   }
   const passed = [];
   function check(name, value) {
-    if (!value) throw new Error(name);
+    if (!value) {
+      throw new Error(name);
+    }
     passed.push(name);
   }
   const root = document.documentElement;
@@ -21,8 +23,9 @@ export function runChecks() {
   const font = getComputedStyle(field).fontFamily;
   const draft = field.value;
   const retainedDraft = draft || "Keep my @literal /literal draft";
-  if (new URLSearchParams(location.search).has("long"))
+  if (new URLSearchParams(location.search).has("long")) {
     check("long native draft is present", draft.length > 400);
+  }
   const nativeChildren = () =>
     [...document.body.querySelectorAll("*")].filter(
       (el) => !el.closest("[data-compose-speed-owned]"),
@@ -151,34 +154,41 @@ export function runChecks() {
   );
   if (mode === "expanded") {
     check("expanded frame owns the soft shadow", sharedShadow !== "none" && formShadow === "none");
-  } else check("standalone composer has a soft shadow", formShadow !== "none");
-  if (mode === "new")
+  } else {
+    check("standalone composer has a soft shadow", formShadow !== "none");
+  }
+  if (mode === "new") {
     check(
       "joined footer has an outward soft shadow",
       getComputedStyle(form.nextElementSibling).boxShadow !== "none",
     );
+  }
   check(
     "theme-derived composer geometry",
     parseFloat(getComputedStyle(frame).borderTopLeftRadius) ===
       parseFloat(getComputedStyle(root).getPropertyValue("--radius")) + 6,
   );
-  if (nativeHidden)
+  if (nativeHidden) {
     check("native hidden footer stays hidden", getComputedStyle(footer).opacity === "0");
-  if (mode === "compact")
+  }
+  if (mode === "compact") {
     check(
       "compact form stays independently framed",
       getComputedStyle(form).borderTopWidth === "1px",
     );
-  if (mode === "new")
+  }
+  if (mode === "new") {
     check(
       "new-thread frame joins the native footer",
       getComputedStyle(form).borderBottomLeftRadius === "0px",
     );
-  if (mode === "expanded" && !nativeHidden)
+  }
+  if (mode === "expanded" && !nativeHidden) {
     check(
       "follow-up footer has its hairline divider",
       getComputedStyle(footer).borderTopWidth === "1px",
     );
+  }
 
   function luminance(color) {
     const canvas = document.createElement("canvas");
@@ -208,7 +218,9 @@ export function runChecks() {
   check("placeholder contrast is at least 4.5:1", placeholderContrast >= 4.5);
   const split = window.fixture.nativeSplit;
   function checkSplitGeometry() {
-    if (!split) return;
+    if (!split) {
+      return;
+    }
     const { options } = split;
     const expectedOptionsWidth = field.value.trim() ? 24 : 0;
     check(
@@ -245,7 +257,9 @@ export function runChecks() {
   checkSplitGeometry();
   const minimum = matchMedia("(pointer: coarse)").matches ? 44 : 32;
   for (const button of form.querySelectorAll("[data-promptbox-action-row] button")) {
-    if (button.closest("[data-promptbox-send-menu]")) continue;
+    if (button.closest("[data-promptbox-send-menu]")) {
+      continue;
+    }
     const box = button.getBoundingClientRect();
     check(`hit area height for ${button.getAttribute("aria-label")}`, box.height >= minimum);
     check(`hit area width for ${button.getAttribute("aria-label")}`, box.width >= minimum);

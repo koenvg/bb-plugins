@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { createIdentityDiscovery } from "./identity-discovery.js";
-import { openHistoryDatabase, type HistoryDatabase } from "../storage/history-storage.js";
+import { openHistoryDatabase } from "../storage/history-storage.js";
+import type { HistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory } from "../storage/history-projection.js";
 import { initializeIdentityStorage, acceptIdentityBatch } from "./identity-storage.js";
 
@@ -16,8 +17,8 @@ afterEach(async () => {
   }
 });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bbp147-retention-")),
-    db = (await openHistoryDatabase(join(root, "discovery.sqlite")))!;
+  const root = await mkdtemp(join(tmpdir(), "bbp147-retention-"));
+  const db = (await openHistoryDatabase(join(root, "discovery.sqlite")))!;
   fixtures.push({ root, db });
   return db;
 }
@@ -70,9 +71,11 @@ it.each([101, 501])(
       () => now,
     );
     const complete = async (hostId: string) => {
-      for (let n = 0; n < 100; n++) {
+      for (let n = 0; n < 100; n += 1) {
         const batch = await discovery.next(hostId, new AbortController().signal);
-        if (batch.total !== null) return batch;
+        if (batch.total !== null) {
+          return batch;
+        }
         discovery = createIdentityDiscovery(
           host.bb.sdk,
           () => db,
@@ -84,9 +87,11 @@ it.each([101, 501])(
     const a = await complete("host_a");
     discovery.delivered(a);
     const staleB = await complete("host_b");
-    for (let n = 0; n < 40; n++) {
+    for (let n = 0; n < 40; n += 1) {
       now += 60_000;
-      if (n >= 20) title = `Changed ${n}`;
+      if (n >= 20) {
+        title = `Changed ${n}`;
+      }
       const b = await complete("host_b");
       discovery.delivered(b);
       if (n >= 20) {
@@ -135,10 +140,12 @@ it.each([101, 501])(
     expect(replay.offset).toBe(0);
     expect(replay.rows).toEqual(a.rows);
     discovery.delivered(replay);
-    for (let n = 0; n < 10; n++) {
+    for (let n = 0; n < 10; n += 1) {
       const rest = await complete("host_a");
       discovery.delivered(rest);
-      if (rest.offset + rest.rows.length === rest.total) break;
+      if (rest.offset + rest.rows.length === rest.total) {
+        break;
+      }
     }
     expect((await complete("host_a")).offset).toBe(identities + 1);
     await host.harness.lifecycle.dispose();
@@ -200,9 +207,11 @@ it("retains canonical evidence and ownership resolution for hosts that miss many
     () => now,
   );
   const complete = async (hostId: string) => {
-    for (let n = 0; n < 100; n++) {
+    for (let n = 0; n < 100; n += 1) {
       const batch = await discovery.next(hostId, new AbortController().signal);
-      if (batch.total !== null) return batch;
+      if (batch.total !== null) {
+        return batch;
+      }
       discovery = createIdentityDiscovery(
         host.bb.sdk,
         () => db,
@@ -217,7 +226,7 @@ it("retains canonical evidence and ownership resolution for hosts that miss many
   acceptIdentityBatch(offline, oldOffline);
   discovery.delivered(oldOffline);
   stage = "absent";
-  for (let n = 0; n < 12; n++) {
+  for (let n = 0; n < 12; n += 1) {
     now += 60_000;
     const batch = await complete("host_driver");
     discovery.delivered(batch);
@@ -233,7 +242,7 @@ it("retains canonical evidence and ownership resolution for hosts that miss many
   now += 60_000;
   discovery.delivered(await complete("host_driver"));
   stage = "gone";
-  for (let n = 0; n < 12; n++) {
+  for (let n = 0; n < 12; n += 1) {
     now += 60_000;
     discovery.delivered(await complete("host_driver"));
   }
@@ -280,7 +289,9 @@ it.each(["complete", "uncertainty", "fingerprint"])(
       () => db,
       () => now,
     );
-    for (let n = 0; n < 6; n++) await discovery.next("host_a", new AbortController().signal);
+    for (let n = 0; n < 6; n += 1) {
+      await discovery.next("host_a", new AbortController().signal);
+    }
     // A pre-retention installation has many snapshots and an old completed state.
     const state = JSON.parse(
       (db.prepare("SELECT value FROM discovery_state").get() as { value: string }).value,
@@ -292,11 +303,12 @@ it.each(["complete", "uncertainty", "fingerprint"])(
     delete state.retained;
     db.transaction(() => {
       db.exec("DELETE FROM discovery_receipts; DELETE FROM discovery_targets");
-      for (let generation = 1; generation <= 20; generation++) {
-        for (let n = 0; n < 120; n++)
+      for (let generation = 1; generation <= 20; generation += 1) {
+        for (let n = 0; n < 120; n += 1) {
           db.prepare(
             "INSERT INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (?,'host_a','thr_a',?,?,'archived')",
           ).run(generation, `provider_${n}`, `Title ${generation}`);
+        }
       }
       db.prepare(
         "INSERT INTO discovery_rows(generation,host_id,thread_id,provider_identity,title,state) VALUES (1,'host_a','thr_a','legacy-only','Title 1','archived')",
@@ -309,7 +321,7 @@ it.each(["complete", "uncertainty", "fingerprint"])(
     expect(db.prepare("SELECT count(DISTINCT generation) AS n FROM discovery_rows").get()).toEqual({
       n: 20,
     });
-    for (let n = 0; batch.total === null && n < 100; n++) {
+    for (let n = 0; batch.total === null && n < 100; n += 1) {
       discovery = createIdentityDiscovery(
         host.bb.sdk,
         () => db,
@@ -330,8 +342,9 @@ it.each(["complete", "uncertainty", "fingerprint"])(
     });
     expect(received.find((r) => r.providerIdentity === "provider_0")?.title).toBe("Title 20");
     discovery.delivered(rest);
-    for (let n = 0; n < 20; n++)
+    for (let n = 0; n < 20; n += 1) {
       await discovery.next("host_a", new AbortController().signal, false);
+    }
     expect(db.prepare("SELECT count(*) AS n FROM discovery_rows").get()).toEqual({ n: 241 });
     expect(db.prepare("SELECT count(DISTINCT generation) AS n FROM discovery_rows").get()).toEqual({
       n: 2,
@@ -353,9 +366,11 @@ it("rolls back canceled cleanup and leaves usage and public metadata unchanged",
     () => now,
   );
   const complete = async () => {
-    for (let n = 0; n < 10; n++) {
+    for (let n = 0; n < 10; n += 1) {
       const batch = await discovery.next("host_a", new AbortController().signal);
-      if (batch.total !== null) return batch;
+      if (batch.total !== null) {
+        return batch;
+      }
     }
     throw Error("Discovery did not complete");
   };
@@ -382,7 +397,9 @@ it("rolls back canceled cleanup and leaves usage and public metadata unchanged",
     ...db,
     exec(sql) {
       db.exec(sql);
-      if (sql.startsWith("DELETE FROM discovery_receipts")) controller.abort();
+      if (sql.startsWith("DELETE FROM discovery_receipts")) {
+        controller.abort();
+      }
     },
   };
   discovery = createIdentityDiscovery(

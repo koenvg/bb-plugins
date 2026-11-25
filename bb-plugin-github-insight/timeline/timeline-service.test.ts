@@ -60,9 +60,11 @@ describe("timeline service", () => {
     const page = structuredClone(timelines["cli-14578"]);
     const { pullRequest } = page.data.repository;
     Object.assign(pullRequest, { body: ATTACHMENT_BODY, bodyHTML: ATTACHMENT_HTML });
-    for (const node of pullRequest.timelineItems.nodes)
-      if (node.__typename === "IssueComment")
+    for (const node of pullRequest.timelineItems.nodes) {
+      if (node.__typename === "IssueComment") {
         Object.assign(node, { body: ATTACHMENT_BODY, bodyHTML: ATTACHMENT_HTML });
+      }
+    }
     const { service } = serviceWith({
       fetchTimelinePage: async () => page,
       signMedia: createMediaSigner(Date.now),
@@ -70,7 +72,9 @@ describe("timeline service", () => {
 
     const result = await service.getTimeline("thr_1", null);
 
-    if (result.kind !== "ok") throw new Error(`expected ok, got ${result.kind}`);
+    if (result.kind !== "ok") {
+      throw new Error(`expected ok, got ${result.kind}`);
+    }
     const signedBody = `![shot](${SIGNED_ATTACHMENT_URL})`;
     expect(result.description.body).toBe(signedBody);
     expect(result.events.find((event) => event.kind === "comment")).toMatchObject({
@@ -116,9 +120,11 @@ describe("timeline service", () => {
 
   it("counts your submitted review as a reply on your own PR", async () => {
     const page = withoutLastReply();
-    for (const node of page.data.repository.pullRequest.timelineItems.nodes)
-      if (node.id === "PRR_kwDODKw3uc8AAAABRK-09w")
+    for (const node of page.data.repository.pullRequest.timelineItems.nodes) {
+      if (node.id === "PRR_kwDODKw3uc8AAAABRK-09w") {
         Object.assign(node, { author: { __typename: "User", login: "williammartin" } });
+      }
+    }
     const { service } = serviceWith({ fetchTimelinePage: async () => page });
 
     expect(await service.getTimeline("thr_1", null)).toMatchObject({ newCommentIds: [] });

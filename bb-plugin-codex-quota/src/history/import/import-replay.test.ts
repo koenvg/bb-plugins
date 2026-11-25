@@ -33,9 +33,9 @@ const contextEntry = { type: "custom", id: "context", parentId: null };
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp177-replay-"));
-  const sources = join(root, "sources"),
-    ordinary = join(root, "ordinary"),
-    workspace = join(root, "workspace");
+  const sources = join(root, "sources");
+  const ordinary = join(root, "ordinary");
+  const workspace = join(root, "workspace");
   await Promise.all([sources, ordinary, workspace].map((p) => mkdir(p)));
   const path = join(root, "usage.sqlite");
   let db = (await openHistoryDatabase(path))!;
@@ -54,9 +54,9 @@ async function fixture() {
       },
     ],
   });
-  const parent = join(sources, "provider-a.jsonl"),
-    child = join(ordinary, "child.jsonl"),
-    chained = join(ordinary, "chained.jsonl");
+  const parent = join(sources, "provider-a.jsonl");
+  const child = join(ordinary, "child.jsonl");
+  const chained = join(ordinary, "chained.jsonl");
   const write = (path: string, session: string, entries: unknown[], parentSession?: string) =>
     writeFile(
       path,
@@ -108,8 +108,9 @@ async function fixture() {
         action: "start",
         ...(includeUncertain ? { includeUncertain } : {}),
       });
-      for (let i = 0; i < 30 && result.generation?.state === "stopped"; i++)
+      for (let i = 0; i < 30 && result.generation?.state === "stopped"; i += 1) {
         result = await run({ action: "resume" });
+      }
       expect(result.generation?.state, JSON.stringify(result)).toBe("completed");
       return result.generation!;
     },
@@ -147,7 +148,9 @@ it.each([false, true])(
           f.workspace,
           "provider-a.jsonl",
         );
-        if (usage.kind !== "usage") throw Error("Invalid synthetic fixture");
+        if (usage.kind !== "usage") {
+          throw Error("Invalid synthetic fixture");
+        }
         liveId = "00000000-0000-4000-8000-000000000001";
         projectCompactRecord(f.db, { ...usage.record, eventId: liveId, provenance: "observed" });
         projectCompactRecord(f.db, {
@@ -175,10 +178,11 @@ it.each([false, true])(
       const inherited = f.db
         .prepare("SELECT path,entry,parent_entry,event_id FROM import_entries ORDER BY path,entry")
         .all();
-      if (liveId)
+      if (liveId) {
         expect(
           f.db.prepare("SELECT DISTINCT event_id FROM import_entries WHERE entry='entry-a'").all(),
         ).toEqual([{ event_id: liveId }]);
+      }
       expect(
         f.db
           .prepare("SELECT captured_cost FROM usage_compact WHERE accepted=1 ORDER BY event_id")
@@ -212,7 +216,9 @@ it.each(["session", "parent-entry", "usage"])(
     try {
       await f.completeImport();
       const changed = message("entry-a", kind === "parent-entry" ? "wrong-parent" : "context");
-      if (kind === "usage") changed.message.usage.cost.total = 0.03;
+      if (kind === "usage") {
+        changed.message.usage.cost.total = 0.03;
+      }
       await f.write(
         f.child,
         kind === "session" ? "unrelated" : "pi-child",

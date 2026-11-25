@@ -15,10 +15,13 @@ import type {
   SendToAgentResult,
   SubmitReviewResult,
 } from "../contract";
-import { parsePrFiles, type ReviewFile } from "../core/pr-files";
+import { parsePrFiles } from "../core/pr-files";
+import type { ReviewFile } from "../core/pr-files";
 import type { ListedCommentDraft } from "../core/review-drafts";
-import { parseReviewThreads, type ReviewThread } from "../core/review-threads";
-import { placeThreads, type ThreadPlacement } from "../core/thread-placement";
+import { parseReviewThreads } from "../core/review-threads";
+import type { ReviewThread } from "../core/review-threads";
+import { placeThreads } from "../core/thread-placement";
+import type { ThreadPlacement } from "../core/thread-placement";
 import { fileIdentity } from "../core/viewed-marks";
 import { postIntent } from "./command-intents";
 import { FilesTab } from "./files-tab";
@@ -52,7 +55,9 @@ vi.mock("@pierre/diffs/react", () => ({
   }) => (
     <DiffsContainer
       ref={(element: HTMLElement | null) => {
-        if (element === null) return;
+        if (element === null) {
+          return;
+        }
         const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
         if (!root.querySelector("[data-diffs-header]")) {
           root.innerHTML = "<div data-diffs-header data-sticky><div data-title></div></div>";
@@ -215,10 +220,12 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
 
 function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: ReviewResult[]) {
   let call = 0;
-  const getReview = () => results[Math.min(call++, results.length - 1)]!;
+  const getReview = () => results[Math.min((call += 1) - 1, results.length - 1)]!;
   const getDrafts = (): DraftsResult => {
     const latest = results[Math.min(call, results.length - 1)]!;
-    if (latest.kind !== "ok") return latest;
+    if (latest.kind !== "ok") {
+      return latest;
+    }
     const { drafts, commentDrafts, summaryDraft, draftMedia } = latest;
     return { kind: "ok", drafts, commentDrafts, summaryDraft, draftMedia };
   };
@@ -287,7 +294,7 @@ describe("PR raster review", () => {
       const path = `clip.${extension}`;
       const patch = `@@ -1,3 +1,3 @@\n version https://git-lfs.github.com/spec/v1\n-oid sha256:${"1".repeat(64)}\n+oid sha256:${"2".repeat(64)}\n-size 10000000\n+size 10000001`;
       const slot = renderTabFor(
-        `thr_lfs_${++lfsThreadCount}`,
+        `thr_lfs_${(lfsThreadCount += 1)}`,
         {},
         {
           ...recorded,
@@ -410,7 +417,7 @@ describe("PR raster review", () => {
     const slot = renderTabWith(
       {
         getReview: () =>
-          ++count === 1
+          (count += 1) === 1
             ? value
             : new Promise((resolve) => {
                 finishReview = resolve;
@@ -552,7 +559,7 @@ describe("Files tab viewed files", () => {
   }
 
   function renderViewed(handlers: RpcHandlers, ...results: ReviewResult[]) {
-    const threadId = `thr_viewed_${++threadCount}`;
+    const threadId = `thr_viewed_${(threadCount += 1)}`;
     return Object.assign(renderTabFor(threadId, handlers, ...results), { threadId });
   }
 
@@ -1952,7 +1959,7 @@ describe("Files tab new comment glow", () => {
   }
 
   function renderGlow(handlers: RpcHandlers, ...results: ReviewResult[]) {
-    return renderTabFor(`thr_glow_${++threadCount}`, handlers, ...results);
+    return renderTabFor(`thr_glow_${(threadCount += 1)}`, handlers, ...results);
   }
 
   function commentOf(slot: ReturnType<typeof renderTab>, id: string) {
@@ -2018,7 +2025,7 @@ describe("Files tab new comment glow", () => {
   });
 
   it("keeps the glow when a reload no longer lists the comment as new", async () => {
-    const threadId = `thr_glow_${++threadCount}`;
+    const threadId = `thr_glow_${(threadCount += 1)}`;
     const slot = renderTabFor(threadId, {}, withNew(threaded, REPLY), threaded);
     await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
 
@@ -2070,7 +2077,7 @@ describe("Files tab new comment glow", () => {
   });
 
   it("expands a shown resolved thread when a refresh brings a new reply", async () => {
-    const threadId = `thr_glow_${++threadCount}`;
+    const threadId = `thr_glow_${(threadCount += 1)}`;
     const slot = renderTabFor(
       threadId,
       {},
@@ -2165,7 +2172,9 @@ describe("Files tab submit panel", () => {
 
   async function openPanel(slot: ReturnType<typeof renderTab>) {
     const toggle = await slot.findByRole("button", { name: "Submit review" });
-    if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
+    if (toggle.getAttribute("aria-expanded") !== "true") {
+      fireEvent.click(toggle);
+    }
     return within(slot.getByRole("region", { name: "Submit review" }));
   }
 
@@ -2552,17 +2561,23 @@ describe("Files tab comment navigation", () => {
   function sectionOffset(area: HTMLElement, section: HTMLElement): number {
     let offset = 0;
     for (const other of Array.from(area.querySelectorAll<HTMLElement>("section[data-path]"))) {
-      if (other === section) return offset;
+      if (other === section) {
+        return offset;
+      }
       offset += other.querySelector("[data-testid=file-diff]") ? MOUNTED_HEIGHT : UNMOUNTED_HEIGHT;
     }
     return offset;
   }
 
   function contentOffset(area: HTMLElement, element: HTMLElement): number {
-    if (element.matches("section[data-path]")) return sectionOffset(area, element);
+    if (element.matches("section[data-path]")) {
+      return sectionOffset(area, element);
+    }
     const section = element.closest<HTMLElement>("section[data-path]");
     const line = element.closest<HTMLElement>("[data-line]");
-    if (section === null || line === null) return 0;
+    if (section === null || line === null) {
+      return 0;
+    }
     return sectionOffset(area, section) + Number(line.dataset.line) * LINE_HEIGHT;
   }
 
@@ -2588,7 +2603,9 @@ describe("Files tab comment navigation", () => {
 
   function resize() {
     act(() => {
-      for (const callback of resizeCallbacks) callback([], {} as ResizeObserver);
+      for (const callback of resizeCallbacks) {
+        callback([], {} as ResizeObserver);
+      }
     });
   }
 
@@ -2596,10 +2613,16 @@ describe("Files tab comment navigation", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
       this: HTMLElement,
     ) {
-      if (this.matches("[data-diff-scroll-area]")) return rect(AREA_TOP, 600);
-      if (this.matches("[data-diffs-header]")) return rect(0, FILE_HEADER_HEIGHT);
+      if (this.matches("[data-diff-scroll-area]")) {
+        return rect(AREA_TOP, 600);
+      }
+      if (this.matches("[data-diffs-header]")) {
+        return rect(0, FILE_HEADER_HEIGHT);
+      }
       const area = this.closest<HTMLElement>("[data-diff-scroll-area]");
-      if (area === null) return rect(0, 0);
+      if (area === null) {
+        return rect(0, 0);
+      }
       return rect(AREA_TOP + contentOffset(area, this) - area.scrollTop, LINE_HEIGHT);
     });
   });

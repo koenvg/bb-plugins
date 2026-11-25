@@ -7,6 +7,7 @@ import { parseCompact } from "../collection/usage-record.js";
 import { projectCompactRecord } from "./history-projection.js";
 import { collectorLogNames, completeCollectorDiscovery } from "../collection/history-logs.js";
 import { recordReconciliation, recordSourceUncertainty } from "../collection/history-coverage.js";
+
 export type IngestOptions = {
   signal: AbortSignal;
   bytes?: number;
@@ -38,7 +39,9 @@ export async function reconcileCollector(
   let rowsLeft = Math.min(options.rows ?? 500, 500);
   const pending = new Set<string>();
   options.signal.throwIfAborted();
-  if (!options.legacyOnly) recordReconciliation(db, true);
+  if (!options.legacyOnly) {
+    recordReconciliation(db, true);
+  }
   const sources = options.legacyOnly
     ? [
         "events-legacy-retained-v1.jsonl",
@@ -53,14 +56,18 @@ export async function reconcileCollector(
     try {
       file = await open(join(directory, name), constants.O_RDONLY | constants.O_NOFOLLOW);
     } catch (e) {
-      if (e && typeof e === "object" && "code" in e && e.code === "ENOENT") continue;
+      if (e && typeof e === "object" && "code" in e && e.code === "ENOENT") {
+        continue;
+      }
       throw Error("Collector source unavailable");
     }
     try {
       const stat = await file.stat();
-      if (!stat.isFile()) throw Error("Collector source unavailable");
-      const identity = `${stat.dev}:${stat.ino}`,
-        stamp = `${stat.mtimeMs}:${stat.ctimeMs}`;
+      if (!stat.isFile()) {
+        throw Error("Collector source unavailable");
+      }
+      const identity = `${stat.dev}:${stat.ino}`;
+      const stamp = `${stat.mtimeMs}:${stat.ctimeMs}`;
       const saved = db.prepare("SELECT * FROM collector_sources WHERE name=?").get(name) as
         | Progress
         | undefined;
@@ -71,15 +78,19 @@ export async function reconcileCollector(
         saved.stamp === stamp &&
         (saved.offset === stat.size || saved.stalled === 1)
       ) {
-        if (saved.offset < stat.size || saved.dropping === 1) pending.add(name);
+        if (saved.offset < stat.size || saved.dropping === 1) {
+          pending.add(name);
+        }
         continue;
       }
       if (bytesLeft <= 0 || rowsLeft <= 0) {
-        if (stat.size > 0) pending.add(name);
+        if (stat.size > 0) {
+          pending.add(name);
+        }
         continue;
       }
-      let offset = saved?.offset ?? 0,
-        dropping = saved?.dropping ?? 0;
+      let offset = saved?.offset ?? 0;
+      let dropping = saved?.dropping ?? 0;
       if (
         saved &&
         (saved.identity !== identity ||
@@ -102,37 +113,48 @@ export async function reconcileCollector(
       }
       const bytes = Buffer.alloc(Math.max(0, Math.min(bytesLeft, stat.size - offset)));
       if (!bytes.length) {
-        if (offset < stat.size) pending.add(name);
+        if (offset < stat.size) {
+          pending.add(name);
+        }
         continue;
       }
       options.bodyRead?.();
       const { bytesRead } = await file.read(bytes, 0, bytes.length, offset);
       bytesLeft -= bytesRead;
       const chunk = bytes.subarray(0, bytesRead);
-      let consumed = 0,
-        stalled = 0,
-        invalid = saved?.invalid ?? 0;
+      let consumed = 0;
+      let stalled = 0;
+      let invalid = saved?.invalid ?? 0;
       const records: NonNullable<ReturnType<typeof parseCompact>>[] = [];
       while (consumed < chunk.length && rowsLeft > 0) {
         const end = chunk.indexOf(10, consumed);
         if (end < 0) {
           if (dropping || chunk.length - consumed >= MAX_LINE) {
-            if (!dropping) invalid++;
+            if (!dropping) {
+              invalid += 1;
+            }
             dropping = 1;
             consumed = chunk.length;
-          } else if (offset + bytesRead === stat.size) stalled = 1;
+          } else if (offset + bytesRead === stat.size) {
+            stalled = 1;
+          }
           break;
         }
-        rowsLeft--;
-        if (dropping) dropping = 0;
-        else if (end - consumed > MAX_LINE) invalid++;
-        else {
+        rowsLeft -= 1;
+        if (dropping) {
+          dropping = 0;
+        } else if (end - consumed > MAX_LINE) {
+          invalid += 1;
+        } else {
           const parsed = parseCompact(
             chunk.subarray(consumed, end).toString("utf8"),
             name.startsWith("confirmations"),
           );
-          if (parsed) records.push(parsed);
-          else invalid++;
+          if (parsed) {
+            records.push(parsed);
+          } else {
+            invalid += 1;
+          }
         }
         consumed = end + 1;
       }
@@ -160,8 +182,9 @@ export async function reconcileCollector(
             "workspace" in record &&
             options.recoveryFloor &&
             (record.provenance !== "observed" || record.occurredAt < options.recoveryFloor)
-          )
+          ) {
             continue;
+          }
           projectCompactRecord(db, record);
         }
         if (invalid > (saved?.invalid ?? 0)) {
@@ -183,7 +206,9 @@ export async function reconcileCollector(
           stalled,
         );
       });
-      if (next < stat.size || dropping === 1) pending.add(name);
+      if (next < stat.size || dropping === 1) {
+        pending.add(name);
+      }
     } finally {
       await file.close();
     }
@@ -192,6 +217,8 @@ export async function reconcileCollector(
   const discoveryPending =
     !options.legacyOnly && completeCollectorDiscovery(db, options.now ?? Date.now(), pending);
   const backlog = pending.size > 0 || discoveryPending;
-  if (!options.legacyOnly) recordReconciliation(db, backlog);
+  if (!options.legacyOnly) {
+    recordReconciliation(db, backlog);
+  }
   return backlog;
 }

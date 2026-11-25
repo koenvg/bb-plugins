@@ -6,11 +6,8 @@ import { QuotaBattery } from "../quota/quota-view.js";
 import { QuotaFooterRuntime } from "../footer/footer-runtime.js";
 import type { FooterTarget } from "../footer/footer-adapter.js";
 import { HistoryReadinessSection } from "../history/history-view.js";
-import {
-  MachineAccountsStore,
-  footerAllowance,
-  type AccountsApi,
-} from "../machines/accounts-store.js";
+import { MachineAccountsStore, footerAllowance } from "../machines/accounts-store.js";
+import type { AccountsApi } from "../machines/accounts-store.js";
 import {
   AccountsOverview,
   AccountsTooltip,
@@ -46,7 +43,9 @@ function QuotaRefreshOwner() {
       void shared.refresh(false);
     };
     const visible = () => {
-      if (document.visibilityState === "visible") resume();
+      if (document.visibilityState === "visible") {
+        resume();
+      }
     };
     window.addEventListener("focus", resume);
     document.addEventListener("visibilitychange", visible);
@@ -65,20 +64,22 @@ function MachineManagement({ machines }: { machines: Machine[] }) {
   );
   const [failed, setFailed] = useState(false);
   const details = useRef<HTMLDetailsElement>(null);
-  const revision = useRef(0),
-    current = useRef(open);
+  const revision = useRef(0);
+  const current = useRef(open);
   current.current = open;
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      revision.current++;
+      revision.current += 1;
     };
   }, []);
   const manage = async (id: string) => {
-    if (!mounted.current || !details.current?.open) return;
-    const request = ++revision.current;
+    if (!mounted.current || !details.current?.open) {
+      return;
+    }
+    const request = (revision.current += 1);
     setSelection(null);
     setFailed(false);
     if (open === id) {
@@ -89,11 +90,16 @@ function MachineManagement({ machines }: { machines: Machine[] }) {
     try {
       const next = await rpc.call("selectHost", { hostId: id });
       if (mounted.current && details.current?.open && request === revision.current) {
-        if (next.hostId !== id) setFailed(true);
-        else setSelection(next);
+        if (next.hostId !== id) {
+          setFailed(true);
+        } else {
+          setSelection(next);
+        }
       }
     } catch {
-      if (mounted.current && request === revision.current) setFailed(true);
+      if (mounted.current && request === revision.current) {
+        setFailed(true);
+      }
     }
   };
   return (
@@ -102,7 +108,7 @@ function MachineManagement({ machines }: { machines: Machine[] }) {
       className="mt-6 border-t border-border pt-4 text-sm"
       onToggle={(event) => {
         if (!event.currentTarget.open) {
-          revision.current++;
+          revision.current += 1;
           setOpen(null);
           setSelection(null);
         }
@@ -289,13 +295,15 @@ function FooterQuotaBadge({ target }: { target: FooterTarget }) {
   useLayoutEffect(() => target.commit(), [target]);
   useEffect(() => {
     const button = target.trigger;
-    const document = button.ownerDocument,
-      window = document.defaultView!;
-    let timer: ReturnType<typeof setTimeout> | undefined,
-      dismissed = false;
+    const document = button.ownerDocument;
+    const window = document.defaultView!;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let dismissed = false;
     const show = () => {
       clearTimeout(timer);
-      if (dismissed) return;
+      if (dismissed) {
+        return;
+      }
       const box = button.getBoundingClientRect();
       setPosition({
         left: Math.max(8, Math.min(box.left - 8, window.innerWidth - 304)),
@@ -306,7 +314,9 @@ function FooterQuotaBadge({ target }: { target: FooterTarget }) {
       dismissed = false;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        if (!over.current && document.activeElement !== button) setPosition(null);
+        if (!over.current && document.activeElement !== button) {
+          setPosition(null);
+        }
       }, 120);
     };
     const dismiss = () => {
@@ -316,7 +326,9 @@ function FooterQuotaBadge({ target }: { target: FooterTarget }) {
       setPosition(null);
     };
     const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") dismiss();
+      if (event.key === "Escape") {
+        dismiss();
+      }
     };
     button.addEventListener("mouseenter", show);
     button.addEventListener("mouseleave", hide);

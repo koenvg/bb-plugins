@@ -14,6 +14,7 @@ import {
 import { maintainHistory } from "./storage/history-retention.js";
 import { usageRecordSchema } from "./collection/usage-record.js";
 import type { CalendarQuery } from "./calendar/calendar-contract.js";
+
 const heldRead = vi.hoisted(() => ({
   gate: null as null | { entered: () => void; wait: Promise<void>; name?: string },
 }));
@@ -49,7 +50,9 @@ const query: CalendarQuery = {
 const identities = { hostId: "host_a", generation: 1, offset: 0, total: 0, rows: [] };
 afterEach(async () => {
   vi.restoreAllMocks();
-  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 function record(n: number, capturedCost: number | null = 0.125) {
   return usageRecordSchema.parse({
@@ -97,7 +100,7 @@ async function fixture(collector = true, ingestRows?: number) {
   maintainHistory(db, now);
   db.close();
   const controlPath = join(directory, "collector-control-v1.json");
-  if (collector)
+  if (collector) {
     await writeFile(
       controlPath,
       JSON.stringify({
@@ -106,6 +109,7 @@ async function fixture(collector = true, ingestRows?: number) {
         revision: "00000000-0000-4000-8000-000000000000",
       }),
     );
+  }
   const bodyRead = vi.fn();
   const forbidden = vi.fn(async () => {
     throw Error("No management, collector assets, or account requests allowed");
@@ -125,7 +129,9 @@ async function fixture(collector = true, ingestRows?: number) {
     harness,
     async read() {
       const value = await harness.experimental_call("calendarReport", query);
-      if (value.state === "unavailable") throw Error(value.reason);
+      if (value.state === "unavailable") {
+        throw Error(value.reason);
+      }
       return value;
     },
     prepare: () => harness.experimental_call("reportPreparation", { identities }),
@@ -158,7 +164,7 @@ it("walks an old owned-log gap through bounded public preparation without prunin
     db.close();
     const control = await readFile(f.controlPath);
     const logs = new Map<string, string>();
-    for (let n = 0; n < 48; n++) {
+    for (let n = 0; n < 48; n += 1) {
       const date = new Date(Date.parse("2026-06-30T00:00:00Z") + n * 86400000)
         .toISOString()
         .slice(0, 10);
@@ -174,13 +180,17 @@ it("walks an old owned-log gap through bounded public preparation without prunin
         }) + "\n",
       );
     }
-    for (const [name, body] of logs) await writeFile(join(f.directory, name), body);
+    for (const [name, body] of logs) {
+      await writeFile(join(f.directory, name), body);
+    }
     await f.append(100);
     const progress = new Set<string>();
     let settled = false;
-    for (let round = 0; round < 8; round++) {
+    for (let round = 0; round < 8; round += 1) {
       const result = await f.prepare();
-      if (result.state !== "available") throw Error(result.reason);
+      if (result.state !== "available") {
+        throw Error(result.reason);
+      }
       progress.add(result.progress);
       if (round === 0) {
         // No old sources in this slice does not mean the omitted range was scanned.
@@ -197,7 +207,9 @@ it("walks an old owned-log gap through bounded public preparation without prunin
     expect(progress.size).toBe(6);
     for (const startDate of ["2026-07-01", "2026-08-01"]) {
       const view = await f.harness.experimental_call("calendarReport", { ...query, startDate });
-      if (view.state === "unavailable") throw Error(view.reason);
+      if (view.state === "unavailable") {
+        throw Error(view.reason);
+      }
       expect(view.summary.totalTokens).toBe(startDate === "2026-07-01" ? 90 : 48);
     }
     const after = (await openHistoryDatabase(f.path))!;
@@ -213,8 +225,9 @@ it("walks an old owned-log gap through bounded public preparation without prunin
     const reads = f.bodyRead.mock.calls.length;
     expect(await f.prepare()).toMatchObject({ state: "available", ingestionPending: false });
     expect(f.bodyRead).toHaveBeenCalledTimes(reads);
-    for (const [name, body] of logs)
+    for (const [name, body] of logs) {
       expect(await readFile(join(f.directory, name), "utf8")).toBe(body);
+    }
     expect(await readFile(f.controlPath)).toEqual(control);
     expect(f.forbidden).not.toHaveBeenCalled();
   } finally {
@@ -262,9 +275,11 @@ it("keeps a partly loaded old slice until its confirmations are drained", async 
       );
     }
     const progress = new Set<string>();
-    for (let n = 0; n < 3; n++) {
+    for (let n = 0; n < 3; n += 1) {
       const result = await f.prepare();
-      if (result.state !== "available") throw Error(result.reason);
+      if (result.state !== "available") {
+        throw Error(result.reason);
+      }
       expect(result.ingestionPending).toBe(true);
       progress.add(result.progress);
     }
@@ -273,15 +288,21 @@ it("keeps a partly loaded old slice until its confirmations are drained", async 
       ...query,
       startDate: "2026-07-01",
     });
-    if (partial.state === "unavailable") throw Error(partial.reason);
+    if (partial.state === "unavailable") {
+      throw Error(partial.reason);
+    }
     expect(partial.summary.totalTokens).toBe(9);
-    for (let n = 0; n < 3; n++) await f.prepare();
+    for (let n = 0; n < 3; n += 1) {
+      await f.prepare();
+    }
     expect(await f.prepare()).toMatchObject({ state: "available", ingestionPending: false });
     const final = await f.harness.experimental_call("calendarReport", {
       ...query,
       startDate: "2026-07-01",
     });
-    if (final.state === "unavailable") throw Error(final.reason);
+    if (final.state === "unavailable") {
+      throw Error(final.reason);
+    }
     expect(final.summary.totalTokens).toBe(12);
     const reads = f.bodyRead.mock.calls.length;
     await f.prepare();
@@ -334,13 +355,17 @@ it("does not advance old discovery past a canceled source read", async () => {
     after.close();
     const first = await f.prepare();
     expect(first).toMatchObject({ state: "available", ingestionPending: true });
-    for (let n = 0; n < 4; n++) await f.prepare();
+    for (let n = 0; n < 4; n += 1) {
+      await f.prepare();
+    }
     expect(await f.prepare()).toMatchObject({ state: "available", ingestionPending: false });
     const view = await f.harness.experimental_call("calendarReport", {
       ...query,
       startDate: "2026-07-01",
     });
-    if (view.state === "unavailable") throw Error(view.reason);
+    if (view.state === "unavailable") {
+      throw Error(view.reason);
+    }
     expect(view.summary.totalTokens).toBe(3);
   } finally {
     release?.();
@@ -408,7 +433,9 @@ it.each([false, true])(
       await new Promise((resolve) => setImmediate(resolve));
       expect(readFinished).toBe(false);
       release();
-      if (!cancel) expect(await preparing).toMatchObject({ state: "available" });
+      if (!cancel) {
+        expect(await preparing).toMatchObject({ state: "available" });
+      }
       expect((await queued).summary.totalTokens).toBe(cancel ? 0 : 3);
     } finally {
       release();
@@ -444,10 +471,14 @@ it("advances durable multi-batch ingestion progress with identity already comple
     let rounds = 0;
     for (;;) {
       const result = await f.prepare();
-      if (result.state !== "available") throw Error(result.reason);
+      if (result.state !== "available") {
+        throw Error(result.reason);
+      }
       progress.add(result.progress);
-      rounds++;
-      if (!result.ingestionPending && !result.attribution.backlog) break;
+      rounds += 1;
+      if (!result.ingestionPending && !result.attribution.backlog) {
+        break;
+      }
       expect(rounds).toBeLessThan(10);
       expect(result.attribution.discovery).toBe("complete");
     }
@@ -517,8 +548,9 @@ it.each(["missing", "version", "backfill"])(
   async (mode) => {
     const f = await fixture();
     try {
-      if (mode === "missing") await rm(f.path);
-      else {
+      if (mode === "missing") {
+        await rm(f.path);
+      } else {
         const db = (await openHistoryDatabase(f.path))!;
         db.exec(
           mode === "version"
@@ -538,17 +570,18 @@ it.each(["missing", "version", "backfill"])(
               : "storage-unavailable",
       });
       expect(f.bodyRead).not.toHaveBeenCalled();
-      if (mode === "missing")
+      if (mode === "missing") {
         await expect(readFile(f.path)).rejects.toMatchObject({ code: "ENOENT" });
-      else {
+      } else {
         const db = (await openHistoryDatabase(f.path))!;
         expect(
           (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version,
         ).toBe(mode === "version" ? 99 : 5);
-        if (mode === "backfill")
+        if (mode === "backfill") {
           expect(db.prepare("SELECT backfill_done FROM history_retention").get()).toEqual({
             backfill_done: 0,
           });
+        }
         expect(db.prepare("SELECT event_id FROM usage_compact").all()).toEqual([]);
         db.close();
       }
@@ -567,9 +600,11 @@ it("leaves an incomplete source pending without spinning or losing invalid-data 
     expect(await f.prepare()).toMatchObject({ state: "available", ingestionPending: true });
     const reads = f.bodyRead.mock.calls.length;
     const progress = new Set<string>();
-    for (let n = 0; n < 4; n++) {
+    for (let n = 0; n < 4; n += 1) {
       const result = await f.prepare();
-      if (result.state !== "available") throw Error(result.reason);
+      if (result.state !== "available") {
+        throw Error(result.reason);
+      }
       expect(result.ingestionPending).toBe(true);
       progress.add(result.progress);
     }

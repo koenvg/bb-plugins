@@ -17,14 +17,16 @@ export function initializeUncertainHistory(db: HistoryDatabase) {
     CREATE INDEX IF NOT EXISTS uncertain_entry ON usage_uncertain(entry_id,evidence,event_id);
     CREATE INDEX IF NOT EXISTS uncertain_generation ON usage_uncertain(generation);`);
   // Historical import tables also exist in pre-compact migration fixtures.
-  if (db.prepare("SELECT 1 FROM sqlite_master WHERE name='usage_compact'").get())
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE name='usage_compact'").get()) {
     db.exec(
       "CREATE INDEX IF NOT EXISTS compact_uncertain_overlap ON usage_compact(session_id,occurred_at,total) WHERE accepted=1",
     );
-  if (db.prepare("SELECT 1 FROM sqlite_master WHERE name='usage_entry_owners'").get())
+  }
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE name='usage_entry_owners'").get()) {
     db.exec(
       "CREATE INDEX IF NOT EXISTS owners_uncertain_entry ON usage_entry_owners(entry_id,event_id)",
     );
+  }
 }
 
 export function uncertainCandidate(db: HistoryDatabase, generation: string, path: string) {
@@ -42,7 +44,9 @@ export function keepUncertainUsage(
   record: Usage,
   reason: UncertainReason,
 ) {
-  if (record.occurredAt < g.start_at || record.occurredAt > g.end_at) return;
+  if (record.occurredAt < g.start_at || record.occurredAt > g.end_at) {
+    return;
+  }
   // A shared entry plus scalar usage is a best-effort fork match, never verified ownership.
   const evidence = createHash("sha256")
     .update(
@@ -83,7 +87,9 @@ export function uncertainTotals(
   end: string,
   workspace?: string,
 ) {
-  if (!hasUncertainHistory(db)) return { totalTokens: 0, records: 0 };
+  if (!hasUncertainHistory(db)) {
+    return { totalTokens: 0, records: 0 };
+  }
   // Do not double count accepted records, shared fork entries, or plausible live overlap.
   // These comparisons do not promote uncertain records into the canonical index.
   const row = db
@@ -99,13 +105,16 @@ export function uncertainTotals(
       AND earlier.evidence=u.evidence AND earlier.event_id<u.event_id)
   `)
     .get(start, end, ...(workspace ? [workspace] : [])) as { totalTokens: number; records: number };
-  if (![row.totalTokens, row.records].every((n) => Number.isSafeInteger(n) && n >= 0))
+  if (![row.totalTokens, row.records].every((n) => Number.isSafeInteger(n) && n >= 0)) {
     throw Error("Uncertain history total unavailable");
+  }
   return row;
 }
 
 export function pruneUncertainHistory(db: HistoryDatabase, cutoff: string, budget: number) {
-  if (!hasUncertainHistory(db)) return false;
+  if (!hasUncertainHistory(db)) {
+    return false;
+  }
   db.prepare(`DELETE FROM usage_uncertain WHERE event_id IN
     (SELECT event_id FROM usage_uncertain WHERE occurred_at<? ORDER BY occurred_at,event_id LIMIT ?)`).run(
     cutoff,

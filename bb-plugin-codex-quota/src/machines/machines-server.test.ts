@@ -11,7 +11,8 @@ import {
   recordedFixture,
 } from "./machines.test-support.js";
 import { emptyActivity } from "../activity/activity-contract.js";
-import { calendarUnavailable, type CalendarQuery } from "../history/calendar/calendar-contract.js";
+import { calendarUnavailable } from "../history/calendar/calendar-contract.js";
+import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
 import { latestStart, shiftDate } from "../history/calendar/calendar-time.js";
 import { preparationUnavailable } from "../history/report-preparation-contract.js";
 import { comparisonReasons } from "../history/calendar/calendar-comparison.js";
@@ -127,8 +128,8 @@ describe("footer allowance selection", () => {
 
 describe("all-machine public reports", () => {
   it("reads every enrolled machine, adds only recorded history, and keeps shared paths separate", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     const accounts = accountsSchema.parse(
       await service.accounts({ refresh: false, includeActivity: false }),
     );
@@ -192,16 +193,16 @@ describe("all-machine public reports", () => {
     restarted.dispose();
   });
   it("aligns cached dates after restart rather than shifting old totals into the new range", async () => {
-    const f = fixture(),
-      first = f.create();
+    const f = fixture();
+    const first = f.create();
     await first.reports({ query, prepare: false, refresh: false });
     first.dispose();
     f.setMachines([
       machineFixture("host_one", "disconnected"),
       machineFixture("host_two", "disconnected"),
     ]);
-    const next = f.create(),
-      shifted = { ...query, startDate: shiftDate(query.startDate, -1) };
+    const next = f.create();
+    const shifted = { ...query, startDate: shiftDate(query.startDate, -1) };
     const result = combineReports(
       await next.reports({ query: shifted, prepare: false, refresh: false }),
       shifted,
@@ -219,8 +220,8 @@ describe("all-machine public reports", () => {
     next.dispose();
   });
   it("clears old summaries when a machine explicitly reports incompatible history", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     await service.reports({ query, prepare: false, refresh: false });
     f.report.mockResolvedValue(calendarUnavailable("storage-incompatible"));
     expect(
@@ -253,8 +254,8 @@ describe("all-machine public reports", () => {
     service.dispose();
   });
   it("does not publish results or cached summaries after enrollment removal", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     await service.reports({ query, prepare: false, refresh: false });
     let resolve!: (value: unknown) => void;
     f.report.mockImplementation(
@@ -324,8 +325,8 @@ describe("all-machine public reports", () => {
 
 describe("saved machine observations", () => {
   it("opens durable 1200 tokens and cost 6 after restart without dispatching any host work", async () => {
-    const f = fixture(),
-      first = f.create();
+    const f = fixture();
+    const first = f.create();
     expect(
       combineReports(await first.reports({ query, prepare: false, refresh: false }), query)
         ?.summary,
@@ -358,8 +359,8 @@ describe("saved machine observations", () => {
   });
 
   it("keeps a cold machine unknown and excludes removed enrollment", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     const cold = await service.lastKnown(query);
     expect(cold.machines.map((row) => row.report)).toEqual([
       { state: "unavailable", reason: "host-offline" },
@@ -378,8 +379,8 @@ describe("saved machine observations", () => {
   });
 
   it("enforces requested retention, future dates and every non-date query dimension", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     await service.reports({ query, prepare: false, refresh: false });
     for (const changed of [
       { ...query, startDate: shiftDate(query.startDate, 1) },
@@ -389,8 +390,9 @@ describe("saved machine observations", () => {
       { ...query, includeUncertain: false },
       { ...query, includeUncertain: false, comparison: true },
       { ...query, scope: { kind: "workspace" as const, workspace: "/other" } },
-    ])
+    ]) {
       expect(combineReports(await service.lastKnown(changed), changed)).toBeNull();
+    }
     const overlapping = { ...query, startDate: shiftDate(query.startDate, -1) };
     expect(
       combineReports(await service.lastKnown(overlapping), overlapping)?.summary.totalTokens,
@@ -399,10 +401,11 @@ describe("saved machine observations", () => {
   });
 
   it("fails closed during overlapping mutations and does not dispatch after failed initial invalidation", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     await service.reports({ query, prepare: false, refresh: false });
-    let finishOne!: () => void, finishTwo!: () => void;
+    let finishOne!: () => void;
+    let finishTwo!: () => void;
     const one = service.mutate(
       "host_one",
       () =>
@@ -432,7 +435,9 @@ describe("saved machine observations", () => {
     await two;
     const set = f.storage.set;
     f.storage.set = async (key, value) => {
-      if (key.startsWith("machine-summary-v1/host_one/")) throw Error("write failure");
+      if (key.startsWith("machine-summary-v1/host_one/")) {
+        throw Error("write failure");
+      }
       await set(key, value);
     };
     const work = vi.fn(async () => 1);
@@ -448,14 +453,16 @@ describe("saved machine observations", () => {
   it.each(["storage-incompatible", "range-unavailable"] as const)(
     "durably excludes %s summaries before failed payload deletion",
     async (reason) => {
-      const f = fixture(),
-        service = f.create();
+      const f = fixture();
+      const service = f.create();
       await service.reports({ query, prepare: false, refresh: false });
       const overlap = { ...query, startDate: shiftDate(query.startDate, -1) };
       await service.reports({ query: overlap, prepare: false, refresh: false });
       const remove = f.storage.delete;
       f.storage.delete = async (key) => {
-        if (key.startsWith("machine-summary-v1/host_one/")) throw Error("delete failure");
+        if (key.startsWith("machine-summary-v1/host_one/")) {
+          throw Error("delete failure");
+        }
         await remove(key);
       };
       f.report.mockImplementation(async (id, q) =>
@@ -478,8 +485,8 @@ describe("saved machine observations", () => {
   );
 
   it("reports corruption and storage failure as unknown, never zero", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     await service.reports({ query, prepare: false, refresh: false });
     await f.storage.set("machine-summary-v1/host_one/index", ["not-a-digest"]);
     const corrupt = await service.lastKnown(query);
@@ -496,16 +503,17 @@ describe("saved machine observations", () => {
   it.each([false, true])(
     "retires saved results when invalidation arrives during final enrollment verification, failure=%s",
     async (failure) => {
-      const f = fixture(),
-        service = f.create();
+      const f = fixture();
+      const service = f.create();
       await service.reports({ query, prepare: false, refresh: false });
       let finish!: () => void;
       const get = f.deps.get;
       f.deps.get = async (id) => {
-        if (id === "host_one")
+        if (id === "host_one") {
           await new Promise<void>((done) => {
             finish = done;
           });
+        }
         return get(id);
       };
       const pending = service.lastKnown(query);
@@ -513,11 +521,15 @@ describe("saved machine observations", () => {
       if (failure) {
         const set = f.storage.set;
         f.storage.set = async (key, value) => {
-          if (key.startsWith("machine-summary-v1/host_one/")) throw Error("write failure");
+          if (key.startsWith("machine-summary-v1/host_one/")) {
+            throw Error("write failure");
+          }
           await set(key, value);
         };
         await expect(service.invalidate("host_one")).rejects.toThrow("write failure");
-      } else await service.invalidate("host_one");
+      } else {
+        await service.invalidate("host_one");
+      }
       finish();
       const saved = await pending;
       expect(saved.cache).toBe(failure ? "unavailable" : "saved");
@@ -534,13 +546,13 @@ describe("saved machine observations", () => {
   );
 
   it("fences an already-started cache save before management host work can begin", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     await service.reports({ query, prepare: false, refresh: false });
     const get = f.storage.get;
-    let hold = false,
-      entered!: () => void,
-      release!: () => void;
+    let hold = false;
+    let entered!: () => void;
+    let release!: () => void;
     const waiting = new Promise<void>((done) => {
       entered = done;
     });
@@ -577,8 +589,8 @@ describe("saved machine observations", () => {
   });
 
   it("keeps current comparison totals when prior is unavailable, but rejects starts before snapshot retention", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     const comparison = { ...query, includeUncertain: false, comparison: true };
     f.report.mockImplementation(async (_id, q) => {
       const value = recordedFixture(q, now);
@@ -604,8 +616,8 @@ describe("saved machine observations", () => {
     service.dispose();
   });
   it("retires an in-flight observation after another response definitively rejects its history", async () => {
-    const f = fixture(),
-      service = f.create();
+    const f = fixture();
+    const service = f.create();
     await service.reports({ query, prepare: false, refresh: false });
     let finish!: (value: unknown) => void;
     f.report.mockImplementationOnce(
@@ -645,12 +657,12 @@ describe("saved machine observations", () => {
   ] as const)(
     "retires completed %s rows when another host delays publication, invalidation failure=%s",
     async (mode, failure) => {
-      const f = fixture(),
-        service = f.create();
+      const f = fixture();
+      const service = f.create();
       await service.reports({ query, prepare: false, refresh: false });
-      let entered!: () => void,
-        finish!: () => void,
-        firstHostChecks = 0;
+      let entered!: () => void;
+      let finish!: () => void;
+      let firstHostChecks = 0;
       const waiting = new Promise<void>((done) => {
         entered = done;
       });
@@ -662,7 +674,9 @@ describe("saved machine observations", () => {
         if (id === "host_two") {
           entered();
           await held;
-        } else firstHostChecks++;
+        } else {
+          firstHostChecks += 1;
+        }
         return get(id);
       };
       try {
@@ -674,15 +688,19 @@ describe("saved machine observations", () => {
         await vi.waitFor(() => expect(firstHostChecks).toBe(mode === "saved" ? 1 : 3));
         await new Promise<void>((done) => setTimeout(done, 0));
         const set = f.storage.set;
-        if (failure)
+        if (failure) {
           f.storage.set = async (key, value) => {
-            if (key === "machine-summary-v1/host_one/index")
+            if (key === "machine-summary-v1/host_one/index") {
               throw Error("invalidation unavailable");
+            }
             return set(key, value);
           };
-        if (failure)
+        }
+        if (failure) {
           await expect(service.invalidate("host_one")).rejects.toThrow("invalidation unavailable");
-        else await service.invalidate("host_one");
+        } else {
+          await service.invalidate("host_one");
+        }
         f.storage.set = set;
         f.deps.get = get;
         finish();

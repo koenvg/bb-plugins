@@ -39,7 +39,8 @@ it("strict browser contract rejects filenames and untrusted evidence", () => {
   ).toBe(false);
 });
 it("rechecks host changes after queued metadata and never dispatches to an old host", async () => {
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -47,7 +48,9 @@ it("rechecks host changes after queued metadata and never dispatches to an old h
     entered = resolve;
   });
   const harness = await setup(async (method) => {
-    if (method !== "historyReadiness") throw Error("unexpected host dispatch");
+    if (method !== "historyReadiness") {
+      throw Error("unexpected host dispatch");
+    }
     entered();
     await held;
     return readiness;

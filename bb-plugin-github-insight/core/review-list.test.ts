@@ -3,12 +3,8 @@ import prFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
 import { parsePrFiles } from "./pr-files";
 import type { ListedCommentDraft } from "./review-drafts";
-import {
-  formatReviewDrafts,
-  formatReviewList,
-  reviewListEntries,
-  type ReviewListEntry,
-} from "./review-list";
+import { formatReviewDrafts, formatReviewList, reviewListEntries } from "./review-list";
+import type { ReviewListEntry } from "./review-list";
 import { MAX_COMMENT_BODY_CHARS, parseReviewThreads } from "./review-threads";
 import { placeThreads } from "./thread-placement";
 

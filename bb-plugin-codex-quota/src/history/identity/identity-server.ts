@@ -2,11 +2,8 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { createIdentityDiscovery } from "./identity-discovery.js";
 import { historyReadinessSchema } from "../history-contract.js";
 import type { IdentityBatch } from "./identity-contract.js";
-import {
-  hostPreparationSchema,
-  preparationUnavailable,
-  type Preparation,
-} from "../report-preparation-contract.js";
+import { hostPreparationSchema, preparationUnavailable } from "../report-preparation-contract.js";
+import type { Preparation } from "../report-preparation-contract.js";
 
 export function createIdentityHistoryCall(
   bb: BbPluginApi,
@@ -53,15 +50,19 @@ export function createIdentityHistoryCall(
       ? (parsed.data.collection?.attribution ?? parsed.data.attribution)
       : undefined;
     if (batch && attribution) {
-      if (batch.total !== null && batch.offset > 0 && attribution.discovery === "unknown")
+      if (batch.total !== null && batch.offset > 0 && attribution.discovery === "unknown") {
         discovery.resetDelivery(batch);
-      else discovery.delivered(batch);
+      } else {
+        discovery.delivered(batch);
+      }
     }
     return result;
   };
   return Object.assign(read, {
     async prepare(hostId: string, signal: AbortSignal, refresh: boolean): Promise<Preparation> {
-      if (!prepareCall) return preparationUnavailable("unsupported");
+      if (!prepareCall) {
+        return preparationUnavailable("unsupported");
+      }
       let batch: IdentityBatch;
       try {
         batch = await discovery.next(
@@ -79,11 +80,17 @@ export function createIdentityHistoryCall(
         await prepareCall(hostId, signal, { identities: batch }),
       );
       signal.throwIfAborted();
-      if (!result.success) return preparationUnavailable("unsupported");
-      if (result.data.state === "unavailable") return preparationUnavailable(result.data.reason);
+      if (!result.success) {
+        return preparationUnavailable("unsupported");
+      }
+      if (result.data.state === "unavailable") {
+        return preparationUnavailable(result.data.reason);
+      }
       const { attribution, progress, ingestionPending } = result.data;
       if (batch.total !== null && attribution.discovery === "unknown") {
-        if (batch.offset > 0) discovery.resetDelivery(batch);
+        if (batch.offset > 0) {
+          discovery.resetDelivery(batch);
+        }
         return preparationUnavailable("identity-unavailable");
       }
       discovery.delivered(batch);

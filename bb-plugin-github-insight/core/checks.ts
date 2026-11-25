@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { checkFailure, checkFailureSchema, type Annotation } from "./failure";
+import { checkFailure, checkFailureSchema } from "./failure";
+import type { Annotation } from "./failure";
 
 export const checkRunNodeSchema = z.object({
   __typename: z.literal("CheckRun"),
@@ -84,7 +85,9 @@ export function mapCheckRunStatus(
   status: CheckRunNode["status"],
   conclusion: CheckRunNode["conclusion"],
 ): CheckStatus {
-  if (status !== "COMPLETED" || conclusion === null) return "running";
+  if (status !== "COMPLETED" || conclusion === null) {
+    return "running";
+  }
   return CONCLUSION_STATUS[conclusion];
 }
 
@@ -139,7 +142,9 @@ function toCandidate(node: CheckNode): CheckCandidate {
 function isNewer(candidate: CheckCandidate, current: CheckCandidate): boolean {
   const [candidateTime, candidateTieBreak] = candidate.recency;
   const [currentTime, currentTieBreak] = current.recency;
-  if (candidateTime !== currentTime) return candidateTime > currentTime;
+  if (candidateTime !== currentTime) {
+    return candidateTime > currentTime;
+  }
   return candidateTieBreak > currentTieBreak;
 }
 
@@ -155,7 +160,9 @@ export function latestCheckCandidates(nodes: readonly CheckNode[]): CheckCandida
       (candidate.source === "check_run"
         ? candidate.recency[1] > current.recency[1]
         : isNewer(candidate, current));
-    if (newer) newestBySource.set(candidate.source, candidate);
+    if (newer) {
+      newestBySource.set(candidate.source, candidate);
+    }
     newestByName.set(candidate.name, newestBySource);
   }
   return [...newestByName.values()].map((newestBySource) =>

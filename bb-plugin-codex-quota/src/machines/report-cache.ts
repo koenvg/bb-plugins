@@ -1,10 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import {
-  calendarReportSchema,
-  type CalendarQuery,
-  type CalendarSnapshot,
-} from "../history/calendar/calendar-contract.js";
+import { calendarReportSchema } from "../history/calendar/calendar-contract.js";
+import type { CalendarQuery, CalendarSnapshot } from "../history/calendar/calendar-contract.js";
 import { dayBoundary, latestStart, shiftDate } from "../history/calendar/calendar-time.js";
 import { retentionCutoffs } from "../history/storage/history-retention.js";
 
@@ -37,17 +34,24 @@ function decodeLegacyReport(raw: unknown): unknown {
   const object = (value: unknown): value is Record<string, unknown> =>
     !!value && typeof value === "object" && !Array.isArray(value);
   const strip = (value: unknown, keys: string[]) => {
-    if (!object(value)) return value;
+    if (!object(value)) {
+      return value;
+    }
     return Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
   };
-  if (!object(raw)) return raw;
+  if (!object(raw)) {
+    return raw;
+  }
   const days = Array.isArray(raw.days)
     ? raw.days.map((value) => {
         const day = strip(value, ["speedTokens"]);
-        if (!object(day) || !object(day.models)) return day;
+        if (!object(day) || !object(day.models)) {
+          return day;
+        }
         const models = strip(day.models, ["otherSpeedTokens"]) as Record<string, unknown>;
-        if (Array.isArray(models.named))
+        if (Array.isArray(models.named)) {
           models.named = models.named.map((row) => strip(row, ["speedTokens"]));
+        }
         return { ...day, models };
       })
     : raw.days;
@@ -86,8 +90,8 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
     const root = `${prefix}${hostId}/`;
     const keys = indexSchema.parse((await storage.get<unknown>(root + "index")) ?? []);
     const retained: { key: string; report: CalendarSnapshot }[] = [];
-    const clock = now(),
-      cutoff = retentionCutoffs(clock).compact;
+    const clock = now();
+    const cutoff = retentionCutoffs(clock).compact;
     for (const key of keys) {
       const parsed = calendarReportSchema.safeParse(
         decodeLegacyReport(await storage.get<unknown>(root + key)),
@@ -100,14 +104,18 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
           (report.compactFrom > cutoff ? report.compactFrom : cutoff)
       ) {
         await storage.delete(root + key);
-      } else retained.push({ key, report });
+      } else {
+        retained.push({ key, report });
+      }
     }
-    if (retained.length)
+    if (retained.length) {
       await storage.set(
         root + "index",
         retained.map((value) => value.key),
       );
-    else await storage.delete(root + "index");
+    } else {
+      await storage.delete(root + "index");
+    }
     return retained;
   };
   const removeHost = async (hostId: string) => {
@@ -115,28 +123,36 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
     // The index is the durable reachability boundary when body deletion fails.
     await storage.set(root + "index", []);
     for (const key of await storage.list(root)) {
-      if (key !== root + "index") await storage.delete(key);
+      if (key !== root + "index") {
+        await storage.delete(key);
+      }
     }
     await storage.delete(root + "index");
   };
   return {
     read(hostId: string, query: CalendarQuery): Promise<CalendarSnapshot | null> {
       return serial(async () => {
-        const values = await pruneHost(hostId),
-          exact = digest(query);
+        const values = await pruneHost(hostId);
+        const exact = digest(query);
         values.sort((a, b) => Number(b.key === exact) - Number(a.key === exact));
         return values.find(({ report }) => eligible(report, query, now()))?.report ?? null;
       });
     },
     save(hostId: string, report: CalendarSnapshot, admit = () => true) {
       return serial(async () => {
-        if (!admit()) return;
+        if (!admit()) {
+          return;
+        }
         const parsed = calendarReportSchema.parse(report);
-        if (parsed.state === "unavailable") return;
-        const root = `${prefix}${hostId}/`,
-          key = digest(parsed.query);
+        if (parsed.state === "unavailable") {
+          return;
+        }
+        const root = `${prefix}${hostId}/`;
+        const key = digest(parsed.query);
         const old = (await pruneHost(hostId)).map((value) => value.key);
-        if (!admit()) return;
+        if (!admit()) {
+          return;
+        }
         const keys = [key, ...old.filter((entry) => entry !== key)].slice(0, 8);
         // Ranking names can be long. Preserve daily totals within KV's 256KB bound.
         const saved =
@@ -144,16 +160,21 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
             ? parsed
             : { ...parsed, ranking: [], truncated: true };
         await storage.set(root + key, saved);
-        if (!admit()) return;
+        if (!admit()) {
+          return;
+        }
         await storage.set(root + "index", keys);
-        for (const remove of old.filter((entry) => !keys.includes(entry)))
+        for (const remove of old.filter((entry) => !keys.includes(entry))) {
           await storage.delete(root + remove);
+        }
         await pruneHost(hostId);
       });
     },
     removeQuery(hostId: string, query: CalendarQuery, admit = () => true) {
       return serial(async () => {
-        if (!admit()) return;
+        if (!admit()) {
+          return;
+        }
         const root = `${prefix}${hostId}/`;
         const keys = indexSchema.parse((await storage.get<unknown>(root + "index")) ?? []);
         const remove: string[] = [];
@@ -165,21 +186,28 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
             !parsed.success ||
             parsed.data.state === "unavailable" ||
             eligible(parsed.data, query, now())
-          )
+          ) {
             remove.push(key);
+          }
         }
-        if (!admit()) return;
+        if (!admit()) {
+          return;
+        }
         // Exclude invalid summaries durably even if deleting their bodies fails.
         await storage.set(
           root + "index",
           keys.filter((key) => !remove.includes(key)),
         );
-        for (const key of remove) await storage.delete(root + key);
+        for (const key of remove) {
+          await storage.delete(root + key);
+        }
       });
     },
     remove(hostId: string, admit = () => true) {
       return serial(async () => {
-        if (!admit()) return;
+        if (!admit()) {
+          return;
+        }
         await removeHost(hostId);
       });
     },
@@ -188,8 +216,14 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
         const hosts = new Set(
           (await storage.list(prefix)).map((key) => key.slice(prefix.length).split("/")[0]!),
         );
-        for (const hostId of hosts) if (!ids.has(hostId)) await removeHost(hostId);
-        for (const hostId of ids) await pruneHost(hostId);
+        for (const hostId of hosts) {
+          if (!ids.has(hostId)) {
+            await removeHost(hostId);
+          }
+        }
+        for (const hostId of ids) {
+          await pruneHost(hostId);
+        }
       });
     },
   };

@@ -117,7 +117,9 @@ export function panelRpc(getReviewQueue: QueueHandler, rpc: Partial<PanelRpc> = 
     getReviewQueue,
     refreshReviewQueue: async () => {
       const result = await getReviewQueue();
-      if (result.kind === "loading") throw new Error("unexpected loading");
+      if (result.kind === "loading") {
+        throw new Error("unexpected loading");
+      }
       return result;
     },
     startReview: () => ({ threadId: "thr_new" }),

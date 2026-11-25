@@ -28,8 +28,11 @@ export function postIntent<Tab extends CommandTab>(
 ): void {
   const key = keyOf(threadId, tab);
   const listener = listeners.get(key)?.at(-1);
-  if (listener) listener(intent);
-  else pending.set(key, { intent, postedAt: Date.now() });
+  if (listener) {
+    listener(intent);
+  } else {
+    pending.set(key, { intent, postedAt: Date.now() });
+  }
 }
 
 export function peekIntent<Tab extends CommandTab>(
@@ -37,14 +40,18 @@ export function peekIntent<Tab extends CommandTab>(
   tab: Tab,
 ): IntentOf<Tab> | null {
   const entry = pending.get(keyOf(threadId, tab));
-  if (!entry || Date.now() - entry.postedAt > PENDING_TTL_MS) return null;
+  if (!entry || Date.now() - entry.postedAt > PENDING_TTL_MS) {
+    return null;
+  }
   return entry.intent as IntentOf<Tab>;
 }
 
 function takePending(key: string): string | null {
   const entry = pending.get(key);
   pending.delete(key);
-  if (!entry || Date.now() - entry.postedAt > PENDING_TTL_MS) return null;
+  if (!entry || Date.now() - entry.postedAt > PENDING_TTL_MS) {
+    return null;
+  }
   return entry.intent;
 }
 
@@ -64,11 +71,16 @@ export function useCommandIntent<Tab extends CommandTab>(
     const stack = listeners.get(key) ?? [];
     listeners.set(key, [...stack, listener]);
     const waiting = takePending(key);
-    if (waiting !== null) listener(waiting);
+    if (waiting !== null) {
+      listener(waiting);
+    }
     return () => {
       const remaining = (listeners.get(key) ?? []).filter((entry) => entry !== listener);
-      if (remaining.length > 0) listeners.set(key, remaining);
-      else listeners.delete(key);
+      if (remaining.length > 0) {
+        listeners.set(key, remaining);
+      } else {
+        listeners.delete(key);
+      }
     };
   }, [threadId, tab]);
 }

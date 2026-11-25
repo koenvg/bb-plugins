@@ -39,9 +39,15 @@ function disabledReason(
   event: ReviewEvent,
   { state, body, commentCount }: SubmitRulesInput,
 ): string | null {
-  if (state !== "OPEN") return STATE_REASONS[state];
+  if (state !== "OPEN") {
+    return STATE_REASONS[state];
+  }
   const hasBody = hasText(body);
-  if (event === "REQUEST_CHANGES" && !hasBody) return "Add a summary to request changes";
-  if (event === "COMMENT" && !hasBody && commentCount === 0) return "Add a summary or a comment";
+  if (event === "REQUEST_CHANGES" && !hasBody) {
+    return "Add a summary to request changes";
+  }
+  if (event === "COMMENT" && !hasBody && commentCount === 0) {
+    return "Add a summary or a comment";
+  }
   return null;
 }

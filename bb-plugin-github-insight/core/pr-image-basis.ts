@@ -48,7 +48,9 @@ export function parseImageRefs(value: unknown): PrImageRefs | null {
       }),
     })
     .safeParse(value);
-  if (!result.success) return null;
+  if (!result.success) {
+    return null;
+  }
   const pr = result.data.data.repository.pullRequest;
   const refs = prImageRefsSchema.safeParse({
     baseSha: pr.baseRefOid,

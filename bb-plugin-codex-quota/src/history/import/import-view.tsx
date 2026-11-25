@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  importViewSchema,
-  importUnavailable,
-  type ImportCommand,
-  type ImportView,
-} from "./import-contract.js";
+import { importViewSchema, importUnavailable } from "./import-contract.js";
+import type { ImportCommand, ImportView } from "./import-contract.js";
 import type { HistoryRequest } from "../history-contract.js";
+
 type Props = {
   selection: { hostId: string | null; generation: number };
   selectionPending?: boolean;
@@ -46,8 +43,8 @@ export function ImportPanel({
   callRef.current = call;
   const activeRef = useRef(isActive);
   activeRef.current = isActive;
-  const sequence = useRef(0),
-    mounted = useRef(true);
+  const sequence = useRef(0);
+  const mounted = useRef(true);
   const [observation, setObservation] = useState<{
     key: string;
     view: ImportView;
@@ -70,14 +67,16 @@ export function ImportPanel({
           workspaces: view?.configuration?.workspaces.join("\n") ?? "",
         };
   const activate = (command: ImportCommand) => {
-    if (selectionPending || !selection.hostId) return;
-    const seq = ++sequence.current,
-      scope = key,
-      input = {
-        hostId: selection.hostId,
-        generation: selection.generation,
-        command,
-      };
+    if (selectionPending || !selection.hostId) {
+      return;
+    }
+    const seq = (sequence.current += 1);
+    const scope = key;
+    const input = {
+      hostId: selection.hostId,
+      generation: selection.generation,
+      command,
+    };
     const valid = () =>
       mounted.current &&
       currentKey.current === scope &&
@@ -87,7 +86,9 @@ export function ImportPanel({
     void Promise.resolve()
       .then(() => (valid() ? callRef.current(input) : null))
       .then((value) => {
-        if (!valid()) return;
+        if (!valid()) {
+          return;
+        }
         const parsed = importViewSchema.safeParse(value);
         setObservation({
           key: scope,
@@ -95,31 +96,34 @@ export function ImportPanel({
         });
       })
       .catch(() => {
-        if (valid())
+        if (valid()) {
           setObservation({
             key: scope,
             view: importUnavailable("unsupported"),
           });
+        }
       })
       .finally(() => {
-        if (valid()) setBusy(null);
+        if (valid()) {
+          setBusy(null);
+        }
       });
   };
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      sequence.current++;
+      sequence.current += 1;
     };
   }, []);
   useEffect(() => {
     activate({ action: "status" });
     return () => {
-      sequence.current++;
+      sequence.current += 1;
     };
   }, [key]);
-  const pending = selectionPending || busy?.key === key,
-    unfinished = view?.generation?.state === "stopped";
+  const pending = selectionPending || busy?.key === key;
+  const unfinished = view?.generation?.state === "stopped";
   const field = (label: string, name: "bbRoot" | "ordinary" | "workspaces", multiline = false) => (
     <label className="mt-3 block min-w-0">
       {label}

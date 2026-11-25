@@ -1,15 +1,15 @@
 import type { PluginKvStorage } from "@get-bb/plugin-sdk";
-import { draftSchema, type Draft, type Drafts } from "../core/drafts";
-import { prKey, type PullRequestRef } from "../core/pr-ref";
+import { draftSchema } from "../core/drafts";
+import type { Draft, Drafts } from "../core/drafts";
+import { prKey } from "../core/pr-ref";
+import type { PullRequestRef } from "../core/pr-ref";
 import {
   commentDraftEntry,
   readCommentDraft,
   readSummaryDraft,
   summaryDraftEntry,
-  type CommentDraft,
-  type ListedCommentDraft,
-  type SummaryDraft,
 } from "../core/review-drafts";
+import type { CommentDraft, ListedCommentDraft, SummaryDraft } from "../core/review-drafts";
 import type { CollectedReviewThreads } from "../core/review-threads";
 
 export type DraftStore = ReturnType<typeof createDraftStore>;
@@ -51,9 +51,11 @@ function splitDrafts(
   const staleKeys: string[] = [];
   for (const { key, reviewThreadId, draft } of rows) {
     const resolved = resolvedById.get(reviewThreadId);
-    if (!draft.success || resolved === true || (resolved === undefined && complete))
+    if (!draft.success || resolved === true || (resolved === undefined && complete)) {
       staleKeys.push(key);
-    else if (resolved === false) drafts[reviewThreadId] = draft.data;
+    } else if (resolved === false) {
+      drafts[reviewThreadId] = draft.data;
+    }
   }
   return { drafts, staleKeys };
 }
@@ -84,7 +86,9 @@ export function createDraftStore(kv: PluginKvStorage) {
     async editComment(pr: PullRequestRef, draftId: string, edit: CommentEdit): Promise<boolean> {
       const key = commentPrefixOf(pr) + draftId;
       const draft = readCommentDraft(await kv.get(key));
-      if (draft === null) return false;
+      if (draft === null) {
+        return false;
+      }
       await kv.set(key, commentDraftEntry({ ...draft, ...edit }));
       return true;
     },

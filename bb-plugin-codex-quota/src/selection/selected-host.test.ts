@@ -69,9 +69,10 @@ type Failure =
   | "host-offline"
   | "unsupported";
 function unavailable(method: string, reason: Failure) {
-  if (method === "read" || method === "activity")
+  if (method === "read" || method === "activity") {
     return { state: "unavailable", reason, snapshot: null };
-  if (method === "historyReadiness" || method === "collectorControl")
+  }
+  if (method === "historyReadiness" || method === "collectorControl") {
     return {
       state: "unavailable",
       reason,
@@ -79,7 +80,10 @@ function unavailable(method: string, reason: Failure) {
       collector: "unchecked",
       writer: "unconfirmed",
     };
-  if (method === "historicalImport") return { reason, configuration: null, generation: null };
+  }
+  if (method === "historicalImport") {
+    return { reason, configuration: null, generation: null };
+  }
   return { state: "unavailable", reason };
 }
 
@@ -192,7 +196,7 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
     try {
       let checks = 0;
       harness.inspection.sdk.stub("hosts.get", async () => {
-        checks++;
+        checks += 1;
         return stage === "before" || checks === 2 ? host : makeHostResponse({ id: "host_a" });
       });
       expect(
@@ -210,7 +214,9 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
       const secret = "private-credential-sentinel";
       const { harness, generation, setCall } = await setup(result);
       setCall(async () => {
-        if (failure === "transport failure") throw Error(secret);
+        if (failure === "transport failure") {
+          throw Error(secret);
+        }
         return { ...result, raw: secret };
       });
       try {
@@ -239,7 +245,7 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
       let checks = 0;
       harness.inspection.sdk.stub("hosts.get", async ({ hostId }: { hostId: string }) => {
         if (hostId === "host_a") {
-          checks++;
+          checks += 1;
           if (
             (stage === "enrollment" && checks === 1) ||
             (stage === "publication" && checks === 2)
@@ -261,13 +267,15 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
       let deadline: ReturnType<typeof setTimeout> | undefined;
       try {
         await entered.promise;
-        if (change === "dispose") await harness.lifecycle.dispose();
-        else {
+        if (change === "dispose") {
+          await harness.lifecycle.dispose();
+        } else {
           await harness.behavior.callRpc("selectHost", {
             hostId: change === "deselect" ? null : "host_b",
           });
-          if (change === "switch back")
+          if (change === "switch back") {
             await harness.behavior.callRpc("selectHost", { hostId: "host_a" });
+          }
         }
         // Do not release the adapter until the caller settles. A late-result-only
         // assertion would miss a guard that waits forever for an ignored signal.
@@ -280,8 +288,9 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
           ]),
         ).toEqual(unavailable(method, "selection-changed"));
         expect(harness.experimental_hostRpcCalls).toHaveLength(stage === "enrollment" ? 0 : 1);
-        if (stage !== "enrollment")
+        if (stage !== "enrollment") {
           expect(harness.experimental_hostRpcCalls[0]?.signal?.aborted).toBe(true);
+        }
       } finally {
         clearTimeout(deadline);
         held.resolve();

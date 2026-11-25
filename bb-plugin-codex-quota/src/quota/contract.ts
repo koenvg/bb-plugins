@@ -14,6 +14,7 @@ import {
   calendarQuerySchema,
   calendarReportSchema,
 } from "../history/calendar/calendar-contract.js";
+
 const windowSchema = z
   .object({
     id: z.string().regex(/^[a-z][a-z0-9_]{0,47}_window$/),
