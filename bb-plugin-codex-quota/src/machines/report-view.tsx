@@ -88,6 +88,8 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
       </section>
     );
   }
+  const handleRetry = preparation.retry;
+  const handleThreadReportRetry = threadReport.retry;
   return (
     <section
       className="@container min-w-0 text-sm"
@@ -100,6 +102,7 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
             {start} – {shiftDate(start, 29)}
           </span>
           <button
+            type="button"
             className={reportButton}
             aria-label="Previous 30 days"
             disabled={loading || !view?.previous}
@@ -108,6 +111,7 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
             Previous
           </button>
           <button
+            type="button"
             className={reportButton}
             aria-label="Next 30 days"
             disabled={loading || !view?.next}
@@ -116,19 +120,20 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
             Next
           </button>
           <button
+            type="button"
             className={reportButton}
             onClick={() => setStart(latestStart(Date.now(), timezone))}
           >
             Latest
           </button>
         </div>
-        <div
+        <fieldset
           className="inline-flex max-w-full flex-wrap rounded-md bg-muted p-1"
-          role="group"
           aria-label="Chart metric"
         >
           {(["tokens", "cost"] as const).map((value) => (
             <button
+              type="button"
               key={value}
               className="min-h-8 pointer-coarse:min-h-11 rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
               aria-pressed={metric === value}
@@ -137,7 +142,7 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
               {value === "tokens" ? "Tokens" : "Estimated cost"}
             </button>
           ))}
-        </div>
+        </fieldset>
       </div>
       <div className="mt-5 flex flex-wrap gap-x-10 gap-y-3">
         <div>
@@ -191,19 +196,19 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
         )}
       </div>
       {(failed || !view) && !loading && (
-        <button className={`${reportButton} mt-2`} onClick={retry}>
+        <button type="button" className={`${reportButton} mt-2`} onClick={retry}>
           Retry chart
         </button>
       )}
       {stale && view && !failed && !loading && (
-        <button className={`${reportButton} mt-2`} onClick={retry}>
+        <button type="button" className={`${reportButton} mt-2`} onClick={retry}>
           Refresh chart
         </button>
       )}
       {preparation.state === "stopped" && (
         <div className="mt-2 text-xs text-muted-foreground">
           <p>History preparation stopped. Known recorded values remain available.</p>
-          <button className={`${reportButton} mt-2`} onClick={preparation.retry}>
+          <button type="button" className={`${reportButton} mt-2`} onClick={handleRetry}>
             Retry preparation
           </button>
         </div>
@@ -212,13 +217,13 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
         <h2 className="text-sm font-semibold">
           Top 10 {group === "workspace" ? "workspaces" : "threads"}
         </h2>
-        <div
+        <fieldset
           className="inline-flex max-w-full flex-wrap rounded-md bg-muted p-1"
-          role="group"
           aria-label="Usage grouping"
         >
           {(["thread", "workspace"] as const).map((value) => (
             <button
+              type="button"
               key={value}
               className="min-h-8 pointer-coarse:min-h-11 rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
               aria-pressed={value === group}
@@ -227,7 +232,7 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
               {value === "workspace" ? "Workspaces" : "Threads"}
             </button>
           ))}
-        </div>
+        </fieldset>
       </div>
       {group === "thread" && (
         <div className="mt-2 min-h-5 text-xs text-muted-foreground">
@@ -237,7 +242,11 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
               ? "No usable verified-thread breakdown for this range."
               : ""}
           {!threadReport.loading && (threadReport.failed || !rankingView) && (
-            <button className={`${reportButton} ml-2`} onClick={threadReport.retry}>
+            <button
+              type="button"
+              className={`${reportButton} ml-2`}
+              onClick={handleThreadReportRetry}
+            >
               Retry threads
             </button>
           )}

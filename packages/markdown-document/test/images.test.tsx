@@ -45,8 +45,8 @@ it("fetches explicit remote permission without credentials, referrer or redirect
     referrerPolicy: "no-referrer",
     redirect: "error",
   });
-  expect(screen.getByRole("img", { name: "same" }).textContent).toBe("same (image unavailable)");
-  expect(screen.getByRole("img", { name: "relative" }).textContent).toBe("relative");
+  expect(screen.getByText("same (image unavailable)").textContent).toBe("same (image unavailable)");
+  expect(screen.getByText("relative").textContent).toBe("relative");
   expect(create.mock.calls.length).toBe(1);
   rerender(<MarkdownDocument namespace="images" view="raw" destinations={policy} text={text} />);
   expect(screen.getByLabelText("Raw Markdown").textContent).toBe(text);
@@ -63,7 +63,7 @@ it("fetches explicit remote permission without credentials, referrer or redirect
     expect(screen.getByRole("img", { name: "next" }).getAttribute("src")).toBe("blob:owned-2"),
   );
   fireEvent.error(screen.getByRole("img", { name: "next" }));
-  expect(screen.getByRole("img", { name: "next" }).textContent).toBe("next (image unavailable)");
+  expect(screen.getByText("next (image unavailable)").textContent).toBe("next (image unavailable)");
   unmount();
   expect(revoke.mock.calls).toEqual([["blob:owned-1"], ["blob:owned-2"]]);
 });
@@ -106,7 +106,7 @@ it("aborts replacement and unmount and never displays a late fetched image", asy
   await act(() =>
     Promise.try(() => (requests[0] ?? missingValue("Expected a non-null value")).resolve(image())),
   );
-  expect(screen.getByRole("img", { name: "new" }).textContent).toBe("new");
+  expect(screen.getByText("new").textContent).toBe("new");
   expect(create.mock.calls).toEqual([]);
   unmount();
   expect((requests[1] ?? missingValue("Expected a non-null value")).signal.aborted).toBe(true);
@@ -138,7 +138,7 @@ it("bounds concurrency and total requests while keeping rejected image labels", 
     />,
   );
   await waitFor(() => expect(requests.length).toBe(4));
-  expect(screen.getByRole("img", { name: "image33" }).textContent).toBe(
+  expect(screen.getByText("image33 (image unavailable)").textContent).toBe(
     "image33 (image unavailable)",
   );
   await Array.fromAsync(
@@ -186,7 +186,7 @@ it("keeps image ownership and the request budget across equivalent inline polici
   expect(create.mock.calls.length).toBe(32);
   expect(revoke.mock.calls).toEqual([]);
   expect(screen.getByRole("img", { name: "image0" }).getAttribute("src")).toBe("blob:owned-1");
-  expect(screen.getByRole("img", { name: "image33" }).textContent).toBe(
+  expect(screen.getByText("image33 (image unavailable)").textContent).toBe(
     "image33 (image unavailable)",
   );
 });
@@ -222,11 +222,11 @@ it("enforces streamed per-image and aggregate limits without Content-Length and 
     />,
   );
   await waitFor(() =>
-    expect(screen.getByRole("img", { name: "large" }).textContent).toBe(
+    expect(screen.getByText("large (image unavailable)").textContent).toBe(
       "large (image unavailable)",
     ),
   );
-  expect(screen.getByRole("img", { name: "cors" }).textContent).toBe("cors (image unavailable)");
+  expect(screen.getByText("cors (image unavailable)").textContent).toBe("cors (image unavailable)");
   expect(cancelled).toBe(true);
   expect(create.mock.calls).toEqual([]);
   cleanup();
@@ -242,7 +242,7 @@ it("enforces streamed per-image and aggregate limits without Content-Length and 
     />,
   );
   await waitFor(() =>
-    expect(screen.getByRole("img", { name: "asset4" }).textContent).toBe(
+    expect(screen.getByText("asset4 (image unavailable)").textContent).toBe(
       "asset4 (image unavailable)",
     ),
   );

@@ -445,7 +445,7 @@ describe("task navigation commands", () => {
     flush();
     const dueDate = await slot.findByLabelText("Due date");
     expect((dueDate as HTMLInputElement).value).toBe("2026-08-01");
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Task 1");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Task 1");
     expect(
       f.rpc.listTasks.mock.calls
         .map(([raw]) => rpcInput(raw))
@@ -1050,7 +1050,9 @@ describe("property command keyboard workflow", () => {
           const option = await slot.findByRole(role, { name: choice });
           await waitFor(() =>
             expect(
-              option.closest('[role="menu"], [role="dialog"]')?.contains(document.activeElement),
+              option
+                .closest('[role="menu"], [role="dialog"], dialog[open]')
+                ?.contains(document.activeElement),
             ).toBe(true),
           );
           expect(slot.getAllByRole(role, { name: choice })).toHaveLength(1);

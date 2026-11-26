@@ -172,13 +172,13 @@ export const ProjectsSection = () => {
         </p>
         <p aria-live="polite">{notice}</p>
         <div className="project-inventory-status">
-          <p role="status">
+          <output className="block">
             {inventory.isLoading
               ? inventory.data === undefined
                 ? "Loading projects…"
                 : "Refreshing projects…"
               : ""}
-          </p>
+          </output>
           {ready && rows.length === 0 ? <p>No projects yet. Create one from New project.</p> : null}
           {inventory.error !== null ? (
             <div className="project-inventory-error">
@@ -367,7 +367,7 @@ const ProjectRow = ({
           </PopoverContent>
         </Popover>
       </td>
-      <td className="project-actions-cell">
+      <td className="project-actions-cell" aria-label="Project actions">
         <div className="project-row-actions">
           <Tooltip>
             <TooltipTrigger asChild>

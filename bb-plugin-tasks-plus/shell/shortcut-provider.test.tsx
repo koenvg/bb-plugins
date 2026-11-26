@@ -25,7 +25,7 @@ it.each([false, true])(
               "detail.labels": detailAction,
             },
       );
-      return <button>{pane}</button>;
+      return <button type="button">{pane}</button>;
     };
     const Fixture = () => {
       const rootRef = useRef<HTMLDivElement>(null);

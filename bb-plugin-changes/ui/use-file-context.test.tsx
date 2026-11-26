@@ -58,6 +58,7 @@ const Harness = ({ source }: { source: Snapshot | null }) => {
   return (
     <>
       <button
+        type="button"
         onClick={() => {
           context.activate();
           context.activate();

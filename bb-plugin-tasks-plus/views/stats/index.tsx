@@ -170,6 +170,8 @@ export const StatsView = ({ projectId }: { projectId?: string }) => {
   const stats = query.data?.projectId === projectId ? query.data?.stats : undefined;
   const hasProject = projects.data?.some((project) => project.id === projectId);
 
+  const handleRefresh = projects.refresh;
+  const handleQueryRefresh = query.refresh;
   return (
     <div className="task-stats">
       <div className="stats-heading">
@@ -198,7 +200,7 @@ export const StatsView = ({ projectId }: { projectId?: string }) => {
             </SelectContent>
           </Select>
           {projects.error ? (
-            <Button variant="ghost" size="sm" onClick={projects.refresh}>
+            <Button variant="ghost" size="sm" onClick={handleRefresh}>
               Retry projects
             </Button>
           ) : null}
@@ -213,16 +215,14 @@ export const StatsView = ({ projectId }: { projectId?: string }) => {
               title="Could not load stats"
               description={query.error}
               action={
-                <Button size="sm" onClick={query.refresh}>
+                <Button size="sm" onClick={handleQueryRefresh}>
                   Retry
                 </Button>
               }
             />
           </div>
         ) : !stats ? (
-          <div role="status" className="stats-state stats-loading">
-            Loading stats…
-          </div>
+          <output className="block stats-state stats-loading">Loading stats…</output>
         ) : (
           <>
             {stats.summary.count > 0 && stats.summary.count < 5 ? (
@@ -260,7 +260,7 @@ export const StatsView = ({ projectId }: { projectId?: string }) => {
                     {stats.interrupted.tasks ? (
                       <TaskRows rows={stats.interrupted.tasks} stats={stats} interrupted />
                     ) : (
-                      <p role="status">Loading interrupted tasks…</p>
+                      <output className="block">Loading interrupted tasks…</output>
                     )}
                   </section>
                 ) : null}

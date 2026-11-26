@@ -107,7 +107,7 @@ describe("public document interface", () => {
     const model = createDocumentModel("line\n".repeat(1000), "external-focus");
     const { rerender } = render(
       <>
-        <button>Outside</button>
+        <button type="button">Outside</button>
         <MarkdownDocument
           model={model}
           view="raw"
@@ -120,7 +120,7 @@ describe("public document interface", () => {
     outside.focus();
     rerender(
       <>
-        <button>Outside</button>
+        <button type="button">Outside</button>
         <MarkdownDocument model={model} view="raw" annotateSourceLines />
       </>,
     );
@@ -178,7 +178,14 @@ describe("public document interface", () => {
       kind: "delegated",
       resolve(request) {
         dispatched.push(request.url);
-        return { kind: "bound-link", render: (props) => <a {...props} href="/approved" /> };
+        return {
+          kind: "bound-link",
+          render: (props) => (
+            <a {...props} href="/approved">
+              {props.children}
+            </a>
+          ),
+        };
       },
     };
     const { container } = render(
@@ -230,7 +237,14 @@ describe("public document interface", () => {
           };
         if (request.url === "notes.md") return { kind: "image", source: "source", url: "/bad" };
         if (request.url === "wrong.png")
-          return { kind: "bound-link", render: (props) => <a {...props} href="/bad" /> };
+          return {
+            kind: "bound-link",
+            render: (props) => (
+              <a {...props} href="/bad">
+                {props.children}
+              </a>
+            ),
+          };
         return undefined;
       },
     };

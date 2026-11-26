@@ -138,6 +138,7 @@ const SubTabBar = ({
     <div className="shrink-0 border-b border-border px-4 py-2">
       <div
         role="tablist"
+        tabIndex={-1}
         aria-label="Pull request view"
         className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
         onKeyDown={onKeyDown}

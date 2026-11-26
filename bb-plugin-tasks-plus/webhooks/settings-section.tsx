@@ -304,12 +304,10 @@ export const WebhookSettingsSection = () => {
         <p>Notify an HTTPS endpoint when a task is created.</p>
       </header>
       {settings === "loading" && (
-        <p className="task-webhook-placeholder" role="status">
-          Loading webhooks…
-        </p>
+        <output className="block task-webhook-placeholder">Loading webhooks…</output>
       )}
       {settings === "unavailable" && (
-        <div className="task-webhook-notice" role="status">
+        <output className="block task-webhook-notice">
           <p>Could not load webhook settings.</p>
           <Button
             type="button"
@@ -322,16 +320,16 @@ export const WebhookSettingsSection = () => {
           >
             Retry
           </Button>
-        </div>
+        </output>
       )}
       {typeof settings !== "string" && settings.state === "blocked" && (
-        <div className="task-webhook-notice" role="status">
+        <output className="block task-webhook-notice">
           <h4>Webhook actions unavailable</h4>
           <p>
             The saved webhook configuration is invalid. An administrator must clear it before you
             can add, rename, test, or delete webhooks.
           </p>
-        </div>
+        </output>
       )}
       {healthy && (
         <>
@@ -395,22 +393,22 @@ export const WebhookSettingsSection = () => {
                           }}
                         />
                       </div>
-                      <p
-                        className="task-webhook-test"
-                        role="status"
+                      <output
+                        className="block task-webhook-test"
+
                         data-error={!sending && tests[endpoint.id]?.error}
                       >
                         {sending ? "Sending…" : tests[endpoint.id]?.message}
-                      </p>
+                      </output>
                     </li>
                   );
                 })}
               </ul>
             </TooltipProvider>
             <p>Saved URLs and Authorization values are hidden.</p>
-            <p role="status" data-error={deleteFeedback?.error}>
+            <output className="block" data-error={deleteFeedback?.error}>
               {selection ? null : deleteFeedback?.message}
-            </p>
+            </output>
           </div>
           <form
             aria-labelledby={`${sectionId}-add`}
@@ -490,9 +488,9 @@ export const WebhookSettingsSection = () => {
                 <Button type="submit" size="sm">
                   {pending?.kind === "add" ? "Adding…" : "Add webhook"}
                 </Button>
-                <p role="status" data-error={addFeedback?.error}>
+                <output className="block" data-error={addFeedback?.error}>
                   {addFeedback?.message}
-                </p>
+                </output>
                 {savedId && healthy.endpoints.some(({ id }) => id === savedId) && (
                   <Button
                     type="button"

@@ -162,7 +162,7 @@ class ConversationReader extends Component<
   unknown,
   ReadingSnapshot
 > {
-  private reader = createRef<HTMLDivElement>();
+  private reader = createRef<HTMLElement>();
   private savedScroll = 0;
 
   override getSnapshotBeforeUpdate(
@@ -212,16 +212,16 @@ class ConversationReader extends Component<
   }
 
   override render() {
+    const readingTabIndex = this.props.active ? 0 : -1;
     return (
-      <div
+      <section
         ref={this.reader}
         className="pi-subagents-transcript"
-        role="region"
         aria-label="Captured conversation"
-        tabIndex={0}
+        tabIndex={readingTabIndex}
       >
         {this.props.children}
-      </div>
+      </section>
     );
   }
 }
@@ -282,10 +282,10 @@ const CapturedConversation = ({
           </p>
         )}
         {capture?.status !== "captured" && (
-          <p role="status" className="pi-subagents-notice">
+          <output className="block pi-subagents-notice">
             Capture {capture?.status ?? "not-captured"}:{" "}
             {capture?.reason ?? "No supported inspection reply has been captured."}
-          </p>
+          </output>
         )}
         {capture?.task !== undefined && (
           <details className="pi-subagents-task" aria-label="Captured task">
@@ -536,11 +536,7 @@ export const SubagentsView = ({
           }}
           onClick={() => activate(tab)}
           onKeyDown={(event) => tabKeyDown(event, tab)}
-          aria-description={
-            tab.kind === "agents" && state
-              ? `${ordered.length} observed entries in available history. Not an active-worker count.`
-              : undefined
-          }
+          aria-describedby={tab.kind === "agents" && state ? `${prefix}-agent-count` : undefined}
           title={
             tab.kind === "agents" && state
               ? `Agents · ${ordered.length} observed entries in available history`
@@ -556,9 +552,14 @@ export const SubagentsView = ({
             </span>
           )}
           {tab.kind === "agents" && state && (
-            <span className="pi-subagents-tab-count" aria-hidden="true">
-              {ordered.length}
-            </span>
+            <>
+              <span id={`${prefix}-agent-count`} hidden>
+                {`${ordered.length} observed entries in available history. Not an active-worker count.`}
+              </span>
+              <span className="pi-subagents-tab-count" aria-hidden="true">
+                {ordered.length}
+              </span>
+            </>
           )}
         </button>
         {tab.kind === "row" && (
@@ -600,7 +601,7 @@ export const SubagentsView = ({
         <p className="pi-subagents-provenance">
           Read-only · Captured observations, not a live feed.
         </p>
-        {loading && !state && <p role="status">Loading captured subagents...</p>}
+        {loading && !state && <output className="block">Loading captured subagents...</output>}
         {target === null && (
           <p role="alert">Requested subagent target is invalid. Select another captured run.</p>
         )}
@@ -610,18 +611,14 @@ export const SubagentsView = ({
           </p>
         )}
         {error && <p role="alert">{error} Previously captured detail stays visible.</p>}
-        {warning && (
-          <p role="status" className="pi-subagents-history-warning">
-            {warning}
-          </p>
-        )}
+        {warning && <output className="block pi-subagents-history-warning">{warning}</output>}
         {!(loading && !state) && state?.availability !== "available" && (
-          <p role="status">
+          <output className="block">
             {state?.reason || "Subagent observation is not available for this thread."}
-          </p>
+          </output>
         )}
         {state && state.omitted > 0 && (
-          <p role="status">{state.omitted} entries omitted by the capture budget.</p>
+          <output className="block">{state.omitted} entries omitted by the capture budget.</output>
         )}
       </div>
       <div className="pi-subagents-panels">

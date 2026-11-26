@@ -87,7 +87,7 @@ test("production Stats uses persisted history, filters, disclosure and save-guar
     const slow = page.getByRole("button", { name: `Open ${f.slow.key}: ${f.slow.title}` });
     await slow.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText(f.slow.title);
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue(f.slow.title);
     const editor = page.locator(".tiptap");
     await editor.fill("Retained Stats navigation draft");
     await page.getByRole("button", { name: "Back (Esc)" }).click();

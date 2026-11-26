@@ -305,7 +305,9 @@ const PresetsSection = () => {
               <th className="px-3 py-2 font-medium">Permissions</th>
               <th className="px-3 py-2 font-medium">Environment</th>
               <th className="px-3 py-2 font-medium">Instructions</th>
-              <th className="px-3 py-2" />
+              <th scope="col" className="px-3 py-2">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-hairline">

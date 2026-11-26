@@ -171,6 +171,7 @@ const ConversationTimeline = ({
     scrollRoot,
   );
   if (!timeline.hasPr) return null;
+  const handleReloadFresh = timeline.reloadFresh;
   return (
     <OverviewSection label="Conversation" summary={conversationSummary(conversation?.events ?? [])}>
       {readError !== null && (
@@ -208,7 +209,7 @@ const ConversationTimeline = ({
               </p>
             </div>
           )}
-          <CommentBox pr={conversation.pr} threadId={threadId} onPosted={timeline.reloadFresh} />
+          <CommentBox pr={conversation.pr} threadId={threadId} onPosted={handleReloadFresh} />
         </>
       )}
     </OverviewSection>
@@ -227,7 +228,7 @@ function conversationSummary(events: readonly TimelineEvent[]): string | undefin
 
 const TimelineSkeleton = () => {
   return (
-    <div role="status" className="flex flex-col gap-3">
+    <output className="flex flex-col gap-3">
       <span className="sr-only">Loading conversation…</span>
       {[0, 1].map((row) => (
         <div
@@ -242,7 +243,7 @@ const TimelineSkeleton = () => {
           <div className="ml-6 h-3 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none" />
         </div>
       ))}
-    </div>
+    </output>
   );
 };
 
@@ -419,7 +420,7 @@ const DescriptionBody = ({ body }: { body: string }) => {
 
 const DescriptionSkeleton = () => {
   return (
-    <div role="status" className="flex flex-col gap-2">
+    <output className="flex flex-col gap-2">
       <span className="sr-only">Loading description…</span>
       <div
         aria-hidden="true"
@@ -433,7 +434,7 @@ const DescriptionSkeleton = () => {
         aria-hidden="true"
         className="h-3 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none"
       />
-    </div>
+    </output>
   );
 };
 

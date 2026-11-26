@@ -53,20 +53,14 @@ const LiveOutput = ({ getOwner }: { getOwner: OutputSnapshotOwner }) => {
       <div className="mx-auto w-full max-w-5xl space-y-5">
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">Observed output across all BB threads</p>
-          <p role="status" className="text-sm font-medium">
-            {status}
-          </p>
+          <output className="block text-sm font-medium">{status}</output>
         </div>
         <section
           aria-label="Live output rate"
           className="rounded-xl border border-border bg-card p-4 md:p-6"
         >
           <div className="flex flex-wrap justify-between gap-3">
-            <div
-              role="group"
-              aria-label="Rate window"
-              className="flex rounded-lg border border-border p-1"
-            >
+            <fieldset aria-label="Rate window" className="flex rounded-lg border border-border p-1">
               <button
                 type="button"
                 className={buttonClass}
@@ -83,12 +77,8 @@ const LiveOutput = ({ getOwner }: { getOwner: OutputSnapshotOwner }) => {
               >
                 Smooth · 30 seconds
               </button>
-            </div>
-            <div
-              role="group"
-              aria-label="Rate unit"
-              className="flex rounded-lg border border-border p-1"
-            >
+            </fieldset>
+            <fieldset aria-label="Rate unit" className="flex rounded-lg border border-border p-1">
               <button
                 type="button"
                 className={buttonClass}
@@ -105,7 +95,7 @@ const LiveOutput = ({ getOwner }: { getOwner: OutputSnapshotOwner }) => {
               >
                 Bytes/s
               </button>
-            </div>
+            </fieldset>
           </div>
           <div className="mt-5 flex min-h-20 flex-wrap items-end justify-between gap-3">
             <p className="text-5xl font-semibold tabular-nums" aria-label="Current rate">

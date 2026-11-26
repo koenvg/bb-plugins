@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
+import { HeadingLink } from "./destinations.js";
 import type { DocumentModel } from "./model.js";
 
 export function useWidePanel(root: RefObject<HTMLElement | null>, enabled = true) {
@@ -18,15 +19,14 @@ export function useWidePanel(root: RefObject<HTMLElement | null>, enabled = true
 
 export const Outline = ({ model, wide }: { model: DocumentModel; wide: boolean }) => {
   const entries = model.headings.map((heading) => (
-    <a
+    <HeadingLink
       key={heading.id}
-      href={`#${heading.id}`}
-      data-heading-target={heading.id}
+      target={heading.id}
       style={{ paddingInlineStart: 12 + (heading.level - 1) * 8 }}
       aria-label={heading.text || "Empty heading"}
     >
       {heading.text}
-    </a>
+    </HeadingLink>
   ));
   return wide ? (
     <aside className="mr-outline-aside" aria-label="On this page">

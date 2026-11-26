@@ -158,7 +158,7 @@ export const RemoteImage = ({
       }}
     />
   ) : (
-    <span role="img" aria-label={label}>
+    <span>
       {label}
       {broken ? " (image unavailable)" : ""}
     </span>

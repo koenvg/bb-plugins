@@ -15,7 +15,7 @@ import type {
 import type { PluginRpcClient, PluginRpcContract } from "@get-bb/plugin-sdk";
 import { Icon } from "../../components/ui/icon.js";
 
-const Scope = React.createContext<object | null>(null);
+const Scope = React.createContext<symbol | null>(null);
 type RuntimeGlobal = typeof globalThis & {
   __bbPluginRuntime?: { react: typeof React; pluginSdkApp: Partial<PluginSdkApp> };
 };
@@ -30,7 +30,7 @@ export function createLocalHost(options: LocalHostOptions) {
   const previous = global.__bbPluginRuntime;
   let disposed = false;
   let root: Root | null = null;
-  const identity = {};
+  const identity = Symbol();
   const channels = new Map<string, Set<(payload: unknown) => void>>();
   const rpcCalls: { method: string; input: unknown }[] = [];
   const navigateCalls: {

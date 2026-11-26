@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { useCallback } from "react";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
@@ -16,12 +17,21 @@ import { forgetPrViews } from "./pr-view-snapshots";
 
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@get-bb/plugin-sdk/app")>()),
-  Markdown: ({ content }: { content: string }) => (
-    <div
-      data-testid="bb-markdown"
-      dangerouslySetInnerHTML={{ __html: content.replaceAll(' id="', ' id="user-content-') }}
-    />
-  ),
+  Markdown: ({ content }: { content: string }) => {
+    const attach = useCallback(
+      (node: HTMLDivElement | null) => {
+        if (node) {
+          const parsed = new DOMParser().parseFromString(
+            content.replaceAll(' id="', ' id="user-content-'),
+            "text/html",
+          );
+          node.replaceChildren(...Array.from(parsed.body.childNodes));
+        }
+      },
+      [content],
+    );
+    return <div data-testid="bb-markdown" ref={attach} />;
+  },
 }));
 
 class Unobserved {

@@ -142,14 +142,13 @@ describe("host-controlled Ticket presentation", () => {
     });
     const title = await slot.findByRole("textbox", { name: "Task title" });
     const description = slot.container.querySelector(".tiptap");
-    title.textContent = "Unblurred A";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Unblurred A" } });
     await edit(slot, "Description draft");
     await hostTab(slot, "all?task=TSK-1", false);
     expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
     await hostTab(slot, "all?task=TSK-1", true);
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-    expect(title.textContent).toBe("Unblurred A");
+    expect(title).toHaveProperty("value", "Unblurred A");
     expect(slot.container.querySelector(".tiptap")).toBe(description);
     expect(description?.textContent).toBe("Description draft");
     expect(slot.getByText("a.txt")).toBeTruthy();
@@ -180,7 +179,7 @@ describe("host-controlled Ticket presentation", () => {
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     await acceptNavigation(slot);
     const byRole = await slot.findByRole("textbox", { name: "Task title" });
-    expect(byRole.textContent).toBe("Title 2");
+    expect(byRole).toHaveProperty("value", "Title 2");
     expect(
       slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").map((c) => c.input),
     ).toEqual([

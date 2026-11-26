@@ -170,7 +170,7 @@ for (const width of [1280, 390]) {
       if (!close) throw new Error("Missing attachment preview close button");
       close.click();
       window.dispatchEvent(new Event("fixture-listbox"));
-      const listbox = document.querySelector<HTMLElement>('[role="listbox"]');
+      const listbox = document.querySelector<HTMLElement>('select[aria-label="Newer choices"]');
       if (!listbox) throw new Error("Missing replacement listbox");
       listbox.focus();
     });

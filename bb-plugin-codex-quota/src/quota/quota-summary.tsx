@@ -136,16 +136,15 @@ export const QuotaSummary = ({
         >
           Codex Usage
         </a>
-        <p
+        <output
           className={
             status
               ? `mt-2 ${visible.state === "stale" && !loading ? "text-destructive" : ""}`
               : "sr-only"
           }
-          role="status"
         >
           {status}
-        </p>
+        </output>
         <p className="sr-only" id={accountNote}>
           Browser account may differ from this host.
         </p>

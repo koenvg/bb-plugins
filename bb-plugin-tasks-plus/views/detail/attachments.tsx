@@ -87,18 +87,23 @@ export const Lightbox = ({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [onClose]);
   return (
-    <div
-      role="dialog"
+    <dialog
+      open
       aria-label={attachment.fileName}
-      className="fixed inset-0 z-50 flex items-center justify-center p-8"
-      style={{ background: "color-mix(in oklab, var(--ink) 60%, transparent)" }}
-      onClick={onClose}
+      className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center p-8"
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Dismiss image preview"
+        className="absolute inset-0"
+        style={{ background: "color-mix(in oklab, var(--ink) 60%, transparent)" }}
+        onClick={onClose}
+      />
       <img
         src={attachmentDownloadUrl(attachment.id)}
         alt={attachment.fileName}
-        className="max-h-full max-w-full rounded-md shadow-md"
-        onClick={(event) => event.stopPropagation()}
+        className="relative max-h-full max-w-full rounded-md shadow-md"
       />
       <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-md bg-popover/90 px-3 py-1.5 text-xs text-popover-foreground shadow-md">
         <span className="max-w-72 truncate">{attachment.fileName}</span>
@@ -112,14 +117,13 @@ export const Lightbox = ({
       >
         <Icon name="X" className="size-4" />
       </button>
-    </div>
+    </dialog>
   );
 };
 
 const RemovalSpinner = () => {
   return (
-    <span
-      role="status"
+    <output
       aria-label="Removing"
       className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
     />

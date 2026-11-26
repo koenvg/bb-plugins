@@ -198,6 +198,7 @@ const QuotaPage = () => {
             </p>
           </div>
           <button
+            type="button"
             className="min-h-9 pointer-coarse:min-h-11 shrink-0 rounded-md border border-border px-3 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
             disabled={state.loading}
             onClick={() => {
@@ -224,6 +225,7 @@ const UsageSettings = () => {
   return (
     <section className="min-w-0" aria-label="Usage collection settings">
       <button
+        type="button"
         disabled={state.loading}
         className="min-h-9 rounded-md border border-border px-3 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
         onClick={() => {
@@ -356,7 +358,6 @@ const FooterQuotaBadge = ({ target }: { target: FooterTarget }) => {
       {position &&
         createPortal(
           <div
-            role="tooltip"
             className="fixed z-[60]"
             style={position}
             onMouseEnter={() => {
@@ -367,7 +368,9 @@ const FooterQuotaBadge = ({ target }: { target: FooterTarget }) => {
               setPosition(null);
             }}
           >
-            <AccountsTooltip data={state.data} now={state.now} />
+            <div role="tooltip">
+              <AccountsTooltip data={state.data} now={state.now} />
+            </div>
           </div>,
           target.container.ownerDocument.body,
         )}

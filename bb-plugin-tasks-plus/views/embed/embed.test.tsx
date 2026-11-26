@@ -344,8 +344,7 @@ describe("Task embed panel", () => {
       path: "tasks",
       options: { subPath: "task/TSK-4" },
     });
-    title.textContent = "Edited A";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Edited A" } });
     slot.lifecycle.rerender(
       <Panel threadId="thr_1" environment={null} params={{ taskKey: "TSK-5" }} />,
     );
@@ -359,10 +358,13 @@ describe("Task embed panel", () => {
     expect(byRole.textContent).toContain("Save rejected");
     expect(slot.getByRole("button", { name: "Open TSK-4 in Tasks" })).toBeTruthy();
     expect(slot.queryByRole("button", { name: "Open TSK-5 in Tasks" })).toBeNull();
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Edited A");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Edited A");
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Other ticket"),
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+        "value",
+        "Other ticket",
+      ),
     );
     expect(slot.getByText("TSK-5")).toBeTruthy();
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-5 in Tasks" }));
@@ -390,8 +392,7 @@ describe("Task embed panel", () => {
       },
     );
     const title = await slot.findByRole("textbox", { name: "Task title" });
-    title.textContent = "Edited before opening";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Edited before opening" } });
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-4 in Tasks" }));
     expect(slot.inspection.navigateCalls).toEqual([]);
     await act(() =>
@@ -439,7 +440,7 @@ describe("Task embed panel", () => {
       },
     );
     const byRole = await slot.findByRole("textbox", { name: "Task title" });
-    expect(byRole.textContent).toBe("Ship task embeds");
+    expect(byRole).toHaveProperty("value", "Ship task embeds");
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-4 in Tasks" }));
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -468,7 +469,7 @@ describe("Task embed panel", () => {
       cleanup();
       const restored = restore();
       const byRole = await restored.findByRole("textbox", { name: "Task title" });
-      expect(byRole.textContent).toBe("Ship task embeds");
+      expect(byRole).toHaveProperty("value", "Ship task embeds");
       expect(restored.queryByText("Later linked task")).toBeNull();
     },
   );
@@ -605,8 +606,7 @@ describe("Task embed panel", () => {
       },
     );
     const title = await slot.findByRole("textbox", { name: "Task title" });
-    title.textContent = "Edited linked task";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Edited linked task" } });
     tasks = [other];
     await slot.behavior.emitRealtime("threads:changed", { taskId: other.id });
     await waitFor(() => expect(updateTask).toHaveBeenCalledOnce());
@@ -627,7 +627,8 @@ describe("Task embed panel", () => {
     } else {
       const byRole = await slot.findByRole("alert");
       expect(byRole.textContent).toContain("Save rejected");
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+        "value",
         "Edited linked task",
       );
       slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
@@ -666,8 +667,7 @@ describe("Task embed panel", () => {
       const title = await slot.findByRole("textbox", { name: "Task title" });
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
-        title.textContent = "Unsaved explicit edit";
-        fireEvent.input(title);
+        fireEvent.change(title, { target: { value: "Unsaved explicit edit" } });
         await act(() =>
           Promise.try(() =>
             slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
@@ -675,7 +675,7 @@ describe("Task embed panel", () => {
         );
         slot.getByRole("status", { name: "Loading linked task" });
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-        expect(title.textContent).toBe("Unsaved explicit edit");
+        expect(title).toHaveProperty("value", "Unsaved explicit edit");
         slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
         if (outcome === "same task") {
           await act(() => Promise.try(() => finishLookup({ tasks: [task] })));
@@ -691,7 +691,7 @@ describe("Task embed panel", () => {
           slot.getByRole("button", { name: "Retry" });
         }
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-        expect(title.textContent).toBe("Unsaved explicit edit");
+        expect(title).toHaveProperty("value", "Unsaved explicit edit");
         expect(updateTask).not.toHaveBeenCalled();
       } finally {
         try {
@@ -738,8 +738,7 @@ describe("Task embed panel", () => {
       const title = await slot.findByRole("textbox", { name: "Task title" });
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
-        title.textContent = "Autosaved explicit edit";
-        fireEvent.input(title);
+        fireEvent.change(title, { target: { value: "Autosaved explicit edit" } });
         await act(() =>
           Promise.try(() =>
             slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
@@ -747,7 +746,7 @@ describe("Task embed panel", () => {
         );
         slot.getByRole("status", { name: "Loading linked task" });
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-        expect(title.textContent).toBe("Autosaved explicit edit");
+        expect(title).toHaveProperty("value", "Autosaved explicit edit");
         expect(updateTask).not.toHaveBeenCalled();
 
         await act(() => Promise.try(() => vi.advanceTimersByTimeAsync(799)));
@@ -762,7 +761,7 @@ describe("Task embed panel", () => {
         ]);
         slot.getByRole("status", { name: "Loading linked task" });
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-        expect(title.textContent).toBe("Autosaved explicit edit");
+        expect(title).toHaveProperty("value", "Autosaved explicit edit");
         slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
 
         if (outcome === "same task") {
@@ -780,7 +779,7 @@ describe("Task embed panel", () => {
         expect(slot.queryByRole("status", { name: "Loading linked task" })).toBeNull();
         if (outcome !== "no linked task") {
           expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-          expect(title.textContent).toBe("Autosaved explicit edit");
+          expect(title).toHaveProperty("value", "Autosaved explicit edit");
           slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
           expect(slot.queryByText("No task is linked to this thread.")).toBeNull();
         }

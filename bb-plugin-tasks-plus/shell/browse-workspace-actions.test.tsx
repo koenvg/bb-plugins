@@ -63,7 +63,7 @@ describe("embedded detail actions and links", () => {
     fireEvent.click(await detail.findByRole("button", { name: /TSK-3.*Title 3/ }));
     await acceptNavigation(slot);
     expect(row(slot, 3).getAttribute("aria-current")).toBe("true");
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 3");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 3");
     detail = within(slot.getByRole("region", { name: "Selected ticket" }));
     fireEvent.click(await detail.findByRole("button", { name: /Sub-task of.*TSK-1/ }));
     await acceptNavigation(slot);
@@ -76,7 +76,7 @@ describe("embedded detail actions and links", () => {
       options: { subPath: "task/CS-1" },
     });
     await acceptNavigation(slot);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2");
     expect(slot.queryByRole("region", { name: "Ticket list" })).toBeNull();
     expect(browsePreference().load()).toEqual({
       kind: "project",
@@ -167,8 +167,7 @@ describe("embedded detail actions and links", () => {
       addTaskDependency: () => ({ ok: true }),
     });
     const title = await slot.findByRole("textbox", { name: "Task title" });
-    title.textContent = "Edited title";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Edited title" } });
     fireEvent.blur(title);
     await waitFor(() => expect(writes).toHaveLength(1));
     await edit(slot, "Edited description");

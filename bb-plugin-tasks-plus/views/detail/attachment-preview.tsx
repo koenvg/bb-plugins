@@ -351,7 +351,7 @@ export function useAttachmentPreview({
               Read-only Markdown attachment. Download keeps the original file.
             </DialogDescription>
             <div className="attachment-preview-toolbar" aria-label="Document controls">
-              <div className="attachment-preview-views" role="group" aria-label="Document view">
+              <fieldset className="attachment-preview-views" aria-label="Document view">
                 <Button
                   variant="ghost"
                   aria-pressed={active?.view === "preview"}
@@ -366,7 +366,7 @@ export function useAttachmentPreview({
                 >
                   Raw
                 </Button>
-              </div>
+              </fieldset>
               <Button variant="outline" asChild>
                 <a
                   href={attachmentDownloadUrl(active?.subject.id ?? "")}
@@ -387,21 +387,23 @@ export function useAttachmentPreview({
             aria-busy={active?.resource.kind === "loading"}
           >
             {active?.resource.kind === "loading" ? (
-              <p role="status">Loading Markdown preview…</p>
+              <output className="block">Loading Markdown preview…</output>
             ) : null}
             {active?.resource.kind === "failure" ? (
-              <div role="status">
+              <output className="block">
                 <p>{messages[active.resource.fault]}</p>
                 {["failed", "missing", "denied"].includes(active.resource.fault) ? (
                   <Button variant="outline" onClick={() => start(active.subject, active.session)}>
                     Retry
                   </Button>
                 ) : null}
-              </div>
+              </output>
             ) : null}
             {active?.resource.kind === "ready" ? (
               active.resource.snapshot.text === "" && active.view === "preview" ? (
-                <p role="status">This file is empty. Download keeps the original file.</p>
+                <output className="block">
+                  This file is empty. Download keeps the original file.
+                </output>
               ) : (
                 <AttachmentDocument
                   snapshot={active.resource.snapshot}

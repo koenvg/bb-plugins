@@ -225,9 +225,7 @@ export const SelectionAction = ({
             <Icon name="MessageSquare" className="mr-icon" aria-hidden="true" />
             Add to chat
           </button>
-          {!destination?.available && (
-            <span role="status">No associated chat draft is available.</span>
-          )}
+          {!destination?.available && <output>No associated chat draft is available.</output>}
         </div>
       )}
       {feedback && (

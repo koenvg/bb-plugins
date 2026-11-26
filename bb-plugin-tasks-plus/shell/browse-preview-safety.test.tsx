@@ -39,8 +39,7 @@ describe("retained preview safety", () => {
       updateTask: () => ({ ok: false, error: { message: "Keep draft" } }),
     });
     const title = await slot.findByRole("textbox", { name: "Task title" });
-    title.textContent = "Local title";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Local title" } });
     await edit(slot, "Local description");
     refreshed = true;
     await slot.behavior.emitRealtime("tasks:changed", {
@@ -54,7 +53,7 @@ describe("retained preview safety", () => {
       ).toHaveLength(2),
     );
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
-    expect(title.textContent).toBe("Local title");
+    expect(title).toHaveProperty("value", "Local title");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Local description");
     expect(slot.inspection.navigateCalls).toEqual([]);
   });
@@ -80,7 +79,7 @@ describe("retained preview safety", () => {
     await act(() =>
       Promise.try(() => old.resolve({ task: { ...tasks[1], description: "Obsolete B" } })),
     );
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 3");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 3");
     expect(slot.container.textContent).not.toContain("Obsolete B");
     await select(slot, 2);
     expect(bReads).toBe(2);
@@ -129,7 +128,7 @@ describe("retained preview safety", () => {
       }),
     );
     await acceptNavigation(slot);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2");
     await select(slot, 1);
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved warm A");
   });
@@ -184,7 +183,7 @@ describe("retained preview safety", () => {
     expect(slot.inspection.experimental_panelCalls).toHaveLength(1);
     outlet.style.display = "";
     await acceptNavigation(slot);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2");
   });
   it("survives React effect replay without disposing the live session", async () => {
     const slot = setup("all?task=TSK-1");
@@ -195,7 +194,7 @@ describe("retained preview safety", () => {
       </StrictMode>,
     );
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1"),
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1"),
     );
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Description 1");
   });

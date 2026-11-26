@@ -188,9 +188,8 @@ export const AccountsOverview = ({
                         {resetCountdown(window.resetAt, now)}
                       </p>
                     ))}
-                  <p
-                    role="status"
-                    className="mt-1 text-muted-foreground"
+                  <output
+                    className="block mt-1 text-muted-foreground"
                     title={
                       snapshot
                         ? `Observed ${new Date(snapshot.observedAt).toLocaleString()}`
@@ -206,7 +205,7 @@ export const AccountsOverview = ({
                     {!single && snapshot
                       ? ` · observed ${new Date(snapshot.observedAt).toLocaleString()}`
                       : ""}
-                  </p>
+                  </output>
                   {!single && snapshot && (
                     <p className="mt-1 text-muted-foreground">
                       Banked resets: {snapshot.bankedResets ?? "Unknown"}
@@ -264,6 +263,7 @@ export const AccountsActivity = ({
         Each verified account appears once. Activity does not fill gaps in recorded machine usage.
       </p>
       <button
+        type="button"
         className="mt-3 min-h-9 rounded-md border border-border px-3 text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
         onClick={refresh}
         disabled={loading}

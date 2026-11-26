@@ -63,7 +63,7 @@ describe("browse delayed focus and save safety", () => {
     ).toHaveLength(1);
     await act(() => Promise.try(() => loaded.resolve({ task: tasks[1] })));
     expect(document.activeElement).toBe(detail(slot));
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1");
   });
 
   it.each(["outside", "editor", "overlay"])(

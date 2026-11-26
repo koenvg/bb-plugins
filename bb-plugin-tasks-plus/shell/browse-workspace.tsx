@@ -233,21 +233,21 @@ export const BrowseWorkspace = ({
       target.focus({ preventScroll: true });
     }
   }, [detailHidden, contextRevision, recovering]);
+  const handleReady = focus.onReady;
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" data-browse-layout="native">
       {recovering && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-sm"
-        >
-          <span className="flex-1">BB couldn't open the Ticket pane. Recover your edits here.</span>
+        <output className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-sm">
+          <span className="flex-1">
+            BB couldn&apos;t open the Ticket pane. Recover your edits here.
+          </span>
           <Button variant="outline" size="sm" onClick={openTicket}>
             Try Ticket pane again
           </Button>
           <Button variant="ghost" size="sm" onClick={backToList}>
             Back to list
           </Button>
-        </div>
+        </output>
       )}
       <section
         ref={listRef}
@@ -335,15 +335,15 @@ export const BrowseWorkspace = ({
                   <TaskLinkNavigationContext.Provider value={openTaskLink}>
                     <DetailView
                       taskKey={readyKey}
-                      onReady={focus.onReady}
+                      onReady={handleReady}
                       onMissing={onMissing}
                       reconcileRevision={contextRevision}
                     />
                   </TaskLinkNavigationContext.Provider>
                 ) : (
-                  <p role="status" className="p-6 text-sm text-muted-foreground">
+                  <output className="block p-6 text-sm text-muted-foreground">
                     Waiting for the ticket list…
-                  </p>
+                  </output>
                 )}
               </>
             ) : (

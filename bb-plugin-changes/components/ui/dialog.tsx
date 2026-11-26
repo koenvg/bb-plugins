@@ -79,7 +79,11 @@ const Dialog = ({
   const body = ctx.isCompactViewport ? (
     children
   ) : (
-    <DialogPrimitive.Root open={ctx.open} onOpenChange={ctx.onOpenChange} {...props}>
+    <DialogPrimitive.Root
+      open={ctx.open}
+      onOpenChange={(open) => ctx.onOpenChange(open)}
+      {...props}
+    >
       {children}
     </DialogPrimitive.Root>
   );

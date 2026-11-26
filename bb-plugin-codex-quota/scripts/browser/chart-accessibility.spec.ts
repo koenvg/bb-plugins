@@ -161,9 +161,7 @@ for (const width of sizes) {
           await button.click();
         }
         await expect(
-          page
-            .getByRole("group", { name: "Daily recorded values", exact: true })
-            .locator('p[role="status"]'),
+          page.getByRole("group", { name: "Daily recorded values", exact: true }).locator("output"),
         ).toContainText("All model series hidden. Recorded usage is not zero.");
       }
       const requests = await calls(page);

@@ -127,6 +127,7 @@ const TaskPicker = ({
   onPick: (task: Task) => void;
 }) => {
   const [open, setOpen] = useState(false);
+  const handleRetry = catalog.retry;
   return (
     <Popover
       open={open}
@@ -149,15 +150,13 @@ const TaskPicker = ({
           <CommandInput placeholder="Find a task…" />
           <CommandList aria-busy={catalog.isLoading}>
             {catalog.isLoading ? (
-              <p role="status" className="p-4 text-sm text-muted-foreground">
-                Loading tasks…
-              </p>
+              <output className="block p-4 text-sm text-muted-foreground">Loading tasks…</output>
             ) : catalog.error !== null ? (
               <div className="space-y-2 p-4 text-sm">
                 <p role="alert" className="text-destructive">
                   Could not load tasks: {catalog.error}
                 </p>
-                <button type="button" className="underline" onClick={catalog.retry}>
+                <button type="button" className="underline" onClick={handleRetry}>
                   Retry
                 </button>
               </div>

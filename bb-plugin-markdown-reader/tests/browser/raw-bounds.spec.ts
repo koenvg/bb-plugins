@@ -134,7 +134,12 @@ for (const activation of ["Enter", "Space"] as const) {
     await page.goto("/tests/selection-preview.html?document=dense");
     await page.getByRole("heading", { name: "Dense", exact: true }).waitFor();
     await page.getByRole("button", { name: "Raw", exact: true }).click();
-    await page.getByLabel("Raw Markdown").focus();
+    const raw = page.getByLabel("Raw Markdown");
+    for (let stop = 0; stop < 6; stop++) {
+      await page.keyboard.press("Tab");
+      if (await raw.evaluate((element) => document.activeElement === element)) break;
+    }
+    await expect(raw).toBeFocused();
     await page.getByLabel("Raw Markdown").evaluate((root) => {
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       let node = walker.nextNode();

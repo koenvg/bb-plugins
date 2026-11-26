@@ -120,6 +120,7 @@ export const CalendarReportPanel = ({
     !!selection.hostId && !selectionPending && !!query && (!current || current.attempt !== attempt);
   const stale = !!view && (current!.stale || now - Date.parse(view.observedAt) > 5 * 60000);
   const navigate = (next: string) => setStart(next);
+  const handleRetry = preparation.retry;
   return (
     <section
       className="mt-6 min-w-0 text-sm"
@@ -217,8 +218,10 @@ export const CalendarReportPanel = ({
       </p>
       {preparation.state === "stopped" && (
         <div className="mt-2 text-xs text-muted-foreground">
-          <p role="status">History preparation stopped. Recorded values remain available.</p>
-          <button type="button" className={reportButton} onClick={preparation.retry}>
+          <output className="block">
+            History preparation stopped. Recorded values remain available.
+          </output>
+          <button type="button" className={reportButton} onClick={handleRetry}>
             Retry preparation
           </button>
         </div>

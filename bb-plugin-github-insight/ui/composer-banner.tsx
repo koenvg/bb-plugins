@@ -77,22 +77,20 @@ const ThreadBanner = ({ threadId }: { threadId: string }) => {
           />
         )}
         {refreshing && !preparing && !running && (
-          <span
-            role="status"
-            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
-          >
+          <output className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
             <Icon
               name="Spinner"
               aria-hidden="true"
               className="size-3.5 animate-spin motion-reduce:animate-none"
             />
             Refreshing…
-          </span>
+          </output>
         )}
       </div>
     );
   }
 
+  const handleDismiss = palette.dismiss;
   return (
     <>
       {normalBanner()}
@@ -124,7 +122,7 @@ const ThreadBanner = ({ threadId }: { threadId: string }) => {
           <button
             type="button"
             aria-label="Dismiss merge message"
-            onClick={palette.dismiss}
+            onClick={handleDismiss}
             className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Icon name="X" aria-hidden="true" className="size-3.5" />
@@ -151,17 +149,14 @@ const ThreadBanner = ({ threadId }: { threadId: string }) => {
 
 const BannerStatus = ({ text }: { text: string }) => {
   return (
-    <div
-      role="status"
-      className="flex min-h-8 w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-xs"
-    >
+    <output className="flex min-h-8 w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-xs">
       <Icon
         name="Spinner"
         aria-hidden="true"
         className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
       />
       <span className="truncate">{text}</span>
-    </div>
+    </output>
   );
 };
 

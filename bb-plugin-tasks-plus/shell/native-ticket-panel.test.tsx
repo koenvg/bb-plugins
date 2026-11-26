@@ -98,8 +98,7 @@ describe("native Ticket tab", () => {
     const title = await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
-    title.textContent = "Unsent title";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Unsent title" } });
     ticket.lifecycle.unmount();
     const opens = page.inspection.experimental_panelCalls.length;
     fireEvent.click(row(page, 2));
@@ -110,7 +109,7 @@ describe("native Ticket tab", () => {
     const byRole = await within(restored.container).findByRole("alert");
     expect(byRole.textContent).toContain("Offline");
     expect(within(restored.container).getByRole("textbox", { name: "Task title" })).toBe(title);
-    expect(title.textContent).toBe("Unsent title");
+    expect(title).toHaveProperty("value", "Unsent title");
     expect(page.inspection.navigateCalls).toEqual([]);
   });
   it("does not reopen Ticket after the user switches tabs during a pending save", async () => {
@@ -122,8 +121,7 @@ describe("native Ticket tab", () => {
     const title = await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
-    title.textContent = "Pending A";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Pending A" } });
     fireEvent.click(row(page, 2));
     ticket.lifecycle.unmount();
     const outside = document.createElement("input");
@@ -154,8 +152,7 @@ describe("native Ticket tab", () => {
     });
     await act(() =>
       Promise.try(() => {
-        title.textContent = "Old page draft";
-        fireEvent.input(title);
+        fireEvent.change(title, { target: { value: "Old page draft" } });
       }),
     );
     page.lifecycle.unmount();
@@ -231,8 +228,7 @@ describe("native Ticket tab", () => {
     const title = await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
-    title.textContent = "Retry A";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Retry A" } });
     fireEvent.click(row(page, 2));
     await within(ticket.container).findByRole("alert");
     fireEvent.click(within(ticket.container).getByRole("button", { name: "Retry save" }));
@@ -259,8 +255,7 @@ describe("native Ticket tab", () => {
     const title = await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
-    title.textContent = "Recover A";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Recover A" } });
     ticket.lifecycle.unmount();
     canOpen = false;
     fireEvent.click(row(page, 2));
@@ -269,7 +264,7 @@ describe("native Ticket tab", () => {
         name: "Task title",
       }),
     ).toBe(title);
-    expect(title.textContent).toBe("Recover A");
+    expect(title).toHaveProperty("value", "Recover A");
     const byRole = await within(page.container).findByRole("alert");
     expect(byRole.textContent).toContain("Offline");
     expect(page.inspection.navigateCalls).toEqual([]);

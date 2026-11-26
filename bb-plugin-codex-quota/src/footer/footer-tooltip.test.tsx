@@ -19,7 +19,7 @@ function nativeFooter(open: boolean) {
     <Tooltip.Provider>
       <Tooltip.Root open={open}>
         <Tooltip.Trigger asChild>
-          <button data-sidebar="menu-button" aria-label="Codex quota">
+          <button type="button" data-sidebar="menu-button" aria-label="Codex quota">
             <svg aria-hidden="true" />
           </button>
         </Tooltip.Trigger>

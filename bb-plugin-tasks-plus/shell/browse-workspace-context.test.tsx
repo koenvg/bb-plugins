@@ -229,7 +229,7 @@ describe("removal combined with context transitions", () => {
       expect(slot.queryByText("No projects yet")).toBeNull();
       const byRole = await slot.findByRole("alert");
       expect(byRole.textContent).toContain("Save before no projects");
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1");
       expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft in last project");
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);

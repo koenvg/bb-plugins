@@ -66,7 +66,7 @@ describe("browse save and task ownership", () => {
       description: "Newer draft for A",
     });
     await acceptNavigation(slot);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 3");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 3");
     expect(row(slot, 3).getAttribute("aria-current")).toBe("true");
   });
 
@@ -76,8 +76,7 @@ describe("browse save and task ownership", () => {
       updateTask: () => saved.promise,
     });
     const title = await slot.findByRole("textbox", { name: "Task title" });
-    title.textContent = "Unblurred A";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Unblurred A" } });
     slot.lifecycle.rerender(<Panel subPath="all?task=TSK-2" />);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(browsePreference().load()).toEqual({
@@ -88,7 +87,7 @@ describe("browse save and task ownership", () => {
       Promise.try(() => saved.resolve({ ok: true, task: { ...tasks[0], title: "Unblurred A" } })),
     );
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2"),
     );
     expect(browsePreference().load()).toEqual({ kind: "all" });
   });
@@ -157,7 +156,7 @@ describe("selected detail lookup isolation", () => {
     fail = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
     const byRole = await slot.findByRole("textbox", { name: "Task title" });
-    expect(byRole.textContent).toBe("Title 2");
+    expect(byRole).toHaveProperty("value", "Title 2");
   });
 
   it("ignores late A responses after B loads", async () => {
@@ -169,7 +168,7 @@ describe("selected detail lookup isolation", () => {
     await slot.findByRole("button", { name: "Open TSK-2: Title 2" });
     await select(slot, 2);
     await act(() => Promise.try(() => late.resolve({ task: tasks[0] })));
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2");
     expect(slot.container.textContent).not.toContain("Description 1");
   });
 

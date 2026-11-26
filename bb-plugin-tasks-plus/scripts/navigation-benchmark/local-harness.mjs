@@ -462,7 +462,7 @@ try {
           const failedSave = {
             classification: "failed",
             rowKey: await page.locator('[data-selected="true"]').getAttribute("data-task-key"),
-            draft: await page.getByRole("textbox", { name: "Task title" }).textContent(),
+            draft: await page.getByRole("textbox", { name: "Task title" }).inputValue(),
           };
           if (failedSave.rowKey !== "BENCH-4" || !failedSave.draft.endsWith("failed draft"))
             throw new Error("Failed save lost origin/draft");

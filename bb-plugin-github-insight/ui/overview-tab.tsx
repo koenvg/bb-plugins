@@ -232,13 +232,10 @@ const PrHeader = ({
   return (
     <div data-testid="pr-header" className="flex min-w-0 flex-col gap-2">
       {merged && (
-        <div
-          role="status"
-          className="flex items-center gap-2 rounded-lg bg-violet-500/10 px-3 py-3 text-violet-700 [.dark_&]:text-violet-300"
-        >
+        <output className="flex items-center gap-2 rounded-lg bg-violet-500/10 px-3 py-3 text-violet-700 [.dark_&]:text-violet-300">
           <Icon name="GitMerge" aria-hidden="true" className="size-5 shrink-0" />
           <h2 className="text-sm font-semibold">{lifecycle.text}</h2>
-        </div>
+        </output>
       )}
       <div className="flex min-w-0 items-start gap-3">
         <h2 className="min-w-0 flex-1 text-sm font-semibold leading-snug text-balance break-words">
@@ -323,8 +320,7 @@ const MergeStatusCard = ({ insight, status, controls }: MergeStatusCardProps) =>
         ready ? "border-success/40" : "border-border",
       )}
     >
-      <div
-        role="status"
+      <output
         aria-label="Merge verdict"
         className="flex min-w-0 items-center gap-2 px-3 py-2.5 text-sm"
       >
@@ -347,7 +343,7 @@ const MergeStatusCard = ({ insight, status, controls }: MergeStatusCardProps) =>
         {controls !== null && autoMergeAction.kind === "disable" && (
           <AutoMergeButton threadId={controls.threadId} pr={pr} action={autoMergeAction} />
         )}
-      </div>
+      </output>
       {blockers.length > 0 && (
         <ul aria-label="Merge blockers" className="flex flex-col border-t border-border">
           {blockers.map((blocker) => {
@@ -399,7 +395,7 @@ const MergeStatusCard = ({ insight, status, controls }: MergeStatusCardProps) =>
             <BranchUpdateButton
               threadId={controls.threadId}
               pr={pr}
-              onUpdated={controls.onBranchUpdated}
+              onUpdated={() => controls.onBranchUpdated()}
             />
           )}
         </div>
@@ -508,7 +504,7 @@ const BlockerFix = ({
         <BranchUpdateButton
           threadId={controls.threadId}
           pr={pr}
-          onUpdated={controls.onBranchUpdated}
+          onUpdated={() => controls.onBranchUpdated()}
         />
       ) : null;
     case "unresolved_threads":
@@ -528,9 +524,9 @@ const DataAge = ({ refreshedAt, updating }: { refreshedAt: number; updating: boo
   return (
     <span className="inline-flex items-center gap-1 tabular-nums">
       {updating && (
-        <span role="status" aria-label="Updating">
+        <output aria-label="Updating">
           <Icon name="Spinner" className="size-3 text-muted-foreground" />
-        </span>
+        </output>
       )}
       Updated{" "}
       <time dateTime={readAt.toISOString()} title={readAt.toLocaleString()}>

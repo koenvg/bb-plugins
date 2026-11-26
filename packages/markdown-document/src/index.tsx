@@ -53,14 +53,6 @@ export const MarkdownDocument = ({
     destinations.remoteImages === true;
   const resources = useMemo(() => new RemoteImages(), [model, imagePermission, view]);
   useEffect(() => () => resources.dispose(), [resources]);
-  const scope = useMemo(
-    () => ({
-      policy: destinations,
-      resources,
-      requests: new Set(model.requests.map(destinationKey)),
-    }),
-    [model, destinations, resources],
-  );
   const reveal = useCallback(
     (target: HTMLElement) => {
       if (navigation) navigation.reveal(target);
@@ -75,19 +67,24 @@ export const MarkdownDocument = ({
     },
     [navigation],
   );
-  const navigate = (id: string) => {
-    const target = Array.from(
-      root.current?.querySelectorAll<HTMLElement>(".mr-prose [id]") ?? [],
-    ).find((node) => node.id === id);
-    if (target) reveal(target);
-  };
-  const activate = (event: React.MouseEvent<HTMLElement>) => {
-    const anchor = (event.target as Element | null)?.closest?.("a[data-heading-target]");
-    if (!anchor) return;
-    event.preventDefault();
-    const target = anchor.getAttribute("data-heading-target");
-    if (event.button < 2 && target !== null) navigate(target);
-  };
+  const navigate = useCallback(
+    (id: string) => {
+      const target = Array.from(
+        root.current?.querySelectorAll<HTMLElement>(".mr-prose [id]") ?? [],
+      ).find((node) => node.id === id);
+      if (target) reveal(target);
+    },
+    [reveal],
+  );
+  const scope = useMemo(
+    () => ({
+      policy: destinations,
+      resources,
+      requests: new Set(model.requests.map(destinationKey)),
+      navigate,
+    }),
+    [model, destinations, resources, navigate],
+  );
   const showOutline =
     outline &&
     model.headings.length > 0 &&
@@ -95,13 +92,7 @@ export const MarkdownDocument = ({
     ((destinations.kind !== "attachment" && destinations.kind !== "bound-source") ||
       destinations.localFragments === true);
   return (
-    <div
-      ref={root}
-      className="md-document"
-      data-document-namespace={model.namespace}
-      onClick={activate}
-      onAuxClick={activate}
-    >
+    <div ref={root} className="md-document" data-document-namespace={model.namespace}>
       <DestinationContext.Provider value={scope}>
         <ImagePreviewBoundary model={model} policy={destinations} view={view}>
           {view === "raw" ? (

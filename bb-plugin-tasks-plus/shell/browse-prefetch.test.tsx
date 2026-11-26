@@ -129,7 +129,7 @@ describe("prefetch from the rendered visible order", () => {
     );
     await waitFor(() => expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4", "TSK-6"]));
     expect(slot.queryByRole("button", { name: "Open TSK-1: Title 1" })).toBeNull();
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2");
     expect(slot.inspection.navigateCalls).toEqual([]);
   });
 
@@ -155,7 +155,7 @@ describe("prefetch from the rendered visible order", () => {
     await act(() => Promise.try(() => old.resolve({ task: null })));
     await waitFor(() => expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4", "TSK-3"]));
     expect(slot.inspection.navigateCalls).toEqual([]);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2");
   });
 
   it("does not issue reads from an unsettled or failed initial list", async () => {
@@ -179,7 +179,7 @@ describe("prefetch from the rendered visible order", () => {
     await act(async () => {});
     fireEvent.click(row(slot, 4));
     await acceptNavigation(slot);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 4");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 4");
     expect(slot.container.querySelector('[data-detail-key="TSK-4"]')?.textContent).toContain(
       "Description 4",
     );
@@ -207,7 +207,7 @@ describe("prefetch from the rendered visible order", () => {
     expect(slot.getByText("Loading TSK-4…")).toBeTruthy();
     expect(keysRead(slot).filter((key) => key === "TSK-4")).toHaveLength(1);
     await act(() => Promise.try(() => next.resolve({ task: records[3] })));
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 4");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 4");
   });
 
   it("replaces collapse speculation and late hidden responses cannot navigate or steal focus", async () => {
@@ -234,7 +234,7 @@ describe("prefetch from the rendered visible order", () => {
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.inspection.experimental_panelCalls).toHaveLength(opens);
     expect(slot.inspection.rpcCalls).toHaveLength(calls);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2");
   });
 
   it("does not reopen a parked native tab when speculation completes, and stops on unmount", async () => {

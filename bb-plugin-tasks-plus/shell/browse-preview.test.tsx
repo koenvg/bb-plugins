@@ -48,7 +48,7 @@ describe("retained browse detail", () => {
     observer.observe(slot.container, { childList: true, subtree: true });
     fireEvent.click(row(slot, 1));
     await acceptNavigation(slot);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1");
     expect(slot.container.querySelector('[data-detail-key="TSK-1"]')?.textContent).toContain(
       "Description 1",
     );
@@ -71,7 +71,7 @@ describe("retained browse detail", () => {
     fireEvent.click(row(slot, 2));
     await slot.findByRole("alert");
     expect(slot.inspection.navigateCalls).toHaveLength(before);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1");
     expect(slot.container.textContent).toContain("Unsent A");
   });
 
@@ -98,7 +98,7 @@ describe("retained browse detail", () => {
     failure = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
     const byRole = await slot.findByRole("textbox", { name: "Task title" });
-    expect(byRole.textContent).toBe("Title 2");
+    expect(byRole).toHaveProperty("value", "Title 2");
   });
 
   it("revalidates retained data on manual refresh and reconnect, sharing inventories", async () => {

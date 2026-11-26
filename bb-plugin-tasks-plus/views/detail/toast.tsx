@@ -37,9 +37,9 @@ export const DetailToasts = ({
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2">
       {toasts.map((toast) => (
-        <div
+        <output
           key={toast.id}
-          role="status"
+
           className="pointer-events-auto flex max-w-md items-center gap-2 rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md border-destructive/50"
         >
           <Icon name="AlertCircle" className="size-4 shrink-0 text-destructive" />
@@ -52,7 +52,7 @@ export const DetailToasts = ({
           >
             <Icon name="X" className="size-3.5" />
           </button>
-        </div>
+        </output>
       ))}
     </div>
   );

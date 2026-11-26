@@ -87,11 +87,8 @@ export const RefreshError = ({ message, refreshedAt, retry, busy }: RefreshError
 
 export const Notice = ({ children }: { children: ReactNode }) => {
   return (
-    <div
-      role="status"
-      className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground"
-    >
+    <output className="block rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
       {children}
-    </div>
+    </output>
   );
 };

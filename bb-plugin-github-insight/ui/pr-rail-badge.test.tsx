@@ -52,7 +52,8 @@ describe("Pull Requests rail badge", () => {
     const item = addRailItem();
     renderOverlay(() => ok({ ...view([]), hasReturned: true }));
 
-    expect(await within(item).findByRole("img", { name: "Review agent came back" })).toBeDefined();
+    const label = await within(item).findByText("Review agent came back");
+    expect(label.nextElementSibling?.classList.contains("bg-primary")).toBe(true);
     expect(within(item).queryByTestId("rail-review-count")).toBeNull();
   });
 

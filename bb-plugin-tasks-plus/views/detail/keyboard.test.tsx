@@ -320,8 +320,7 @@ describe("Markdown dialog in the full Tasks app", () => {
       const title = slot.getByRole("textbox", { name: "Task title" });
       const status = slot.getAllByRole("button", { name: "Todo" });
       const priority = slot.getAllByRole("button", { name: "No priority" });
-      title.textContent = "Edited investigation title";
-      fireEvent.input(title);
+      fireEvent.change(title, { target: { value: "Edited investigation title" } });
       await act(() =>
         Promise.try(() => {
           description.innerHTML = "<p>Unfinished task draft</p>";
@@ -350,7 +349,7 @@ describe("Markdown dialog in the full Tasks app", () => {
       const expectTaskUnchanged = () => {
         expect(slot.container.querySelector('.tiptap[contenteditable="true"]')).toBe(description);
         expect(slot.container.querySelector('[aria-label="Task title"]')).toBe(title);
-        expect(title.textContent).toBe("Edited investigation title");
+        expect(title).toHaveProperty("value", "Edited investigation title");
         expect(description.textContent).toBe("Unfinished task draft");
         expect(status.map((control) => control.textContent)).toEqual(["Todo", "Todo"]);
         expect(priority.map((control) => control.textContent)).toEqual([
@@ -402,7 +401,7 @@ describe("Markdown dialog in the full Tasks app", () => {
         }),
       );
       expect(description.textContent).toBe("Continued task draft");
-      expect(title.textContent).toBe("Edited investigation title");
+      expect(title).toHaveProperty("value", "Edited investigation title");
       trigger.focus();
       fireEvent.keyDown(window, { key: "s" });
       const statusOption = await slot.findByText("In Review");

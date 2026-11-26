@@ -5,7 +5,7 @@ test("a completion lookup error retains the status draft and permits manual retr
   page,
 }) => {
   await page.goto("/tests/creator-thread.html?completion-unavailable");
-  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText(
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue(
     "Creator-thread follow-up",
   );
   await page
@@ -63,8 +63,8 @@ for (const width of [1280, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/tests/creator-thread.html");
-    await expect(page.getByRole("textbox", { name: "Task title" })).toContainText(
-      "Creator-thread follow-up",
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue(
+      /Creator-thread follow-up/,
     );
     const blocked = page.getByRole("region", { name: "Blocked by" });
     const attribution = page.getByRole("region", { name: "Creation attribution" });
@@ -245,7 +245,7 @@ for (const relations of ["task-only", "mixed"]) {
       }
 
       await page.goto(`/tests/creator-thread.html?relations=${relations}`);
-      await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText(
+      await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue(
         "Creator-thread follow-up",
       );
       const blocked = page.getByRole("region", { name: "Blocked by", exact: true });

@@ -291,7 +291,7 @@ const FileDiffWithComments = ({
         context.state.kind === "loading" ||
         (context.state.kind === "failed" && context.state.error.code !== "read")
       }
-      onClick={context.activate}
+      onClick={() => context.activate()}
       className="shrink-0 cursor-pointer rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {context.state.kind === "loading"
@@ -345,14 +345,14 @@ const FileDiffWithComments = ({
             contextAction={contextAction}
           />
           {contextNotice && (
-            <div role="status" className="px-4 pb-2 text-xs text-muted-foreground">
+            <output className="block px-4 pb-2 text-xs text-muted-foreground">
               {contextNotice}
-            </div>
+            </output>
           )}
           {commentNotice && (
-            <div role="status" className="px-4 pb-2 text-xs text-muted-foreground">
+            <output className="block px-4 pb-2 text-xs text-muted-foreground">
               {commentNotice}
-            </div>
+            </output>
           )}
         </div>
       }
@@ -477,16 +477,12 @@ const FileHeaderRow = ({
         <CollapseButton
           path={file.path}
           collapsed={viewed.collapsed}
-          onToggle={viewed.toggleCollapsed}
+          onToggle={() => viewed.toggleCollapsed()}
           icons={CHEVRONS}
         />
       )}
-      <span
-        role="img"
-        aria-label={statusLabel}
-        title={statusLabel}
-        className="shrink-0 text-muted-foreground"
-      >
+      <span title={statusLabel} className="shrink-0 text-muted-foreground">
+        <span className="sr-only">{statusLabel}</span>
         <Icon name="File" aria-hidden="true" className="size-3.5" />
       </span>
       <Filename
@@ -520,7 +516,7 @@ const FileHeaderRow = ({
             path={file.path}
             checked={viewed.viewed}
             disabled={!viewed.canToggleViewed}
-            onToggle={viewed.toggleViewed}
+            onToggle={() => viewed.toggleViewed()}
           />
         )}
       </span>

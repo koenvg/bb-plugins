@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "../../shared/errors.js";
@@ -44,7 +44,8 @@ export const ColorSwatchPicker = ({
   value: string;
   onChange: (color: string, interaction: "navigate" | "activate") => void;
 }) => {
-  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const name = useId();
+  const buttons = useRef<(HTMLInputElement | null)[]>([]);
   // Exact custom colors stay unselected; Indigo is their keyboard entry point.
   const entryIndex = Math.max(
     0,
@@ -53,19 +54,27 @@ export const ColorSwatchPicker = ({
   return (
     <div role="radiogroup" aria-label="Color" className="flex flex-wrap gap-1.5">
       {COLOR_PALETTE.map((swatch, index) => (
-        <button
+        <input
           key={swatch.value}
           ref={(button) => {
             buttons.current[index] = button;
           }}
           tabIndex={index === entryIndex ? 0 : -1}
-          type="button"
-          role="radio"
-          aria-checked={value === swatch.value}
+          type="radio"
+          name={name}
+          checked={value === swatch.value}
           aria-label={swatch.label}
           title={swatch.label}
-          onClick={() => onChange(swatch.value, "activate")}
+          onChange={() => onChange(swatch.value, "activate")}
+          onClick={() => {
+            if (value === swatch.value) onChange(swatch.value, "activate");
+          }}
           onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onChange(swatch.value, "activate");
+              return;
+            }
             const step =
               event.key === "ArrowRight" || event.key === "ArrowDown"
                 ? 1
@@ -82,7 +91,7 @@ export const ColorSwatchPicker = ({
             onChange(next.value, "navigate");
           }}
           className={cn(
-            "size-5 rounded-md",
+            "size-5 appearance-none rounded-md",
             value === swatch.value && "ring-2 ring-ring ring-offset-2 ring-offset-background",
           )}
           style={{ backgroundColor: swatch.value }}
@@ -102,23 +111,24 @@ export const CheckboxField = ({
   label: string;
 }) => {
   return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked}
-      onClick={() => onCheckedChange(!checked)}
-      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
-    >
+    <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onCheckedChange(event.currentTarget.checked)}
+        className="peer sr-only"
+      />
       <span
+        aria-hidden
         className={cn(
-          "flex size-3.5 items-center justify-center rounded-sm border",
+          "flex size-3.5 items-center justify-center rounded-sm border peer-focus-visible:outline-2 peer-focus-visible:outline-ring",
           checked ? "border-primary bg-primary text-primary-foreground" : "border-input",
         )}
       >
         {checked ? <Icon name="Check" className="size-3" /> : null}
       </span>
       {label}
-    </button>
+    </label>
   );
 };
 
