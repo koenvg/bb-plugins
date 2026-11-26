@@ -24,7 +24,7 @@
     "format:check": "bun run --cwd .. format:check bb-plugin-code-cleanup",
     "test": "vitest run",
     "typecheck": "bun --bun tsc --noEmit",
-    "preview:settings": "bun preview/server.ts"
+    "preview:settings": "node --import tsx preview/server.ts"
   },
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.6.132",
