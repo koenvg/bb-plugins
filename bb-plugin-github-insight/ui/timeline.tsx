@@ -8,7 +8,8 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
+import { UrlLink, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { isReviewUpdateFor, TIMELINE_UPDATED_CHANNEL } from "../core/review-updated";
 import type { rpcContract, TimelineResult } from "../contract";
 import { countOf } from "../core/blockers";
 import { relativeTime } from "../core/relative-time";
@@ -30,6 +31,7 @@ import { OverviewSection } from "./overview-section";
 import { PrCommentComposer } from "./pr-comment-composer";
 import { PrMarkdown } from "./pr-markdown";
 import { SUCCESS_TEXT } from "./text-tones";
+import { createThreadSnapshots } from "./pr-view-snapshots";
 
 type LoadedPage = Extract<TimelineResult, { kind: "ok" }>;
 
@@ -44,13 +46,17 @@ interface Conversation {
 
 const NO_NEW_COMMENTS: readonly string[] = [];
 
+const conversationSnapshots = createThreadSnapshots<Conversation>();
+
 function prOf({ prNodeId, locked, viewerCanUpdate }: LoadedPage): Conversation["pr"] {
   return { prNodeId, locked, viewerCanUpdate };
 }
 
 function useTimeline(threadId: string, refreshedAt: number) {
   const rpc = useRpc<typeof rpcContract>();
-  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [conversation, setConversation] = useState<Conversation | null>(() =>
+    conversationSnapshots.get(threadId),
+  );
   const [hasPr, setHasPr] = useState(true);
   const [readError, setReadError] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -58,33 +64,44 @@ function useTimeline(threadId: string, refreshedAt: number) {
   const latestRequest = useRef(0);
 
   const read = useCallback(
-    (before: string | null): Promise<TimelineResult> =>
+    (before: string | null, fresh = false): Promise<TimelineResult> =>
       rpc
-        .call("getTimeline", { threadId, before })
+        .call("getTimeline", fresh ? { threadId, before, fresh } : { threadId, before })
         .catch((error: unknown): TimelineResult => ({ kind: "error", message: messageOf(error) })),
     [rpc, threadId],
   );
 
-  const reload = useCallback(async () => {
-    const request = ++latestRequest.current;
-    const page = await read(null);
-    if (request !== latestRequest.current) return;
-    setHasPr(page.kind !== "no_pr");
-    setReadError(page.kind === "error" ? page.message : null);
-    if (page.kind !== "ok") return;
-    setConversation((current) => ({
-      pr: prOf(page),
-      description: page.description,
-      events: mergeEvents(current?.events ?? [], page.events),
-      newCommentIds: page.newCommentIds,
-      olderCursor: current?.olderLoaded ? current.olderCursor : page.olderCursor,
-      olderLoaded: current?.olderLoaded ?? false,
-    }));
-  }, [read]);
+  const reload = useCallback(
+    async (fresh = false) => {
+      const request = ++latestRequest.current;
+      const page = await read(null, fresh);
+      if (request !== latestRequest.current) return;
+      setHasPr(page.kind !== "no_pr");
+      setReadError(page.kind === "error" ? page.message : null);
+      if (page.kind !== "ok") return;
+      setConversation((current) => ({
+        pr: prOf(page),
+        description: page.description,
+        events: mergeEvents(current?.events ?? [], page.events),
+        newCommentIds: page.newCommentIds,
+        olderCursor: current?.olderLoaded ? current.olderCursor : page.olderCursor,
+        olderLoaded: current?.olderLoaded ?? false,
+      }));
+    },
+    [read],
+  );
 
   useEffect(() => {
     void reload();
   }, [reload, refreshedAt]);
+
+  useRealtime(TIMELINE_UPDATED_CHANNEL, (payload) => {
+    if (isReviewUpdateFor(payload, threadId)) void reload();
+  });
+
+  useEffect(() => {
+    if (conversation !== null) conversationSnapshots.remember(threadId, conversation);
+  }, [threadId, conversation]);
 
   async function loadOlder() {
     const cursor = conversation?.olderCursor ?? null;
@@ -109,7 +126,9 @@ function useTimeline(threadId: string, refreshedAt: number) {
     );
   }
 
-  return { conversation, hasPr, readError, loadingOlder, olderError, reload, loadOlder };
+  const reloadFresh = useCallback(() => reload(true), [reload]);
+
+  return { conversation, hasPr, readError, loadingOlder, olderError, reloadFresh, loadOlder };
 }
 
 type Timeline = ReturnType<typeof useTimeline>;
@@ -155,7 +174,7 @@ const ConversationTimeline = ({
   return (
     <OverviewSection label="Conversation" summary={conversationSummary(conversation?.events ?? [])}>
       {readError !== null && (
-        <TimelineError message={readError} retry={() => void timeline.reload()} />
+        <TimelineError message={readError} retry={() => void timeline.reloadFresh()} />
       )}
       {conversation === null ? (
         readError === null && <TimelineSkeleton />
@@ -189,7 +208,7 @@ const ConversationTimeline = ({
               </p>
             </div>
           )}
-          <CommentBox pr={conversation.pr} threadId={threadId} onPosted={timeline.reload} />
+          <CommentBox pr={conversation.pr} threadId={threadId} onPosted={timeline.reloadFresh} />
         </>
       )}
     </OverviewSection>

@@ -90,6 +90,7 @@ describe("review CLI", () => {
   async function draftsOf(harness: Pick<Awaited<ReturnType<typeof setup>>, "behavior">) {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
+      fresh: true,
     })) as ReviewResult;
     if (result.kind !== "ok") {
       throw new Error(`expected ok, got ${result.kind}`);
@@ -100,6 +101,7 @@ describe("review CLI", () => {
   async function commentDraftsOf(harness: Awaited<ReturnType<typeof setup>>) {
     const result = (await harness.behavior.callRpc("getReview", {
       threadId: "thr_1",
+      fresh: true,
     })) as ReviewResult;
     if (result.kind !== "ok") {
       throw new Error(`expected ok, got ${result.kind}`);
@@ -508,11 +510,11 @@ describe("review CLI", () => {
         ]);
         expect(harness.experimental_hostRpcCalls.map(({ method }) => method)).toEqual([
           "fetchPrHead",
-          "fetchReviewThreads",
           "fetchPrFiles",
+          "fetchReviewThreads",
           "fetchPrHead",
-          "fetchReviewThreads",
           "fetchPrFiles",
+          "fetchReviewThreads",
         ]);
       },
     );

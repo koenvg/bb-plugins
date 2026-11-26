@@ -323,6 +323,7 @@ export const draftsResultSchema = z.discriminatedUnion("kind", [
 export type DraftsResult = z.infer<typeof draftsResultSchema>;
 
 const threadRequestSchema = z.object({ threadId: z.string().min(1) }).strict();
+const reviewRequestSchema = threadRequestSchema.extend({ fresh: z.boolean().optional() }).strict();
 
 const prInsightRequestSchema = z.object(prRequestFields).strict();
 export type PrInsightRequest = z.infer<typeof prInsightRequestSchema>;
@@ -377,7 +378,11 @@ export const actionResultSchema = z.discriminatedUnion("kind", [
 export type ActionResult = z.infer<typeof actionResultSchema>;
 
 const timelineRequestSchema = z
-  .object({ threadId: z.string().min(1), before: z.string().nullable() })
+  .object({
+    threadId: z.string().min(1),
+    before: z.string().nullable(),
+    fresh: z.boolean().optional(),
+  })
   .strict();
 
 export const timelineResultSchema = z.discriminatedUnion("kind", [
@@ -549,7 +554,8 @@ export const rpcContract = defineRpcContract({
   refresh: { input: threadRequestSchema, output: insightResultSchema },
   getPrInsight: { input: prInsightRequestSchema, output: insightResultSchema },
   refreshPrInsight: { input: prInsightRequestSchema, output: insightResultSchema },
-  getReview: { input: threadRequestSchema, output: reviewResultSchema },
+  getReview: { input: reviewRequestSchema, output: reviewResultSchema },
+  prefetchPr: { input: threadRequestSchema, output: z.object({}).strict() },
   getDrafts: { input: threadRequestSchema, output: draftsResultSchema },
   getTimeline: { input: timelineRequestSchema, output: timelineResultSchema },
   addPrComment: { input: addPrCommentRequestSchema, output: actionResultSchema },

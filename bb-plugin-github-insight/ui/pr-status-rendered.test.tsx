@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
@@ -7,7 +7,10 @@ import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
 
-type StatusMethods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runPrAction">;
+type StatusMethods = Pick<
+  typeof rpcContract,
+  "getInsight" | "refresh" | "runPrAction" | "prefetchPr"
+>;
 const app = await loadPluginApp(() => import("../app"));
 const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
 const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
@@ -54,6 +57,7 @@ const ok = (insight: PrInsight): InsightResult => ({
 const rpc = (result: InsightResult) => ({
   getInsight: () => result,
   refresh: () => result,
+  prefetchPr: () => ({}),
   runPrAction: () => {
     throw new Error("Status presentation must not write to GitHub");
   },
@@ -81,6 +85,26 @@ function renderTab(result: InsightResult) {
     { rpc: rpc(result) },
   );
 }
+
+describe("PR read ahead", () => {
+  const prefetches = (slot: ReturnType<typeof renderBanner>) =>
+    slot.inspection.rpcCalls.filter(({ method }) => method === "prefetchPr");
+
+  it("asks the server to read the PR tab data ahead when the thread has a PR", async () => {
+    const slot = renderBanner(ok(emptyInsight));
+
+    await vi.waitFor(() =>
+      expect(prefetches(slot)).toEqual([expect.objectContaining({ input: { threadId: "thr_1" } })]),
+    );
+  });
+
+  it("reads nothing ahead for a thread without a PR", async () => {
+    const slot = renderBanner({ kind: "no_pr" });
+
+    await vi.waitFor(() => expect(slot.inspection.rpcCalls.length).toBeGreaterThan(0));
+    expect(prefetches(slot)).toEqual([]);
+  });
+});
 
 describe("PR state parity", () => {
   it.each([

@@ -1796,17 +1796,105 @@ describe("getReview", () => {
     },
   );
 
-  it("calls GitHub again on each load", async () => {
-    const harness = await setup({
-      threads: [{ id: "thr_1", environmentId: "env_1" }],
-      pullRequests: { env_1: linkedPr(25259) },
-      host: recordedReviewHost,
-    });
+  function reviewWithHead() {
+    const head = { oid: "def456" };
+    return {
+      head,
+      setup: () =>
+        setup({
+          threads: [{ id: "thr_1", environmentId: "env_1" }],
+          pullRequests: { env_1: linkedPr(25259) },
+          host: (call) =>
+            call.method === "fetchPrHead"
+              ? ok(prHeadResponse({ oid: head.oid }))
+              : recordedReviewHost(call),
+        }),
+    };
+  }
+
+  const reviewSignals = (harness: Awaited<ReturnType<typeof setup>>) =>
+    harness.realtimeSignals.filter(({ channel }) => channel === "review.updated");
+
+  it("returns the stored review within a minute without a GitHub call", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-26T10:00:00Z") });
+    const harness = await reviewWithHead().setup();
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    vi.advanceTimersByTime(59_999);
 
     await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    await settle();
+
+    expect(harness.experimental_hostRpcCalls).toHaveLength(3);
+  });
+
+  it("returns the stored review at once after a minute, then tells the tab GitHub changed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-26T10:00:00Z") });
+    const pr = reviewWithHead();
+    const harness = await pr.setup();
     await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    pr.head.oid = "fff999";
+    vi.advanceTimersByTime(60_000);
+
+    const stale = await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    await settle();
+    const updated = await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+
+    expect(stale).toMatchObject({ kind: "ok", head: { oid: "def456" } });
+    expect(reviewSignals(harness)).toEqual([
+      { channel: "review.updated", payload: { threadId: "thr_1" } },
+    ]);
+    expect(updated).toMatchObject({ kind: "ok", head: { oid: "fff999" } });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(6);
+  });
+
+  it("tells the tab nothing when GitHub did not change", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-26T10:00:00Z") });
+    const harness = await reviewWithHead().setup();
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    vi.advanceTimersByTime(60_000);
+
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    await settle();
 
     expect(harness.experimental_hostRpcCalls).toHaveLength(6);
+    expect(reviewSignals(harness)).toEqual([]);
+  });
+
+  it("reads GitHub before it answers a fresh load", async () => {
+    const pr = reviewWithHead();
+    const harness = await pr.setup();
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    pr.head.oid = "fff999";
+
+    const fresh = await harness.behavior.callRpc("getReview", { threadId: "thr_1", fresh: true });
+
+    expect(fresh).toMatchObject({ kind: "ok", head: { oid: "fff999" } });
+  });
+
+  it("shares one GitHub read between a prefetch and the first load", async () => {
+    const harness = await reviewWithHead().setup();
+
+    await Promise.all([
+      harness.behavior.callRpc("prefetchPr", { threadId: "thr_1" }),
+      harness.behavior.callRpc("getReview", { threadId: "thr_1" }),
+    ]);
+    await settle();
+
+    expect(
+      harness.experimental_hostRpcCalls.filter(({ method }) => method === "fetchPrHead"),
+    ).toHaveLength(1);
+  });
+
+  it("reads the review in the background on a prefetch", async () => {
+    const harness = await reviewWithHead().setup();
+
+    await harness.behavior.callRpc("prefetchPr", { threadId: "thr_1" });
+    await settle();
+    const calls = harness.experimental_hostRpcCalls.length;
+    const review = await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+
+    expect(review).toMatchObject({ kind: "ok" });
+    expect(harness.experimental_hostRpcCalls).toHaveLength(calls);
   });
 });
 
@@ -2894,7 +2982,7 @@ describe("createCommentDraft", () => {
     );
     await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
     oid = "fff999";
-    await harness.behavior.callRpc("getReview", { threadId: "thr_1" });
+    await harness.behavior.callRpc("getReview", { threadId: "thr_1", fresh: true });
 
     await harness.behavior.callRpc("createCommentDraft", {
       threadId: "thr_1",

@@ -9,7 +9,7 @@ exports[`prHeadArgs > asks for the PR node id, head commit, state, author flag, 
 query ($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
-      id headRefOid state viewerDidAuthor
+      id headRefOid state viewerDidAuthor changedFiles
       baseRefOid
       baseRepository { name owner { login } }
       headRepository { name owner { login } }

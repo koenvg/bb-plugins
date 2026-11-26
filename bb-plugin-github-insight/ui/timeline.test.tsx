@@ -5,6 +5,7 @@ import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ActionResult, rpcContract, TimelineResult } from "../contract";
 import { parseTimelinePage, type TimelineEvent } from "../core/timeline";
 import timelines from "../test/fixtures/pr-timelines.json";
+import { forgetPrViews } from "./pr-view-snapshots";
 import { TimelineSections } from "./timeline";
 
 class Unobserved {
@@ -14,7 +15,10 @@ class Unobserved {
 
 beforeAll(() => vi.stubGlobal("ResizeObserver", Unobserved));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetPrViews();
+});
 
 type LoadedTimeline = Extract<TimelineResult, { kind: "ok" }>;
 
@@ -207,7 +211,40 @@ describe("conversation timeline", () => {
     await act(async () => fireEvent.click(within(alert).getByRole("button", { name: "Retry" })));
 
     expect(await slot.findByText("Back again")).toBeTruthy();
-    expect(timelineCalls(slot)).toHaveLength(2);
+    expect(timelineCalls(slot)).toEqual([
+      { threadId: "thr_1", before: null },
+      { threadId: "thr_1", before: null, fresh: true },
+    ]);
+  });
+
+  it("shows the last conversation of the thread at once when it opens again", async () => {
+    const first = renderTimeline(withEvents([comment("1", "Seen before")]));
+    await loaded(first);
+    first.unmount();
+
+    const again = renderTimeline({ getTimeline: () => new Promise<TimelineResult>(() => {}) });
+
+    expect(again.getByText("Seen before")).toBeTruthy();
+  });
+
+  it("reads again when the server says the conversation changed", async () => {
+    let result = withEvents([comment("1", "First")]);
+    const slot = renderTimeline({ getTimeline: () => result });
+    await slot.findByText("First");
+    result = withEvents([comment("1", "First"), comment("2", "Second")]);
+
+    await slot.behavior.emitRealtime("timeline.updated", { threadId: "thr_1" });
+
+    expect(await slot.findByText("Second")).toBeTruthy();
+  });
+
+  it("ignores a conversation change of another thread", async () => {
+    const slot = renderTimeline(withEvents([comment("1", "First")]));
+    await slot.findByText("First");
+
+    await slot.behavior.emitRealtime("timeline.updated", { threadId: "thr_2" });
+
+    expect(timelineCalls(slot)).toHaveLength(1);
   });
 
   it("loads older events above the newest ones", async () => {
@@ -245,6 +282,7 @@ describe("conversation timeline", () => {
     await act(async () => fireEvent.click(slot.getByRole("button", { name: "Comment" })));
 
     expect(events(slot).at(-1)?.textContent).toContain("Thanks, fixed");
+    expect(timelineCalls(slot).at(-1)).toEqual({ threadId: "thr_1", before: null, fresh: true });
   });
 
   it("shows a locked note instead of the comment box when the viewer cannot comment", async () => {

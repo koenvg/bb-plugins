@@ -101,6 +101,54 @@ describe("collectPrFiles", () => {
 
     expect(requested).toHaveLength(30);
   });
+
+  it("asks for all pages at once when it knows the file count", async () => {
+    const pages = [fullPage("a"), fullPage("b"), [restFile({ filename: "c.ts", status: "added" })]];
+    const running: number[] = [];
+    let mostRunning = 0;
+
+    const files = await collectPrFiles(async (page) => {
+      running.push(page);
+      mostRunning = Math.max(mostRunning, running.length);
+      await Promise.resolve();
+      running.splice(running.indexOf(page), 1);
+      return pages[page - 1];
+    }, Promise.resolve(201));
+
+    expect(mostRunning).toBe(2);
+    const paths = files.map(({ path }) => path);
+    expect([paths.length, paths[99], paths[100], paths[200]]).toEqual([
+      201,
+      "a-99.ts",
+      "b-0.ts",
+      "c.ts",
+    ]);
+  });
+
+  it("asks for one more page when the counted last page is full", async () => {
+    const pages = [fullPage("a"), fullPage("b"), []];
+    const requested: number[] = [];
+
+    const files = await collectPrFiles(async (page) => {
+      requested.push(page);
+      return pages[page - 1];
+    }, Promise.resolve(150));
+
+    expect(requested).toEqual([1, 2, 3]);
+    expect(files).toHaveLength(200);
+  });
+
+  it("reads one page at a time when the file count is not known", async () => {
+    const pages = [fullPage("a"), [restFile({ filename: "b.ts", status: "added" })]];
+    const requested: number[] = [];
+
+    await collectPrFiles(async (page) => {
+      requested.push(page);
+      return pages[page - 1];
+    }, Promise.resolve(null));
+
+    expect(requested).toEqual([1, 2]);
+  });
 });
 
 describe("gitPatch", () => {

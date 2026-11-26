@@ -2,7 +2,7 @@ import type { PrImageBasis } from "../core/pr-image-basis";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
-import type { rpcContract, SendToAgentResult } from "../contract";
+import type { ReviewResult, rpcContract, SendToAgentResult } from "../contract";
 import { commentStops } from "../core/comment-stops";
 import { splitByCommit } from "../core/draft-commits";
 import type { ReviewFile } from "../core/pr-files";
@@ -40,14 +40,27 @@ import { ThreadSelectionContext, useThreadSelectionState } from "./thread-select
 import { useCommentNavigation } from "./use-comment-navigation";
 import type { CommentNavigation, StepDirection } from "./use-comment-navigation";
 import { usePrViewed } from "./use-pr-viewed";
+import { createThreadSnapshots } from "./pr-view-snapshots";
 import { useThreadResult } from "./use-thread-result";
+import type { LoadMode } from "./use-thread-result";
 import { ViewerReviewBadge } from "./viewer-review-badge";
+
+const reviewSnapshots = createThreadSnapshots<ReviewResult>();
 
 function useReview(threadId: string) {
   const rpc = useRpc<typeof rpcContract>();
-  const fetchReview = useCallback((id: string) => rpc.call("getReview", { threadId: id }), [rpc]);
-  const state = useThreadResult(threadId, fetchReview);
-  const { reload, patch } = state;
+  const fetchReview = useCallback(
+    (id: string, mode: LoadMode) =>
+      rpc.call("getReview", mode === "refresh" ? { threadId: id, fresh: true } : { threadId: id }),
+    [rpc],
+  );
+  const state = useThreadResult(threadId, fetchReview, reviewSnapshots.get);
+  const { reload, patch, result } = state;
+  useEffect(() => {
+    if (result?.kind === "ok") {
+      reviewSnapshots.remember(threadId, result);
+    }
+  }, [threadId, result]);
   const latestDraftsRequest = useRef(0);
 
   const reloadDrafts = useCallback(() => {

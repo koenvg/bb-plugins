@@ -76,6 +76,7 @@ export const unusedRpc = {
   getPrBodyImage: () => ({ kind: "error" as const, code: "read" as const, message: "unavailable" }),
   getReview: () => ({ kind: "no_pr" as const }),
   getDrafts: () => ({ kind: "no_pr" as const }),
+  prefetchPr: () => ({}),
   getTimeline: () => ({ kind: "no_pr" as const }),
   addPrComment: () => ({ kind: "error" as const, message: "unused" }),
   sendToAgent: () => ({ kind: "error" as const, message: "unused" }),

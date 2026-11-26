@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const REVIEW_UPDATED_CHANNEL = "review.updated";
 export const REVIEW_DRAFTS_UPDATED_CHANNEL = "review.drafts-updated";
+export const TIMELINE_UPDATED_CHANNEL = "timeline.updated";
 
 const reviewUpdatedSchema = z.object({ threadId: z.string() });
 export type ReviewUpdated = z.infer<typeof reviewUpdatedSchema>;

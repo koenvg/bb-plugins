@@ -22,7 +22,7 @@ import { checkOneCommit } from "../core/draft-commits";
 import { newCommentIds } from "../core/new-comments";
 import { collectPrFiles } from "../core/pr-files";
 import type { ReviewFile } from "../core/pr-files";
-import { parsePrHead } from "../core/pr-head";
+import { changedFilesOf, parsePrHead } from "../core/pr-head";
 import type { PrHead } from "../core/pr-head";
 import { prKey } from "../core/pr-ref";
 import type { PullRequestRef } from "../core/pr-ref";
@@ -40,6 +40,7 @@ import { RECHECK_NO_PR } from "../pr-lookup";
 import type { LookupOptions, PrResolution, PrTarget } from "../pr-lookup";
 import type { CommentEdit, DraftStore } from "./draft-store";
 import type { ViewedMarksStore } from "./viewed-marks-store";
+import { createReadCache } from "../refresh/read-cache";
 
 export interface PrReview extends ReviewDrafts {
   head: PrHead;
@@ -106,6 +107,7 @@ interface ReviewServiceDeps {
   newCommentBasis(pr: PullRequestRef): Promise<{ markedAt: number | null; seen: Set<string> }>;
   markCommentsSeen(pr: PullRequestRef, ids: readonly string[]): Promise<ActionResult>;
   publishDrafts(update: ReviewUpdated): void;
+  publishReview(update: ReviewUpdated): void;
   sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
   renderMarkdown(target: PrTarget, text: string): Promise<string>;
   signMedia: SignMedia;
@@ -115,8 +117,18 @@ interface ReviewServiceDeps {
 
 export type ReviewService = ReturnType<typeof createReviewService>;
 
+function prDataKey({ head, files, collected, imageBasis }: LoadedPr): string {
+  const { threads, othersComments, complete } = collected;
+  return JSON.stringify({ head, files, threads, othersComments, complete, imageBasis });
+}
+
+function samePr(a: LoadedPr, b: LoadedPr): boolean {
+  return prDataKey(a) === prDataKey(b);
+}
+
 export function createReviewService(deps: ReviewServiceDeps) {
-  const loadedPrs = new Map<string, { value: LoadedPr | null }>();
+  const loadedPrs = createReadCache<LoadedPr>({ now: deps.now, sameData: samePr });
+  const viewers = new Map<string, Set<string>>();
 
   async function withPr<T>(
     threadId: string,
@@ -136,67 +148,114 @@ export function createReviewService(deps: ReviewServiceDeps) {
     }
   }
 
-  async function fetchPr(target: PrTarget): Promise<LoadedPr> {
-    const slot: { value: LoadedPr | null } = { value: null };
-    loadedPrs.set(prKey(target.ref), slot);
+  function hasPreviewFiles(files: readonly ReviewFile[]): boolean {
+    return files.some(
+      (file) =>
+        isRasterPath(file.path) ||
+        isRasterPath(file.previousPath ?? "") ||
+        isVideoPath(file.path) ||
+        isVideoPath(file.previousPath ?? ""),
+    );
+  }
+
+  async function readImageBasis(target: PrTarget, refs: PrImageRefs): Promise<PrImageBasis | null> {
+    try {
+      const compared = await deps.fetchImageMergeBase?.(target, refs);
+      const { merge_base_commit } = z
+        .object({ merge_base_commit: z.object({ sha: imageShaSchema }) })
+        .parse(compared);
+      return { ...refs, mergeBaseSha: merge_base_commit.sha, hostId: target.hostId };
+    } catch {
+      return null;
+    }
+  }
+
+  async function readHeadAndFiles(target: PrTarget) {
+    const readFiles = (fileCount?: Promise<number | null>) =>
+      collectPrFiles((page) => deps.fetchPrFilesPage(target, page), fileCount);
+    const headRead = deps.fetchPrHead(target);
+    let [rawHead, files] = await Promise.all([
+      headRead,
+      readFiles(headRead.then(changedFilesOf, () => null)),
+    ]);
+    let refs = parseImageRefs(rawHead);
+    if (refs === null || !hasPreviewFiles(files)) {
+      return { head: parsePrHead(rawHead), files, imageBasis: null };
+    }
+    // Previews need files read strictly between two equal head reads, so they show the head's revisions.
+    files = await readFiles();
+    let imageBasis: PrImageBasis | null = null;
+    for (let attempt = 0; attempt < 2 && refs !== null; attempt += 1) {
+      if (!hasPreviewFiles(files)) {
+        break;
+      }
+      const nextRaw = await deps.fetchPrHead(target).catch(() => null);
+      const nextRefs = parseImageRefs(nextRaw);
+      if (JSON.stringify(refs) === JSON.stringify(nextRefs)) {
+        imageBasis = await readImageBasis(target, refs);
+        break;
+      }
+      if (attempt === 1 || nextRefs === null) {
+        break;
+      }
+      rawHead = nextRaw;
+      refs = nextRefs;
+      files = await readFiles();
+    }
+    return { head: parsePrHead(rawHead), files, imageBasis };
+  }
+
+  async function readPr(target: PrTarget): Promise<LoadedPr> {
     const [{ head, files, imageBasis }, collected] = await Promise.all([
-      (async () => {
-        let rawHead = await deps.fetchPrHead(target);
-        let refs = parseImageRefs(rawHead);
-        let files = await collectPrFiles((page) => deps.fetchPrFilesPage(target, page));
-        let imageBasis: PrImageBasis | null = null;
-        for (let attempt = 0; attempt < 2 && refs !== null; attempt += 1) {
-          if (
-            !files.some(
-              (file) =>
-                isRasterPath(file.path) ||
-                isRasterPath(file.previousPath ?? "") ||
-                isVideoPath(file.path) ||
-                isVideoPath(file.previousPath ?? ""),
-            )
-          ) {
-            break;
-          }
-          const nextRaw = await deps.fetchPrHead(target).catch(() => null);
-          const nextRefs = parseImageRefs(nextRaw);
-          if (JSON.stringify(refs) === JSON.stringify(nextRefs)) {
-            try {
-              const compared = await deps.fetchImageMergeBase?.(target, refs);
-              const { merge_base_commit } = z
-                .object({ merge_base_commit: z.object({ sha: imageShaSchema }) })
-                .parse(compared);
-              imageBasis = { ...refs, mergeBaseSha: merge_base_commit.sha, hostId: target.hostId };
-            } catch {
-              /* Text review remains available when image revisions cannot be resolved. */
-            }
-            break;
-          }
-          if (attempt === 1 || nextRefs === null) {
-            break;
-          }
-          rawHead = nextRaw;
-          refs = nextRefs;
-          files = await collectPrFiles((page) => deps.fetchPrFilesPage(target, page));
-        }
-        return { head: parsePrHead(rawHead), files, imageBasis };
-      })(),
+      readHeadAndFiles(target),
       collectReviewThreads((after) => deps.fetchReviewThreadsPage(target, after)),
     ]);
-    const loaded = {
-      head,
-      files,
-      collected,
-      imageBasis,
-      hostId: target.hostId,
-    };
-    if (loadedPrs.get(prKey(target.ref)) === slot) {
-      slot.value = loaded;
-    }
-    return loaded;
+    return { head, files, collected, imageBasis, hostId: target.hostId };
+  }
+
+  async function fetchPr(target: PrTarget): Promise<LoadedPr> {
+    return (await loadedPrs.fetch(prKey(target.ref), () => readPr(target))).value;
   }
 
   async function loadedPr(target: PrTarget): Promise<LoadedPr> {
-    return loadedPrs.get(prKey(target.ref))?.value ?? fetchPr(target);
+    const key = prKey(target.ref);
+    return loadedPrs.peek(key) ?? (await loadedPrs.shared(key, () => readPr(target))).value;
+  }
+
+  function revalidate(target: PrTarget, threadId: string): void {
+    const key = prKey(target.ref);
+    viewersOf(key).add(threadId);
+    if (loadedPrs.isFresh(key)) {
+      return;
+    }
+    void loadedPrs
+      .shared(key, () => readPr(target))
+      .then(async ({ value, changed }) => {
+        if (changed) {
+          for (const viewer of viewersOf(key)) {
+            deps.publishReview({ threadId: viewer });
+          }
+        }
+        await deps.drafts.liveDrafts(target.ref, value.collected);
+      })
+      .catch(() => {});
+  }
+
+  function viewersOf(key: string): Set<string> {
+    const known = viewers.get(key);
+    if (known !== undefined) {
+      return known;
+    }
+    const created = new Set<string>();
+    viewers.set(key, created);
+    return created;
+  }
+
+  async function prefetch(threadId: string): Promise<void> {
+    const resolution = await deps.resolvePr(threadId);
+    if (resolution.kind === "pr") {
+      revalidate(resolution.target, threadId);
+    }
   }
 
   async function readDrafts(pr: PullRequestRef, replyDrafts: Promise<Drafts>) {
@@ -246,8 +305,19 @@ export function createReviewService(deps: ReviewServiceDeps) {
     return loadReview(threadId, ({ threads }) => threads);
   }
 
-  async function loadForDisplay(threadId: string): Promise<DisplayedReviewLoad> {
-    const load = await loadReview(threadId, signedThreads);
+  async function loadForDisplay(
+    threadId: string,
+    { fresh = false }: { fresh?: boolean } = {},
+  ): Promise<DisplayedReviewLoad> {
+    const load = await withPr(threadId, async (target) => {
+      const cached = fresh ? null : loadedPrs.peek(prKey(target.ref));
+      if (cached === null) {
+        const loaded = fresh ? await fetchPr(target) : await loadedPr(target);
+        return reviewOf(target, loaded, signedThreads, deps.drafts.liveDrafts);
+      }
+      revalidate(target, threadId);
+      return reviewOf(target, cached, signedThreads, deps.drafts.knownDrafts);
+    });
     if (load.kind !== "ok") {
       return load;
     }
@@ -259,20 +329,28 @@ export function createReviewService(deps: ReviewServiceDeps) {
     threadId: string,
     threadsOf: (collected: CollectedReviewThreads) => ReviewThread[],
   ): Promise<ReviewLoad> {
-    return withPr(threadId, async (target) => {
-      const { head, files, collected, imageBasis } = await fetchPr(target);
-      const [drafts, viewedMarks, { markedAt, seen }] = await Promise.all([
-        readDrafts(target.ref, deps.drafts.liveDrafts(target.ref, collected)),
-        deps.viewed.get(target.ref),
-        deps.newCommentBasis(target.ref),
-      ]);
-      const threads = placeThreads(files, threadsOf(collected));
-      const newIds = newCommentIds(collected.othersComments, markedAt, seen);
-      return {
-        allThreadsRead: collected.complete,
-        review: { head, files, imageBasis, threads, viewedMarks, newCommentIds: newIds, ...drafts },
-      };
-    });
+    return withPr(threadId, async (target) =>
+      reviewOf(target, await fetchPr(target), threadsOf, deps.drafts.liveDrafts),
+    );
+  }
+
+  async function reviewOf(
+    target: PrTarget,
+    { head, files, collected, imageBasis }: LoadedPr,
+    threadsOf: (collected: CollectedReviewThreads) => ReviewThread[],
+    replyDrafts: (pr: PullRequestRef, collected: CollectedReviewThreads) => Promise<Drafts>,
+  ): Promise<{ allThreadsRead: boolean; review: PrReview }> {
+    const [drafts, viewedMarks, { markedAt, seen }] = await Promise.all([
+      readDrafts(target.ref, replyDrafts(target.ref, collected)),
+      deps.viewed.get(target.ref),
+      deps.newCommentBasis(target.ref),
+    ]);
+    const threads = placeThreads(files, threadsOf(collected));
+    const newIds = newCommentIds(collected.othersComments, markedAt, seen);
+    return {
+      allThreadsRead: collected.complete,
+      review: { head, files, imageBasis, threads, viewedMarks, newCommentIds: newIds, ...drafts },
+    };
   }
 
   function loadDrafts(threadId: string): Promise<DraftsLoad> {
@@ -449,8 +527,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
       return imageError("stale", "Pull request changed. Refresh the review.");
     }
     const target = resolution.target;
-    const slot = loadedPrs.get(prKey(target.ref));
-    const loaded = slot?.value;
+    const loaded = loadedPrs.peek(prKey(target.ref));
     const basis = loaded?.imageBasis;
     if (
       !basis ||
@@ -479,7 +556,8 @@ export function createReviewService(deps: ReviewServiceDeps) {
       const result =
         (await reader?.(target, { ...repo, sha, path: sidePath })) ??
         imageError("read", "Preview reader unavailable");
-      return loadedPrs.get(prKey(target.ref)) === slot
+      const current = loadedPrs.peek(prKey(target.ref))?.imageBasis;
+      return current && imageBasisKey(current) === expectedBasisKey
         ? result
         : imageError("stale", "Review refreshed. Retry the preview.");
     } catch {
@@ -494,6 +572,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
       getPrContent("video", threadId, key, path, side),
     load,
     loadForDisplay,
+    prefetch,
     loadDrafts,
     loadBasis,
     loadTarget,

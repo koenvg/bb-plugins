@@ -21,6 +21,11 @@ vi.mock("node:child_process", async () => {
     }),
   };
 });
+const fetchCalls = vi.hoisted(() => [] as string[]);
+vi.stubGlobal("fetch", async (url: string) => {
+  fetchCalls.push(url);
+  return Response.json({ merge_base_commit: { sha: "3333333333333333333333333333333333333333" } });
+});
 const { default: host } = await import("../host");
 const request = {
   owner: "private-owner",
@@ -96,12 +101,7 @@ describe("authenticated bounded image host", () => {
     }
     expect(state.calls).toEqual([]);
   });
-  it("compares pinned fork refs through authenticated gh in the base repository", async () => {
-    resetGh();
-    state.stdout = () =>
-      Buffer.from(
-        JSON.stringify({ merge_base_commit: { sha: "3333333333333333333333333333333333333333" } }),
-      );
+  it("compares pinned fork refs through the authenticated GitHub API in the base repository", async () => {
     const signal = new AbortController().signal;
     expect(
       await host.handlers.fetchImageMergeBase(
@@ -117,12 +117,8 @@ describe("authenticated bounded image host", () => {
       ok: true,
       data: { merge_base_commit: { sha: "3333333333333333333333333333333333333333" } },
     });
-    expect(state.calls[0]?.slice(0, 2)).toEqual([
-      "gh",
-      [
-        "api",
-        "repos/base-owner/private-repo/compare/1111111111111111111111111111111111111111...fork-owner%3A2222222222222222222222222222222222222222",
-      ],
+    expect(fetchCalls).toEqual([
+      "https://api.github.com/repos/base-owner/private-repo/compare/1111111111111111111111111111111111111111...fork-owner%3A2222222222222222222222222222222222222222",
     ]);
   });
   it.each([

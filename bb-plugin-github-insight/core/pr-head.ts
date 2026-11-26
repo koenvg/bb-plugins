@@ -72,3 +72,14 @@ function submittedReview(review: z.infer<typeof latestReviewSchema>): ViewerRevi
     commitOid: review.commit?.oid ?? null,
   };
 }
+
+const changedFilesSchema = z.object({
+  data: z.object({
+    repository: z.object({ pullRequest: z.object({ changedFiles: z.number().int() }) }),
+  }),
+});
+
+export function changedFilesOf(response: unknown): number | null {
+  const parsed = changedFilesSchema.safeParse(response);
+  return parsed.success ? parsed.data.data.repository.pullRequest.changedFiles : null;
+}
