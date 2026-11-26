@@ -241,14 +241,36 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
         state.threadId = next.thread_id;
         state.afterSeq = 0;
       }
-      const page = await sdk.threads.events.list({
-        threadId: next.thread_id,
-        types: ["thread/identity"],
-        order: "asc",
-        afterSeq: String(state.afterSeq),
-        limit: String(PAGE),
-        signal,
-      });
+      let page: Awaited<ReturnType<Sdk["threads"]["events"]["list"]>>;
+      try {
+        page = await sdk.threads.events.list({
+          threadId: next.thread_id,
+          types: ["thread/identity"],
+          order: "asc",
+          afterSeq: String(state.afterSeq),
+          limit: String(PAGE),
+          signal,
+        });
+      } catch (error) {
+        signal.throwIfAborted();
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          !("status" in error && error.status === 404) ||
+          !("code" in error && error.code === "thread_not_found")
+        ) {
+          throw error;
+        }
+        database.transaction(() => {
+          database
+            .prepare("DELETE FROM discovery_threads WHERE generation=? AND thread_id=?")
+            .run(state.generation, next.thread_id);
+          state.threadId = null;
+          state.afterSeq = 0;
+          save(database, state);
+        });
+        return;
+      }
       signal.throwIfAborted();
       database.transaction(() => {
         if (state.afterSeq === 0) {

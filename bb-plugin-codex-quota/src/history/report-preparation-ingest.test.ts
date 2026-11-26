@@ -2,8 +2,14 @@ import { appendFile, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
+import {
+  createFakePluginHost,
+  makeHostResponse,
+  makeThreadResponse,
+} from "@get-bb/plugin-sdk/testing";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 import { createQuotaHostEntry } from "../plugin/host.js";
+import plugin from "../plugin/server.js";
 import { createHostHistory } from "./history-host.js";
 import { openHistoryDatabase } from "./storage/history-storage.js";
 import {
@@ -14,6 +20,8 @@ import {
 import { maintainHistory } from "./storage/history-retention.js";
 import { usageRecordSchema } from "./collection/usage-record.js";
 import type { CalendarQuery } from "./calendar/calendar-contract.js";
+import type { IdentityBatch } from "./identity/identity-contract.js";
+import type { Preparation } from "./report-preparation-contract.js";
 
 const heldRead = vi.hoisted(() => ({
   gate: null as null | { entered: () => void; wait: Promise<void>; name?: string },
@@ -135,8 +143,12 @@ async function fixture(collector = true, ingestRows?: number) {
       return value;
     },
     prepare: () => harness.experimental_call("reportPreparation", { identities }),
-    async append(n: number, cost: number | null = 0.125) {
-      const usage = record(n, cost);
+    async append(
+      n: number,
+      cost: number | null = 0.125,
+      identity?: { claimedThreadId: string; providerSessionKey: string },
+    ) {
+      const usage = usageRecordSchema.parse({ ...record(n, cost), ...identity });
       await appendFile(join(directory, "events-v1-2026-10-01.jsonl"), JSON.stringify(usage) + "\n");
       await appendFile(
         join(directory, "confirmations-v1-2026-10-01.jsonl"),
@@ -371,6 +383,144 @@ it("does not advance old discovery past a canceled source read", async () => {
     release?.();
     heldRead.gate = null;
     await f.harness.experimental_dispose();
+  }
+});
+
+it("resumes report preparation after an archived thread disappears without losing retained usage or attribution", async () => {
+  const f = await fixture();
+  const discovery = (await openHistoryDatabase(":memory:"))!;
+  const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+  const archived = (id: string) =>
+    makeThreadResponse({ id, environmentId: "env_a", providerId: "pi", archivedAt: now });
+  let threads = [archived("thr_gone")];
+  const notFound = Object.assign(new Error("Thread not found"), {
+    status: 404,
+    code: "thread_not_found",
+  });
+  let failure: Error | null = null;
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "codex-quota",
+    sdk: {
+      hosts: { get: async () => makeHostResponse({ id: "host_a" }) },
+      environments: { list: async () => [{ id: "env_a", hostId: "host_a" }] },
+      threads: {
+        list: async ({ archived: isArchived }: { archived?: boolean } = {}) =>
+          isArchived ? threads : [],
+        events: {
+          list: async ({ threadId }: { threadId: string }) => {
+            if (threadId === "thr_new") {
+              throw notFound;
+            }
+            if (threadId === "thr_gone" && failure) {
+              throw failure;
+            }
+            return [
+              {
+                seq: 1,
+                threadId,
+                type: "thread/identity",
+                data: { providerThreadId: `provider-${threadId}` },
+              },
+            ];
+          },
+        },
+      },
+    },
+    experimental_callHostRpc: async ({ method, input }) => {
+      expect(method).toBe("reportPreparation");
+      return f.harness.experimental_call(
+        "reportPreparation",
+        input as { identities: IdentityBatch },
+      );
+    },
+  });
+  try {
+    plugin({
+      ...bb,
+      storage: {
+        ...bb.storage,
+        database: () =>
+          ({
+            exec: discovery.exec,
+            prepare: discovery.prepare,
+            transaction: (work: () => unknown) => () => discovery.transaction(work),
+          }) as ReturnType<typeof bb.storage.database>,
+      },
+    });
+    const { generation } = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
+      generation: number;
+    };
+    async function prepare(refresh = false) {
+      for (let batch = 0; batch < 16; batch += 1) {
+        const result = (await harness.behavior.callRpc("reportPreparation", {
+          hostId: "host_a",
+          generation,
+          refresh: refresh && batch === 0,
+        })) as Preparation;
+        if (result.state !== "pending") {
+          return result;
+        }
+      }
+      throw Error("Report preparation did not finish");
+    }
+    const append = (n: number, claimedThreadId: string) =>
+      f.append(n, 0.125, {
+        claimedThreadId,
+        providerSessionKey: `provider-${claimedThreadId}.jsonl`,
+      });
+    const readByThread = (threadId: string) =>
+      f.harness.experimental_call("calendarReport", {
+        ...query,
+        group: "thread",
+        scope: { kind: "thread", threadId },
+      });
+
+    await append(1, "thr_gone");
+    expect(await prepare()).toMatchObject({ state: "settled" });
+    expect(await readByThread("thr_gone")).toMatchObject({ summary: { totalTokens: 3 } });
+
+    clock.mockReturnValue(now + 60_001);
+    threads = [...threads, archived("thr_new"), archived("thr_visible")];
+    for (const [status, code] of [
+      [503, "thread_not_found"],
+      [404, "route_not_found"],
+    ] as const) {
+      failure = Object.assign(new Error("Events lookup failed"), { status, code });
+      expect(await prepare(true)).toMatchObject({
+        state: "unavailable",
+        reason: "discovery-unavailable",
+      });
+    }
+
+    await append(2, "thr_new");
+    await append(2, "thr_new");
+    await append(3, "thr_visible");
+    const rawPaths = ["events", "confirmations"].map((kind) =>
+      join(f.directory, `${kind}-v1-2026-10-01.jsonl`),
+    );
+    const raw = await Promise.all(rawPaths.map((path) => readFile(path, "utf8")));
+    expect((await f.read()).summary.totalTokens).toBe(3);
+
+    failure = notFound;
+    expect(await prepare()).toMatchObject({ state: "settled" });
+    expect(await f.read()).toMatchObject({
+      summary: { totalTokens: 9, money: { capturedCost: 0.375 } },
+    });
+    for (const [threadId, totalTokens] of [
+      ["thr_gone", 3],
+      ["thr_visible", 3],
+      ["thr_new", 0],
+    ] as const) {
+      expect(await readByThread(threadId)).toMatchObject({
+        identity: "complete",
+        summary: { totalTokens },
+      });
+    }
+    expect(await Promise.all(rawPaths.map((path) => readFile(path, "utf8")))).toEqual(raw);
+  } finally {
+    await harness.lifecycle.dispose();
+    await f.harness.experimental_dispose();
+    discovery.close();
   }
 });
 
