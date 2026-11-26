@@ -87,7 +87,6 @@ export function recordedFixture(query: CalendarQuery, now: number) {
   report.summary.money = priced;
   report.days[14]!.activeEntities = 1;
   report.days[14]!.money = priced;
-  report.ranking = [{ ...report.ranking[0]!, totalTokens: 600, money: priced }];
   report.truncated = false;
   return report;
 }

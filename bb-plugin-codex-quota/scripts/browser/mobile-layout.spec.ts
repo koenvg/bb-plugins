@@ -61,7 +61,6 @@ test("coarse-pointer controls have 44px touch targets", async ({ page }) => {
   await chart(page);
   for (const control of [
     ...(await page.getByRole("group", { name: "Chart metric" }).getByRole("button").all()),
-    ...(await page.getByRole("group", { name: "Usage grouping" }).getByRole("button").all()),
     page.getByRole("button", { name: "Previous 30 days" }),
     page.getByRole("button", { name: "Next 30 days" }),
     page.getByRole("button", { name: "Latest", exact: true }),
@@ -75,7 +74,7 @@ test("coarse-pointer controls have 44px touch targets", async ({ page }) => {
   await expect
     .poll(() =>
       page.evaluate(
-        "calendarFixture.calls.filter(c => c.method === 'machineAccounts' && c.input.refresh).length",
+        "calendarFixture.calls.filter(c => c.method === 'machineAccountsV2' && c.input.refresh).length",
       ),
     )
     .toBe(1);

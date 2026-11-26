@@ -17,7 +17,7 @@ it("uses public BB navigation and clears verified totals during a host switch", 
   const options: RenderSlotOptions<
     Pick<
       typeof rpcContract,
-      "selection" | "selectHost" | "read" | "historyReadiness" | "machineAccounts"
+      "selection" | "selectHost" | "read" | "historyReadiness" | "machineAccountsV2"
     >
   > = {
     sdk: {
@@ -26,7 +26,7 @@ it("uses public BB navigation and clears verified totals during a host switch", 
       },
     },
     rpc: {
-      machineAccounts: async () => metadataFixture(),
+      machineAccountsV2: async () => metadataFixture(),
       selection: async () => selected,
       selectHost: async ({ hostId }) => {
         selected = { hostId, generation: 2 };

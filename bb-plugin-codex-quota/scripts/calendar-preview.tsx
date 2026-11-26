@@ -40,7 +40,43 @@ accounts.machines = [
   { id: "host_b", name: "Host B", status: state === "offline" ? "disconnected" : "connected" },
 ];
 accounts.accounts[0].machines = ["host_a", "host_b"];
-accounts.accounts[0].quota = quotaFixture(now, 42);
+const allowance = quotaFixture(state === "stale" ? now - 600000 : now, 42);
+const allowanceCases: Record<
+  string,
+  { balance: string; windows: typeof allowance.snapshot.general }
+> = {
+  "allowance-zero": { balance: "000.0000", windows: [] },
+  "allowance-weekly": { balance: "40247.4094100000", windows: allowance.snapshot.general.slice(1) },
+  "allowance-large": {
+    balance: "12345678901234567890123456789012.9999999999999",
+    windows: allowance.snapshot.general.map((window, index) =>
+      index === 0 ? { ...window, name: "W" + "w".repeat(23) } : window,
+    ),
+  },
+};
+const allowanceCase = allowanceCases[state];
+const general = allowanceCase?.windows ?? allowance.snapshot.general;
+accounts.accounts[0].quota = {
+  ...allowance,
+  snapshot: {
+    ...allowance.snapshot,
+    bankedResets: 2,
+    credits: { kind: "balance", balance: allowanceCase?.balance ?? "740.25" },
+    general,
+    bindingWindowId: general[0]?.id ?? null,
+    bindingRemainingPercent: general[0]?.remainingPercent ?? null,
+    additional: [
+      {
+        name: "GPT-5.3-Codex-Spark",
+        windows: allowance.snapshot.general.map((window, index) => ({
+          ...window,
+          remainingPercent: index ? 91 : 84,
+          resetAt: new Date(Date.parse(window.resetAt) + 80 * 60_000).toISOString(),
+        })),
+      },
+    ],
+  },
+};
 const emptySnapshot = (query: CalendarQuery) => {
   const view = calendarEmptySnapshot(
     query,
@@ -108,20 +144,7 @@ function snapshot(query: CalendarQuery) {
   if (state === "huge") {
     view.days[14].totalTokens = view.summary.totalTokens = Number.MAX_SAFE_INTEGER;
   }
-  if (query.group === "thread") {
-    view.days[14].totalTokens = view.summary.totalTokens = 500;
-    view.days[14].activeEntities = view.summary.activeEntities = 50;
-    view.days[14].money.records = view.summary.money.records = 50;
-    view.days[14].classes = {
-      state: "available",
-      input: 0,
-      output: 300,
-      reasoning: 100,
-      cacheRead: 200,
-      cacheWrite: 0,
-    };
-  }
-  if (state === "cache-heavy" && query.group === "workspace") {
+  if (state === "cache-heavy") {
     // Representative cache-heavy distribution for visual inspection; no account data.
     const totals = [
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 320, 160, 0, 0, 0, 0, 0, 80, 0, 0, 60, 745, 1040, 640,
@@ -181,12 +204,6 @@ function snapshot(query: CalendarQuery) {
         reason: "ok",
       },
     };
-  }
-  if (state === "cache-heavy") {
-    view.ranking = [745_920_001, 301_550_001, 301_550_002].map((totalTokens, index) => ({
-      ...view.ranking[index],
-      totalTokens,
-    }));
   }
   view.previous = query.startDate > shiftDate(latestRange, -60);
   view.next = query.startDate < latestRange;
@@ -350,8 +367,8 @@ const options = {
     },
   },
   rpc: {
-    machineAccounts: async (input: unknown) => {
-      record("machineAccounts", input);
+    machineAccountsV2: async (input: unknown) => {
+      record("machineAccountsV2", input);
       return accounts;
     },
     machinePreparation: async (input: unknown) => {
@@ -365,13 +382,11 @@ const options = {
     machineReports: async (input: unknown): Promise<MachineReports> => {
       record("machineReports", input);
       const { query } = input as { query: CalendarQuery };
-      if (query.group === "workspace") {
-        reportCalls += 1;
-      }
+      reportCalls += 1;
       if (state === "loading") {
         return new Promise(() => {});
       }
-      if (state === "stale" && query.group === "workspace" && reportCalls > 1) {
+      if (state === "stale" && reportCalls > 1) {
         throw Error("Synthetic failed refresh");
       }
       if (state === "cancel" && query.startDate === shiftDate(latestRange, -30)) {

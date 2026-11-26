@@ -23,12 +23,12 @@ export function readCalendarReport(
 ): CalendarReport {
   const query = calendarQuerySchema.parse(input);
   const retention = effectiveRetentionState(db, now);
-  const current = readRange(db, query, now, retention, true);
+  const current = readRange(db, query, now, retention);
   if (current.state !== "unavailable" && query.comparison) {
     const priorQuery = { ...query, startDate: shiftDate(query.startDate, -30) };
     let prior: NonNullable<CalendarSnapshot["comparison"]>["prior"];
     try {
-      const range = readRange(db, priorQuery, now, retention, false);
+      const range = readRange(db, priorQuery, now, retention);
       if (range.state === "unavailable") {
         prior = range;
       } else {
@@ -65,7 +65,6 @@ function readRange(
   query: CalendarQuery,
   now: number,
   retention: ReturnType<typeof effectiveRetentionState>,
-  includeRanking: boolean,
 ): CalendarReport {
   const latest = latestStart(now, query.timezone);
   const observedAt = new Date(now).toISOString();
@@ -168,60 +167,6 @@ function readRange(
   } & MoneyAggregate;
   checkedCount(summary.totalTokens);
   checkedCount(summary.activeEntities);
-  const ranked = includeRanking
-    ? (db
-        .prepare(`SELECT ${entity} AS key,sum(c.total) AS totalTokens,${moneyColumns(entity)},count(DISTINCT c.verified_thread) AS exact,
-    sum(CASE WHEN c.verified_thread IS NULL THEN 1 ELSE 0 END) AS unbound,
-    sum(CASE WHEN i.grade='ambiguous' THEN 1 ELSE 0 END) AS ambiguous
-    FROM usage_compact c LEFT JOIN identity_usage i ON i.event_id=c.event_id
-    WHERE c.accepted=1 AND ${filter.sql} AND c.occurred_at>=? AND c.occurred_at<? GROUP BY ${entity} ORDER BY totalTokens DESC,key LIMIT 50`)
-        .all(...filter.values, start, end) as ({
-        key: string;
-        totalTokens: number;
-        exact: number;
-        unbound: number;
-        ambiguous: number;
-      } & MoneyAggregate)[])
-    : [];
-  const ranking: CalendarSnapshot["ranking"] = ranked.map((row) => {
-    checkedCount(row.totalTokens);
-    if (query.group === "workspace") {
-      return {
-        key: row.key,
-        label: row.key,
-        metadata: "recorded-workspace",
-        totalTokens: row.totalTokens,
-        money: calendarMoney(row),
-        attribution:
-          identity !== "complete" || identityPending
-            ? "unknown"
-            : row.ambiguous
-              ? "ambiguous"
-              : row.exact
-                ? row.unbound
-                  ? "mixed"
-                  : "exact-thread"
-                : "workspace-only",
-        coverage: readCoverage(db, { start, end, workspace: row.key }),
-      };
-    }
-    const meta = db
-      .prepare("SELECT title,state FROM identity_metadata WHERE generation=? AND thread_id=?")
-      .get(receipt.generation, row.key) as
-      | { title: string | null; state: "available" | "archived" | "deleted" }
-      | undefined;
-    return {
-      key: row.key,
-      label:
-        meta?.title ??
-        `${meta?.state === "deleted" ? "Deleted" : meta?.state === "archived" ? "Archived" : "Unavailable"} thread ${row.key}`,
-      metadata: meta?.state ?? "missing",
-      totalTokens: row.totalTokens,
-      money: calendarMoney(row),
-      attribution: "exact-thread",
-      coverage: readCoverage(db, { start, end, verifiedThread: row.key }),
-    };
-  });
   const inactive = days.every((day) => day.coverage.zero);
   const anyUsage = days.some((day) => day.activeEntities > 0 || (day.uncertain?.records ?? 0) > 0);
   const value: CalendarSnapshot = {
@@ -251,8 +196,8 @@ function readRange(
       excludedTokens: checkedCount(days.reduce((n, day) => n + day.excludedTokens, 0)),
     },
     days,
-    ranking,
-    truncated: summary.activeEntities > 50,
+    ranking: [],
+    truncated: false,
     identity,
     identityPending,
   };

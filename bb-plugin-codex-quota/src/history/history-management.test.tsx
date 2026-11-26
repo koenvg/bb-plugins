@@ -16,11 +16,12 @@ it("keeps management idle during chart navigation and opens only the explicitly 
   const page = f.page();
   const q = within(page.container);
   await q.findByRole("group", { name: "Daily recorded values" });
-  fireEvent.click(q.getByRole("button", { name: "Threads" }));
+  fireEvent.click(q.getByRole("button", { name: "Previous 30 days" }));
   expect(f.selectHost).not.toHaveBeenCalled();
   expect(f.historyReadiness).not.toHaveBeenCalled();
   expect(f.historicalImport).not.toHaveBeenCalled();
-  await setHistoryManagementOpen(page.container);
+  const settings = f.settings();
+  await setHistoryManagementOpen(settings.container);
   await waitFor(() => expect(f.historyReadiness).toHaveBeenCalledTimes(1));
   expect(f.selectHost.mock.lastCall?.[0]).toEqual({ hostId: "host_one" });
   expect(f.historyReadiness.mock.lastCall?.[0]).toMatchObject({ hostId: "host_one" });
@@ -53,7 +54,7 @@ function fixture() {
         generation: 2,
       }),
       read: async () => ({ state: "unavailable", reason: "auth-required", snapshot: null }),
-      machineAccounts: async () => metadataFixture(),
+      machineAccountsV2: async () => metadataFixture(),
       historyReadiness: (input: unknown) => request("historyReadiness", input),
       historicalImport: (input: unknown) => request("historicalImport", input),
       collectorControl: (input: unknown) => request("collectorControl", input),

@@ -21,6 +21,7 @@ test("large-value hover proof keeps the chart in the viewport", async ({ page })
   await page.setViewportSize({ width: 375, height: 900 });
   await page.goto("/calendar.html?state=huge");
   await chart(page);
+  await page.getByRole("img", { name: /^Daily usage chart:/ }).scrollIntoViewIfNeeded();
   const before = await page.evaluate(() => window.scrollY);
   const facts = await tooltip(page, "tokens", await rows(page));
   expect(facts.pointer).not.toBeNull();

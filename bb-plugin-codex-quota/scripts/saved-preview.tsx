@@ -30,7 +30,6 @@ function gate() {
 const live = gate();
 const preparation = gate();
 const saved = gate();
-const threads = gate();
 function observation(query: CalendarQuery, tokens: number, cached: boolean) {
   const value = reportsFixture(query, now);
   for (const row of value.machines) {
@@ -43,7 +42,6 @@ function observation(query: CalendarQuery, tokens: number, cached: boolean) {
     report.days[14].classes = { state: "unavailable" };
     report.summary.money.capturedCost = report.days[14].money.capturedCost =
       tokens === 1200 ? 3 : 4.5;
-    report.ranking[0].totalTokens = tokens / 2;
     if (modelTransition) {
       const day = report.days[14];
       const empty = {
@@ -100,7 +98,7 @@ const ObservedPanel = (props: { subPath: string }) => {
 };
 const options = {
   rpc: {
-    machineAccounts: async () => {
+    machineAccountsV2: async () => {
       events.push({ event: "accounts-request" });
       return accountsFixture(now);
     },
@@ -113,9 +111,6 @@ const options = {
     machineReportSnapshot: async (input: unknown) => {
       const { query } = input as { query: CalendarQuery };
       events.push({ event: "saved-request", query });
-      if (query.group === "thread") {
-        await threads.promise;
-      }
       if (cold) {
         await saved.promise;
       }
@@ -144,9 +139,9 @@ Object.assign(window, {
     events,
     tooltipCommits,
     errors,
-    release: (name: "live" | "preparation" | "saved" | "threads") => {
+    release: (name: "live" | "preparation" | "saved") => {
       events.push({ event: `release-${name}` });
-      ({ live, preparation, saved, threads })[name].release();
+      ({ live, preparation, saved })[name].release();
     },
   },
 });

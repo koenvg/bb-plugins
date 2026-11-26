@@ -1,5 +1,6 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import { creditBalancePattern } from "./quota.js";
 
 import {
   maintenanceCommandSchema,
@@ -42,6 +43,17 @@ export const quotaSnapshotSchema = z
   })
   .strict();
 
+const dashboardQuotaSnapshotSchema = quotaSnapshotSchema.extend({
+  credits: z
+    .discriminatedUnion("kind", [
+      z
+        .object({ kind: z.literal("balance"), balance: z.string().regex(creditBalancePattern) })
+        .strict(),
+      z.object({ kind: z.literal("unlimited") }).strict(),
+    ])
+    .optional(),
+});
+
 export const quotaViewSchema = z
   .object({
     state: z.enum(["fresh", "stale", "unavailable"]),
@@ -80,7 +92,18 @@ export const quotaViewSchema = z
       ? view.snapshot === null && view.reason !== "ok"
       : view.snapshot !== null && (view.state !== "fresh" || view.reason === "ok"),
   );
-export type QuotaStatus = z.infer<typeof quotaViewSchema>;
+export const dashboardQuotaViewSchema = quotaViewSchema.safeExtend({
+  snapshot: dashboardQuotaSnapshotSchema.nullable(),
+});
+export type QuotaStatus = z.infer<typeof dashboardQuotaViewSchema>;
+
+export function legacyQuotaView(view: QuotaStatus): z.infer<typeof quotaViewSchema> {
+  if (!view.snapshot) return { ...view, snapshot: null };
+  const { credits: _credits, ...snapshot } = view.snapshot;
+  return snapshot.general.length || snapshot.additional.length
+    ? { ...view, snapshot }
+    : { state: "unavailable", reason: "unsupported", snapshot: null };
+}
 
 // Host/server-only account correlation, separate from private token fingerprints.
 export const accountObservationInput = z
@@ -101,8 +124,12 @@ export const accountObservationSchema = z
   })
   .strict();
 
+export const dashboardObservationSchema = accountObservationSchema.extend({
+  quota: dashboardQuotaViewSchema,
+});
 export const hostContract = defineRpcContract({
   accountObservation: { input: accountObservationInput, output: accountObservationSchema },
+  accountObservationV2: { input: accountObservationInput, output: dashboardObservationSchema },
   ping: { input: z.null(), output: z.object({ reachable: z.boolean() }).strict() },
   quota: { input: z.object({ refresh: z.boolean().optional() }).strict(), output: quotaViewSchema },
   historyReadiness: {

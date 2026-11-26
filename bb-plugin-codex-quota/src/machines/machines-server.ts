@@ -13,7 +13,7 @@ import {
   preparationSchema,
   preparationUnavailable,
 } from "../history/report-preparation-contract.js";
-import { accountObservationSchema } from "../quota/contract.js";
+import { dashboardObservationSchema } from "../quota/contract.js";
 import { createReportCache } from "./report-cache.js";
 import type { SummaryStorage } from "./report-cache.js";
 import { MAX_MACHINES } from "./machines-contract.js";
@@ -298,7 +298,7 @@ export function createMachineCoordinator(deps: Dependencies) {
       const rows = await batch(machines, async (machine) => {
         const observation = await onMachine(
           machine,
-          accountObservationSchema,
+          dashboardObservationSchema,
           (signal) => deps.observe(machine.id, { ...input, challenge: nonce }, signal),
           deadline,
         );

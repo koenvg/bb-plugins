@@ -7,73 +7,15 @@ import { calendarEmptySnapshot, calendarSnapshot } from "./calendar-test-support
 import { latestStart, shiftDate } from "./calendar-time.js";
 import type { CalendarQuery } from "./calendar-contract.js";
 
-it("shows only the top ten rankings for each grouping and selected metric", async () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
-  const f = await dashboardFixture();
-  f.machineReports.mockImplementation(async (input) => {
-    const data = reportsFixture(requested(input));
-    data.machines = data.machines.slice(0, 1);
-    const report = data.machines[0]!.report;
-    if (report.state === "unavailable") {
-      throw new Error("Fixture unavailable");
-    }
-    const template = report.ranking[0]!;
-    report.ranking = Array.from({ length: 12 }, (_, i) => ({
-      ...template,
-      key: `entry-${i}`,
-      label: `Ranking ${i + 1}`,
-      totalTokens: (i + 1) * 10,
-      money: { ...template.money, capturedCost: 12 - i },
-    }));
-    return data;
-  });
-  const page = f.page();
-  const q = within(page.container);
-  const table = await q.findByRole("table", { name: "Recorded usage ranking" });
-  await waitFor(() => expect(table.querySelectorAll("tbody tr")).toHaveLength(10));
-  const labels = () =>
-    Array.from(table.querySelectorAll("tbody tr td:first-child")).map(
-      (cell) => cell.firstChild?.textContent,
-    );
-  expect(labels()[0]).toContain("Ranking 12");
-  expect(labels()).not.toContain("Ranking 1");
-  expect(q.getByRole("heading", { name: "Top 10 threads" })).toBeTruthy();
-  fireEvent.click(q.getByRole("button", { name: "Workspaces" }));
-  await q.findByRole("heading", { name: "Top 10 workspaces" });
-  await waitFor(() => expect(table.querySelectorAll("tbody tr")).toHaveLength(10));
-  const totals = q.getByLabelText("Recorded token subtotal").textContent;
-  fireEvent.click(q.getByRole("button", { name: "Estimated cost" }));
-  await waitFor(() => expect(labels()[0]).toBe("Ranking 1"));
-  expect(labels()).not.toContain("Ranking 12");
-  expect(table.querySelectorAll("tbody tr")).toHaveLength(10);
-  expect(q.getByLabelText("Recorded token subtotal").textContent).toBe(totals);
-});
-
-it("defaults to Threads first and removes the requested generic notices", async () => {
+it("keeps the chart clear of generic notices during preparation", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
   const f = await dashboardFixture();
   f.machinePreparation.mockResolvedValue({ state: "pending", progress: "synthetic-pending" });
-  f.machineReports.mockImplementation(async (input) => {
-    const data = reportsFixture(requested(input));
-    for (const row of data.machines) {
-      if (row.report.state !== "unavailable") {
-        row.report.truncated = true;
-      }
-    }
-    return data;
-  });
   const page = f.page();
   const q = within(page.container);
   await q.findByRole("table", { name: "Daily recorded usage" });
-  expect(q.getByRole("heading", { name: "Top 10 threads" })).toBeTruthy();
-  const grouping = q.getByLabelText("Usage grouping");
-  const buttons = within(grouping).getAllByRole("button");
-  expect(buttons.map((button) => button.textContent)).toEqual(["Threads", "Workspaces"]);
-  expect(buttons[0]!.getAttribute("aria-pressed")).toBe("true");
   expect(q.queryByText(/Preparing newly recorded history/)).toBeNull();
-  expect(q.queryByText(/Ranking is bounded or incomplete/)).toBeNull();
   expect(q.queryByText(/Calendar dates use/)).toBeNull();
   expect(q.queryByText(/Unknown dates are not certified zero/)).toBeNull();
   expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
@@ -281,23 +223,6 @@ it("ignores report completion after the public slot unmounts", async () => {
     done(reportsFixture(query));
   });
   expect(page.container.textContent).toBe("");
-});
-it("keeps recorded totals while omitting the generic bounded-ranking notice", async () => {
-  const f = await dashboardFixture();
-  f.machineReports.mockImplementation(async (input) => {
-    const data = reportsFixture(requested(input));
-    const report = data.machines[0]!.report;
-    if (report.state !== "unavailable") {
-      report.truncated = true;
-    }
-    return data;
-  });
-  const page = f.page();
-  const q = within(page.container);
-  await waitFor(() =>
-    expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
-  );
-  expect(q.queryByText(/Ranking is bounded or incomplete/)).toBeNull();
 });
 it("keeps a previous valid subtotal after a malformed response for the same range", async () => {
   const f = await dashboardFixture();

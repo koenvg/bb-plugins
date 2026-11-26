@@ -34,7 +34,6 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
   );
   const [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : "1970-01-01"));
   const [metric, setMetric] = useState<"tokens" | "cost">("tokens");
-  const [group, setGroup] = useState<"workspace" | "thread">("thread");
   const query = useMemo<CalendarQuery>(
     () => ({
       startDate: start,
@@ -45,35 +44,18 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
     }),
     [start, timezone],
   );
-  const threads = useMemo<CalendarQuery | null>(
-    () =>
-      group === "thread" && timezone
-        ? { ...query, group: "thread", includeUncertain: false }
-        : null,
-    [query, group, timezone],
-  );
   const { current, view, loading, refreshing, failed, retry } = useMachineReport(
     timezone ? query : null,
     preparation.revision,
     read,
     snapshot,
   );
-  const threadReport = useMachineReport(threads, preparation.revision, read, snapshot);
-  const rankingView = group === "thread" ? threadReport.view : view;
   const cached = current?.machines.filter((row) => row.cached).map((row) => row.machine.name) ?? [];
   const missing =
     current?.machines
       .filter((row) => row.report.state === "unavailable")
       .map((row) => row.machine.name) ?? [];
   const stale = failed || (!!view && now - Date.parse(view.observedAt) > 5 * 60_000);
-  const rankings = rankingView?.ranking
-    .slice()
-    .sort((a, b) =>
-      metric === "tokens"
-        ? b.totalTokens - a.totalTokens
-        : (b.money.capturedCost ?? -1) - (a.money.capturedCost ?? -1),
-    )
-    .slice(0, 10);
   const tokenSubtotal =
     view && (view.summary.totalTokens > 0 || view.days.every((day) => day.coverage.zero))
       ? tokenCountText(view.summary.totalTokens)
@@ -207,93 +189,6 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
             Retry preparation
           </button>
         </div>
-      )}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">
-          Top 10 {group === "workspace" ? "workspaces" : "threads"}
-        </h2>
-        <div
-          className="inline-flex max-w-full flex-wrap rounded-md bg-muted p-1"
-          role="group"
-          aria-label="Usage grouping"
-        >
-          {(["thread", "workspace"] as const).map((value) => (
-            <button
-              key={value}
-              className="min-h-8 pointer-coarse:min-h-11 rounded px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
-              aria-pressed={value === group}
-              onClick={() => setGroup(value)}
-            >
-              {value === "workspace" ? "Workspaces" : "Threads"}
-            </button>
-          ))}
-        </div>
-      </div>
-      {group === "thread" && (
-        <div className="mt-2 min-h-5 text-xs text-muted-foreground">
-          {threadReport.loading
-            ? "Loading verified threads…"
-            : !rankingView
-              ? "No usable verified-thread breakdown for this range."
-              : ""}
-          {!threadReport.loading && (threadReport.failed || !rankingView) && (
-            <button className={`${reportButton} ml-2`} onClick={threadReport.retry}>
-              Retry threads
-            </button>
-          )}
-        </div>
-      )}
-      <table
-        className="mt-2 w-full table-fixed text-sm"
-        aria-label="Recorded usage ranking"
-        aria-busy={group === "thread" && threadReport.loading}
-      >
-        <thead className="text-muted-foreground">
-          <tr>
-            <th className="py-2 text-left font-normal">
-              {group === "workspace" ? "Workspace" : "Thread"} · machine
-            </th>
-            <th className="w-28 py-2 text-right font-normal">
-              {metric === "tokens" ? "Tokens" : "Estimated cost"}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rankings?.map((row) => {
-            const tokens = metric === "tokens" ? tokenCountText(row.totalTokens) : null;
-            return (
-              <tr key={row.key} className="border-b border-border">
-                <td className="py-2.5 pr-4 [overflow-wrap:anywhere]">
-                  <span className="block font-medium leading-5">{row.label}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {row.machineName}
-                  </span>
-                </td>
-                <td
-                  className="py-2.5 text-right font-medium tabular-nums"
-                  title={tokens ? `${tokens.exact} tokens` : undefined}
-                >
-                  {metric === "tokens"
-                    ? tokens!.readable
-                    : row.money.capturedCost === null
-                      ? "Unknown"
-                      : compactEstimate(row.money.capturedCost)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {group === "thread" && (
-        <p className="mt-3 max-w-prose text-xs leading-relaxed text-muted-foreground">
-          Verified threads are a subset of workspace usage, not extra tokens to add. Shared paths on
-          different machines remain separate.
-        </p>
-      )}
-      {rankingView?.adjusted && (
-        <p className="mt-2 max-w-prose text-xs leading-relaxed text-muted-foreground">
-          Cached period rankings do not match this range and are omitted.
-        </p>
       )}
     </section>
   );

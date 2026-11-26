@@ -34,7 +34,6 @@ function observation(q: CalendarQuery, tokens = 1200, cached = false) {
     const report = row.report;
     report.days[14]!.totalTokens = report.summary.totalTokens = tokens / 2;
     report.days[14]!.classes = { state: "unavailable" };
-    report.ranking[0]!.totalTokens = tokens / 2;
   }
   return value;
 }

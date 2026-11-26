@@ -73,33 +73,43 @@ it("requires the requested start to meet the compact cutoff even when cached day
   expect(await cache.read("host_one", { ...query, startDate: "2026-06-21" })).toBeNull();
 });
 
-it("keeps only eight query payloads and preserves daily exact totals when rankings exceed the KV bound", async () => {
+it("keeps only eight query payloads and reads chart totals from a legacy report with rankings", async () => {
   const storage = memorySummaries();
   const cache = createReportCache(storage, () => now);
   for (let n = 0; n < 9; n += 1) {
     const q = { ...query, scope: { kind: "workspace" as const, workspace: `/workspace-${n}` } };
-    const report = recordedFixture(q, now);
-    report.ranking = Array.from({ length: 50 }, (_, i) => ({
-      ...report.ranking[0],
-      key: `/${i}`,
-      label: "x".repeat(10000),
-    }));
-    await cache.save("host_one", report);
+    await cache.save("host_one", recordedFixture(q, now));
   }
-  expect((await storage.list()).length).toBe(9);
+  const keys = await storage.list();
+  expect(keys).toHaveLength(9);
   expect(
     await cache.read("host_one", {
       ...query,
       scope: { kind: "workspace", workspace: "/workspace-0" },
     }),
   ).toBeNull();
-  const latest = await cache.read("host_one", {
-    ...query,
-    scope: { kind: "workspace", workspace: "/workspace-8" },
+  const latest = { ...query, scope: { kind: "workspace" as const, workspace: "/workspace-8" } };
+  const key = (await storage.get<string[]>(keys.find((key) => key.endsWith("index"))!))![0]!;
+  const bodyKey = keys.find((name) => name.endsWith(key))!;
+  const report = recordedFixture(latest, now);
+  await storage.set(bodyKey, {
+    ...report,
+    ranking: [
+      {
+        key: "/legacy-private-workspace",
+        label: "/legacy-private-workspace",
+        metadata: "recorded-workspace",
+        totalTokens: 600,
+        attribution: "workspace-only",
+        coverage: report.days[14].coverage,
+        money: report.summary.money,
+      },
+    ],
+    truncated: true,
   });
-  expect(latest?.summary).toMatchObject({ totalTokens: 600, money: { capturedCost: 3 } });
-  expect(latest?.ranking).toEqual([]);
-  expect(latest?.truncated).toBe(true);
+  const decoded = await cache.read("host_one", latest);
+  expect(decoded?.summary).toMatchObject({ totalTokens: 600, money: { capturedCost: 3 } });
+  expect(decoded?.ranking).toEqual([]);
 });
 
 it("decodes legacy speed keys before both cache validation paths without deleting valid history", async () => {

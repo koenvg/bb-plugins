@@ -111,7 +111,7 @@ describe("Codex quota footer integration", () => {
       const { button, sidebar } = footerFixture();
       const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
       disposers.push(() => scripts.lifecycle.dispose());
-      const config = { rpc: { machineAccounts: async () => accountResult(fresh(percentage)) } };
+      const config = { rpc: { machineAccountsV2: async () => accountResult(fresh(percentage)) } };
       mountRefresh(config);
       renderSlot(footerSlot, {}, config);
       await waitFor(() =>
@@ -158,7 +158,7 @@ describe("Codex quota footer integration", () => {
       if (reason === "host-offline") {
         data.machines[0]!.status = "disconnected";
       }
-      const config = { rpc: { machineAccounts: async () => data } };
+      const config = { rpc: { machineAccountsV2: async () => data } };
       mountRefresh(config);
       renderSlot(footerSlot, {}, config);
       await waitFor(() =>
@@ -212,7 +212,7 @@ describe("Codex quota footer integration", () => {
           },
         ],
       });
-    const config = { rpc: { machineAccounts: api } };
+    const config = { rpc: { machineAccountsV2: api } };
     mountRefresh(config);
     renderSlot(footerSlot, {}, config);
     await waitFor(() =>
@@ -251,7 +251,7 @@ describe("Codex quota footer integration", () => {
           resolve = done;
         }),
     );
-    const config = { rpc: { machineAccounts: api } };
+    const config = { rpc: { machineAccountsV2: api } };
     mountRefresh(config);
     renderSlot(footerSlot, {}, config);
     const Battery = app.icons[0]!.component;
@@ -321,11 +321,11 @@ describe("Codex quota footer integration", () => {
           resolve = done;
         }),
     );
-    const owner = mountRefresh({ rpc: { machineAccounts: old } });
+    const owner = mountRefresh({ rpc: { machineAccountsV2: old } });
     renderSlot(footerSlot, {}, options);
     await waitFor(() => expect(old).toHaveBeenCalledTimes(1));
     owner.lifecycle.unmount();
-    mountRefresh({ rpc: { machineAccounts: async () => accountResult(fresh(25)) } });
+    mountRefresh({ rpc: { machineAccountsV2: async () => accountResult(fresh(25)) } });
     await waitFor(() =>
       expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("25%"),
     );
@@ -340,7 +340,7 @@ describe("Codex quota footer integration", () => {
       const initial = Date.now();
       const clock = vi.spyOn(Date, "now").mockReturnValue(initial);
       const owner = mountRefresh({
-        rpc: { machineAccounts: async () => accountResult(fresh(72)) },
+        rpc: { machineAccountsV2: async () => accountResult(fresh(72)) },
       });
       const Battery = app.icons[0]!.component;
       const icon = render(<Battery />);

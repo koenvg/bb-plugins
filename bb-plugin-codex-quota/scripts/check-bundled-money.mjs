@@ -99,7 +99,6 @@ try {
     reason: "missing-prices",
   });
   assert.deepEqual(report.days[14].money, report.summary.money);
-  assert.equal(report.ranking.length, 50);
   const compared = await bundled.default.handlers.calendarReport(
     { ...query, comparison: true },
     context,

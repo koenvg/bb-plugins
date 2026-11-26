@@ -86,14 +86,10 @@ export type CombinedReport = {
     uncertainTokens: number;
     excludedTokens: number;
   };
-  ranking: (CalendarSnapshot["ranking"][number] & { machineId: string; machineName: string })[];
-  truncated: boolean;
   incomplete: boolean;
-  adjusted: boolean;
 };
 /** Merge only recorded machine usage. Account feeds never enter these totals.
  * Cached dates are aligned by their actual calendar date, not array position.
- * Period rankings are omitted when their cached date range no longer matches.
  */
 export function combineReports(input: MachineReports, query: CalendarQuery): CombinedReport | null {
   for (const row of input.machines) {
@@ -122,7 +118,6 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
     input.truncated ||
     available.length !== input.machines.length ||
     available.some((row) => row.cached || row.preparation.state === "pending");
-  const adjusted = available.some((row) => row.report.query.startDate !== query.startDate);
   const days = Array.from({ length: 30 }, (_, index) => {
     const date = shiftDate(query.startDate, index);
     const values = available.map(
@@ -202,17 +197,6 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
     sum([day.totalTokens, day.uncertain?.totalTokens ?? 0]);
   }
   sum(days.flatMap((day) => [day.totalTokens, day.uncertain?.totalTokens ?? 0]));
-  const ranking = available
-    .filter((row) => row.report.query.startDate === query.startDate)
-    .flatMap(({ machine, report }) =>
-      report.ranking.map((row) => ({
-        ...row,
-        key: `${machine.id}:${row.key}`,
-        machineId: machine.id,
-        machineName: machine.name,
-      })),
-    )
-    .sort((a, b) => b.totalTokens - a.totalTokens || a.key.localeCompare(b.key));
   const totalMoney = money(days.map((day) => day.money));
   return {
     query,
@@ -228,13 +212,6 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
       uncertainTokens: sum(days.map((day) => day.uncertain?.totalTokens ?? 0)),
       excludedTokens: sum(days.map((day) => day.excludedTokens)),
     },
-    ranking: ranking.slice(0, 50),
-    truncated:
-      adjusted ||
-      input.truncated ||
-      ranking.length > 50 ||
-      available.some((row) => row.report.truncated),
     incomplete,
-    adjusted,
   };
 }

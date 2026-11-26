@@ -44,7 +44,6 @@ for (const width of [375, 1280]) {
       await page.goto("/calendar.html?state=model-costs");
       await reportTheme(page, theme);
       await chart(page);
-      await expect(page.getByRole("heading", { name: "Top 10 threads" })).toBeVisible();
       const metric = page.getByRole("group", { name: "Chart metric" });
       const legend = page.getByRole("group", { name: "Models", exact: true });
       await legend.getByRole("button", { name: "A", exact: true }).click();

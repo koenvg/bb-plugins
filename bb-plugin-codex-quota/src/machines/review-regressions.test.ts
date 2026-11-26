@@ -71,7 +71,6 @@ it("rejects joint accepted and uncertain sums even when each subtotal is safe", 
     day.uncertain = { totalTokens: 1e15, records: 1 };
     report.summary.totalTokens = 4e15;
     report.summary.uncertain = { totalTokens: 1e15, records: 1 };
-    report.ranking = [];
     expect(calendarReportSchema.safeParse(report).success).toBe(true);
   }
   expect(() => combineReports(data, query)).toThrow();

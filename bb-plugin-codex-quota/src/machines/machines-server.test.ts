@@ -30,7 +30,10 @@ function fixture(storage = memorySummaries()) {
   const observe = vi.fn(
     async (_id: string, _input: unknown, _signal: AbortSignal): Promise<unknown> => ({
       proof: "a".repeat(64),
-      quota: quotaFixture(now),
+      quota: {
+        ...quotaFixture(now),
+        snapshot: { ...quotaFixture(now).snapshot, credits: { kind: "balance", balance: "25.25" } },
+      },
       activity: emptyActivity("unavailable"),
     }),
   );
@@ -127,13 +130,17 @@ describe("footer allowance selection", () => {
 });
 
 describe("all-machine public reports", () => {
-  it("reads every enrolled machine, adds only recorded history, and keeps shared paths separate", async () => {
+  it("reads every enrolled machine and adds only recorded history", async () => {
     const f = fixture();
     const service = f.create();
     const accounts = accountsSchema.parse(
       await service.accounts({ refresh: false, includeActivity: false }),
     );
     expect(accounts.accounts).toHaveLength(1);
+    expect(accounts.accounts[0]?.quota.snapshot?.credits).toEqual({
+      kind: "balance",
+      balance: "25.25",
+    });
     expect(accounts.accounts[0]?.machines).toEqual(["host_one", "host_two"]);
     expect(JSON.stringify(accounts)).not.toContain("a".repeat(64));
     expect(footerAllowance(accounts, now).label).toBe("63%");
@@ -142,10 +149,6 @@ describe("all-machine public reports", () => {
     );
     const result = combineReports(input, query);
     expect(result?.summary).toMatchObject({ totalTokens: 1200, capturedCost: 6, records: 2 });
-    expect(result?.ranking.map((row) => row.key)).toEqual([
-      "host_one:/synthetic/workspace-1",
-      "host_two:/synthetic/workspace-1",
-    ]);
     expect(f.report.mock.calls.map((call) => call[0])).toEqual(["host_one", "host_two"]);
     expect(f.prepare).not.toHaveBeenCalled();
     service.dispose();
@@ -211,8 +214,7 @@ describe("all-machine public reports", () => {
     expect(result.days[15]?.totalTokens).toBe(1200);
     expect(result.days[14]?.totalTokens).toBe(0);
     expect(result.days[29]?.coverage.zero).toBe(false);
-    expect(result.ranking).toHaveLength(0);
-    expect(result).toMatchObject({ incomplete: true, adjusted: true, truncated: true });
+    expect(result.incomplete).toBe(true);
     const far = { ...query, startDate: shiftDate(query.startDate, 200) };
     expect(
       combineReports(await next.reports({ query: far, prepare: false, refresh: false }), far),

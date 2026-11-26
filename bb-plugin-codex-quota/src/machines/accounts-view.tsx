@@ -6,7 +6,7 @@ import { footerAllowance } from "./accounts-store.js";
 import type { MachineAccounts } from "./machines-contract.js";
 import type { QuotaStatus } from "../quota/contract.js";
 
-const quotaReasonText: Record<QuotaStatus["reason"], string | null> = {
+export const quotaReasonText: Record<QuotaStatus["reason"], string | null> = {
   ok: null,
   aged: "Observation at least 5 minutes old",
   expired: "Observation expired",
@@ -106,6 +106,23 @@ export const AccountsTooltip = ({ data, now }: { data: MachineAccounts | null; n
       })}
       <p className="mt-3 text-muted-foreground">Click to open all-machine usage.</p>
     </div>
+  );
+};
+export const CodexUsageLink = () => {
+  return (
+    <>
+      <a
+        className="w-fit rounded-sm text-inherit underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+        href="https://chatgpt.com/settings/usage?tab=overview"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Open Codex Usage
+      </a>
+      <p className="text-muted-foreground">
+        Your browser sign-in can differ from the machines’ Pi accounts.
+      </p>
+    </>
   );
 };
 export const AccountsOverview = ({
@@ -223,17 +240,9 @@ export const AccountsOverview = ({
           })}
         </div>
       )}
-      <a
-        className="mt-3 inline-block rounded-sm text-xs text-muted-foreground underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
-        href="https://chatgpt.com/settings/usage?tab=overview"
-        target="_blank"
-        rel="noreferrer"
-      >
-        Open Codex Usage
-      </a>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Your browser sign-in can differ from the machines’ Pi accounts.
-      </p>
+      <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
+        <CodexUsageLink />
+      </div>
       <p className="mt-1 text-xs text-muted-foreground">
         Account activity is counted once per account and is not added to the recorded usage chart.
       </p>

@@ -1,7 +1,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { hostContract, quotaViewSchema } from "../quota/contract.js";
+import { hostContract, legacyQuotaView, quotaViewSchema } from "../quota/contract.js";
 import { activityViewSchema, emptyActivity } from "../activity/activity-contract.js";
 import {
   maintenanceRequestSchema,
@@ -33,6 +33,7 @@ import { createMachineCoordinator } from "../machines/machines-server.js";
 import {
   accountsRequestSchema,
   accountsSchema,
+  legacyAccountsSchema,
   reportsRequestSchema,
   reportsSchema,
 } from "../machines/machines-contract.js";
@@ -44,7 +45,8 @@ const selectionSchema = z
   .strict();
 
 export const rpcContract = defineRpcContract({
-  machineAccounts: { input: accountsRequestSchema, output: accountsSchema },
+  machineAccounts: { input: accountsRequestSchema, output: legacyAccountsSchema },
+  machineAccountsV2: { input: accountsRequestSchema, output: accountsSchema },
   machineReports: { input: reportsRequestSchema, output: reportsSchema },
   machineReportSnapshot: {
     input: z.object({ query: calendarQuerySchema }).strict(),
@@ -135,8 +137,29 @@ export default function plugin(bb: BbPluginApi) {
           name: host.name.slice(0, 256) || "Machine",
           status: host.status,
         })),
-    observe: (hostId, input, signal) =>
-      hostClient.call("accountObservation", input, { hostId, signal }),
+    observe: async (hostId, input, signal) => {
+      const options = { hostId, signal };
+      try {
+        return await hostClient.call("accountObservationV2", input, options);
+      } catch (error) {
+        // BB rejects an unknown method before running a host handler or reading quota.
+        if (
+          signal.aborted ||
+          !(error instanceof Error) ||
+          !("status" in error) ||
+          error.status !== 502 ||
+          !("body" in error) ||
+          typeof error.body !== "object" ||
+          error.body === null ||
+          !("code" in error.body) ||
+          error.body.code !== "command_failed" ||
+          error.message !== 'unknown host method "accountObservationV2"'
+        ) {
+          throw error;
+        }
+        return hostClient.call("accountObservation", input, options);
+      }
+    },
     prepare: (hostId, signal, refresh) => historyCall.prepare(hostId, signal, refresh),
     report: (hostId, input, signal) => hostClient.call("calendarReport", input, { hostId, signal }),
   });
@@ -157,7 +180,17 @@ export default function plugin(bb: BbPluginApi) {
     });
   bb.rpc.register(rpcContract, {
     collectorMaintenance: (input) => maintenance.run(input),
-    machineAccounts: (input) => machines.accounts(input),
+    machineAccounts: async (input) => {
+      const result = await machines.accounts(input);
+      return {
+        ...result,
+        accounts: result.accounts.map((account) => ({
+          ...account,
+          quota: legacyQuotaView(account.quota),
+        })),
+      };
+    },
+    machineAccountsV2: (input) => machines.accounts(input),
     machineReports: (input) => machines.reports(input),
     machineReportSnapshot: ({ query }) => machines.lastKnown(query),
     machinePreparation: ({ refresh }) => machines.preparation(refresh),
