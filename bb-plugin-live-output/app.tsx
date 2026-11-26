@@ -3,7 +3,11 @@ import { definePluginApp, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { projectOutputRates } from "./output-rate";
 import { OutputRateChart } from "./output-rate-chart";
 import { smoothSeconds } from "./timing";
-import { createOutputSnapshotHook, type OutputSnapshotHook } from "./use-output-snapshot";
+import {
+  createOutputSnapshotOwner,
+  type OutputSnapshotOwner,
+  useOutputSnapshot,
+} from "./use-output-snapshot";
 import { createOutputFooter } from "./footer";
 type WindowSize = 1 | typeof smoothSeconds;
 type Unit = "tokens" | "bytes";
@@ -11,9 +15,9 @@ const format = (value: number) => value.toLocaleString(undefined, { maximumFract
 const buttonClass =
   "rounded-md px-3 py-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:bg-muted aria-pressed:text-foreground text-muted-foreground";
 
-const LiveOutput = ({ useSnapshot }: { useSnapshot: OutputSnapshotHook }) => {
+const LiveOutput = ({ getOwner }: { getOwner: OutputSnapshotOwner }) => {
   const navigate = useBbNavigate();
-  const { snapshot, disconnected } = useSnapshot();
+  const { snapshot, disconnected } = useOutputSnapshot(getOwner);
   const [windowSize, setWindowSize] = useState<WindowSize>(smoothSeconds);
   const [unit, setUnit] = useState<Unit>("tokens");
   const status = disconnected
@@ -219,9 +223,9 @@ const Stat = ({ label, value }: { label: string; value: string }) => {
   );
 };
 export default definePluginApp((app) => {
-  const useSnapshot = createOutputSnapshotHook();
-  const Page = () => <LiveOutput useSnapshot={useSnapshot} />;
-  const footer = createOutputFooter(useSnapshot);
+  const getOwner = createOutputSnapshotOwner();
+  const Page = () => <LiveOutput getOwner={getOwner} />;
+  const footer = createOutputFooter(getOwner);
   app.experimental_sidebarFooter.register({
     id: "rate",
     kind: "action",

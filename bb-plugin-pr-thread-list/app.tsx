@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   definePluginApp,
   experimental_Icon as Icon,
@@ -537,6 +529,19 @@ const GroupHeader = ({
   );
 };
 
+function samePlacements(
+  previous: ReadonlyMap<string, TreePlacement>,
+  current: ReadonlyMap<string, TreePlacement>,
+) {
+  if (previous === current) return true;
+  if (previous.size !== current.size) return false;
+  for (const [id, placement] of current) {
+    const prior = previous.get(id);
+    if (prior?.rootId !== placement.rootId || prior.tab !== placement.tab) return false;
+  }
+  return true;
+}
+
 const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient }) => {
   const [prefs, setPrefs] = useState(readPreferences);
   const lifecycles = prefs.tab === "all" ? prefs.lifecycles : ACTIVE_ONLY;
@@ -588,12 +593,11 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
     () => naturalTreePlacements(activeThreads, pullRequests, snoozes.snoozed),
     [activeThreads, pullRequests, snoozes.snoozed],
   );
-  const committed = useRef<{
+  const [previous, setPrevious] = useState<{
     placements: ReadonlyMap<string, TreePlacement>;
     heldTree: TreePlacement | undefined;
   }>({ placements: new Map(), heldTree: undefined });
   const selected = props.activeThreadId ? placements.get(props.activeThreadId) : undefined;
-  const previous = committed.current;
   const priorPlacement = props.activeThreadId
     ? previous.placements.get(props.activeThreadId)
     : undefined;
@@ -604,10 +608,9 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
         ? priorPlacement
         : selected
     : undefined;
-  // Derive before rendering; only committed renders may supply transition history.
-  useLayoutEffect(() => {
-    committed.current = { placements, heldTree };
-  }, [placements, heldTree]);
+  if (!samePlacements(previous.placements, placements) || previous.heldTree !== heldTree) {
+    setPrevious({ placements, heldTree });
+  }
   const items = useMemo(
     () => visibleItems(threads, projects, sections, prefs, pullRequests, snoozes.snoozed, heldTree),
     [threads, projects, sections, prefs, pullRequests, snoozes.snoozed, heldTree],

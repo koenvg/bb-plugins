@@ -1,20 +1,14 @@
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
-import type { OutputSnapshotHook } from "./use-output-snapshot";
+import { type OutputSnapshotOwner, useOutputSnapshot } from "./use-output-snapshot";
 
 type Target = { button: HTMLButtonElement; container: HTMLSpanElement };
 const itemSelector = '[data-footer-item="plugin:live-output/rate"]';
 const triggerSelector = `${itemSelector} button[data-sidebar="menu-button"]`;
 
-function RateBadges({
-  targets,
-  useSnapshot,
-}: {
-  targets: Target[];
-  useSnapshot: OutputSnapshotHook;
-}) {
-  const { snapshot, disconnected } = useSnapshot();
+function RateBadges({ targets, getOwner }: { targets: Target[]; getOwner: OutputSnapshotOwner }) {
+  const { snapshot, disconnected } = useOutputSnapshot(getOwner);
   const ready = snapshot && !disconnected && snapshot.coverage !== "starting";
   const rate = ready
     ? (snapshot.smoothBytesPerSecond / 4).toLocaleString(undefined, { maximumFractionDigits: 1 })
@@ -38,7 +32,7 @@ function RateBadges({
 
 // The public footer registration supplies only an icon/action, not a live label.
 // Keep the BB 0.46 DOM attachment here, as Codex Quota does, without replacing host children.
-export function createOutputFooter(useSnapshot: OutputSnapshotHook) {
+export function createOutputFooter(getOwner: OutputSnapshotOwner) {
   let open: (() => void) | null = null;
   let pending = false;
   const Overlay = () => {
@@ -85,7 +79,8 @@ export function createOutputFooter(useSnapshot: OutputSnapshotHook) {
         for (const button of buttons) {
           if (!attached.has(button)) {
             const container = document.createElement("span");
-            container.id = `${id}-rate-${++serial}`;
+            serial += 1;
+            container.id = `${id}-rate-${serial}`;
             container.setAttribute("data-live-output-rate", "");
             // Keep pointer clicks on the host button, not the overlay's portal ancestry.
             container.style.pointerEvents = "none";
@@ -137,7 +132,7 @@ export function createOutputFooter(useSnapshot: OutputSnapshotHook) {
     return (
       <>
         <style>{`${triggerSelector} { width: auto; gap: 4px; }`}</style>
-        {targets.length > 0 && <RateBadges targets={targets} useSnapshot={useSnapshot} />}
+        {targets.length > 0 && <RateBadges targets={targets} getOwner={getOwner} />}
       </>
     );
   };
