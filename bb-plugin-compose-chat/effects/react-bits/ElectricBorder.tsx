@@ -28,7 +28,7 @@ SOFTWARE.
 */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import "./ElectricBorder.css";
 
@@ -437,6 +437,7 @@ const link = (gl: WebGL2RenderingContext): Program | null => {
       uniforms[info.name.replace(/\[0\]$/, "")] = gl.getUniformLocation(program, info.name);
     }
   }
+  gl.useProgram(program);
   return { program, uniforms };
 };
 
@@ -570,7 +571,9 @@ const ElectricBorder = ({
     light: theme === "light",
   };
   const settingsRef = useRef(settings);
-  settingsRef.current = settings;
+  useLayoutEffect(() => {
+    settingsRef.current = settings;
+  });
 
   useEffect(() => {
     wakeRef.current?.();
@@ -681,7 +684,6 @@ const ElectricBorder = ({
       if (power <= 0.001 && !sparks.length) {
         return;
       }
-      gl.useProgram(program.program);
       gl.uniform2f(u.uSize, width, height);
       gl.uniform1f(u.uRatio, size.ratio);
       gl.uniform2f(u.uCenter, width / 2, height / 2);

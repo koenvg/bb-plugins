@@ -32,7 +32,8 @@ export function useLiveRpc<T>(
     let current = true;
     let latestLoad = 0;
     const load = () => {
-      const thisLoad = ++latestLoad;
+      latestLoad += 1;
+      const thisLoad = latestLoad;
       setLoadStatus({ status: "loading", generation });
       read()
         .then((result) => {

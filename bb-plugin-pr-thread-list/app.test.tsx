@@ -24,6 +24,7 @@ import {
 // The SDK harness ignores query options. Supply host-shaped snapshots for lifecycle regressions.
 const lifecycleViews = vi.hoisted(() => ({
   snapshots: undefined as Record<string, PluginSidebarThread[]> | undefined,
+  copyThreadsOnRead: false,
   splitStarts: [] as string[],
 }));
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
@@ -51,6 +52,8 @@ vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
       const state = sdk.experimental_useSidebarThreads(options);
       const key = (options?.experimental_lifecycles ?? ["active"]).join(",");
       const threads = lifecycleViews.snapshots?.[key];
+      if (lifecycleViews.copyThreadsOnRead)
+        return { ...state, threads: [...(threads ?? state.threads)] };
       return threads ? { ...state, threads } : state;
     },
   };
@@ -63,6 +66,7 @@ afterEach(() => {
   mounted?.lifecycle.unmount();
   mounted = undefined;
   lifecycleViews.snapshots = undefined;
+  lifecycleViews.copyThreadsOnRead = false;
   lifecycleViews.splitStarts.length = 0;
   localStorage.clear();
   receivers.splice(0).forEach((dispose) => dispose());
@@ -193,6 +197,13 @@ function expectFamily(slot: ReturnType<typeof mount>, shown: boolean) {
   for (const name of ["Parent", "Child", "Grandchild", "Sibling"])
     expect(Boolean(slot.queryByRole("link", { name }))).toBe(shown);
 }
+
+it("shows sidebar rows when the SDK supplies a fresh array on each read", () => {
+  lifecycleViews.copyThreadsOnRead = true;
+  const slot = mount([thread({ id: "fresh", displayTitle: "Fresh snapshot" })]);
+  showTab(slot, "All");
+  expect(slot.getByRole("link", { name: "Fresh snapshot" })).toBeTruthy();
+});
 
 // Host data and selection updates use the same mounted SDK slot, including combined updates.
 describe.each(heldTabs)("selected tree in %s", (tab, heldTab, naturalTab) => {

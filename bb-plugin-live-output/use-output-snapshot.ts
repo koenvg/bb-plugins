@@ -2,10 +2,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import { useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { OutputSnapshot, rpcContract } from "./contract";
 
-export type OutputSnapshotHook = () => {
-  snapshot: OutputSnapshot | null;
-  disconnected: boolean;
-};
+export type OutputSnapshotOwner = (window: Window) => ReturnType<typeof createPollingOwner>;
 type SnapshotRpc = { call(method: "snapshot"): Promise<OutputSnapshot> };
 const emptyState = () => ({
   snapshot: null as OutputSnapshot | null,
@@ -71,29 +68,28 @@ function createPollingOwner() {
 
 // Create once per app registration, not at module scope. Separate apps and windows
 // never share observations. Different SDK slot clients in this app share one owner.
-export function createOutputSnapshotHook(): OutputSnapshotHook {
+export function createOutputSnapshotOwner(): OutputSnapshotOwner {
   const owners = new WeakMap<Window, ReturnType<typeof createPollingOwner>>();
-  return function useOutputSnapshot() {
-    const rpc = useRpc<typeof rpcContract>();
-    const connection = useRealtimeConnectionState();
+  return (window) => {
     let owner = owners.get(window);
     if (!owner) {
       owner = createPollingOwner();
       owners.set(window, owner);
     }
-    const subscribe = useCallback(
-      (notify: () => void) => owner.subscribe(rpc, notify),
-      [owner, rpc],
-    );
-    const { snapshot, failed, now, receivedAt } = useSyncExternalStore(
-      subscribe,
-      owner.getSnapshot,
-    );
-    const disconnected =
-      failed ||
-      connection === "reconnecting" ||
-      now - receivedAt > 5000 ||
-      (snapshot !== null && connection !== "connected");
-    return { snapshot, disconnected };
+    return owner;
   };
+}
+
+export function useOutputSnapshot(getOwner: OutputSnapshotOwner) {
+  const rpc = useRpc<typeof rpcContract>();
+  const connection = useRealtimeConnectionState();
+  const owner = getOwner(window);
+  const subscribe = useCallback((notify: () => void) => owner.subscribe(rpc, notify), [owner, rpc]);
+  const { snapshot, failed, now, receivedAt } = useSyncExternalStore(subscribe, owner.getSnapshot);
+  const disconnected =
+    failed ||
+    connection === "reconnecting" ||
+    now - receivedAt > 5000 ||
+    (snapshot !== null && connection !== "connected");
+  return { snapshot, disconnected };
 }

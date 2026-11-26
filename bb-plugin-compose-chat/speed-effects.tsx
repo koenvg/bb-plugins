@@ -164,25 +164,15 @@ const SpeedBorder = ({
   );
 };
 
-/** SDK-owned additive decoration; the native composer is never rendered here. */
-export const SpeedBorders = ({
+const ActiveSpeedBorders = ({
   effect,
-  motion = true,
+  motion,
 }: {
-  effect: SpeedEffect;
-  motion?: boolean;
+  effect: Exclude<SpeedEffect, "Off">;
+  motion: boolean;
 }) => {
   const [targets, setTargets] = useState<SpeedTarget[]>([]);
-  useEffect(() => {
-    if (effect === "Off") {
-      setTargets([]);
-      return;
-    }
-    return observeSpeedTargets(setTargets);
-  }, [effect]);
-  if (effect === "Off") {
-    return null;
-  }
+  useEffect(() => observeSpeedTargets(setTargets), []);
   return createPortal(
     targets.map((target) => (
       <SpeedBorder key={`${effect}-${target.id}`} target={target} effect={effect} motion={motion} />
@@ -190,6 +180,14 @@ export const SpeedBorders = ({
     document.body,
   );
 };
+
+export const SpeedBorders = ({
+  effect,
+  motion = true,
+}: {
+  effect: SpeedEffect;
+  motion?: boolean;
+}) => (effect === "Off" ? null : <ActiveSpeedBorders effect={effect} motion={motion} />);
 
 export const SpeedBorderAppOverlay = () => {
   const { values, isLoading } = useSettings();

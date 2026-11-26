@@ -7,20 +7,24 @@ import { restoreViewHistory } from "../view-history.js";
 export function useSubagentsHistory(threadId: string | undefined) {
   const sdk = useSdk();
   const [data, setData] = useState<{
+    sdk: typeof sdk;
     threadId?: string;
     state?: ViewState;
     loading: boolean;
     error?: string;
     warning?: string;
-  }>({ threadId, loading: Boolean(threadId) });
+  }>({ sdk, threadId, loading: Boolean(threadId) });
+  const matchesRequest = data.sdk === sdk && data.threadId === threadId;
+  if (!matchesRequest) {
+    setData({ sdk, threadId, loading: Boolean(threadId) });
+  }
   useEffect(() => {
     if (!threadId) return;
     const activeThreadId = threadId;
     let closed = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const abort = new AbortController();
-    setData({ threadId, loading: true });
-    async function refresh() {
+    async function readHistory() {
       try {
         const events = await sdk.threads.events.list({
           threadId: activeThreadId,
@@ -40,40 +44,43 @@ export function useSubagentsHistory(threadId: string | undefined) {
             : undefined;
         const warning =
           events.length === 64 ? "Older history may be outside this bounded window." : undefined;
-        if (!closed)
-          setData((previous) => ({
-            threadId,
-            state: restoreViewHistory(
-              values,
-              previous.threadId === threadId ? previous.state : undefined,
-            ),
-            loading: false,
-            error,
-            warning,
-          }));
+        if (!closed) {
+          setData((previous) =>
+            previous.sdk === sdk && previous.threadId === threadId
+              ? {
+                  ...previous,
+                  state: restoreViewHistory(values, previous.state),
+                  loading: false,
+                  error,
+                  warning,
+                }
+              : previous,
+          );
+        }
       } catch {
-        if (!closed)
-          setData((previous) => ({
-            ...previous,
-            threadId,
-            loading: false,
-            error: "Could not read captured child history.",
-          }));
-      } finally {
-        if (!closed)
-          timer = setTimeout(() => {
-            void refresh();
-          }, 4000);
+        if (!closed) {
+          setData((previous) =>
+            previous.sdk === sdk && previous.threadId === threadId
+              ? { ...previous, loading: false, error: "Could not read captured child history." }
+              : previous,
+          );
+        }
       }
     }
-    void refresh();
+    function refresh() {
+      void readHistory().finally(() => {
+        if (!closed) timer = setTimeout(refresh, 4000);
+      });
+    }
+    refresh();
     return () => {
       closed = true;
       abort.abort();
       clearTimeout(timer);
     };
   }, [sdk, threadId]);
-  return data.threadId === threadId
-    ? data
+  const { state, loading, error, warning } = data;
+  return matchesRequest
+    ? { state, loading, error, warning }
     : { state: undefined, loading: Boolean(threadId), error: undefined, warning: undefined };
 }

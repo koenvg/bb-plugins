@@ -297,6 +297,36 @@ export default defineConfig({
     },
     {
       files: [
+        "bb-plugin-compose-chat/effects/react-bits/ElectricBorder.tsx",
+        "bb-plugin-live-output/app.tsx",
+        "bb-plugin-live-output/footer.tsx",
+      ],
+      rules: { "react/hooks": react.rules["react/hooks"] },
+    },
+    {
+      files: ["bb-plugin-live-output/footer.tsx", "bb-plugin-pr-thread-list/live-rpc.ts"],
+      rules: { "react/todo": react.rules["react/todo"] },
+    },
+    {
+      files: [
+        "bb-plugin-compose-chat/effects/react-bits/ElectricBorder.tsx",
+        "bb-plugin-pr-thread-list/app.tsx",
+      ],
+      rules: { "react/refs": react.rules["react/refs"] },
+    },
+    {
+      files: ["bb-plugin-compose-chat/speed-effects.tsx"],
+      rules: { "react/set-state-in-effect": react.rules["react/set-state-in-effect"] },
+    },
+    {
+      files: ["bb-plugin-pi-subagents-provider/src/ui/use-subagents-history.ts"],
+      rules: {
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: [
         "bb-plugin-codex-quota/src/history/identity/identity-retention.test.ts",
         "bb-plugin-codex-quota/src/history/identity/identity-storage.test.ts",
         "bb-plugin-codex-quota/src/history/import/import-engine.ts",
