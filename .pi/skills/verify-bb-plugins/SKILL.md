@@ -98,7 +98,7 @@ Capture both the action and result. Verify side effects through a second read of
 
 Read [the installed workflow](references/installed-workflow.md) and [browser contract](references/browser-contract.md) before live actions. Restore only approved settings/source selections that still equal what this run wrote. Preserve concurrent user changes. Delete only owned records within the agreed cleanup scope. Installing a separate browser does not isolate BB's shared database.
 
-Local runners tear down only their owned processes/contexts and temporary directories on success, failure or cancellation. Never kill by process name or reuse another listener. Tasks Plus also binds an OS-assigned loopback port and forbids reuse. A Code Cleanup preview must have its recorded PID and its own chosen port. SIGKILL/host crashes bypass ordinary teardown; verify recorded ownership before manual recovery.
+Local runners tear down only their owned processes/contexts and temporary directories on success, failure or cancellation. Never kill by process name or reuse another listener. Tasks Plus also binds an OS-assigned loopback port and forbids reuse. A Code Cleanup preview must have its recorded PID and its own OS-assigned loopback port. SIGKILL/host crashes bypass ordinary teardown; verify recorded ownership before manual recovery.
 
 Proof artifacts survive cleanup. Confirm the owned PID/listener/cache is gone where observable, the command exited correctly, and expected logs, screenshots, traces/results still exist. Failed or pending cleanup prevents an overall pass. Do not remove evidence or reset unrelated source changes.
 

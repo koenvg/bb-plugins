@@ -51,7 +51,7 @@ The root fixture proves only component handling, not native BB routing or the li
 - Capture actions and resulting state, plus a second read of any side effect. Preserve failures and retry semantics. A read-only proof observes no sends/writes, rather than trusting a label.
 - Classify every requested entry as passed, failed, blocked or not run. Keep fixture, build/activation, installed behavior and cleanup results separate. No local run implicitly verifies all 13 installed plugins.
 
-For direct existing Markdown Reader suite commands in the subfeature maps, set a new `SUITE_EVIDENCE` and export `PLAYWRIGHT_HTML_OUTPUT_DIR="$SUITE_EVIDENCE/html"` and `PLAYWRIGHT_JSON_OUTPUT_FILE="$SUITE_EVIDENCE/results.json"` before invocation. The shared `scripts/browser.sh` sets these automatically and forces ephemeral ports for its four supported packages. Tasks Plus uses its package runner with a separate ephemeral origin and private-capture config. Code Cleanup's chosen port must be free. Neither reuses a listener.
+For direct existing Markdown Reader suite commands in the subfeature maps, set a new `SUITE_EVIDENCE` and export `PLAYWRIGHT_HTML_OUTPUT_DIR="$SUITE_EVIDENCE/html"` and `PLAYWRIGHT_JSON_OUTPUT_FILE="$SUITE_EVIDENCE/results.json"` before invocation. The shared `scripts/browser.sh` sets these automatically and forces ephemeral ports for its four supported packages. Tasks Plus uses its package runner with a separate ephemeral origin and private-capture config. Code Cleanup also uses an OS-assigned loopback port and requires a PID ownership check. Neither reuses a listener.
 
 ## Maintenance
 

@@ -22,7 +22,16 @@ Preconditions:
 - Follow [shared Launch and Doctor](../SKILL.md), then this package's [README](../../../../bb-plugin-code-cleanup/README.md). Use the new evidence directory and resolved package/instance/host IDs. Local checks do not install the plugin.
 - Installed actions follow [the installed workflow](../references/installed-workflow.md), with exact-checkout identity, needed permissions and an owned record/state ledger. Missing prerequisites remain blockers.
 
-Run the package's tests/typecheck first. A local UI preview exists: from bb-plugin-code-cleanup run `PORT=4889 bun preview/server.ts`, record its PID, and open http://127.0.0.1:4889/ only after verifying that PID owns the listener. Require the port to be free; choose another free port explicitly if needed, never reuse a shared instance. The preview owns temporary real SQLite and the official fake-host RPC boundary. Choose Alpha's Edit prompt, change the draft, switch to Preview, then Cancel and Discard changes. Reopen to prove the saved text was untouched. Next save a uniquely identified prompt on Beta and reopen to prove persistence; restore only this owned fixture text. Use two owned preview tabs for a conflict, preserving the losing draft. Teardown sends TERM only to the recorded preview PID and closes owned tabs; its server handles Vite, SQLite and host teardown. Live Settings/CLI checks use the installed workflow and a ledger before any setting mutation.
+Run the package's tests and typecheck first. Follow the README for a foreground launch. To record the actual server PID for an owned background run, launch Node directly from `bb-plugin-code-cleanup` with dependencies installed:
+
+```sh
+PORT=0 node --import tsx preview/server.ts > "$EVIDENCE/preview.log" 2>&1 &
+preview_pid=$!
+```
+
+Wait for the ready URL in the log. Verify that `preview_pid` owns that loopback listener before opening the URL. Never reuse a shared instance. The preview owns temporary real SQLite and the official fake-host RPC boundary.
+
+Choose Alpha's Edit prompt, change the draft, switch to Preview, then Cancel and Discard changes. Reopen to prove the saved text was untouched. Next save a uniquely identified prompt on Beta and reopen to prove persistence; restore only this owned fixture text. Use two owned preview tabs for a conflict, preserving the losing draft. Close the owned tabs and send TERM only to `preview_pid`. The server closes Vite and removes its temporary SQLite storage. Live Settings/CLI checks use the installed workflow and a ledger before any setting mutation.
 
 ## Gotchas
 
