@@ -86,7 +86,7 @@
   grid-column: 1 / -1;
 }
 .task-webhook-test:empty,
-.task-webhook-saved > [role="status"]:empty {
+.task-webhook-saved > output:empty {
   display: none;
 }
 .task-webhook-actions,

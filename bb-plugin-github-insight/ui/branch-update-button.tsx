@@ -103,8 +103,8 @@ export const BranchUpdateButton = ({ threadId, pr, onUpdated }: BranchUpdateButt
               <>
                 <span className="break-words text-foreground">{pr.title}</span>
                 <span>
-                  The thread's local branch will no longer match the remote branch. Pull with rebase
-                  before the next push.
+                  The thread&apos;s local branch will no longer match the remote branch. Pull with
+                  rebase before the next push.
                 </span>
               </>
             }
@@ -137,10 +137,7 @@ export const BranchUpdateButton = ({ threadId, pr, onUpdated }: BranchUpdateButt
 
 export const PullReminder = ({ dismiss }: { dismiss: () => void }) => {
   return (
-    <div
-      role="status"
-      className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-    >
+    <output className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
       <Icon name="Info" className="size-4 shrink-0 text-muted-foreground" />
       <span>Branch updated on GitHub. Pull before you push.</span>
       <button
@@ -151,6 +148,6 @@ export const PullReminder = ({ dismiss }: { dismiss: () => void }) => {
       >
         <Icon name="X" className="size-3.5" />
       </button>
-    </div>
+    </output>
   );
 };

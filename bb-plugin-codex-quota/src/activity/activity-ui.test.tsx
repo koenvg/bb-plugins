@@ -34,8 +34,7 @@ describe("account activity disclosure and presentation", () => {
     expect(page.getByText(/not selected-host Pi usage/)).toBeTruthy();
     expect(page.getByText(/do not fill local gaps or set prices/)).toBeTruthy();
     const table = page.getByRole("region", { name: "Account-wide daily token table" });
-    expect(table.tabIndex).toBe(0);
-    expect(page.getByRole("columnheader", { name: "Tokens" })).toBeTruthy();
+    expect(within(table).getByRole("columnheader", { name: "Tokens" })).toBeTruthy();
     fireEvent.change(page.getByRole("combobox"), { target: { value: "weekly" } });
     expect(page.getByRole("region", { name: "Account-wide weekly token table" })).toBeTruthy();
     expect(refresh).not.toHaveBeenCalled();

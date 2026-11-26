@@ -56,13 +56,13 @@ describe("Manage labels", () => {
       const byRole = await slot.findByRole("alert");
       expect(byRole.textContent).toBe("Label creation unavailable");
       expect(name).toHaveProperty("value", "  Release  ");
-      expect(slot.getByRole("radio", { name: "Green" }).getAttribute("aria-checked")).toBe("true");
+      expect(slot.getByRole("radio", { name: "Green" })).toHaveProperty("checked", true);
       expect(slot.getByRole("button", { name: "Add label" })).toHaveProperty("disabled", false);
 
       submit();
       await waitFor(() => expect(name).toHaveProperty("value", ""));
       expect(slot.queryByRole("alert")).toBeNull();
-      expect(slot.getByRole("radio", { name: "Indigo" }).getAttribute("aria-checked")).toBe("true");
+      expect(slot.getByRole("radio", { name: "Indigo" })).toHaveProperty("checked", true);
       expect(createCalls).toEqual([
         { projectId: PROJECT_ID, name: "Release", color: "mediumseagreen" },
         { projectId: PROJECT_ID, name: "Release", color: "mediumseagreen" },

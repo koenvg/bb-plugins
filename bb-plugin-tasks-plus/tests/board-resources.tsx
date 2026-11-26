@@ -11,12 +11,16 @@ const Fixture = () => {
     () => new URLSearchParams(window.location.search).get("projectId") ?? "project-1",
   );
   const refresh = useTasksRefresh();
+  const handleRefresh = refresh.refresh;
   return (
     <div ref={root} style={{ height: "100vh" }}>
-      <button onClick={refresh.refresh} disabled={refresh.isRefreshing}>
+      <button type="button" onClick={handleRefresh} disabled={refresh.isRefreshing}>
         Refresh tasks
       </button>
-      <button onClick={() => setProjectId(projectId === "project-1" ? "project-2" : "project-1")}>
+      <button
+        type="button"
+        onClick={() => setProjectId(projectId === "project-1" ? "project-2" : "project-1")}
+      >
         Switch tracker
       </button>
       <ShortcutProvider rootRef={root}>

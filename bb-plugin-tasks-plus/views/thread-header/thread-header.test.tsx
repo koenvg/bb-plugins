@@ -61,6 +61,7 @@ const Probe = ({ threadIds, onData }: ProbeProps) => {
         });
         return item ? (
           <button
+            type="button"
             key={id}
             data-thread={id}
             data-icon={item.icon}
@@ -76,8 +77,9 @@ const Probe = ({ threadIds, onData }: ProbeProps) => {
 };
 const RefreshButton = () => {
   const refresh = useTasksRefresh();
+  const handleRefresh = refresh.refresh;
   return (
-    <button onClick={refresh.refresh} disabled={refresh.isRefreshing}>
+    <button type="button" onClick={handleRefresh} disabled={refresh.isRefreshing}>
       Refresh tasks
     </button>
   );

@@ -233,7 +233,7 @@ const LazyFileDiff = ({
               <CollapseButton
                 path={path}
                 collapsed={viewed.collapsed}
-                onToggle={viewed.toggleCollapsed}
+                onToggle={() => viewed.toggleCollapsed()}
                 icons={CHEVRONS}
               />
             )
@@ -245,7 +245,7 @@ const LazyFileDiff = ({
                 <ViewedCheckbox
                   path={path}
                   checked={viewed.viewed}
-                  onToggle={viewed.toggleViewed}
+                  onToggle={() => viewed.toggleViewed()}
                 />
               )}
             </>

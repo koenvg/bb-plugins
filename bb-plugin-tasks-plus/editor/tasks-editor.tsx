@@ -405,30 +405,34 @@ export const TasksEditor = ({
     .filter((entry) => entry.item.type === "thread");
 
   const mentionRow = ({ item, index }: { item: MentionItem; index: number }) => (
-    <button
-      key={item.id}
-      type="button"
-      role="option"
-      aria-selected={index === mention?.selectedIndex}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
-        index === mention?.selectedIndex
-          ? "bg-accent text-accent-foreground"
-          : "hover:bg-accent hover:text-accent-foreground",
-      )}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={() => mention?.command(item)}
-    >
-      {item.type === "task" ? (
-        <span className="shrink-0 font-medium text-muted-foreground">{item.key}</span>
-      ) : (
-        <HugeiconsIcon icon={BubbleChatIcon} className="size-3.5 shrink-0 text-muted-foreground" />
-      )}
-      <span className="min-w-0 flex-1 truncate">{item.title}</span>
-    </button>
+    <li key={item.id}>
+      <button
+        type="button"
+        aria-current={index === mention?.selectedIndex || undefined}
+        className={cn(
+          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+          index === mention?.selectedIndex
+            ? "bg-accent text-accent-foreground"
+            : "hover:bg-accent hover:text-accent-foreground",
+        )}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => mention?.command(item)}
+      >
+        {item.type === "task" ? (
+          <span className="shrink-0 font-medium text-muted-foreground">{item.key}</span>
+        ) : (
+          <HugeiconsIcon
+            icon={BubbleChatIcon}
+            className="size-3.5 shrink-0 text-muted-foreground"
+          />
+        )}
+        <span className="min-w-0 flex-1 truncate">{item.title}</span>
+      </button>
+    </li>
   );
 
-  const focusOnEmptyMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+  const focusOnEmptyPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!event.isPrimary || event.button !== 0) return;
     if (event.target === wrapperRef.current || event.target === rootRef.current) {
       event.preventDefault();
       editorRef.current?.commands.focus("end");
@@ -440,7 +444,7 @@ export const TasksEditor = ({
       ref={wrapperRef}
       className={cn("bb-tasks-editor relative min-w-0", className)}
       data-variant={variant}
-      onMouseDown={variant === "doc" ? focusOnEmptyMouseDown : undefined}
+      onPointerDown={variant === "doc" ? focusOnEmptyPointerDown : undefined}
     >
       {variant === "doc" ? (
         <div
@@ -481,25 +485,30 @@ export const TasksEditor = ({
       ) : null}
       <div ref={rootRef} className="bb-tasks-editor-surface min-w-0" />
       {mention && mention.items.length > 0 ? (
-        <div
-          role="listbox"
+        <ul
           aria-label="Mention a task or thread"
           className="fixed z-50 max-h-64 w-72 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
           style={mentionRect ? { top: mentionRect.bottom + 4, left: mentionRect.left } : undefined}
         >
           {taskItems.length > 0 ? (
-            <div className="px-2 pb-0.5 pt-1 text-2xs font-semibold text-muted-foreground">
+            <li
+              aria-hidden
+              className="px-2 pb-0.5 pt-1 text-2xs font-semibold text-muted-foreground"
+            >
               Tasks
-            </div>
+            </li>
           ) : null}
           {taskItems.map(mentionRow)}
           {threadItems.length > 0 ? (
-            <div className="px-2 pb-0.5 pt-1 text-2xs font-semibold text-muted-foreground">
+            <li
+              aria-hidden
+              className="px-2 pb-0.5 pt-1 text-2xs font-semibold text-muted-foreground"
+            >
               Threads
-            </div>
+            </li>
           ) : null}
           {threadItems.map(mentionRow)}
-        </div>
+        </ul>
       ) : null}
     </div>
   );

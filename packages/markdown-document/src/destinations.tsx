@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  type ComponentProps,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { ImagePresentation } from "./image-preview.js";
 import {
   destination,
@@ -37,7 +44,28 @@ type DestinationScope = Readonly<{
   policy: DestinationPolicy;
   requests: ReadonlySet<string>;
   resources: RemoteImages | null;
+  navigate?: (id: string) => void;
 }>;
+export const HeadingLink = ({
+  target,
+  ...props
+}: Omit<ComponentProps<"a">, "target"> & { target: string }) => {
+  const { navigate } = useContext(DestinationContext);
+  const handleActivate = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (event.button < 2) navigate?.(target);
+  };
+  return (
+    <a
+      {...props}
+      href={`#${target}`}
+      data-heading-target={target}
+      onClick={handleActivate}
+      onAuxClick={handleActivate}
+    />
+  );
+};
+
 export const DestinationContext = createContext<DestinationScope>({
   policy: denyDestinations,
   requests: new Set(),
@@ -168,7 +196,7 @@ const NativeLink = ({
       >
         {children}
       </a>
-      {failed ? <span role="status">Link could not be opened.</span> : null}
+      {failed ? <output>Link could not be opened.</output> : null}
     </>
   );
 };
@@ -205,9 +233,9 @@ export const DestinationLink = ({
   const target = fragmentTarget(fragment);
   if (target)
     return (
-      <a {...references} href={`#${target}`} data-heading-target={target}>
+      <HeadingLink {...references} target={target}>
         {children}
-      </a>
+      </HeadingLink>
     );
   if (native)
     return (
@@ -277,7 +305,7 @@ export const DestinationImage = ({
     return eligible && resources && issued && parsed?.kind === "external" ? (
       <RemoteImage key={parsed.url} url={parsed.url} alt={alt} resources={resources} />
     ) : (
-      <span role="img" aria-label={alt || "Image"}>
+      <span>
         {alt || "Image"}
         {eligible && !issued ? " (image unavailable)" : ""}
       </span>

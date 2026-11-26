@@ -12,6 +12,26 @@ async function palette(page: Page, title: string) {
   await expect(page.getByRole("dialog", { name: "Fixture command palette" })).toBeHidden();
 }
 
+test("editing the task title updates its heading and saves once on Enter", async ({ page }) => {
+  await page.goto("/tests/task-commands.html");
+  const title = page.getByRole("textbox", { name: "Task title" });
+  const updated = "Keyboard title proof";
+  await title.fill(updated);
+  await title.press("Enter");
+
+  await expect(title).not.toBeFocused();
+  await expect(title).toHaveValue(updated);
+  await expect(page.getByRole("heading", { level: 1, name: updated })).toBeVisible();
+  const updates = page.getByLabel("Fixture updates", { exact: true });
+  await expect
+    .poll(async () =>
+      JSON.parse((await updates.textContent()) ?? "[]").map(
+        (entry: { title: string }) => entry.title,
+      ),
+    )
+    .toEqual([updated]);
+});
+
 test("the home status menu keeps outside focus and restores row focus on Escape", async ({
   page,
 }) => {
@@ -63,7 +83,7 @@ for (const width of [1200, 650]) {
     await page.keyboard.press("Escape");
     await expect(trigger).toBeFocused();
     await page.keyboard.press("Alt+2");
-    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 2");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Task 2");
     await palette(page, "Dispatch task...");
     await expect(worker).toBeFocused();
     await page.keyboard.press("Enter");
@@ -139,7 +159,7 @@ for (const width of [1200, 650]) {
     await expect(trigger).toHaveText("Second workspace");
 
     await page.keyboard.press("Alt+2");
-    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 2");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Task 2");
     await palette(page, "Change linked BB project");
     await expect(select).toBeFocused();
     await expect(select).toHaveText("Second workspace");
@@ -248,7 +268,7 @@ for (const width of [1200, 650]) {
     await expect(layout.getByRole("button", { name: "Set due date", exact: true })).toBeFocused();
 
     await page.keyboard.press("Alt+2");
-    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 2");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Task 2");
     await palette(page, "Set due date");
     await expect(input).toBeFocused();
     await expect(input).toHaveValue("");
@@ -325,7 +345,7 @@ for (const width of [1200, 650]) {
       },
     );
     await page.keyboard.press("Alt+2");
-    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 2");
+    await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Task 2");
     await palette(page, "Set priority");
     await page.keyboard.press("Escape");
     await page.keyboard.press("Alt+0");

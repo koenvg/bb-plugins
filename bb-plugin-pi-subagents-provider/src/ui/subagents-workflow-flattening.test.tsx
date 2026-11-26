@@ -89,9 +89,11 @@ it.each([
     expect(button.getAttribute("aria-label")).toBe(
       "Child Background subagent · task unavailable Entry 2 Child 3 running",
     );
-    expect(view.getByRole("tab", { name: "Agents" }).getAttribute("aria-description")).toBe(
-      "2 observed entries in available history. Not an active-worker count.",
-    );
+    expect(
+      document.getElementById(
+        view.getByRole("tab", { name: "Agents" }).getAttribute("aria-describedby") ?? "",
+      )?.textContent,
+    ).toBe("2 observed entries in available history. Not an active-worker count.");
     fireEvent.click(button);
     expect(view.getByRole("tab", { name: "Child" }).getAttribute("title")).toBe(
       "Child · Entry 2 · running",

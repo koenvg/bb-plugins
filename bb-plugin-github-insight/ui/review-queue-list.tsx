@@ -289,10 +289,7 @@ export const ReviewQueueLists = ({
 
 const CaughtUp = () => {
   return (
-    <div
-      role="status"
-      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-center"
-    >
+    <output className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-center">
       <span className="grid size-10 place-items-center rounded-full bg-success/10 duration-500 ease-out animate-in fade-in zoom-in-50 motion-reduce:animate-none">
         <Icon name="CircleCheck" className="size-5 text-success" />
       </span>
@@ -300,7 +297,7 @@ const CaughtUp = () => {
       <p className="text-xs text-muted-foreground">
         New review requests and new pushes show up here.
       </p>
-    </div>
+    </output>
   );
 };
 
@@ -346,7 +343,7 @@ const AgentFilter = ({
   })).filter(({ state, count }) => count > 0 || state === active);
   if (shown.length === 0) return null;
   return (
-    <div role="group" aria-label="Filter by agent status" className="flex flex-wrap gap-1.5">
+    <fieldset aria-label="Filter by agent status" className="flex flex-wrap gap-1.5">
       {shown.map(({ state, count }) => {
         const pressed = state === active;
         return (
@@ -370,7 +367,7 @@ const AgentFilter = ({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 };
 
@@ -515,14 +512,8 @@ const QueueRow = ({
       )}
     >
       <IconTooltip label={ci.text}>
-        <span
-          data-testid="queue-ci"
-          role="img"
-          aria-label={ci.text}
-          tabIndex={0}
-          className="mt-0.5 flex size-4 items-center justify-center rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <Icon name={ci.icon} className={cn("size-4", ci.className)} />
+        <span data-testid="queue-ci" className="mt-0.5 flex size-4 items-center justify-center">
+          <Icon name={ci.icon} className={cn("size-4", ci.className)} aria-hidden />
         </span>
       </IconTooltip>
       <div className="flex min-w-0 flex-col gap-1">
@@ -554,6 +545,8 @@ const QueueRow = ({
           >
             {relativeTime(new Date(pr.updatedAt), new Date())}
           </time>
+          <Separator />
+          <span className="shrink-0">{ci.text}</span>
           {decision !== null && (
             <>
               <Separator />

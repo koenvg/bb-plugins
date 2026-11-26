@@ -12,7 +12,7 @@ test("selection formatting survives menu hide, reappearance and React cleanup", 
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.route("**/favicon.ico", (route) => route.fulfill({ status: 204 }));
   await page.goto("/tests/task-commands.html");
-  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 1");
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Task 1");
   const editor = page.locator(".tiptap");
   const toolbar = page.getByRole("toolbar", { name: "Formatting" });
   await editor.fill("Alpha beta");
@@ -45,7 +45,7 @@ test("selection formatting survives menu hide, reappearance and React cleanup", 
   await expect(toolbar).toHaveCount(0);
   await page.getByRole("button", { name: "Open TSK-1: Task 1", exact: true }).click();
   await page.evaluate(() => window.dispatchEvent(new Event("fixture-accept-navigation")));
-  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 1");
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Task 1");
   await expect(editor.locator("strong em, em strong")).toHaveText("Alpha beta");
   await editor.click();
   await editor.press("ControlOrMeta+a");

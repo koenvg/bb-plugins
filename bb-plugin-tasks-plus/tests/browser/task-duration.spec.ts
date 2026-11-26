@@ -125,7 +125,7 @@ for (const width of [1200, 650, 390]) {
       await page.goto("/tests/task-commands.html?durationTransport&theme=dark");
       const strip = page.getByRole("region", { name: "Task duration" });
       const title = page.getByRole("textbox", { name: "Task title" });
-      await expect(title).toHaveText("Reopened task");
+      await expect(title).toHaveValue("Reopened task");
       await expect(strip.getByLabel("2 days 8 hours")).toHaveText("2d 8h");
       await expect(strip).toContainText("Includes review time and the reopened period.");
       const layout = page.locator(
@@ -135,14 +135,14 @@ for (const width of [1200, 650, 390]) {
       await page.screenshot({ path: testInfo.outputPath("reopened.png") });
       await page.getByRole("button", { name: "Next task", exact: true }).click();
       await acceptNavigation(page);
-      await expect(title).toHaveText("Interrupted task");
+      await expect(title).toHaveValue("Interrupted task");
       await expect(strip.getByText("7d 8h")).toBeVisible();
       await expect(strip.getByText("Interrupted", { exact: true })).toBeVisible();
       await expect(strip).toContainText("Excluded from median and average.");
       await page.screenshot({ path: testInfo.outputPath("interrupted.png") });
       await page.getByRole("button", { name: "Previous task", exact: true }).click();
       await acceptNavigation(page);
-      await expect(title).toHaveText("Reopened task");
+      await expect(title).toHaveValue("Reopened task");
       const editor = await page.locator(".tiptap").elementHandle();
       await f.transition(f.first.id, "in_progress", "2026-10-22T09:00:00.000Z");
       await changed(page, f.first.id);
@@ -224,7 +224,7 @@ for (const width of [1200, 650, 390]) {
       ).toBe(initialHeight);
       await page.getByRole("button", { name: "Next task", exact: true }).click();
       await acceptNavigation(page);
-      await expect(title).toHaveText("Reopened task");
+      await expect(title).toHaveValue("Reopened task");
       release(false);
       await expect(page.getByRole("alert")).toContainText("Fixture RPC updateTask: 503");
       expect(f.store.tasks.getTask(f.first.id)?.status).toBe("done");
@@ -241,7 +241,7 @@ for (const width of [1200, 650, 390]) {
       await expect(strip.getByText("Not completed", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Next task", exact: true }).click();
       await acceptNavigation(page);
-      await expect(title).toHaveText("Interrupted task");
+      await expect(title).toHaveValue("Interrupted task");
       await expect(strip.getByText("7d 8h")).toBeVisible();
     } finally {
       await f.harness.dispose();

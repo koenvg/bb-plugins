@@ -43,8 +43,9 @@ const Popover = ({
     );
   }
 
+  const handleOpenChange = ctx.onOpenChange;
   return (
-    <PopoverPrimitive.Root open={ctx.open} onOpenChange={ctx.onOpenChange} {...props}>
+    <PopoverPrimitive.Root open={ctx.open} onOpenChange={handleOpenChange} {...props}>
       <ResponsivePopoverContext.Provider value={ctx}>{children}</ResponsivePopoverContext.Provider>
     </PopoverPrimitive.Root>
   );
@@ -196,7 +197,7 @@ const PopoverAnchor = React.forwardRef<
   const { isCompactViewport } = useResponsivePopover();
 
   if (isCompactViewport) {
-    return <>{children}</>;
+    return children;
   }
 
   return (

@@ -228,6 +228,7 @@ export const PromptDialog = ({
           )}
         </div>
         <button
+          type="button"
           aria-label={`Close cleanup prompt for ${project.name}`}
           disabled={busy}
           onClick={dismiss}
@@ -251,10 +252,10 @@ export const PromptDialog = ({
                   : `Discard the unsaved prompt for ${project.name}? Saved guidance will not change.`}
             </p>
             <div className="cleanup-actions">
-              <button ref={safeAction} onClick={() => setConfirmation(null)}>
+              <button type="button" ref={safeAction} onClick={() => setConfirmation(null)}>
                 {confirmation === "discard" ? "Keep editing" : "Cancel"}
               </button>
-              <button onClick={confirm}>
+              <button type="button" onClick={confirm}>
                 {confirmation === "reset"
                   ? "Confirm reset"
                   : confirmation === "reload"
@@ -266,10 +267,10 @@ export const PromptDialog = ({
         )}
         <div hidden={confirmation !== null}>
           {connection !== "connected" && (
-            <p role="status">
+            <output className="block">
               Settings updates are not connected. Use Reload saved settings to check for missed
               changes.
-            </p>
+            </output>
           )}
           {changed && (
             <p role={conflict ? "alert" : "status"}>
@@ -282,6 +283,7 @@ export const PromptDialog = ({
           {state && (
             <div className="cleanup-recovery">
               <button
+                type="button"
                 disabled={busy}
                 onClick={() => {
                   if (dirty) {
@@ -293,10 +295,10 @@ export const PromptDialog = ({
               >
                 Reload saved settings
               </button>
-              {reading && <p role="status">Refreshing saved settings…</p>}
+              {reading && <output className="block">Refreshing saved settings…</output>}
             </div>
           )}
-          {!state && !readError && <p role="status">Loading project settings…</p>}
+          {!state && !readError && <output className="block">Loading project settings…</output>}
           {readError && (
             <div>
               <p role="alert">
@@ -305,14 +307,14 @@ export const PromptDialog = ({
                   ? "Last saved guidance is shown. The draft is kept."
                   : "Guidance is unknown."}
               </p>
-              <button disabled={busy} onClick={() => refresh()}>
+              <button type="button" disabled={busy} onClick={() => refresh()}>
                 Retry project
               </button>
             </div>
           )}
           {state && <PromptContent draft={draft} disabled={busy} dirty={dirty} onChange={edit} />}
-          {pending && <p role="status">Saving for {project.name}…</p>}
-          {saved && <p role="status">{saved}</p>}
+          {pending && <output className="block">Saving for {project.name}…</output>}
+          {saved && <output className="block">{saved}</output>}
           {writeError && (
             <p role="alert">
               Could not save: {writeError} The saved state and any draft are kept. Try again.
@@ -326,16 +328,22 @@ export const PromptDialog = ({
         </p>
         <div className="cleanup-dialog-actions" hidden={confirmation !== null}>
           <button
+            type="button"
             disabled={busy || conflict || !state || (state.prompt === null && !dirty)}
             onClick={() => ask("reset")}
           >
             Reset to plugin default
           </button>
           <div className="cleanup-actions">
-            <button disabled={busy} onClick={dismiss}>
+            <button type="button" disabled={busy} onClick={dismiss}>
               Cancel
             </button>
-            <button className="cleanup-save" disabled={busy || conflict || !dirty} onClick={save}>
+            <button
+              type="button"
+              className="cleanup-save"
+              disabled={busy || conflict || !dirty}
+              onClick={save}
+            >
               Save
             </button>
           </div>

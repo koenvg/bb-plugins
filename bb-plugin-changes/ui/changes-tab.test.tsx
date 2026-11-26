@@ -636,7 +636,7 @@ describe("open file", () => {
       "Open src/a.ts in file viewer",
       "Viewed src/a.ts",
     ]);
-    expect(within(diff).getByRole("img", { name: "modified file" }).getAttribute("title")).toBe(
+    expect(within(diff).getByText("modified file").parentElement?.getAttribute("title")).toBe(
       "modified file",
     );
     expect(button.title).toBe("Open src/a.ts in file viewer");
@@ -1450,8 +1450,8 @@ describe("file outline", () => {
 
     expect(files.getByText("src")).toBeTruthy();
     expect(rowA.title).toBe("src/a.ts");
-    expect(rowA.textContent).toBe("a.ts22 pending commentsM+12-3");
-    expect(files.getByRole("button", { name: /b\.ts/ }).textContent).toBe("b.tsM+2-0");
+    expect(rowA.textContent).toBe("a.ts22 pending commentsModifiedM+12-3");
+    expect(files.getByRole("button", { name: /b\.ts/ }).textContent).toBe("b.tsModifiedM+2-0");
   });
 
   it.each([
@@ -1466,7 +1466,9 @@ describe("file outline", () => {
     const slot = renderTab({ getChanges: () => changes([file("src/a.ts", { status })]) });
     await slot.findAllByTestId("file-diff");
 
-    expect(outline(slot).getByRole("img", { name: label }).textContent).toBe(letter);
+    const badge = outline(slot).getByTitle(label);
+    expect(within(badge).getByText(label)).toBeTruthy();
+    expect(within(badge).getByText(letter)).toBeTruthy();
   });
 
   it("shows a file-type icon per file and the generic icon for an unknown type", async () => {

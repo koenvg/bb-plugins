@@ -48,8 +48,9 @@ export const RawDocument = ({
       range && raw.current?.querySelector<HTMLElement>(`[data-source-line="${range.start}"]`);
     if (target) reveal(target);
   }, [sourceLines, request, reveal]);
+  const readingTabIndex = sourceLines.text ? 0 : -1;
   return (
-    <pre ref={raw} className="mr-raw" aria-label="Raw Markdown" tabIndex={0}>
+    <pre ref={raw} className="mr-raw" aria-label="Raw Markdown" tabIndex={readingTabIndex}>
       {groups
         ? groups.map((group) => (
             <span

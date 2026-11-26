@@ -101,7 +101,14 @@ it("separates reference, mixed and multiple image links from navigation without 
     resolve: (request) =>
       request.image
         ? { kind: "image", url: "/approved/chart.png", source: "source" }
-        : { kind: "bound-link", render: (props) => <a href="https://example.com" {...props} /> },
+        : {
+            kind: "bound-link",
+            render: (props) => (
+              <a href="https://example.com" {...props}>
+                {props.children}
+              </a>
+            ),
+          },
   };
   render(<MarkdownDocument model={links} view="preview" destinations={resolve} />);
   expect(document.querySelector("a button, button a")).toBeNull();
@@ -215,7 +222,8 @@ it("keeps denied and pending images inert, including image-bearing denied links"
         destinations={{ kind: "attachment", remoteImages: true }}
       />,
     );
-    expect(screen.getByRole("img", { name: "Chart" }).textContent).toBe("Chart");
+    expect(screen.getByText("Chart").textContent).toBe("Chart");
+    expect(screen.queryByRole("img", { name: "Chart" })).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
   }));
 it("closes on equivalent policy churn without releasing or reloading the inline blob", async () => {

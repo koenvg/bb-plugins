@@ -258,7 +258,7 @@ describe("Stats in the production shell", () => {
       }),
     );
     expect(slot.navigateCalls).toHaveLength(before);
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(task.title);
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", task.title);
     await act(() =>
       Promise.try(() =>
         resolve({ ok: true, task: { ...task, description: "Unsaved Stats draft" } }),

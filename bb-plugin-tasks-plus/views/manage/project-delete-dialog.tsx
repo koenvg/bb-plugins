@@ -94,14 +94,14 @@ export const ProjectDeleteDialog = ({
           </DialogTitle>
           <DialogDescription asChild>
             <div className="grid gap-2">
-              <p className="project-delete-count" role="status">
+              <output className="block project-delete-count">
                 {count === null
                   ? countError === null
                     ? "Counting all tasks in this project…"
                     : "Task count unavailable."
                   : `Delete this project and all ${count} ${count === 1 ? "task" : "tasks"}?`}{" "}
                 This cannot be undone.
-              </p>
+              </output>
               <p>BB workspaces, threads and files remain unchanged.</p>
             </div>
           </DialogDescription>

@@ -27,7 +27,10 @@ it("keeps catalog reads out of native Ticket navigation and shares picker demand
     fireEvent.click(row(slot, number));
     await acceptNavigation(slot);
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(`Title ${number}`),
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+        "value",
+        `Title ${number}`,
+      ),
     );
   });
   expect(catalogReads).toBe(0);

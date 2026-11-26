@@ -103,7 +103,7 @@ describe("initial label-filtered browse selection", () => {
       expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
       await act(() => Promise.try(() => matches.resolve({ tasks: [selected], nextCursor: null })));
       const byRole = await slot.findByRole("textbox", { name: "Task title" });
-      expect(byRole.textContent).toBe(selected.title);
+      expect(byRole).toHaveProperty("value", selected.title);
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);
     },
@@ -136,7 +136,7 @@ describe("initial label-filtered browse selection", () => {
       failed = false;
       fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
       const byRole = await slot.findByRole("textbox", { name: "Task title" });
-      expect(byRole.textContent).toBe(selected.title);
+      expect(byRole).toHaveProperty("value", selected.title);
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);
     },

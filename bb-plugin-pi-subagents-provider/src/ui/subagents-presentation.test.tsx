@@ -95,7 +95,7 @@ it("starts with one Agents tab and a truthful observed count, without duplicate 
   );
   const agents = view.getByRole("tab", { name: "Agents" });
   expect(agents.getAttribute("aria-selected")).toBe("true");
-  expect(agents.getAttribute("aria-description")).toBe(
+  expect(document.getElementById(agents.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
     "4 observed entries in available history. Not an active-worker count.",
   );
   expect(agents.getAttribute("title")).toBe("Agents · 4 observed entries in available history");

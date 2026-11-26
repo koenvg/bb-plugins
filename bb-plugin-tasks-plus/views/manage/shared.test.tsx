@@ -18,9 +18,9 @@ describe("ColorSwatchPicker keyboard navigation", () => {
       value === "steelblue" ? "Blue" : "Indigo",
     );
     (entry[0] ?? missingValue("Expected a non-null value")).focus();
-    expect(radios.filter((radio) => radio.getAttribute("aria-checked") === "true")).toHaveLength(
-      value === "steelblue" ? 1 : 0,
-    );
+    expect(
+      radios.filter((radio) => radio instanceof HTMLInputElement && radio.checked),
+    ).toHaveLength(value === "steelblue" ? 1 : 0);
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -30,7 +30,7 @@ describe("ColorSwatchPicker keyboard navigation", () => {
     const Fixture = () => {
       const [value, setValue] = useState("slateblue");
       return (
-        <div onKeyDown={onParentKeyDown}>
+        <form onKeyDown={onParentKeyDown}>
           <ColorSwatchPicker
             value={value}
             onChange={(color, interaction) => {
@@ -38,7 +38,7 @@ describe("ColorSwatchPicker keyboard navigation", () => {
               onChange(color, interaction);
             }}
           />
-        </div>
+        </form>
       );
     };
     const view = render(<Fixture />);
@@ -58,15 +58,14 @@ describe("ColorSwatchPicker keyboard navigation", () => {
       const radio = view.getByRole("radio", { name: label });
       expect(document.activeElement).toBe(radio);
       expect(radio.tabIndex).toBe(0);
-      expect(radio.getAttribute("aria-checked")).toBe("true");
+      expect(radio).toHaveProperty("checked", true);
       expect(onChange).toHaveBeenLastCalledWith(value, "navigate");
       expect(view.getAllByRole("radio").filter((button) => button.tabIndex === 0)).toEqual([radio]);
     }
     expect(onParentKeyDown).not.toHaveBeenCalled();
     const gray = view.getByRole("radio", { name: "Gray" });
-    // Space keeps native button activation; only arrows cancel the key event.
     expect(fireEvent.keyDown(gray, { key: " " })).toBe(true);
-    expect(gray).toHaveProperty("type", "button");
+    expect(gray).toHaveProperty("type", "radio");
     fireEvent.click(gray);
     expect(onChange).toHaveBeenLastCalledWith("slategray", "activate");
     expect(fireEvent.keyDown(gray, { key: "Tab" })).toBe(true);

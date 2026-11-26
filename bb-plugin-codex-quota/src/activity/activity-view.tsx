@@ -59,11 +59,11 @@ export const ActivityPanel = ({
         old local records. They do not fill local gaps or set prices.
       </p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm" role="status" aria-label="Account activity status">
+        <output className="block text-sm" aria-label="Account activity status">
           {selectionPending
             ? "Changing selected host. Account activity is pending."
             : `${loading ? "Updating account activity. " : ""}${diagnostic(visible)}`}
-        </p>
+        </output>
         <button
           type="button"
           className="rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
@@ -116,10 +116,8 @@ export const ActivityPanel = ({
               No activity buckets returned. Unreported dates remain unknown.
             </p>
           ) : (
-            <div
-              role="region"
+            <section
               aria-label={`Account-wide ${mode} token table`}
-              tabIndex={0}
               className="mt-3 max-h-64 w-full overflow-auto focus-visible:outline-2 focus-visible:outline-ring"
             >
               <table className="w-full text-left text-sm tabular-nums">
@@ -147,7 +145,7 @@ export const ActivityPanel = ({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </section>
           )}
         </>
       )}

@@ -100,27 +100,23 @@ const EditableTitle = ({
   onChange: (title: string) => void;
   onSave: () => void;
 }) => {
-  const ref = useRef<HTMLHeadingElement>(null);
-  useLayoutEffect(() => {
-    if (ref.current && ref.current.textContent !== task.title) ref.current.textContent = task.title;
-  }, [task.title]);
   return (
-    <h1
-      ref={ref}
-      contentEditable
-      suppressContentEditableWarning
-      role="textbox"
-      aria-label="Task title"
-      className="mb-2.5 mt-1 text-2xl font-semibold leading-tight outline-none"
-      onInput={(event) => onChange(event.currentTarget.textContent ?? "")}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          event.currentTarget.blur();
-        }
-      }}
-      onBlur={onSave}
-    />
+    <h1 aria-label={task.title} className="mb-2.5 mt-1 text-2xl font-semibold leading-tight">
+      <textarea
+        aria-label="Task title"
+        rows={1}
+        value={task.title}
+        className="block w-full resize-none [field-sizing:content] outline-none"
+        onChange={(event) => onChange(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+        onBlur={onSave}
+      />
+    </h1>
   );
 };
 
@@ -453,6 +449,7 @@ const TaskDetail = ({
   const descriptionValue = task.description;
   const parentTask = parent.data ?? null;
 
+  const handleOpen = attachmentPreview.open;
   return (
     <div
       ref={detailRef}
@@ -577,7 +574,7 @@ const TaskDetail = ({
 
           <AttachmentsGrid
             attachments={attachments.data ?? []}
-            onPreview={attachmentPreview.open}
+            onPreview={handleOpen}
             onRemove={async (attachment) => {
               const result = await rpc.call("deleteAttachment", {
                 attachmentId: attachment.id,
@@ -691,21 +688,22 @@ const DetailQuery = ({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
       });
   }, [query.isLoading, query.error, query.data, onMissing, taskKey, reconcileRevision]);
   if (query.data === undefined) {
+    const handleRefresh = query.refresh;
     return query.error ? (
       <div
         data-detail-key={taskKey}
         className="flex h-full items-center justify-center p-6 text-sm text-destructive"
       >
         {query.error}
-        <Button size="sm" variant="outline" onClick={query.refresh}>
+        <Button size="sm" variant="outline" onClick={handleRefresh}>
           Retry
         </Button>
       </div>
     ) : (
       <div data-detail-loading-key={taskKey}>
-        <p role="status" className="px-6 pt-6 text-sm text-muted-foreground">
+        <output className="block px-6 pt-6 text-sm text-muted-foreground">
           Loading {taskKey}…
-        </p>
+        </output>
         <DetailSkeleton />
       </div>
     );
@@ -718,6 +716,7 @@ const DetailQuery = ({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
       </div>
     );
   }
+  const handleRefresh = query.refresh;
   return (
     <>
       {!query.current && (
@@ -732,14 +731,14 @@ const DetailQuery = ({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
           {query.error && (
             <>
               <span>{query.error}</span>
-              <Button size="sm" variant="outline" onClick={query.refresh}>
+              <Button size="sm" variant="outline" onClick={handleRefresh}>
                 Retry
               </Button>
             </>
           )}
         </div>
       )}
-      <TaskDetail key={task.id} task={task} onTaskChanged={query.refresh} />
+      <TaskDetail key={task.id} task={task} onTaskChanged={handleRefresh} />
     </>
   );
 };

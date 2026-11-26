@@ -168,7 +168,12 @@ it("shares thread reads across sequential visible chunks, retains every associat
   const Probe = ({ rows }: { rows: Task[] }) => {
     latest = useTaskListMeta(rows, "all").data;
     const refresh = useTasksRefresh();
-    return <button onClick={refresh.refresh}>Refresh</button>;
+    const handleRefresh = refresh.refresh;
+    return (
+      <button type="button" onClick={handleRefresh}>
+        Refresh
+      </button>
+    );
   };
   const Root = ({ rows }: { rows: Task[] }) => {
     return (
@@ -420,7 +425,12 @@ it("shares settled environment successes, absence and failures across 501 sequen
   let latest: Map<string, TaskWorkStatus> | undefined;
   const Probe = () => {
     latest = useTaskListMeta(tasks, "all").data;
-    return <button onClick={useTasksRefresh().refresh}>Refresh PRs</button>;
+    const handleRefresh = useTasksRefresh().refresh;
+    return (
+      <button type="button" onClick={handleRefresh}>
+        Refresh PRs
+      </button>
+    );
   };
   const slot = renderSlot(
     {

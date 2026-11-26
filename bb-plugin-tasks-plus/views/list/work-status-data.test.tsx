@@ -34,9 +34,12 @@ const Probe = ({ ids, scope }: { ids: string[]; scope: string }) => {
     scope,
   );
   const refresh = useTasksRefresh();
+  const handleRefresh = refresh.refresh;
   return (
     <>
-      <button onClick={refresh.refresh}>Refresh</button>
+      <button type="button" onClick={handleRefresh}>
+        Refresh
+      </button>
       <output>{JSON.stringify(query.data ? [...query.data] : "loading")}</output>
     </>
   );

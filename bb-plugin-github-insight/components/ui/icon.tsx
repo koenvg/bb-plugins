@@ -1,4 +1,4 @@
-import { Component, createContext, useContext, useSyncExternalStore } from "react";
+import { Component, createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -296,12 +296,13 @@ export const Icon = ({ name, fallback = "Zap", ...props }: IconProps) => {
   const definition = requestedExists ? custom : fallbackCustom;
   const resolvedAsset = requestedExists ? asset : fallbackAsset;
   const CustomIcon = definition?.component;
+  const nextAncestors = useMemo(() => [...ancestors, resolved], [ancestors, resolved]);
   if (ancestors.includes(resolved)) {
     return <BuiltinIcon name={isBuiltinIconName(resolved) ? resolved : "Zap"} {...props} />;
   }
   if (CustomIcon !== undefined && definition !== undefined) {
     return (
-      <IconAncestors.Provider value={[...ancestors, resolved]}>
+      <IconAncestors.Provider value={nextAncestors}>
         <IconErrorBoundary key={definition.key} fallback={<BuiltinIcon name="Zap" {...props} />}>
           <span
             className={cn("inline-flex size-6 shrink-0", props.className)}

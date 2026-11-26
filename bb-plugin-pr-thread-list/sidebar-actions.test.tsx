@@ -15,6 +15,7 @@ const DeleteControl = () => {
   return (
     <>
       <button
+        type="button"
         onClick={async () => {
           try {
             await actions.requestDelete();

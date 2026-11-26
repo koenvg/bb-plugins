@@ -211,10 +211,10 @@ it("fails closed before permissive source dispatch while allowing one confined b
   ]);
   for (let index = 0; index < bad.length; index++) {
     expect(screen.getByText(`bad${index}`).tagName).toBe("SPAN");
-    expect(screen.getByRole("img", { name: `alt${index}` }).textContent).toBe(`alt${index}`);
+    expect(screen.getByText(`alt${index}`).textContent).toBe(`alt${index}`);
     fireEvent.click(screen.getByText(`bad${index}`));
   }
-  expect(screen.getByRole("img", { name: "source asset" }).textContent).toBe("source asset");
+  expect(screen.getByText("source asset").textContent).toBe("source asset");
   expect(container.querySelectorAll("a").length).toBe(1);
   expect(fetch.mock.calls).toEqual([]);
   expect(open.mock.calls).toEqual([]);

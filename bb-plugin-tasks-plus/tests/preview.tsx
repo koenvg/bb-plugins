@@ -92,6 +92,7 @@ const TaskFixture = () => {
       window.removeEventListener("fixture-listbox", listbox);
     };
   }, []);
+  const handleOpen = preview.open;
   return (
     <main className="fixture-task">
       <p>Synthetic fixture. No installed plugin or live records.</p>
@@ -122,10 +123,12 @@ const TaskFixture = () => {
           </tbody>
         </table>
       </section>
-      <button ref={fallback}>Attach file</button>
+      <button type="button" ref={fallback}>
+        Attach file
+      </button>
       <AttachmentsGrid
         attachments={attachments}
-        onPreview={preview.open}
+        onPreview={handleOpen}
         onRemove={(item) =>
           Promise.try(() => {
             preview.removed(item.id);
@@ -136,11 +139,9 @@ const TaskFixture = () => {
       />
       {preview.dialog}
       {choices ? (
-        <div role="listbox" aria-label="Newer choices" tabIndex={0}>
-          <div role="option" aria-selected="true">
-            Selected choice
-          </div>
-        </div>
+        <select size={2} aria-label="Newer choices" defaultValue="selected">
+          <option value="selected">Selected choice</option>
+        </select>
       ) : null}
     </main>
   );

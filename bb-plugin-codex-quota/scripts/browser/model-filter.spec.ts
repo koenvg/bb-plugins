@@ -106,7 +106,7 @@ for (const width of [375, 1280]) {
         })),
       ).toEqual({ column: "16px", row: "4px", margin: "0px" });
       for (const node of [
-        page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
+        page.getByRole("group", { name: "Daily recorded values" }).locator("output"),
         page.locator(`[id="${await legend.getAttribute("aria-describedby")}"]`),
       ]) {
         expect(
@@ -248,7 +248,7 @@ for (const width of [375, 1280]) {
           await series(page, name).click();
         }
         await expect(
-          page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
+          page.getByRole("group", { name: "Daily recorded values" }).locator("output"),
         ).toHaveText("All model series hidden. Recorded usage is not zero.");
         expect(await bars(page)).toEqual([]);
         expect(await rows(page)).toEqual(daily);
@@ -456,7 +456,7 @@ for (const state of ["unknown", "inactive", "filter-uncertain-only"]) {
       page.getByRole("group", { name: "Models", exact: true }).getByRole("button"),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("group", { name: "Daily recorded values" }).locator('p[role="status"]'),
+      page.getByRole("group", { name: "Daily recorded values" }).locator("output"),
     ).toHaveText("No recorded model series.");
     await expect(restore(page)).toHaveCount(0);
     expect(await rows(page)).toEqual(daily);

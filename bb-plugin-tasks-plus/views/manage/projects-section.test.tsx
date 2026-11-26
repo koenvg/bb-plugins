@@ -157,7 +157,7 @@ describe("Manage production project table", () => {
       fireEvent.keyDown(blue, { key: "ArrowRight" });
       const teal = within(palette).getByRole("radio", { name: "Teal" });
       expect(document.activeElement).toBe(teal);
-      expect(teal.getAttribute("aria-checked")).toBe("true");
+      expect(teal).toHaveProperty("checked", true);
       fireEvent.keyDown(teal, { key: "ArrowDown" });
       const green = within(palette).getByRole("radio", { name: "Green" });
       expect(document.activeElement).toBe(green);
@@ -202,7 +202,7 @@ describe("Manage production project table", () => {
         dialog.getAttribute("aria-describedby") ?? missingValue("Expected a non-null value"),
       );
       expect(description?.className).toContain("text-sm");
-      expect(description?.querySelector('[role="status"]')).not.toBeNull();
+      expect(description?.querySelector("output")).not.toBeNull();
       expect(description?.textContent).toContain(
         "BB workspaces, threads and files remain unchanged.",
       );
@@ -283,7 +283,7 @@ describe("Manage production project table", () => {
     await loaded(env);
     fireEvent.click(env.slot.getByRole("button", { name: "Colour for HOME: #aBbCcD" }));
     const palette = await within(document.body).findByRole("radiogroup", { name: "Color" });
-    const choices = within(palette).getAllByRole("radio");
+    const choices = within(palette).getAllByRole<HTMLInputElement>("radio");
     expect(choices.map((choice) => choice.getAttribute("aria-label"))).toEqual([
       "Indigo",
       "Blue",
@@ -296,7 +296,7 @@ describe("Manage production project table", () => {
       "Purple",
       "Gray",
     ]);
-    expect(choices.every((choice) => choice.getAttribute("aria-checked") === "false")).toBe(true);
+    expect(choices.every((choice) => !choice.checked)).toBe(true);
     expect(env.calls).toEqual([]);
     fireEvent.click(within(palette).getByRole("radio", { name: "Purple" }));
     expect(env.slot.getByRole("button", { name: "Colour for HOME: Purple" })).toBeDefined();
@@ -313,12 +313,14 @@ describe("Manage production project table", () => {
     );
     fireEvent.click(env.slot.getByRole("button", { name: "Colour for HOME: Purple" }));
     const savedPalette = await within(document.body).findByRole("radiogroup", { name: "Color" });
-    expect(
-      within(savedPalette).getByRole("radio", { name: "Purple" }).getAttribute("aria-checked"),
-    ).toBe("true");
-    expect(
-      within(savedPalette).getByRole("radio", { name: "Blue" }).getAttribute("aria-checked"),
-    ).toBe("false");
+    expect(within(savedPalette).getByRole("radio", { name: "Purple" })).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(within(savedPalette).getByRole("radio", { name: "Blue" })).toHaveProperty(
+      "checked",
+      false,
+    );
     expect(within(savedPalette).getAllByRole("radio")).toHaveLength(10);
     expect(env.calls).toHaveLength(1);
   });

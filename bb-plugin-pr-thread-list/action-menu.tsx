@@ -98,6 +98,7 @@ export const ActionMenu = ({
             <div
               ref={panel}
               role="menu"
+              tabIndex={-1}
               aria-label={label}
               className="fixed z-50 overflow-y-auto rounded-md border border-border bg-popover p-1 text-sm text-popover-foreground shadow-md"
               style={{ ...position, width: PANEL_WIDTH }}
@@ -114,9 +115,8 @@ export const ActionMenu = ({
               }}
             >
               {sectionsOf(items).map(({ section, entries }, index) => (
-                <div
+                <fieldset
                   key={section ?? index}
-                  role="group"
                   aria-label={section}
                   className={index > 0 ? "-mx-1 mt-1 border-t border-border px-1 pt-1" : undefined}
                 >
@@ -157,7 +157,7 @@ export const ActionMenu = ({
                       {item.label}
                     </button>
                   ))}
-                </div>
+                </fieldset>
               ))}
             </div>,
             document.body,

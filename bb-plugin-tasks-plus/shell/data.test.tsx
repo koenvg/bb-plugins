@@ -40,11 +40,17 @@ const Probe = ({ taskKey, onFrame }: ProbeProps) => {
   useLayoutEffect(() => {
     onFrame(frame);
   });
+  const handleRefresh = query.refresh;
+  const handleRefreshRefresh = refresh.refresh;
   return (
     <>
       <output aria-label="Query">{JSON.stringify(frame)}</output>
-      <button onClick={query.refresh}>Retry query</button>
-      <button onClick={refresh.refresh}>Refresh tasks</button>
+      <button type="button" onClick={handleRefresh}>
+        Retry query
+      </button>
+      <button type="button" onClick={handleRefreshRefresh}>
+        Refresh tasks
+      </button>
     </>
   );
 };
@@ -227,6 +233,7 @@ const StandaloneProbe = () => {
     },
     ["tasks:changed"],
   );
+  const handleRefresh = refresh.refresh;
   return (
     <>
       <output aria-label="Standalone query">
@@ -236,7 +243,7 @@ const StandaloneProbe = () => {
           loading: query.isLoading,
         })}
       </output>
-      <button onClick={refresh.refresh} disabled={refresh.isRefreshing}>
+      <button type="button" onClick={handleRefresh} disabled={refresh.isRefreshing}>
         Refresh standalone
       </button>
     </>

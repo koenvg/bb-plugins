@@ -23,10 +23,11 @@ export const PromptContent = ({
   return (
     <div className="cleanup-editor">
       <label htmlFor="cleanup-prompt">Cleanup guidance</label>
-      <div className="cleanup-toolbar" role="group" aria-label="Guidance controls">
+      <fieldset className="cleanup-toolbar" aria-label="Guidance controls">
         <div
           className="cleanup-tabs"
           role="tablist"
+          tabIndex={-1}
           aria-label="Guidance view"
           onKeyDown={(event) => {
             if (disabled) {
@@ -71,7 +72,7 @@ export const PromptContent = ({
             onClick={() => setMode("preview")}
           />
         </div>
-      </div>
+      </fieldset>
       <div
         id="cleanup-edit-panel"
         role="tabpanel"
@@ -95,12 +96,7 @@ export const PromptContent = ({
         hidden={mode !== "preview"}
       >
         {mode === "preview" && (
-          <div
-            className="cleanup-markdown"
-            role="region"
-            aria-label="Guidance preview"
-            tabIndex={0}
-          >
+          <section className="cleanup-markdown" aria-label="Guidance preview">
             {Markdown ? (
               <Markdown content={draft} />
             ) : (
@@ -109,7 +105,7 @@ export const PromptContent = ({
                 <pre>{draft}</pre>
               </>
             )}
-          </div>
+          </section>
         )}
       </div>
       <div className="cleanup-metadata">

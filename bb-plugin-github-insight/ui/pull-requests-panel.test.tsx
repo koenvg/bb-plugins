@@ -235,7 +235,7 @@ describe("Pull Requests lists", () => {
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
     expect(within(card).getByText("Draft")).toBeTruthy();
-    expect(within(card).getByTestId("queue-ci").getAttribute("aria-label")).toBe("CI failed");
+    expect(within(within(card).getByTestId("queue-meta")).getByText("CI failed")).toBeTruthy();
   });
 
   it.each([
@@ -270,7 +270,7 @@ describe("Pull Requests lists", () => {
     const slot = renderPanel("", () => ok(view([queuePr({ ci })])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    expect(within(card).getByTestId("queue-ci").getAttribute("aria-label")).toBe(text);
+    expect(within(within(card).getByTestId("queue-meta")).getByText(text)).toBeTruthy();
   });
 
   it.each([
@@ -1510,7 +1510,7 @@ describe("Row control tooltips", () => {
     const slot = renderPanel("", () => ok(view([queuePr({ ci: "failed" })])));
 
     const card = await findCard(slot, "Needs review", "acme/api#15");
-    hover(within(card).getByRole("img", { name: "CI failed" }));
+    hover(within(card).getByTestId("queue-ci"));
 
     expect((await slot.findByRole("tooltip")).textContent).toBe("CI failed");
   });

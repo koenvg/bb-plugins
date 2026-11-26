@@ -47,7 +47,12 @@ function fixture(
     );
     sharedRefresh = useTasksRefresh().refresh;
     history.push(latest);
-    return <button onClick={latest.refresh}>Refresh work</button>;
+    const handleRefresh = latest.refresh;
+    return (
+      <button type="button" onClick={handleRefresh}>
+        Refresh work
+      </button>
+    );
   };
   const Root = (props: { ids: string[]; scope: string }) => {
     return (

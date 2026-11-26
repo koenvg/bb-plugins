@@ -297,7 +297,7 @@ describe("task status changes retain thread and pull request data", () => {
           });
           const editor =
             root.querySelector<HTMLElement>(".tiptap") ?? missingValue("Expected a non-null value");
-          expect(title.textContent).toBe("Ship the PR pill");
+          expect(title).toHaveProperty("value", "Ship the PR pill");
           expect(worker.textContent).toBe("Worker");
           expect(pr.textContent).toBe("#12");
           expect(editor.getAttribute("contenteditable")).toBe("true");

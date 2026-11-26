@@ -19,12 +19,12 @@ export function readNativeTicket(document) {
     (el) => el.getClientRects().length,
   );
   const detail = details.length === 1 ? details[0] : null;
-  const heading = detail?.querySelector('h1[aria-label="Task title"]');
+  const heading = detail?.querySelector('textarea[aria-label="Task title"]');
   const description = detail?.querySelector('.bb-tasks-editor[data-variant="doc"] .tiptap');
   return {
     rowKey: rows.length === 1 ? rows[0].dataset.taskKey : null,
     detailKey: detail?.dataset.detailKey,
-    heading: heading?.textContent,
+    heading: heading?.value,
     marker: description?.querySelector("h2")?.textContent,
     rendered: Boolean(
       description?.querySelector("p") &&
@@ -135,7 +135,7 @@ export function createProbe({
       event.metaKey ||
       event.shiftKey ||
       event.target?.closest?.(
-        'input,textarea,[contenteditable="true"],[role="dialog"],[role="menu"]',
+        'input,textarea,[contenteditable="true"],dialog[open],[role="dialog"],[role="menu"]',
       )
     )
       return;

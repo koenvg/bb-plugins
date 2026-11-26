@@ -254,7 +254,12 @@ it("shares optional detection and settled metadata successes, absence and failur
   let latest: Map<string, TaskWorkStatus> | undefined;
   const Probe = () => {
     latest = useTaskListMeta(tasks, "all").data;
-    return <button onClick={useTasksRefresh().refresh}>Refresh</button>;
+    const handleRefresh = useTasksRefresh().refresh;
+    return (
+      <button type="button" onClick={handleRefresh}>
+        Refresh
+      </button>
+    );
   };
   const slot = renderSlot(
     {

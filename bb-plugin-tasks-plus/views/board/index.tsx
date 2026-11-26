@@ -108,36 +108,13 @@ const TaskCard = ({
   const labels = task.labelIds
     .map((labelId) => labelsById.get(labelId))
     .filter((label): label is Label => label !== undefined);
-  const interactive = onClick !== undefined;
-  return (
-    <div
-      ref={cardRef}
-      data-task-key={task.key}
-      data-nav-item={interactive || undefined}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      aria-label={interactive ? `Open ${task.key}: ${task.title}` : undefined}
-      onPointerDown={(event) => {
-        if (event.currentTarget.contains(event.target as Node)) {
-          onPointerDown?.(event);
-        }
-      }}
-      onClick={(event) => {
-        if (event.currentTarget.contains(event.target as Node)) onClick?.();
-      }}
-      onKeyDown={(event) => {
-        if (!interactive || event.target !== event.currentTarget) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onClick();
-        }
-      }}
-      className={cn(
-        "relative shrink-0 rounded-lg border border-border bg-card px-2.5 py-2 shadow-2xs select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        ghost ? "rotate-2 shadow-md" : "cursor-pointer touch-none hover:border-input",
-        dragging && "opacity-40",
-      )}
-    >
+  const className = cn(
+    "relative shrink-0 rounded-lg border border-border bg-card px-2.5 py-2 shadow-2xs select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    ghost ? "rotate-2 shadow-md" : "cursor-pointer touch-none hover:border-input",
+    dragging && "opacity-40",
+  );
+  const content = (
+    <>
       <div className="flex items-center gap-1.5 text-2xs text-muted-foreground">
         <span className="tabular-nums">{task.key}</span>
         <WorkingAgentsChip threads={meta.workingThreads} />
@@ -173,6 +150,40 @@ const TaskCard = ({
           />
         ) : null}
       </div>
+    </>
+  );
+  if (!onClick)
+    return (
+      <div className={className} data-task-key={task.key}>
+        {content}
+      </div>
+    );
+  return (
+    <div
+      ref={cardRef}
+      data-task-key={task.key}
+      data-nav-item
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${task.key}: ${task.title}`}
+      onPointerDown={(event) => {
+        if (event.currentTarget.contains(event.target as Node)) {
+          onPointerDown?.(event);
+        }
+      }}
+      onClick={(event) => {
+        if (event.currentTarget.contains(event.target as Node)) onClick();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={className}
+    >
+      {content}
       {menu}
     </div>
   );
@@ -444,10 +455,11 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
 
   if (columns === undefined) {
     if (board.error) {
+      const handleRefresh = board.refresh;
       return (
         <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-sm text-muted-foreground">
           <p>Failed to load the board: {board.error}</p>
-          <Button variant="outline" size="sm" onClick={board.refresh}>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
             Retry
           </Button>
         </div>

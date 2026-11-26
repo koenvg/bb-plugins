@@ -204,7 +204,10 @@ async function selectTask(slot: ReturnType<typeof renderDetail>, number: number)
   const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;
   slot.lifecycle.rerender(<Panel subPath={`task/ABC-${number}`} />);
   await waitFor(() =>
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(`Task ${number}`),
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+      "value",
+      `Task ${number}`,
+    ),
   );
 }
 

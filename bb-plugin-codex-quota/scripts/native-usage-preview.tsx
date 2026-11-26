@@ -53,17 +53,18 @@ const Preview = () => {
         Synthetic public backend reports. Not installed collector acceptance.
       </p>
       <nav aria-label="Fixture machine scope" className="mt-3 flex flex-wrap gap-3">
-        <button onClick={() => setScope("all")} aria-pressed={scope === "all"}>
+        <button type="button" onClick={() => setScope("all")} aria-pressed={scope === "all"}>
           All machines
         </button>
-        <button onClick={() => setScope("host")} aria-pressed={scope === "host"}>
+        <button type="button" onClick={() => setScope("host")} aria-pressed={scope === "host"}>
           Host fixture
         </button>
-        <button onClick={() => pending.splice(0).forEach((resolve) => resolve())}>
+        <button type="button" onClick={() => pending.splice(0).forEach((resolve) => resolve())}>
           Release loading
         </button>
         {state === "retry" && (
           <button
+            type="button"
             onClick={() => {
               retryBlocked = false;
             }}

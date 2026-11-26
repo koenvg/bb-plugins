@@ -445,7 +445,7 @@ describe("heading toggle", () => {
 describe("TasksEditor component", () => {
   it("renders checklists and reports checkbox toggles as markdown", async () => {
     const onChange = vi.fn();
-    const screen = render(<TasksEditor value={"- [ ] write tests"} onChange={onChange} />);
+    const screen = render(<TasksEditor value="- [ ] write tests" onChange={onChange} />);
     const checkbox = screen.container.querySelector<HTMLInputElement>(
       'ul[data-type="taskList"] input[type="checkbox"]',
     );
@@ -456,7 +456,7 @@ describe("TasksEditor component", () => {
 
   it("renders the compact editor without a toolbar", () => {
     const screen = render(
-      <TasksEditor value={"**Done** deal"} onChange={() => undefined} variant="compact" />,
+      <TasksEditor value="**Done** deal" onChange={() => undefined} variant="compact" />,
     );
     expect(screen.queryByRole("toolbar")).toBeNull();
     const surface = screen.container.querySelector(".tiptap");
@@ -634,7 +634,7 @@ describe("TasksEditor component", () => {
     const editorRef: { current: Editor | null } = { current: null };
     render(
       <TasksEditor
-        value={"![shot](https://example.com/a.png)"}
+        value="![shot](https://example.com/a.png)"
         onChange={() => undefined}
         onEditorReady={(ready) => (editorRef.current = ready)}
       />,

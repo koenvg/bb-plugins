@@ -138,7 +138,7 @@ const VideoFigure = ({
           </>
         ) : shown.kind === "loading" ? (
           <>
-            <span role="status">Loading video…</span>
+            <output>Loading video…</output>
             <button type="button" className={BUTTON} onClick={() => setRequest(0)}>
               Cancel {side} video
             </button>

@@ -616,18 +616,21 @@ describe("tasks app shell", () => {
       },
     );
     await slot.findByRole("textbox", { name: "Task title" });
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+      "value",
       "Stale detail title",
     );
 
     title = "Recovered detail title";
     await slot.behavior.setRealtimeConnectionState("reconnecting");
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+      "value",
       "Stale detail title",
     );
     await slot.behavior.setRealtimeConnectionState("connected");
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+        "value",
         "Recovered detail title",
       ),
     );

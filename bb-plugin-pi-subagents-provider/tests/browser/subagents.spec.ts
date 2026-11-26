@@ -137,6 +137,16 @@ for (const size of [
       }),
     ).toBeVisible();
     await alphaPanel.locator(".pi-subagents-capture > summary").click();
+    const transcript = alphaPanel.getByRole("region", { name: "Captured conversation" });
+    await alphaPanel.getByRole("button", { name: "Final output", exact: true }).focus();
+    await page.keyboard.press("Tab");
+    await expect(transcript).toBeFocused();
+    if (size.width === 375) {
+      await page.setViewportSize({ width: size.width, height: 420 });
+      await page.keyboard.press("PageDown");
+      await expect.poll(() => transcript.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+      await page.setViewportSize({ width: size.width, height: 900 });
+    }
     await expect(
       alphaPanel.getByText("Run captured-alpha-run · background · subagent", { exact: true }),
     ).toBeVisible();

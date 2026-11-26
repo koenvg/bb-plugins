@@ -148,7 +148,7 @@ export const ImportPanel = ({
     </label>
   );
   return (
-    <details className="mt-4 min-w-0 text-sm" aria-label={`Historical import`}>
+    <details className="mt-4 min-w-0 text-sm" aria-label="Historical import">
       <summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-ring">
         Historical import
       </summary>
@@ -177,6 +177,7 @@ export const ImportPanel = ({
       {field("Known workspace paths, one per line", "workspaces", true)}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
+          type="button"
           className={button}
           disabled={
             !selection.hostId || pending || unfinished || !values.bbRoot || !values.workspaces
@@ -195,6 +196,7 @@ export const ImportPanel = ({
           Save import sources
         </button>
         <button
+          type="button"
           className={button}
           disabled={!selection.hostId || pending || unfinished || !view?.configuration}
           onClick={() => activate({ action: "start", includeUncertain: true })}
@@ -202,6 +204,7 @@ export const ImportPanel = ({
           Start import
         </button>
         <button
+          type="button"
           className={button}
           disabled={!selection.hostId || pending}
           onClick={() => activate({ action: "status" })}
@@ -209,6 +212,7 @@ export const ImportPanel = ({
           Check import status
         </button>
         <button
+          type="button"
           className={button}
           disabled={pending || !unfinished}
           onClick={() => activate({ action: "resume" })}
@@ -216,6 +220,7 @@ export const ImportPanel = ({
           Resume import
         </button>
         <button
+          type="button"
           className={button}
           disabled={selectionPending || !selection.hostId || (!unfinished && !pending)}
           onClick={() => activate({ action: "cancel" })}

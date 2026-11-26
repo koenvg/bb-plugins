@@ -430,6 +430,7 @@ const TabBar = ({
   return (
     <div
       role="tablist"
+      tabIndex={-1}
       aria-label="Threads"
       onKeyDown={move}
       className="flex h-7 min-w-0 flex-1 items-center rounded-md bg-sidebar-accent/60 p-0.5"
@@ -469,17 +470,21 @@ const GroupHeader = ({
   onNewThread: (() => void) | null;
   menu: MenuItem[];
 }) => {
+  const countId = useId();
   const urgent = item.scope.kind === "attention";
   const badge =
     item.scope.kind === "project" ? projectBadge(item.scope.projectId, item.label) : null;
   return (
     <div className="flex items-end" style={{ height: HEIGHTS.group }}>
+      <span id={countId} hidden>
+        {item.count} threads
+      </span>
       <div className="group/header relative flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 hover:bg-sidebar-accent/60">
         <button
           type="button"
           aria-expanded={!item.collapsed}
           aria-label={`${item.collapsed ? "Expand" : "Collapse"} ${item.label}`}
-          aria-description={`${item.count} threads`}
+          aria-describedby={countId}
           className={`absolute inset-0 rounded-md ${FOCUS_RING}`}
           onClick={onToggle}
         />
@@ -715,12 +720,10 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
         className="min-h-0 flex-1 overflow-y-auto"
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
       >
-        {status === "loading" ? <p role="status">Loading threads…</p> : null}
+        {status === "loading" ? <output className="block">Loading threads…</output> : null}
         {status === "error" ? <p role="alert">Threads are unavailable.</p> : null}
         {archiveLoading ? (
-          <p role="status" className="p-2 text-muted-foreground">
-            Loading archived threads…
-          </p>
+          <output className="block p-2 text-muted-foreground">Loading archived threads…</output>
         ) : null}
         {archiveError ? (
           <p role="alert" className="p-2 text-destructive">
