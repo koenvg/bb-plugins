@@ -7,13 +7,19 @@ export interface ExcerptDestination {
   available: boolean;
   append: (quote: string) => string | null;
 }
+interface SelectionScope {
+  panel: RefObject<HTMLElement | null>;
+  snapshot: TextSnapshot | null;
+  view: "preview" | "raw";
+  key: string | undefined;
+  available: boolean | undefined;
+  revision: number;
+}
 interface Capture {
   text: string;
   rect: DOMRect;
   snapshot: TextSnapshot;
-  view: "preview" | "raw";
-  destination: ExcerptDestination;
-  revision: number;
+  scope: SelectionScope;
   lines?: { start: number; end: number };
 }
 function selectedLines(root: Element, range: Range, text: string) {
@@ -77,13 +83,32 @@ export const SelectionAction = ({
   const [position, setPosition] = useState({ left: 0, top: 0 });
   const key = destination?.key;
   const available = destination?.available;
+  const [selectionScope, setSelectionScope] = useState<SelectionScope>({
+    panel,
+    snapshot,
+    view,
+    key,
+    available,
+    revision,
+  });
+  if (
+    selectionScope.panel !== panel ||
+    selectionScope.snapshot !== snapshot ||
+    selectionScope.view !== view ||
+    selectionScope.key !== key ||
+    selectionScope.available !== available ||
+    selectionScope.revision !== revision
+  ) {
+    setSelectionScope({ panel, snapshot, view, key, available, revision });
+    setCapture(null);
+    setFeedback(null);
+  }
   useLayoutEffect(() => {
+    const { panel, snapshot, view, key, available } = selectionScope;
     const selectionNow = panel.current?.ownerDocument.defaultView?.getSelection();
     dismissed.current = selectionNow?.rangeCount ? selectionNow.getRangeAt(0).cloneRange() : null;
     pending.current = null;
-    setCapture(null);
-    setFeedback(null);
-    if (!snapshot || !destination) return;
+    if (!snapshot || key === undefined || available === undefined) return;
     const doc = panel.current!.ownerDocument;
     const win = doc.defaultView!;
     const coarse = win.matchMedia?.("(pointer: coarse)");
@@ -131,9 +156,7 @@ export const SelectionAction = ({
         text,
         rect,
         snapshot,
-        view,
-        destination,
-        revision,
+        scope: selectionScope,
         lines: view === "raw" ? selectedLines(root, range, snapshot.text) : undefined,
       };
       pending.current = next;
@@ -180,31 +203,25 @@ export const SelectionAction = ({
       win.removeEventListener("resize", dismiss);
       coarse?.removeEventListener("change", dismiss);
     };
-  }, [panel, snapshot, view, key, available, revision]);
+  }, [selectionScope]);
+  const current = capture?.scope === selectionScope ? capture : null;
   useLayoutEffect(() => {
-    if (!capture || !menu.current || !panel.current) return;
+    if (!current || !menu.current || !panel.current) return;
     const bounds = panel.current.getBoundingClientRect();
     const rect = menu.current.getBoundingClientRect();
     const left = Math.max(
       bounds.left + 4,
-      Math.min(capture.rect.left, bounds.right - rect.width - 4),
+      Math.min(current.rect.left, bounds.right - rect.width - 4),
     );
     const top = Math.max(
       bounds.top + 4,
-      Math.min(capture.rect.bottom + 6, bounds.bottom - rect.height - 4),
+      Math.min(current.rect.bottom + 6, bounds.bottom - rect.height - 4),
     );
     setPosition({ left, top });
-  }, [capture, panel]);
-  const current =
-    capture &&
-    snapshot === capture.snapshot &&
-    view === capture.view &&
-    key === capture.destination.key &&
-    available === capture.destination.available &&
-    revision === capture.revision;
+  }, [current, panel]);
   const activate = () => {
     const selected = pending.current;
-    if (!current || selected !== capture || !destination?.available) return;
+    if (!current || selected !== current || !destination?.available) return;
     pending.current = null;
     setCapture(null);
     // Consume before focus or insertion can fire another browser event.

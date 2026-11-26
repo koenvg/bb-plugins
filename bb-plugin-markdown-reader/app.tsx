@@ -12,10 +12,12 @@ import "./app.css";
 
 const FileReader = ({ path, source, Original, experimental_lineRange }: PluginFileOpenerProps) => {
   const composer = useComposer();
+  const key = composer.key;
+  const available = composer.scope.kind === "thread" || composer.scope.kind === "new-thread";
   const destination = useMemo<ExcerptDestination>(
     () => ({
-      key: composer.key,
-      available: composer.scope.kind === "thread" || composer.scope.kind === "new-thread",
+      key,
+      available,
       append: (quote) => {
         try {
           composer.insert(quote, { at: "end", block: true });
@@ -30,7 +32,7 @@ const FileReader = ({ path, source, Original, experimental_lineRange }: PluginFi
         return null;
       },
     }),
-    [composer, composer.key, composer.scope.kind],
+    [composer, key, available],
   );
   const { kind, threadId, environmentId, projectId, experimental_hostId } = source;
   const target = useMemo(

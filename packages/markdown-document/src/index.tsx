@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { ImagePreviewBoundary } from "./image-preview.js";
 import { Outline, useWidePanel } from "./outline.js";
 import { RawDocument } from "./raw.js";
@@ -51,7 +51,19 @@ export const MarkdownDocument = ({
   const imagePermission =
     (destinations.kind === "attachment" || destinations.kind === "bound-source") &&
     destinations.remoteImages === true;
-  const resources = useMemo(() => new RemoteImages(), [model, imagePermission, view]);
+  const [imageScope, setImageScope] = useState(() => ({
+    model,
+    imagePermission,
+    view,
+    resources: new RemoteImages(),
+  }));
+  if (
+    imageScope.model !== model ||
+    imageScope.imagePermission !== imagePermission ||
+    imageScope.view !== view
+  )
+    setImageScope({ model, imagePermission, view, resources: new RemoteImages() });
+  const { resources } = imageScope;
   useEffect(() => () => resources.dispose(), [resources]);
   const scope = useMemo(
     () => ({

@@ -33,41 +33,49 @@ export const Reader = ({
   resolveDestinations,
   destination,
 }: ReaderProps) => {
-  const [state, setState] = useState<{
-    loading: boolean;
-    result: ReadResult | null;
+  const [request, setRequest] = useState({ target, readDocument, revision: 0 });
+  const [settled, setSettled] = useState<{
+    request: typeof request;
+    result: ReadResult;
     snapshot: TextSnapshot | null;
-  }>({ loading: true, result: null, snapshot: null });
+  } | null>(null);
+  if (request.target !== target || request.readDocument !== readDocument)
+    setRequest({ target, readDocument, revision: request.revision });
+  const refresh = () =>
+    setRequest((previous) => ({ ...previous, revision: previous.revision + 1 }));
   const [view, setView] = useState<"preview" | "raw">(lineRange ? "raw" : "preview");
-  const [refresh, setRefresh] = useState(0);
+  const [previousLineRange, setPreviousLineRange] = useState(lineRange);
+  if (previousLineRange !== lineRange) {
+    setPreviousLineRange(lineRange);
+    if (lineRange != null) setView("raw");
+  }
   const [fallback, setFallback] = useState(false);
+  const result = settled?.request === request ? settled.result : null;
+  const loading = result === null;
+  const snapshot = settled?.snapshot ?? null;
   const namespace = useId();
   const root = useRef<HTMLElement>(null);
   const [showOutline, setShowOutline] = useState(true);
   const model = useMemo(
-    () => (state.snapshot ? createDocumentModel(state.snapshot.text, namespace) : null),
-    [state.snapshot, namespace],
+    () => (snapshot ? createDocumentModel(snapshot.text, namespace) : null),
+    [snapshot, namespace],
   );
   const reveal = useCallback((element: HTMLElement) => {
     if (root.current) revealInReader(root.current, element);
   }, []);
   const navigation = useMemo(() => ({ container: root, reveal }), [reveal]);
   useEffect(() => {
-    if (lineRange != null) setView("raw");
-  }, [lineRange]);
-  useEffect(() => {
     if (fallback) return;
     let current = true;
-    setState((previous) => ({ ...previous, loading: true, result: null }));
     const settle = (result: ReadResult) => {
       if (current)
-        setState((previous) => ({
-          loading: false,
+        setSettled((previous) => ({
+          request,
           result,
-          snapshot: result.kind === "ready" ? result.snapshot : previous.snapshot,
+          snapshot: result.kind === "ready" ? result.snapshot : (previous?.snapshot ?? null),
         }));
     };
-    void readDocument(target).then(settle, (cause) =>
+    void request.readDocument(request.target).then(settle, (cause) =>
       settle({
         kind: "error",
         message:
@@ -78,10 +86,9 @@ export const Reader = ({
     return () => {
       current = false;
     };
-  }, [target, readDocument, refresh, fallback]);
+  }, [request, fallback]);
 
   if (fallback) return <Original />;
-  const { result, snapshot, loading } = state;
   const path = snapshot?.target.path ?? target.path;
   const filenameStart = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1;
   const filename = path.slice(filenameStart) || path;
@@ -117,7 +124,7 @@ export const Reader = ({
                 onClick={() => setShowOutline((show) => !show)}
               />
             )}
-            <IconAction icon="RotateCcw" label="Refresh" onClick={() => setRefresh((n) => n + 1)} />
+            <IconAction icon="RotateCcw" label="Refresh" onClick={refresh} />
           </div>
         </div>
       </header>
@@ -141,7 +148,7 @@ export const Reader = ({
                 <div className="mr-state" role="alert">
                   {snapshot && <p>Refresh failed. Showing stale snapshot.</p>}
                   <p>{result.message}</p>
-                  <Button variant="outline" onClick={() => setRefresh((n) => n + 1)}>
+                  <Button variant="outline" onClick={refresh}>
                     Retry
                   </Button>
                   <Button variant="outline" onClick={() => setFallback(true)}>
@@ -174,7 +181,7 @@ export const Reader = ({
         snapshot={!loading && result?.kind === "ready" ? snapshot : null}
         view={view}
         destination={destination}
-        revision={refresh}
+        revision={request.revision}
       />
     </section>
   );

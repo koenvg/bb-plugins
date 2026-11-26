@@ -326,6 +326,40 @@ export default defineConfig({
       },
     },
     {
+      files: ["bb-plugin-markdown-reader/app.tsx", "bb-plugin-markdown-reader/selection.tsx"],
+      rules: { "react/exhaustive-deps": react.rules["react/exhaustive-deps"] },
+    },
+    {
+      files: ["bb-plugin-markdown-reader/app.tsx"],
+      rules: { "react/memo-dependencies": react.rules["react/memo-dependencies"] },
+    },
+    {
+      files: ["bb-plugin-markdown-reader/reader.tsx", "bb-plugin-markdown-reader/selection.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-markdown-reader/tests/selection-reader.test.tsx"],
+      rules: { "react/globals": react.rules["react/globals"] },
+    },
+    {
+      files: ["packages/markdown-document/src/image-preview.tsx"],
+      rules: { "react/refs": react.rules["react/refs"] },
+    },
+    {
+      files: ["packages/markdown-document/src/index.tsx", "packages/markdown-document/src/raw.tsx"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/memo-dependencies": react.rules["react/memo-dependencies"],
+      },
+    },
+    {
+      files: ["packages/markdown-document/src/remote-images.tsx"],
+      rules: { "react/set-state-in-effect": react.rules["react/set-state-in-effect"] },
+    },
+    {
       files: [
         "bb-plugin-codex-quota/src/history/identity/identity-retention.test.ts",
         "bb-plugin-codex-quota/src/history/identity/identity-storage.test.ts",

@@ -579,9 +579,10 @@ describe("explicit provider start", () => {
       limits: { responseWaitMs: 3000, sdkDeadlineMs: 5000 },
     });
     const ready = deferred<Provider[]>();
-    const realNow = Date.now;
+    const startedAt = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(startedAt);
     readDefaults.mockImplementation(async () => {
-      vi.spyOn(Date, "now").mockImplementation(() => realNow() + 4850);
+      clock.mockReturnValue(startedAt + 4850);
       return defaults;
     });
     providers.mockImplementation(() => ready.promise);
@@ -589,6 +590,7 @@ describe("explicit provider start", () => {
     await expect.poll(() => providers.mock.calls.length).toBe(1);
     const signal = providers.mock.calls[0][0]?.signal;
     await expect.poll(() => signal?.aborted, { timeout: 1000 }).toBe(true);
+    clock.mockReturnValue(startedAt + 5000);
     ready.resolve([provider("saved")]);
     expect((await pending).structuredContent).toMatchObject({
       state: "failed",
