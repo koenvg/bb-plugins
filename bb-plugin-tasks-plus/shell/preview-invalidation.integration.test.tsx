@@ -12,7 +12,16 @@ const app = await loadPluginApp(() => import("../app.js"));
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   cleanup();
-  while (disposers.length) await disposers.pop()?.();
+  {
+    const runStep = async () => {
+      await disposers.pop()?.();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 const Preview = ({ taskKey }: { taskKey: string }) => {
   const preview = useTaskPreview(taskKey);
@@ -77,7 +86,9 @@ function setup() {
     const signals = harness.realtimeSignals.slice(signalIndex);
     signalIndex = harness.realtimeSignals.length;
     expect(signals.some((signal) => signal.channel === "tasks:changed")).toBe(true);
-    for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
+    await Array.fromAsync(signals, (signal) =>
+      slot.behavior.emitRealtime(signal.channel, signal.payload),
+    );
   }
   return { blocker, blocked, unrelated, read, calls, change };
 }

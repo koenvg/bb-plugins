@@ -29,7 +29,7 @@ function image(bytes = new Uint8Array([1, 2, 3])) {
 }
 it("fetches explicit remote permission without credentials, referrer or redirects and owns blob cleanup", async () => {
   const { create, revoke } = blobs();
-  const fetch = vi.fn(async (_url: string, _options: RequestInit) => image());
+  const fetch = vi.fn((_url: string, _options: RequestInit) => Promise.try(() => image()));
   vi.stubGlobal("fetch", fetch);
   const text = `![allowed](https://images.example/chart.png) ![same](${location.origin}/api/private) ![relative](./chart.png)`;
   const { rerender, unmount } = render(
@@ -72,9 +72,16 @@ it("aborts replacement and unmount and never displays a late fetched image", asy
   const requests: { resolve: (response: Response) => void; signal: AbortSignal }[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn(
-      (_url, options) =>
-        new Promise<Response>((resolve) => requests.push({ resolve, signal: options.signal })),
+    vi.fn((_url, options) =>
+      (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<Response>();
+        try {
+          requests.push({ resolve, signal: options.signal });
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })(),
     ),
   );
   const { rerender, unmount } = render(
@@ -96,8 +103,8 @@ it("aborts replacement and unmount and never displays a late fetched image", asy
   );
   await waitFor(() => expect(requests.length).toBe(2));
   expect((requests[0] ?? missingValue("Expected a non-null value")).signal.aborted).toBe(true);
-  await act(async () =>
-    (requests[0] ?? missingValue("Expected a non-null value")).resolve(image()),
+  await act(() =>
+    Promise.try(() => (requests[0] ?? missingValue("Expected a non-null value")).resolve(image())),
   );
   expect(screen.getByRole("img", { name: "new" }).textContent).toBe("new");
   expect(create.mock.calls).toEqual([]);
@@ -107,7 +114,17 @@ it("aborts replacement and unmount and never displays a late fetched image", asy
 it("bounds concurrency and total requests while keeping rejected image labels", async () => {
   blobs();
   const requests: { resolve: (response: Response) => void }[] = [];
-  const fetch = vi.fn(() => new Promise<Response>((resolve) => requests.push({ resolve })));
+  const fetch = vi.fn(() =>
+    (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<Response>();
+      try {
+        requests.push({ resolve });
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })(),
+  );
   vi.stubGlobal("fetch", fetch);
   render(
     <MarkdownDocument
@@ -124,18 +141,23 @@ it("bounds concurrency and total requests while keeping rejected image labels", 
   expect(screen.getByRole("img", { name: "image33" }).textContent).toBe(
     "image33 (image unavailable)",
   );
-  for (let batch = 0; batch < 8; batch++) {
-    await act(async () => {
-      for (const request of requests.slice(batch * 4, batch * 4 + 4)) request.resolve(image());
-    });
-    await waitFor(() => expect(requests.length).toBe(Math.min((batch + 2) * 4, 32)));
-  }
+  await Array.fromAsync(
+    Array.from({ length: 8 }, (_, index) => index),
+    async (batch) => {
+      await act(() =>
+        Promise.try(() => {
+          for (const request of requests.slice(batch * 4, batch * 4 + 4)) request.resolve(image());
+        }),
+      );
+      await waitFor(() => expect(requests.length).toBe(Math.min((batch + 2) * 4, 32)));
+    },
+  );
   expect(fetch.mock.calls.length).toBe(32);
   expect(screen.getByRole("img", { name: "image31" }).getAttribute("src")).toBe("blob:owned-32");
 });
 it("keeps image ownership and the request budget across equivalent inline policies", async () => {
   const { create, revoke } = blobs();
-  const fetch = vi.fn(async () => image());
+  const fetch = vi.fn(() => Promise.try(() => image()));
   vi.stubGlobal("fetch", fetch);
   const text = Array.from(
     { length: 34 },
@@ -153,10 +175,13 @@ it("keeps image ownership and the request budget across equivalent inline polici
   await waitFor(() =>
     expect(screen.getByRole("img", { name: "image31" }).getAttribute("src")).toBe("blob:owned-32"),
   );
-  for (let count = 0; count < 33; count++) {
-    rerender(component());
-    await act(async () => {});
-  }
+  await Array.fromAsync(
+    Array.from({ length: 33 }, (_, index) => index),
+    async () => {
+      rerender(component());
+      await act(async () => {});
+    },
+  );
   expect(fetch.mock.calls.length).toBe(32);
   expect(create.mock.calls.length).toBe(32);
   expect(revoke.mock.calls).toEqual([]);
@@ -168,23 +193,25 @@ it("keeps image ownership and the request budget across equivalent inline polici
 it("enforces streamed per-image and aggregate limits without Content-Length and has readable CORS failures", async () => {
   const { create } = blobs();
   let cancelled = false;
-  const fetch = vi.fn(async (url: string) => {
-    if (url.includes("cors")) throw new TypeError("CORS failure");
-    if (url.includes("oversize"))
-      return new Response(
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(new Uint8Array(4 * 1024 * 1024));
-            controller.enqueue(new Uint8Array([1]));
-          },
-          cancel() {
-            cancelled = true;
-          },
-        }),
-        { headers: { "content-type": "image/png" } },
-      );
-    return image(new Uint8Array(4 * 1024 * 1024));
-  });
+  const fetch = vi.fn((url: string) =>
+    Promise.try(() => {
+      if (url.includes("cors")) throw new TypeError("CORS failure");
+      if (url.includes("oversize"))
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new Uint8Array(4 * 1024 * 1024));
+              controller.enqueue(new Uint8Array([1]));
+            },
+            cancel() {
+              cancelled = true;
+            },
+          }),
+          { headers: { "content-type": "image/png" } },
+        );
+      return image(new Uint8Array(4 * 1024 * 1024));
+    }),
+  );
   vi.stubGlobal("fetch", fetch);
   render(
     <MarkdownDocument

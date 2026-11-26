@@ -41,16 +41,19 @@ function useTaskEmbed(taskKey: string): {
   const refresh = useCallback(() => {
     if (taskKey === "") return;
     const seq = ++seqRef.current;
-    rpc.call("getTaskByKey", { taskKey }).then(
-      ({ task }) => {
-        if (seq !== seqRef.current) return;
-        setState(task ? { kind: "found", task } : { kind: "not_found" });
-      },
-      () => {
-        if (seq !== seqRef.current) return;
-        setState({ kind: "error" });
-      },
-    );
+    const lookup = rpc.call("getTaskByKey", { taskKey });
+    void (async () => {
+      let result;
+      try {
+        result = await lookup;
+      } catch {
+        if (seq === seqRef.current) setState({ kind: "error" });
+        return;
+      }
+      const { task } = result;
+      if (seq !== seqRef.current) return;
+      setState(task ? { kind: "found", task } : { kind: "not_found" });
+    })();
   }, [rpc, taskKey]);
 
   useEffect(() => {

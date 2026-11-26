@@ -157,9 +157,11 @@ describe("Stats in the production shell", () => {
 
   it("reserves loading summary space, reports errors and recovers with Retry and refresh", async () => {
     let resolve!: (value: unknown) => void;
-    const pending = new Promise((done) => {
+    const pending = (() => {
+      const { promise, resolve: done } = Promise.withResolvers<unknown>();
       resolve = done;
-    });
+      return promise;
+    })();
     const query = vi
       .fn()
       .mockReturnValueOnce(pending)
@@ -168,7 +170,7 @@ describe("Stats in the production shell", () => {
     const slot = open("stats", { getTaskStats: query });
     expect(slot.getByRole("status").textContent).toBe("Loading stats…");
     expect(slot.container.querySelectorAll(".stats-summary dd")).toHaveLength(3);
-    await act(async () => resolve(rpc.getTaskStats({})));
+    await act(() => Promise.try(() => resolve(rpc.getTaskStats({}))));
     await slot.findByText("Slowest completed tasks");
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
     const byRole = await slot.findByRole("alert");
@@ -176,14 +178,14 @@ describe("Stats in the production shell", () => {
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
     await slot.findByText("Slowest completed tasks");
     expect(measures(slot.container)).toEqual(["1d 4h", "1d 7.6h", "10"]);
-    await act(async () => slot.behavior.emitRealtime("tasks:changed", {}));
+    await act(() => Promise.try(() => slot.behavior.emitRealtime("tasks:changed", {})));
     await waitFor(() => expect(query).toHaveBeenCalledTimes(4));
   });
 
   it("does not label retained all-project measures as a newly selected project", async () => {
     const slot = open("stats", {
       getTaskStats: (raw: unknown) =>
-        rpcInput(raw).projectId ? new Promise(() => {}) : rpc.getTaskStats(raw),
+        rpcInput(raw).projectId ? Promise.withResolvers<unknown>().promise : rpc.getTaskStats(raw),
     });
     await slot.findByText("Slowest completed tasks");
     slot.lifecycle.rerender(
@@ -227,22 +229,26 @@ describe("Stats in the production shell", () => {
       tasks.find((task) => task.key === "LAB-9") ?? missingValue("Expected a non-null value");
     const subPath = `stats?project=${task.projectId}`;
     let resolve!: (value: unknown) => void;
-    const save = new Promise((done) => {
+    const save = (() => {
+      const { promise, resolve: done } = Promise.withResolvers<unknown>();
       resolve = done;
-    });
+      return promise;
+    })();
     const updateTask = vi.fn().mockReturnValue(save);
     const slot = open(subPath, { updateTask });
     await slot.findByText("Slowest completed tasks");
     fireEvent.click(slot.getByRole("button", { name: `Open ${task.key}: ${task.title}` }));
     slot.lifecycle.rerender(<Panel subPath={`task/${task.key}`} />);
     await slot.findByRole("textbox", { name: "Task title" });
-    await act(async () => {
-      const editor =
-        slot.container.querySelector<HTMLElement>(".tiptap") ??
-        missingValue("Expected a non-null value");
-      editor.innerHTML = "<p>Unsaved Stats draft</p>";
-      fireEvent.input(editor);
-    });
+    await act(() =>
+      Promise.try(() => {
+        const editor =
+          slot.container.querySelector<HTMLElement>(".tiptap") ??
+          missingValue("Expected a non-null value");
+        editor.innerHTML = "<p>Unsaved Stats draft</p>";
+        fireEvent.input(editor);
+      }),
+    );
     const before = slot.navigateCalls.length;
     fireEvent.click(slot.getByRole("button", { name: "Back (Esc)" }));
     await waitFor(() =>
@@ -253,8 +259,10 @@ describe("Stats in the production shell", () => {
     );
     expect(slot.navigateCalls).toHaveLength(before);
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(task.title);
-    await act(async () =>
-      resolve({ ok: true, task: { ...task, description: "Unsaved Stats draft" } }),
+    await act(() =>
+      Promise.try(() =>
+        resolve({ ok: true, task: { ...task, description: "Unsaved Stats draft" } }),
+      ),
     );
     await waitFor(() => expect(slot.navigateCalls.at(-1)).toEqual(destination(subPath)));
   });

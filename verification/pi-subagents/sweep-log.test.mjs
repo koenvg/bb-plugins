@@ -31,8 +31,8 @@ function fixture(t) {
   const file = path.join(directory, "host-daemon.13.log");
   fs.writeFileSync(file, "");
   const callbacks = new Map();
-  const watch = (name, callback) => {
-    callbacks.set(name, callback);
+  const watch = (name, onChange) => {
+    callbacks.set(name, onChange);
     const handle = new EventEmitter();
     handle.close = () => callbacks.delete(name);
     return handle;
@@ -135,7 +135,15 @@ test("split UTF-8 and an incomplete line wait for the final newline", async (t) 
   f.notify(undefined);
   const waiting = await Promise.race([
     observer.receipt.then(() => false),
-    new Promise((r) => setTimeout(() => r(true), 10)),
+    (() => {
+      const { promise, resolve: r, reject } = Promise.withResolvers();
+      try {
+        setTimeout(() => r(true), 10);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })(),
   ]);
   assert.equal(waiting, true);
   fs.appendFileSync(f.file, bytes.subarray(split));
@@ -321,12 +329,12 @@ test("an append during file-watch setup is read without a later notification", a
   const f = fixture(t),
     expected = release();
   let appended = false;
-  const watch = (name, callback) => {
+  const watch = (name, onChange) => {
     if (name === f.file && !appended) {
       appended = true;
       fs.appendFileSync(f.file, JSON.stringify(expected) + "\n");
     }
-    return f.watch(name, callback);
+    return f.watch(name, onChange);
   };
   const observer = await openSweepLog({
     directory: f.directory,

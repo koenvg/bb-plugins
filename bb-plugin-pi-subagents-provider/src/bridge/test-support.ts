@@ -112,10 +112,25 @@ export async function startFakePiBridge(
       const pending = (async () => {
         harness.sendRequest(id, method, params);
         const deadline = Date.now() + RESPONSE_DEADLINE_MS;
-        while (Date.now() < deadline) {
-          const response = harness.messages.find((message) => message.id === id);
-          if (response !== undefined) return response;
-          await new Promise((resolve) => setTimeout(resolve, 10));
+        {
+          const runStep = async () => {
+            const response = harness.messages.find((message) => message.id === id);
+            if (response !== undefined) return { kind: "return", value: response } as const;
+            await (() => {
+              const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+              try {
+                setTimeout(resolve, 10);
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            })();
+          };
+          for await (const stepResult of (async function* () {
+            while (Date.now() < deadline) yield runStep();
+          })()) {
+            if (stepResult?.kind === "return") return stepResult.value;
+          }
         }
         throw new Error(`no response to ${method}`);
       })();
@@ -141,9 +156,24 @@ export async function startFakePiBridge(
     },
     async waitFor(predicate, what) {
       const deadline = Date.now() + RESPONSE_DEADLINE_MS;
-      while (Date.now() < deadline) {
-        if (predicate()) return;
-        await new Promise((resolve) => setTimeout(resolve, 10));
+      {
+        const runStep = async () => {
+          if (predicate()) return { kind: "return", value: undefined } as const;
+          await (() => {
+            const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+            try {
+              setTimeout(resolve, 10);
+            } catch (setupError) {
+              reject(setupError);
+            }
+            return promise;
+          })();
+        };
+        for await (const stepResult of (async function* () {
+          while (Date.now() < deadline) yield runStep();
+        })()) {
+          if (stepResult?.kind === "return") return stepResult.value;
+        }
       }
       throw new Error(`timed out waiting for ${what}`);
     },

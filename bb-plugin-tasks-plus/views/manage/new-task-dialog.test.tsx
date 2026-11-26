@@ -34,10 +34,11 @@ describe("NewTaskDialog", () => {
             sidebarSummary: () => ({ projects: [] }),
             listTasks: () => ({ tasks: [], nextCursor: null }),
             listLabels: () => ({ labels: [] }),
-            createTask: async (raw) => {
-              calls.push(rpcInput(raw));
-              return host.harness.callRpc("createTask", rpcInput(raw));
-            },
+            createTask: (raw) =>
+              Promise.try(() => {
+                calls.push(rpcInput(raw));
+                return host.harness.callRpc("createTask", rpcInput(raw));
+              }),
           },
         },
       );

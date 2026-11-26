@@ -99,7 +99,7 @@ for (const width of [1280, 390]) {
       if (request.url().includes("/tests/assets/") || request.url().includes("private-image"))
         pendingHeaders.push(
           request.allHeaders().then((headers) => {
-            requests.push({ url: request.url(), headers });
+            return void requests.push({ url: request.url(), headers });
           }),
         );
     });
@@ -172,10 +172,11 @@ for (const width of [1280, 390]) {
     expect(shape.width).toBeLessThanOrEqual(720);
     expect(shape.maxWidth).toBe("100%");
     expect(shape.source.startsWith("blob:")).toBe(true);
-    for (const name of ["BB private", "CORS chart", "Redirect chart", "Broken chart"])
-      await expect(dialog.getByRole("img", { name, exact: true })).toHaveText(
+    await Array.fromAsync(["BB private", "CORS chart", "Redirect chart", "Broken chart"], (name) =>
+      expect(dialog.getByRole("img", { name, exact: true })).toHaveText(
         `${name} (image unavailable)`,
-      );
+      ),
+    );
     await expect(dialog.getByRole("img", { name: "Relative chart" })).toHaveText("Relative chart");
     await expect(dialog.getByText("Relative file", { exact: true })).toHaveJSProperty(
       "tagName",

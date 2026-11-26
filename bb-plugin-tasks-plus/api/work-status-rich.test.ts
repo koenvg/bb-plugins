@@ -74,9 +74,10 @@ it("withholds Ready from fresh metadata when the current environment PR associat
   const { read, store, task, harness } = setup(
     { thr_a: clearSummary() },
     {
-      host: async () => {
-        throw Error("offline");
-      },
+      host: () =>
+        Promise.try(() => {
+          throw Error("offline");
+        }),
     },
   );
   const before = store.tasks.listTaskThreads(task.id);
@@ -109,9 +110,10 @@ it("retains a known conflict when current association uncertainty suppresses Rea
   const { read } = setup(
     { thr_a: clearSummary({ blockers: ["conflicts"] }) },
     {
-      host: async () => {
-        throw Error("offline");
-      },
+      host: () =>
+        Promise.try(() => {
+          throw Error("offline");
+        }),
     },
   );
   const result = await read();
@@ -130,9 +132,10 @@ it.each(["merged", "closed"] as const)(
     const { read } = setup(
       { thr_a: clearSummary({ pr: { url: URL, number: 42, state } }) },
       {
-        host: async () => {
-          throw Error("offline");
-        },
+        host: () =>
+          Promise.try(() => {
+            throw Error("offline");
+          }),
       },
     );
     const result = await read();
@@ -363,10 +366,11 @@ it.each([false, true])(
       },
       partialRead
         ? {
-            getMetadata: async (id) => {
-              if (id === "thr_b") throw Error("offline");
-              return { prSummary: clearSummary() };
-            },
+            getMetadata: (id) =>
+              Promise.try(() => {
+                if (id === "thr_b") throw Error("offline");
+                return { prSummary: clearSummary() };
+              }),
           }
         : {},
     );
@@ -379,7 +383,7 @@ it.each([false, true])(
 );
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  for (const dispose of disposers.splice(0)) await dispose();
+  await Array.fromAsync(disposers.splice(0), (dispose) => dispose());
   vi.useRealTimers();
 });
 const URL = "https://github.com/acme/bb/pull/42";
@@ -420,38 +424,51 @@ function setup(
   vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
   const plugins = vi.fn(
     options.plugins ??
-      (async () => ({
-        plugins: [{ id: "github-insight", enabled: true, status: "running" }],
-      })),
+      (() =>
+        Promise.resolve({
+          plugins: [{ id: "github-insight", enabled: true, status: "running" }],
+        })),
   );
-  const getMetadata = vi.fn(async ({ threadId }: { threadId: string }) =>
-    options.getMetadata ? options.getMetadata(threadId) : { prSummary: metadata[threadId] },
+  const getMetadata = vi.fn((input: { threadId: string }) =>
+    Promise.try(
+      ({ threadId }: { threadId: string }) =>
+        options.getMetadata ? options.getMetadata(threadId) : { prSummary: metadata[threadId] },
+      input,
+    ),
   );
-  const host = vi.fn(async ({ environmentId }: { environmentId: string }) =>
-    options.host
-      ? options.host(environmentId.slice(4))
-      : {
-          outcome: "available",
-          pullRequest: {
-            number: 42,
-            url: URL,
-            state: "open",
-            title: "Work",
-            updatedAt: "2026-10-02T11:00:00Z",
-          },
-        },
+  const host = vi.fn((input: { environmentId: string }) =>
+    Promise.try(
+      ({ environmentId }: { environmentId: string }) =>
+        options.host
+          ? options.host(environmentId.slice(4))
+          : {
+              outcome: "available",
+              pullRequest: {
+                number: 42,
+                url: URL,
+                state: "open",
+                title: "Work",
+                updatedAt: "2026-10-02T11:00:00Z",
+              },
+            },
+      input,
+    ),
   );
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: {
       plugins: { list: plugins, callRpc: mockPrStatusRpc(host) },
       threads: {
-        get: async ({ threadId }: { threadId: string }) =>
-          makeThreadResponse({
-            id: threadId,
-            environmentId: `env_${threadId}`,
-            archivedAt: 1,
-          }),
+        get: (input: { threadId: string }) =>
+          Promise.try(
+            ({ threadId }: { threadId: string }) =>
+              makeThreadResponse({
+                id: threadId,
+                environmentId: `env_${threadId}`,
+                archivedAt: 1,
+              }),
+            input,
+          ),
         getPluginMetadata: getMetadata,
       },
     },
@@ -531,16 +548,17 @@ it.each(["open", "draft", "merged", "closed"] as const)(
         }),
       },
       {
-        host: async () => ({
-          outcome: "available",
-          pullRequest: {
-            number: 42,
-            url: URL,
-            state,
-            title: "Work",
-            updatedAt: "2026-10-02T11:00:00Z",
-          },
-        }),
+        host: () =>
+          Promise.try(() => ({
+            outcome: "available",
+            pullRequest: {
+              number: 42,
+              url: URL,
+              state,
+              title: "Work",
+              updatedAt: "2026-10-02T11:00:00Z",
+            },
+          })),
       },
     );
     const result = await read();
@@ -612,9 +630,10 @@ it("uses newest same-PR evidence, retains all associations, and falls back to ol
       }),
     },
     {
-      host: async () => {
-        throw new Error("offline");
-      },
+      host: () =>
+        Promise.try(() => {
+          throw new Error("offline");
+        }),
     },
   );
   const result2 = await terminal.read();
@@ -686,16 +705,17 @@ it.each([
 
 it("uses newer lifecycle evidence but never applies details across an incompatible lifecycle or different current PR", async () => {
   const { read } = setup(undefined, {
-    host: async () => ({
-      outcome: "available",
-      pullRequest: {
-        number: 42,
-        url: URL,
-        title: "Merged",
-        state: "merged",
-        updatedAt: "2026-10-02T11:59:00Z",
-      },
-    }),
+    host: () =>
+      Promise.try(() => ({
+        outcome: "available",
+        pullRequest: {
+          number: 42,
+          url: URL,
+          title: "Merged",
+          state: "merged",
+          updatedAt: "2026-10-02T11:59:00Z",
+        },
+      })),
   });
   const result = await read();
   expect(result.pullRequests.items[0]).toMatchObject({
@@ -712,16 +732,17 @@ it("uses newer lifecycle evidence but never applies details across an incompatib
     details: "available",
   });
   const different = setup(undefined, {
-    host: async () => ({
-      outcome: "available",
-      pullRequest: {
-        number: 42,
-        url: "https://github.com/acme/other/pull/42",
-        title: "Other",
-        state: "open",
-        updatedAt: "2026-10-02T11:59:00Z",
-      },
-    }),
+    host: () =>
+      Promise.resolve({
+        outcome: "available",
+        pullRequest: {
+          number: 42,
+          url: "https://github.com/acme/other/pull/42",
+          title: "Other",
+          state: "open",
+          updatedAt: "2026-10-02T11:59:00Z",
+        },
+      }),
   });
   const result3 = await different.read();
   expect(result3.pullRequests.items).toEqual([
@@ -732,7 +753,7 @@ it("uses newer lifecycle evidence but never applies details across an incompatib
     }),
   ]);
   const absent = setup(undefined, {
-    host: async () => ({ outcome: "absent" }),
+    host: () => Promise.resolve({ outcome: "absent" }),
   });
   const result4 = await absent.read();
   expect(result4.pullRequests).toEqual({
@@ -756,23 +777,26 @@ it("keeps unresolved equal-time lifecycle conflicts unavailable", async () => {
 });
 
 it.each([
-  [async () => ({ plugins: [] }), "integration_absent"],
+  [() => Promise.resolve({ plugins: [] }), "integration_absent"],
   [
-    async () => ({
-      plugins: [{ id: "github-insight", enabled: false, status: "running" }],
-    }),
+    () =>
+      Promise.resolve({
+        plugins: [{ id: "github-insight", enabled: false, status: "running" }],
+      }),
     "integration_disabled",
   ],
   [
-    async () => {
-      throw new Error("permission");
-    },
+    () =>
+      Promise.try(() => {
+        throw new Error("permission");
+      }),
     "integration_error",
   ],
   [
-    async () => ({
-      plugins: [{ id: "github-insight", enabled: true, status: "error" }],
-    }),
+    () =>
+      Promise.resolve({
+        plugins: [{ id: "github-insight", enabled: true, status: "error" }],
+      }),
     "integration_error",
   ],
 ] as const)(
@@ -780,14 +804,14 @@ it.each([
   async (plugins, reason) => {
     const { read, getMetadata, plugins: detection } = setup(undefined, { plugins });
     const id = "00000000-0000-4000-8000-000000000001";
-    for (const step of ["start", "continue", "finish"] as const) {
+    await Array.fromAsync(["start", "continue", "finish"] as const, async (step) => {
       const { pullRequests } = await read({ id, step });
       expect(pullRequests.items[0]).toMatchObject({
         state: "open",
         details: "unavailable",
         detailsReason: reason,
       });
-    }
+    });
     expect(detection).toHaveBeenCalledTimes(1);
     expect(getMetadata).not.toHaveBeenCalled();
     await read({ id: "00000000-0000-4000-8000-000000000002", step: "start" });
@@ -800,14 +824,15 @@ it("isolates metadata read failures, preserves known counts and re-reads failed/
   const { read, getMetadata, plugins } = setup(
     { thr_a: summary(), thr_b: summary(), thr_none: undefined },
     {
-      getMetadata: async (id) => {
-        if (id === "thr_b" && failed) throw new Error("offline");
-        return { prSummary: id === "thr_none" ? undefined : summary() };
-      },
+      getMetadata: (id) =>
+        Promise.try(() => {
+          if (id === "thr_b" && failed) throw new Error("offline");
+          return { prSummary: id === "thr_none" ? undefined : summary() };
+        }),
     },
   );
   const id = "00000000-0000-4000-8000-000000000001";
-  for (const step of ["start", "continue", "finish"] as const) {
+  await Array.fromAsync(["start", "continue", "finish"] as const, async (step) => {
     const { pullRequests } = await read({ id, step });
     expect(pullRequests.items[0]).toMatchObject({
       details: "incomplete",
@@ -815,7 +840,7 @@ it("isolates metadata read failures, preserves known counts and re-reads failed/
       rich: { checks: { failed: 2 } },
       threadIds: expect.arrayContaining(["thr_a", "thr_b", "thr_none"]),
     });
-  }
+  });
   expect(getMetadata).toHaveBeenCalledTimes(3);
   expect(plugins).toHaveBeenCalledTimes(1);
   failed = false;
@@ -867,7 +892,15 @@ it("shares the global eight-read SDK concurrency limit with optional detection a
   const pause = async () => {
     calls++;
     peak = Math.max(peak, ++active);
-    await new Promise<void>((resolve) => releases.push(resolve));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        releases.push(resolve);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     active--;
   };
   const { read } = setup(
@@ -904,10 +937,18 @@ it("shares the global eight-read SDK concurrency limit with optional detection a
     read({ id: "00000000-0000-4000-8000-000000000002", step: "start" }),
   ]).then(() => {
     done = true;
+    return;
   });
-  while (!done) {
-    releases.splice(0).forEach((resolve) => resolve());
-    await vi.advanceTimersByTimeAsync(0);
+  {
+    const runStep = async () => {
+      releases.splice(0).forEach((resolve) => resolve());
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    for await (const _ of (async function* () {
+      while (!done) yield runStep();
+    })()) {
+      continue;
+    }
   }
   await both;
   expect(calls).toBe(50);

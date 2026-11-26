@@ -9,10 +9,16 @@ import { fileURLToPath } from "node:url";
 
 const execFile = promisify(execute);
 const closed = (child) =>
-  new Promise((resolve, reject) => {
-    child.once("error", reject);
-    child.once("close", resolve);
-  });
+  (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      child.once("error", reject);
+      child.once("close", resolve);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
 
 test(
   "standalone guard uses only owned public stop routes with a fake BB CLI",

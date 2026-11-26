@@ -45,11 +45,13 @@ test("normal completion needs a complete canonical binding, not matching undefin
 test("queue inspection failure must not prevent the owned stop attempt", async () => {
   const calls = [];
   await assert.rejects(
-    stopOwnedThread(plan(), async (args) => {
-      calls.push(args);
-      if (args.includes("queue")) throw new Error("queue unavailable");
-      return {};
-    }),
+    stopOwnedThread(plan(), (args) =>
+      Promise.try(() => {
+        calls.push(args);
+        if (args.includes("queue")) throw new Error("queue unavailable");
+        return {};
+      }),
+    ),
   );
   assert.equal(
     calls.some((args) => args[1] === "stop" && args[2] === "thr_owned"),
@@ -93,10 +95,12 @@ test("time spent before arming remains part of the action window", () => {
 
 test("only the named queued message can be deleted before owned stopping", async () => {
   const calls = [];
-  await stopOwnedThread({ ...plan(), queuedMessageId: "msg_owned" }, async (args) => {
-    calls.push(args);
-    return args[2] === "list" ? [{ id: "msg_owned" }, { id: "msg_other" }] : {};
-  });
+  await stopOwnedThread({ ...plan(), queuedMessageId: "msg_owned" }, (args) =>
+    Promise.try(() => {
+      calls.push(args);
+      return args[2] === "list" ? [{ id: "msg_owned" }, { id: "msg_other" }] : {};
+    }),
+  );
   assert.deepEqual(
     calls.map((args) => args.slice(1, 5)),
     [

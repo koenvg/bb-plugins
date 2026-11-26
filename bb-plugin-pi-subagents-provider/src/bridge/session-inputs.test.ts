@@ -2,10 +2,7 @@ import { expect, it, vi } from "vitest";
 import { PiSessionInputs } from "./session-inputs.js";
 
 function deferredStreaming() {
-  let resolve!: (streaming: boolean) => void;
-  const promise = new Promise<boolean>((res) => {
-    resolve = res;
-  });
+  const { promise, resolve } = Promise.withResolvers<boolean>();
   return { promise, resolve };
 }
 
@@ -85,7 +82,7 @@ it("drops terminal steering only after an idle state probe, leaving follow-ups p
 });
 
 it("keeps terminal steering pending while the child is streaming", async () => {
-  const inputs = new PiSessionInputs(async () => true);
+  const inputs = new PiSessionInputs(() => Promise.resolve(true));
   const steer = inputs.track("steering");
   inputs.observe({ type: "agent_end" });
   await Promise.resolve();

@@ -7,11 +7,22 @@ import { type Task, tasksRpcContract } from "./shared/contract";
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await disposers.pop()?.();
+  {
+    const runStep = async () => {
+      await disposers.pop()?.();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 async function fixture() {
-  const get = vi.fn(async () => makeThreadResponse({ id: "thr_creator", status: "idle" }));
+  const get = vi.fn(() =>
+    Promise.try(() => makeThreadResponse({ id: "thr_creator", status: "idle" })),
+  );
   const host = createFakePluginHost({ pluginId: "tasks", sdk: { threads: { get } } });
   disposers.push(() => host.harness.dispose());
   await plugin(host.bb);
@@ -66,7 +77,7 @@ describe("creator attribution without dependency policy", () => {
   it("accepts registered RPC attribution and todo create, update, move and reorder without lookup", async () => {
     const f = await fixture();
     f.get.mockRejectedValue(new Error("Creator unavailable"));
-    for (const createdByThreadId of [undefined, "thr_creator"]) {
+    await Array.fromAsync([undefined, "thr_creator"], async (createdByThreadId) => {
       const result = tasksRpcContract.createTask.output.parse(
         await f.harness.callRpc("createTask", {
           projectId: f.project.id,
@@ -86,7 +97,7 @@ describe("creator attribution without dependency policy", () => {
         title: "Neighbor",
         status: "todo",
       });
-      for (const method of ["updateTask", "boardMove", "boardMove"] as const) {
+      await Array.fromAsync(["updateTask", "boardMove", "boardMove"] as const, async (method) => {
         const response = await f.harness.callRpc(method, {
           taskId: result.task.id,
           status: "todo",
@@ -96,8 +107,8 @@ describe("creator attribution without dependency policy", () => {
           ok: true,
           task: { status: "todo", createdByThreadId: createdByThreadId ?? null },
         });
-      }
-    }
+      });
+    });
     expect(f.get).not.toHaveBeenCalled();
   });
 
@@ -126,7 +137,7 @@ describe("creator attribution without dependency policy", () => {
       blocks: [{ id: dependent.id }],
       openBlockedCount: 1,
     });
-    for (const status of ["done", "canceled"] as const) {
+    await Array.fromAsync(["done", "canceled"] as const, async (status) => {
       f.store.tasks.updateTask(blocker.id, { status });
       expect(await f.list("--blocked")).toEqual([]);
       const result2 = await f.list("--ready");
@@ -135,7 +146,7 @@ describe("creator attribution without dependency policy", () => {
         blocked: false,
         blockedBy: [{ id: blocker.id, status }],
       });
-    }
+    });
     f.store.tasks.updateTask(ready.id, { status: "todo" });
     f.store.tasks.updatePosition(ready.id, { status: "todo" });
     expect(f.store.tasks.getTask(ready.id)).toMatchObject({
@@ -167,21 +178,30 @@ describe("creator attribution without dependency policy", () => {
     cache.run("thr_creator", 1);
     cache.run("thr_clear", 0);
     for (const dependent of dependents) f.store.tasks.addTaskDependency(blocker.id, dependent.id);
-    for (const dependency of ["ready", "blocked"] as const) {
+    await Array.fromAsync(["ready", "blocked"] as const, async (dependency) => {
       const tasks: Task[] = [];
       let cursor: string | null = null;
-      do {
-        const page = tasksRpcContract.listTasks.output.parse(
-          await f.harness.callRpc("listTasks", {
-            projectId: f.project.id,
-            dependency,
-            limit: 1,
-            ...(cursor ? { cursor } : {}),
-          }),
-        );
-        tasks.push(...page.tasks);
-        cursor = page.nextCursor;
-      } while (cursor);
+      {
+        const runStep = async () => {
+          const page = tasksRpcContract.listTasks.output.parse(
+            await f.harness.callRpc("listTasks", {
+              projectId: f.project.id,
+              dependency,
+              limit: 1,
+              ...(cursor ? { cursor } : {}),
+            }),
+          );
+          tasks.push(...page.tasks);
+          cursor = page.nextCursor;
+        };
+        for await (const _ of (async function* () {
+          do {
+            yield runStep();
+          } while (cursor);
+        })()) {
+          continue;
+        }
+      }
       expect(tasks.map((task) => task.id).sort()).toEqual(
         (dependency === "ready" ? [blockedCache, clearCache, blocker] : dependents)
           .map((task) => task.id)
@@ -191,7 +211,7 @@ describe("creator attribution without dependency policy", () => {
         dependency === "ready" ? [0, 0, 0] : [1, 1],
       );
       expect(tasks.every((task) => task.blocked === (dependency === "blocked"))).toBe(true);
-    }
+    });
     expect(f.get).not.toHaveBeenCalled();
   });
 
@@ -200,12 +220,15 @@ describe("creator attribution without dependency policy", () => {
     const task = await f.create(true);
     const before = await f.harness.callRpc("getTask", { taskId: task.id });
     const signals = f.harness.realtimeSignals.length;
-    for (const event of ["thread.archived", "thread.unarchived", "thread.deleted"] as const) {
-      await f.harness.behavior.emitThreadEvent(event, {
-        thread: makeThreadResponse({ id: "thr_creator" }),
-      });
-      expect(await f.harness.callRpc("getTask", { taskId: task.id })).toEqual(before);
-    }
+    await Array.fromAsync(
+      ["thread.archived", "thread.unarchived", "thread.deleted"] as const,
+      async (event) => {
+        await f.harness.behavior.emitThreadEvent(event, {
+          thread: makeThreadResponse({ id: "thr_creator" }),
+        });
+        expect(await f.harness.callRpc("getTask", { taskId: task.id })).toEqual(before);
+      },
+    );
     expect(f.harness.realtimeSignals).toHaveLength(signals);
     expect(f.get).not.toHaveBeenCalled();
   });

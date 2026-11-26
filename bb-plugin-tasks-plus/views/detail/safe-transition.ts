@@ -25,18 +25,30 @@ export function createSafeTaskTransition() {
         committing = false;
       }
     }
-    running = (async () => {
-      while (editor?.getSnapshot().pending) {
-        const result = await editor.flush();
-        if (!result.ok) return false;
+    const { promise, resolve, reject } = Promise.withResolvers<boolean>();
+    const finishTransition = async () => {
+      try {
+        if (editor?.getSnapshot().pending) {
+          const result = await editor.flush();
+          if (!result.ok) {
+            resolve(false);
+            return;
+          }
+          void finishTransition();
+          return;
+        }
+        // Hold this guard until running clears, including commit's microtasks.
+        committing = true;
+        const commit = destination;
+        destination = undefined;
+        commit?.();
+        resolve(commit !== undefined);
+      } catch (error) {
+        reject(error);
       }
-      // Hold this guard until running clears, including commit's microtasks.
-      committing = true;
-      const commit = destination;
-      destination = undefined;
-      commit?.();
-      return commit !== undefined;
-    })().finally(() => {
+    };
+    void finishTransition();
+    running = promise.finally(() => {
       running = undefined;
       committing = false;
     });

@@ -33,16 +33,24 @@ interface TaskListQuery {
 
 export async function listAllTasks(rpc: TasksRpc, input: TaskListQuery = {}): Promise<Task[]> {
   const tasks: Task[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await rpc.call("listTasks", {
-      ...input,
-      limit: TASKS_PAGE_MAX_LIMIT,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    tasks.push(...page.tasks);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor !== undefined);
+  let cursor: string | null | undefined;
+  const pages = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() {
+          if (cursor === null) return { done: true as const, value: undefined };
+          const page = await rpc.call("listTasks", {
+            ...input,
+            limit: TASKS_PAGE_MAX_LIMIT,
+            ...(cursor === undefined ? {} : { cursor }),
+          });
+          cursor = page.nextCursor ?? null;
+          return { done: false as const, value: page.tasks };
+        },
+      };
+    },
+  };
+  for await (const page of pages) tasks.push(...page);
   return tasks;
 }
 
@@ -124,7 +132,7 @@ export function useTasksQueryWithRefresh<T>(
           writeQuerySnapshot(snapshot.name, data, snapshotRevision);
         }
         if (seq !== seqRef.current) return;
-        setState((current) => ({
+        return void setState((current) => ({
           data: reconcile
             ? reconcile(current.depsKey === depsKey ? current.data : undefined, data)
             : data,
@@ -133,11 +141,11 @@ export function useTasksQueryWithRefresh<T>(
           depsKey,
         }));
       },
-      (error: unknown) => {
+      (queryError: unknown) => {
         if (seq !== seqRef.current) return;
         setState((current) => ({
           data: current.depsKey === depsKey ? current.data : undefined,
-          error: errorMessage(error),
+          error: errorMessage(queryError),
           isLoading: false,
           depsKey,
         }));
@@ -250,7 +258,7 @@ export function useMentionItems() {
 
 export function useActiveTasks() {
   return useTasksQuery(
-    async (rpc) => listAllTasks(rpc, { activeOnly: true }),
+    (rpc) => Promise.try(() => listAllTasks(rpc, { activeOnly: true })),
     ["tasks:changed", "threads:changed"],
   );
 }

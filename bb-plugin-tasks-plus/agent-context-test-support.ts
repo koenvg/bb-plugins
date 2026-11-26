@@ -57,8 +57,8 @@ export function createAgentContextFixture() {
     pluginId: "tasks",
     sdk: {
       threads: {
-        spawn: async () => ({ id: "thr_context" }),
-        get: async () => makeThreadResponse({ id: "thr_context", status: "starting" }),
+        spawn: () => Promise.resolve({ id: "thr_context" }),
+        get: () => Promise.try(() => makeThreadResponse({ id: "thr_context", status: "starting" })),
       },
     },
   });

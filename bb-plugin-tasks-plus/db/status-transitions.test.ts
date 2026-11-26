@@ -6,7 +6,16 @@ import { initializeTasksSchema } from "./schema";
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+  {
+    const runStep = async () => {
+      await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 function setup() {

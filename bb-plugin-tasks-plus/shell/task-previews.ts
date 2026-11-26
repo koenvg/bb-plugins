@@ -166,13 +166,13 @@ export function createTaskPreviews(
         // A transport result with the wrong key is not usable matching data.
         if (data && normalizeTaskKey(data.key) !== key)
           throw new Error(`Task lookup did not match ${key}`);
-        publish(key, { data, error: null, isLoading: false, current: true });
+        return void publish(key, { data, error: null, isLoading: false, current: true });
       })
-      .catch((error: unknown) => {
+      .catch((previewError: unknown) => {
         if (canPublish())
           publish(key, {
             ...snapshot,
-            error: errorMessage(error),
+            error: errorMessage(previewError),
             isLoading: false,
             current: false,
           });

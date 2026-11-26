@@ -44,22 +44,22 @@ describe("task delegation", () => {
     "preserves %s observed during post-delegate initialization",
     async (outcome) => {
       let release!: (thread: ReturnType<typeof makeThreadResponse>) => void;
-      let started!: () => void;
-      const readStarted = new Promise<void>((resolve) => {
-        started = resolve;
-      });
-      const pending = new Promise<ReturnType<typeof makeThreadResponse>>((resolve) => {
+      const { promise: readStarted, resolve: started } = Promise.withResolvers<void>();
+      const pending = (() => {
+        const { promise, resolve } = Promise.withResolvers<ReturnType<typeof makeThreadResponse>>();
         release = resolve;
-      });
+        return promise;
+      })();
       const { bb, harness } = createFakePluginHost({
         pluginId: "tasks",
         sdk: {
           threads: {
-            spawn: async () => ({ id: "thr_worker" }),
-            get: async () => {
-              started();
-              return pending;
-            },
+            spawn: () => Promise.resolve({ id: "thr_worker" }),
+            get: () =>
+              Promise.try(() => {
+                started();
+                return pending;
+              }),
           },
         },
       });
@@ -188,8 +188,8 @@ describe("task delegation", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          spawn: async () => ({ id: "thr_completed" }),
-          get: async () => makeThreadResponse({ id: "thr_completed", status: "idle" }),
+          spawn: () => Promise.resolve({ id: "thr_completed" }),
+          get: () => Promise.try(() => makeThreadResponse({ id: "thr_completed", status: "idle" })),
         },
       },
     });
@@ -257,8 +257,9 @@ describe("task delegation", () => {
         pluginId: "tasks",
         sdk: {
           threads: {
-            spawn: async () => ({ id: "thr_delegated" }),
-            get: async () => makeThreadResponse({ id: "thr_delegated", status: "starting" }),
+            spawn: () => Promise.resolve({ id: "thr_delegated" }),
+            get: () =>
+              Promise.try(() => makeThreadResponse({ id: "thr_delegated", status: "starting" })),
           },
         },
       });
@@ -342,8 +343,8 @@ describe("task delegation", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          spawn: async () => ({ id: "thr_fast" }),
-          get: async () => makeThreadResponse({ id: "thr_fast", status: "active" }),
+          spawn: () => Promise.resolve({ id: "thr_fast" }),
+          get: () => Promise.try(() => makeThreadResponse({ id: "thr_fast", status: "active" })),
         },
       },
     });
@@ -382,8 +383,9 @@ describe("task delegation", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          spawn: async () => ({ id: "thr_wide_title" }),
-          get: async () => makeThreadResponse({ id: "thr_wide_title", status: "starting" }),
+          spawn: () => Promise.resolve({ id: "thr_wide_title" }),
+          get: () =>
+            Promise.try(() => makeThreadResponse({ id: "thr_wide_title", status: "starting" })),
         },
       },
     });
@@ -418,8 +420,9 @@ describe("task delegation", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          spawn: async () => ({ id: "thr_worktree" }),
-          get: async () => makeThreadResponse({ id: "thr_worktree", status: "starting" }),
+          spawn: () => Promise.resolve({ id: "thr_worktree" }),
+          get: () =>
+            Promise.try(() => makeThreadResponse({ id: "thr_worktree", status: "starting" })),
         },
       },
     });
@@ -470,15 +473,17 @@ describe("task delegation", () => {
       pluginId: "tasks",
       sdk: {
         system: {
-          config: async () => ({ primaryHostId: "host_primary" }),
+          config: () => Promise.resolve({ primaryHostId: "host_primary" }),
         },
         threads: {
-          spawn: async () => ({ id: "thr_default_worktree" }),
-          get: async () =>
-            makeThreadResponse({
-              id: "thr_default_worktree",
-              status: "starting",
-            }),
+          spawn: () => Promise.resolve({ id: "thr_default_worktree" }),
+          get: () =>
+            Promise.try(() =>
+              makeThreadResponse({
+                id: "thr_default_worktree",
+                status: "starting",
+              }),
+            ),
         },
       },
     });
@@ -531,9 +536,10 @@ describe("task delegation", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          spawn: async () => {
-            throw spawnError;
-          },
+          spawn: () =>
+            Promise.try(() => {
+              throw spawnError;
+            }),
         },
       },
     });
@@ -571,7 +577,7 @@ describe("task delegation", () => {
   it("fails before spawning when the task project is not linked to bb", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "tasks",
-      sdk: { threads: { spawn: async () => ({ id: "thr_never" }) } },
+      sdk: { threads: { spawn: () => Promise.resolve({ id: "thr_never" }) } },
     });
     const store = createStore(bb);
     const project = store.tasks.createProject({
@@ -602,12 +608,13 @@ describe("task delegation", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async () => ({
-            id: "thr_existing",
-            title: "𠮷".repeat(100),
-            titleFallback: null,
-            status: "active",
-          }),
+          get: () =>
+            Promise.try(() => ({
+              id: "thr_existing",
+              title: "𠮷".repeat(100),
+              titleFallback: null,
+              status: "active",
+            })),
         },
       },
     });
@@ -656,12 +663,16 @@ describe("task thread detach", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) => ({
-            id: threadId,
-            title: `Worker ${threadId}`,
-            titleFallback: null,
-            status: threadId === "thr_dead" ? "error" : "idle",
-          }),
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) => ({
+                id: threadId,
+                title: `Worker ${threadId}`,
+                titleFallback: null,
+                status: threadId === "thr_dead" ? "error" : "idle",
+              }),
+              input,
+            ),
         },
       },
     });

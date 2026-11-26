@@ -122,9 +122,11 @@ describe("prefetch from the rendered visible order", () => {
     await act(async () => {});
     expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4"]);
     // Both old transports finish with unusable keys, but must not schedule the old order.
-    await act(async () => previous.resolve({ task: null }));
+    await act(() => Promise.try(() => previous.resolve({ task: null })));
     expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4"]);
-    await act(async () => nextList.resolve({ tasks: [records[1], records[5]], nextCursor: null }));
+    await act(() =>
+      Promise.try(() => nextList.resolve({ tasks: [records[1], records[5]], nextCursor: null })),
+    );
     await waitFor(() => expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4", "TSK-6"]));
     expect(slot.queryByRole("button", { name: "Open TSK-1: Title 1" })).toBeNull();
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
@@ -150,7 +152,7 @@ describe("prefetch from the rendered visible order", () => {
       expect(slot.queryByRole("button", { name: "Open TSK-1: Title 1" })).toBeNull(),
     );
     await slot.findByRole("button", { name: "Open TSK-3: Title 3" });
-    await act(async () => old.resolve({ task: null }));
+    await act(() => Promise.try(() => old.resolve({ task: null })));
     await waitFor(() => expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4", "TSK-3"]));
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
@@ -166,7 +168,7 @@ describe("prefetch from the rendered visible order", () => {
     });
     await act(async () => {});
     expect(keysRead(slot)).toEqual([]);
-    await act(async () => pending.resolve({}));
+    await act(() => Promise.try(() => pending.resolve({})));
     await slot.findByText("List offline");
     expect(keysRead(slot)).toEqual([]);
   });
@@ -198,13 +200,13 @@ describe("prefetch from the rendered visible order", () => {
     });
     await slot.findByText("Loading TSK-2…");
     expect(keysRead(slot)).toEqual(["TSK-2"]);
-    await act(async () => selected.resolve({ task: records[1] }));
+    await act(() => Promise.try(() => selected.resolve({ task: records[1] })));
     await waitFor(() => expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4"]));
     fireEvent.click(row(slot, 4));
     await acceptNavigation(slot);
     expect(slot.getByText("Loading TSK-4…")).toBeTruthy();
     expect(keysRead(slot).filter((key) => key === "TSK-4")).toHaveLength(1);
-    await act(async () => next.resolve({ task: records[3] }));
+    await act(() => Promise.try(() => next.resolve({ task: records[3] })));
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 4");
   });
 
@@ -227,7 +229,7 @@ describe("prefetch from the rendered visible order", () => {
     const focused = document.activeElement;
     const calls = slot.inspection.rpcCalls.length;
     const opens = slot.inspection.experimental_panelCalls.length;
-    await act(async () => hidden.resolve({ task: records[2] }));
+    await act(() => Promise.try(() => hidden.resolve({ task: records[2] })));
     expect(document.activeElement).toBe(focused);
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.inspection.experimental_panelCalls).toHaveLength(opens);
@@ -246,7 +248,7 @@ describe("prefetch from the rendered visible order", () => {
     await waitFor(() => expect(keysRead(slot)).toEqual(["TSK-2", "TSK-1", "TSK-4"]));
     slot.lifecycle.rerender(<Panel subPath="all?task=TSK-2" ticketVisible={false} />);
     const opens = slot.inspection.experimental_panelCalls.length;
-    await act(async () => next.resolve({ task: records[3] }));
+    await act(() => Promise.try(() => next.resolve({ task: records[3] })));
     expect(slot.inspection.experimental_panelCalls).toHaveLength(opens);
     expect(slot.inspection.navigateCalls).toEqual([]);
     slot.lifecycle.unmount();

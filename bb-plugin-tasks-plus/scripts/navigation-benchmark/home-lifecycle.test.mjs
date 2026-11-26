@@ -28,9 +28,10 @@ test(
             ]));
             await once(child, "exit");
             resources.browser = {
-              close: async () => {
-                throw new Error("browser close rejected");
-              },
+              close: () =>
+                Promise.try(() => {
+                  throw new Error("browser close rejected");
+                }),
             };
             await mkdir(join(output, "partial.json"));
             try {
@@ -66,13 +67,14 @@ test("home calls write and endpoint close failures still dispose the backend", a
         phase: "home-server",
         execute: async ({ resources, capture }) => {
           resources.server = {
-            close: (callback) => callback(new Error("endpoint close rejected")),
+            close: (closed) => closed(new Error("endpoint close rejected")),
           };
           resources.backend = {
             calls: [],
-            dispose: async () => {
-              disposed = true;
-            },
+            dispose: () =>
+              Promise.try(() => {
+                disposed = true;
+              }),
           };
           await mkdir(join(output, "calls.json"));
           await capture("calls.json", () => resources.backend.calls);

@@ -20,10 +20,7 @@ const tasks = [1, 2, 3].map((n) =>
   }),
 );
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 function setup(overrides: Record<string, (raw: unknown) => unknown> = {}) {
@@ -56,13 +53,15 @@ function setup(overrides: Record<string, (raw: unknown) => unknown> = {}) {
   );
 }
 async function changeDescription(slot: ReturnType<typeof setup>, text: string) {
-  await act(async () => {
-    const editor =
-      slot.container.querySelector<HTMLElement>(".tiptap") ??
-      missingValue("Expected a non-null value");
-    editor.innerHTML = `<p>${text}</p>`;
-    fireEvent.input(editor);
-  });
+  await act(() =>
+    Promise.try(() => {
+      const editor =
+        slot.container.querySelector<HTMLElement>(".tiptap") ??
+        missingValue("Expected a non-null value");
+      editor.innerHTML = `<p>${text}</p>`;
+      fireEvent.input(editor);
+    }),
+  );
 }
 
 describe("safe standalone detail navigation", () => {
@@ -83,7 +82,9 @@ describe("safe standalone detail navigation", () => {
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(slot.inspection.navigateCalls).toEqual([]);
     await changeDescription(slot, "Latest A");
-    await act(async () => reply.resolve({ ok: false, error: { message: "Cannot save" } }));
+    await act(() =>
+      Promise.try(() => reply.resolve({ ok: false, error: { message: "Cannot save" } })),
+    );
     const byRole = await slot.findByRole("alert");
     expect(byRole.textContent).toContain("Cannot save");
     expect(slot.inspection.navigateCalls).toEqual([]);
@@ -121,7 +122,7 @@ describe("safe standalone detail navigation", () => {
     await waitFor(() =>
       expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Newer server content"),
     );
-    await act(async () => reply.resolve({ ok: true, task: saved }));
+    await act(() => Promise.try(() => reply.resolve({ ok: true, task: saved })));
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Newer server content");
   });
   it("waits for a property write, then accepts later server edits rather than freezing the local value", async () => {
@@ -141,7 +142,7 @@ describe("safe standalone detail navigation", () => {
       priority: "high",
       updatedAt: "2026-10-02T12:00:00.000Z",
     };
-    await act(async () => reply.resolve({ ok: true, task: current }));
+    await act(() => Promise.try(() => reply.resolve({ ok: true, task: current })));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     // The fake host records navigation without changing props, so the editor stays mounted.
     current = {
@@ -217,7 +218,7 @@ describe("safe standalone detail navigation", () => {
       taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
       title: "Unblurred title",
     });
-    await act(async () => reply.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => reply.resolve({ ok: true, task: tasks[0] })));
     await waitFor(() =>
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 3"),
     );
@@ -274,7 +275,9 @@ describe("safe standalone detail navigation", () => {
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2"),
     );
     expect(slot.queryByDisplayValue("Only A")).toBeNull();
-    await act(async () => late.resolve({ task: tasks[0] ?? missingValue("Expected tasks[0]") }));
+    await act(() =>
+      Promise.try(() => late.resolve({ task: tasks[0] ?? missingValue("Expected tasks[0]") })),
+    );
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2");
   });
 });

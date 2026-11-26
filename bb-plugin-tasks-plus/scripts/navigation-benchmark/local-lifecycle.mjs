@@ -182,11 +182,17 @@ export async function runLocalHarness({ output, phase, execute }) {
         async () => {
           const child = resources.serverProcess;
           if (child.exitCode !== null || child.signalCode !== null) return;
-          await new Promise((resolve, reject) => {
-            child.once("exit", resolve);
-            child.once("error", reject);
-            child.kill("SIGTERM");
-          });
+          await (() => {
+            const { promise, resolve, reject } = Promise.withResolvers();
+            try {
+              child.once("exit", resolve);
+              child.once("error", reject);
+              child.kill("SIGTERM");
+            } catch (setupError) {
+              reject(setupError);
+            }
+            return promise;
+          })();
         },
       ],
       [
@@ -194,24 +200,38 @@ export async function runLocalHarness({ output, phase, execute }) {
         server,
         async () => {
           server.closeAllConnections?.();
-          await new Promise((resolve, reject) =>
-            server.close((error) => (error ? reject(error) : resolve())),
-          );
+          await (() => {
+            const { promise, resolve, reject } = Promise.withResolvers();
+            try {
+              server.close((error) => (error ? reject(error) : resolve()));
+            } catch (setupError) {
+              reject(setupError);
+            }
+            return promise;
+          })();
         },
       ],
       ["database", backend, () => backend.dispose()],
     ];
-    for (const [name, acquired, close] of closures) {
-      if (!acquired) {
-        ledger.cleanup[name] = { status: "not-acquired-or-already-closed" };
+    {
+      const stepItems = closures;
+      const runStep = async ([name, acquired, close]) => {
+        if (!acquired) {
+          ledger.cleanup[name] = { status: "not-acquired-or-already-closed" };
+          return;
+        }
+        try {
+          await close();
+          ledger.cleanup[name] = { status: "closed" };
+        } catch (error) {
+          ledger.cleanup[name] = { status: "failed", error: errorText(error) };
+          errors.push(error);
+        }
+      };
+      for await (const _ of (async function* () {
+        for (const stepInput of stepItems) yield runStep(stepInput);
+      })()) {
         continue;
-      }
-      try {
-        await close();
-        ledger.cleanup[name] = { status: "closed" };
-      } catch (error) {
-        ledger.cleanup[name] = { status: "failed", error: errorText(error) };
-        errors.push(error);
       }
     }
     ledger.cleanup.contextClosed = ledger.cleanup.context.status === "closed";
@@ -270,14 +290,20 @@ export async function runLocalHarness({ output, phase, execute }) {
 export async function stopLocalTrace(cdp, evidence) {
   evidence.tracingRunning = false;
   let timer, complete;
-  const ended = new Promise((resolve, reject) => {
-    complete = resolve;
-    cdp.once("Tracing.tracingComplete", complete);
-    timer = setTimeout(
-      () => reject(new Error("Trace completion unavailable after 10 seconds")),
-      10000,
-    );
-  });
+  const ended = (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      complete = resolve;
+      cdp.once("Tracing.tracingComplete", complete);
+      timer = setTimeout(
+        () => reject(new Error("Trace completion unavailable after 10 seconds")),
+        10000,
+      );
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
   // Observe the timeout even if the command itself rejects.
   ended.catch(() => {});
   try {

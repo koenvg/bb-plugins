@@ -71,10 +71,16 @@ export function useBlockedWorkConfirm(): {
     const blockers = openBlockers(task);
     if (blockers.length === 0) return Promise.resolve(true);
     resolveRef.current?.(false);
-    return new Promise<boolean>((resolve) => {
-      resolveRef.current = resolve;
-      setPending({ task, blockers });
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<boolean>();
+      try {
+        resolveRef.current = resolve;
+        setPending({ task, blockers });
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }, []);
 
   const blockedWorkDialog = (

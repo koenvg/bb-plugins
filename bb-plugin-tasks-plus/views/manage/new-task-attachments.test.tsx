@@ -227,7 +227,15 @@ describe("NewTaskDialog attachments", () => {
     let release!: () => void;
     uploadGate = {
       fileName: "slow.png",
-      promise: new Promise((resolve) => (release = resolve)),
+      promise: (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          release = resolve;
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })(),
     };
     const slot = renderSlot(
       app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
@@ -306,7 +314,15 @@ describe("NewTaskDialog attachments", () => {
     let release!: () => void;
     uploadGate = {
       fileName: "bad.bin",
-      promise: new Promise((resolve) => (release = resolve)),
+      promise: (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          release = resolve;
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })(),
     };
     const retryButton = slot.getByRole("button", {
       name: "Retry upload of bad.bin",

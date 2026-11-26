@@ -69,21 +69,22 @@ async function plannedWrapper(root: string) {
   const plan = await planWeeklyCheck(
     { projectId: "proj_fixture", serverHostId: "host_fixture" },
     {
-      sources: async () => ({
-        complete: true,
-        records: [
-          {
-            projectId: "proj_fixture",
-            hostId: "host_fixture",
-            path: root,
-            kind: "project-source",
-            expiresAt: null,
-            durable: true,
-          },
-        ],
-      }),
+      sources: () =>
+        Promise.try(() => ({
+          complete: true,
+          records: [
+            {
+              projectId: "proj_fixture",
+              hostId: "host_fixture",
+              path: root,
+              kind: "project-source",
+              expiresAt: null,
+              durable: true,
+            },
+          ],
+        })),
       inspect: inspectStableSource,
-      schedules: async () => ({ complete: true, records: [] }),
+      schedules: () => Promise.resolve({ complete: true, records: [] }),
     },
   );
   if (plan.action !== "create-after-approval")
@@ -118,14 +119,14 @@ it("accepts a committed ordinary checkout and rejects missing or uncommitted pre
     packageDir: r.pkg,
   });
   expect(bytes(r.root)).toEqual(before);
-  for (const file of ["UPSTREAM.json", "src/upstream/checker.ts"]) {
+  await Array.fromAsync(["UPSTREAM.json", "src/upstream/checker.ts"], async (file) => {
     rmSync(join(r.pkg, file));
     expect(await inspectStableSource(r.root)).toMatchObject({ ready: false });
     r.git("checkout", "--", `bb-plugin-pi-subagents-provider/${file}`);
     writeFileSync(join(r.pkg, file), "uncommitted");
     expect(await inspectStableSource(r.root)).toMatchObject({ ready: false });
     r.git("checkout", "--", `bb-plugin-pi-subagents-provider/${file}`);
-  }
+  });
   r.git("rm", "-q", "bb-plugin-pi-subagents-provider/UPSTREAM.json");
   r.git("commit", "-qm", "missing baseline");
   await expect(readCommittedBaseline(r.pkg)).rejects.toThrow("committed baseline");
@@ -144,20 +145,21 @@ it("runs the checker against committed data without changing dirty source, depen
   const output = await checkerCommand(["--source", r.pkg, "--project", "proj_fixture"], {
     now: () => 0,
     nodeVersion: "26.12.1",
-    transport: async (p) => ({
-      status: 200,
-      next: false,
-      data: p.includes("branches")
-        ? { commit: { sha: revision } }
-        : {
-            status: "identical",
-            base_commit: { sha: revision },
-            merge_base_commit: { sha: revision },
-            total_commits: 0,
-            ahead_by: 0,
-            commits: [],
-          },
-    }),
+    transport: (p) =>
+      Promise.try(() => ({
+        status: 200,
+        next: false,
+        data: p.includes("branches")
+          ? { commit: { sha: revision } }
+          : {
+              status: "identical",
+              base_commit: { sha: revision },
+              merge_base_commit: { sha: revision },
+              total_commits: 0,
+              ahead_by: 0,
+              commits: [],
+            },
+      })),
   });
   expect(output).toEqual({ exitCode: 0, stdout: "", stderr: "" });
   expect(bytes(r.root)).toEqual(before);

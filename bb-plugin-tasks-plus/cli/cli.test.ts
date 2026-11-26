@@ -14,16 +14,13 @@ import { mockPrStatusRpc } from "../test-fixtures.js";
 
 vi.mock("../attachments", async (importOriginal) => {
   const actual = await importOriginal<typeof Attachments>();
-  const saveAttachmentFromBytes: typeof actual.saveAttachmentFromBytes = async (
-    store,
-    bytes,
-    options,
-  ) => {
-    if (options.fileName === "boom.bin") {
-      throw new Error("simulated blob write failure");
-    }
-    return actual.saveAttachmentFromBytes(store, bytes, options);
-  };
+  const saveAttachmentFromBytes: typeof actual.saveAttachmentFromBytes = (store, bytes, options) =>
+    Promise.try(() => {
+      if (options.fileName === "boom.bin") {
+        throw new Error("simulated blob write failure");
+      }
+      return actual.saveAttachmentFromBytes(store, bytes, options);
+    });
   return { ...actual, saveAttachmentFromBytes };
 });
 
@@ -89,15 +86,19 @@ describe("bb tasks CLI", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }) =>
-            makeThreadResponse({
-              id: threadId,
-              title: "CLI provider worker",
-              providerId: "codex",
-            }),
+          get: (input) =>
+            Promise.try(
+              ({ threadId }) =>
+                makeThreadResponse({
+                  id: threadId,
+                  title: "CLI provider worker",
+                  providerId: "codex",
+                }),
+              input,
+            ),
         },
         providers: {
-          list: async () => [{ id: "codex", displayName: "Codex", logoUrl: null }],
+          list: () => Promise.resolve([{ id: "codex", displayName: "Codex", logoUrl: null }]),
         },
       },
     });
@@ -253,21 +254,24 @@ describe("bb tasks CLI", () => {
     const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
     await plugin(bb);
 
-    for (const project of [
-      { name: "Relationships", prefix: "REL" },
-      { name: "Other project", prefix: "OTH" },
-    ]) {
-      stdout(
-        await harness.runCli([
-          "project",
-          "create",
-          "--name",
-          project.name,
-          "--prefix",
-          project.prefix,
-        ]),
-      );
-    }
+    await Array.fromAsync(
+      [
+        { name: "Relationships", prefix: "REL" },
+        { name: "Other project", prefix: "OTH" },
+      ],
+      async (project) => {
+        stdout(
+          await harness.runCli([
+            "project",
+            "create",
+            "--name",
+            project.name,
+            "--prefix",
+            project.prefix,
+          ]),
+        );
+      },
+    );
     const taskInputs: {
       project: string;
       title: string;
@@ -279,7 +283,7 @@ describe("bb tasks CLI", () => {
       { project: "REL", title: "Movable child", parent: "REL-3" },
       { project: "OTH", title: "Other root" },
     ];
-    for (const taskInput of taskInputs) {
+    await Array.fromAsync(taskInputs, async (taskInput) => {
       stdout(
         await harness.runCli([
           "create",
@@ -290,7 +294,7 @@ describe("bb tasks CLI", () => {
           ...(taskInput.parent ? ["--parent", taskInput.parent] : []),
         ]),
       );
-    }
+    });
 
     const conflicting = await harness.runCli([
       "update",
@@ -362,7 +366,7 @@ describe("bb tasks CLI", () => {
       },
       { title: "Urgent undated", args: ["--priority", "urgent"] },
     ];
-    for (const task of seed) {
+    await Array.fromAsync(seed, async (task) => {
       stdout(
         await harness.runCli([
           "create",
@@ -374,7 +378,7 @@ describe("bb tasks CLI", () => {
           "--json",
         ]),
       );
-    }
+    });
 
     const byPriority = JSON.parse(
       stdout(await harness.runCli(["list", "--project", "SRT", "--sort", "priority", "--json"])),
@@ -455,32 +459,41 @@ describe("bb tasks CLI", () => {
     const seen = new Set<string>();
     let cursor: string | null = null;
     let pageCount = 0;
-    do {
-      const result = await harness.runCli([
-        "list",
-        "--project",
-        "BIG",
-        "--sort",
-        "priority",
-        "--limit",
-        "37",
-        ...(cursor === null ? [] : ["--cursor", cursor]),
-        "--json",
-      ]);
-      const page = JSON.parse(stdout(result)) as {
-        tasks: { id: string }[];
-        nextCursor: string | null;
-        limit: number;
+    {
+      const runStep = async () => {
+        const result = await harness.runCli([
+          "list",
+          "--project",
+          "BIG",
+          "--sort",
+          "priority",
+          "--limit",
+          "37",
+          ...(cursor === null ? [] : ["--cursor", cursor]),
+          "--json",
+        ]);
+        const page = JSON.parse(stdout(result)) as {
+          tasks: { id: string }[];
+          nextCursor: string | null;
+          limit: number;
+        };
+        expect(page.limit).toBe(37);
+        expect(page.tasks.length).toBeLessThanOrEqual(37);
+        for (const task of page.tasks) {
+          expect(seen.has(task.id)).toBe(false);
+          seen.add(task.id);
+        }
+        cursor = page.nextCursor;
+        pageCount += 1;
       };
-      expect(page.limit).toBe(37);
-      expect(page.tasks.length).toBeLessThanOrEqual(37);
-      for (const task of page.tasks) {
-        expect(seen.has(task.id)).toBe(false);
-        seen.add(task.id);
+      for await (const _ of (async function* () {
+        do {
+          yield runStep();
+        } while (cursor !== null);
+      })()) {
+        continue;
       }
-      cursor = page.nextCursor;
-      pageCount += 1;
-    } while (cursor !== null);
+    }
 
     expect(pageCount).toBe(5);
     expect(seen.size).toBe(180);
@@ -746,10 +759,11 @@ describe("bb tasks CLI", () => {
         pluginId: "tasks",
         sdk: {
           hosts: {
-            list: async () => [
-              { id: "host_air", name: "Sawyer Air" },
-              { id: "host_box", name: "Build box" },
-            ],
+            list: () =>
+              Promise.resolve([
+                { id: "host_air", name: "Sawyer Air" },
+                { id: "host_box", name: "Build box" },
+              ]),
           },
         },
       });
@@ -887,13 +901,14 @@ describe("bb tasks CLI", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async () => ({
-            id: "thr_cli_self",
-            title: "CLI self attach",
-            titleFallback: null,
-            status: "active",
-          }),
-          send: async () => undefined,
+          get: () =>
+            Promise.resolve({
+              id: "thr_cli_self",
+              title: "CLI self attach",
+              titleFallback: null,
+              status: "active",
+            }),
+          send: () => Promise.try(() => undefined),
         },
       },
     });
@@ -929,13 +944,17 @@ describe("bb tasks CLI", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) => ({
-            id: threadId,
-            title: `Worker ${threadId}`,
-            titleFallback: null,
-            status: threadId === "thr_dead_worker" ? "error" : "idle",
-          }),
-          send: async () => undefined,
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) => ({
+                id: threadId,
+                title: `Worker ${threadId}`,
+                titleFallback: null,
+                status: threadId === "thr_dead_worker" ? "error" : "idle",
+              }),
+              input,
+            ),
+          send: () => Promise.try(() => undefined),
         },
       },
     });
@@ -1151,49 +1170,57 @@ describe("bb tasks CLI", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) => ({
-            id: threadId,
-            title: `Worker ${threadId}`,
-            titleFallback: null,
-            status: "active",
-            environmentId:
-              threadId === "thr_pr_worker"
-                ? "env_pr"
-                : threadId === "thr_absent_pr"
-                  ? "env_absent"
-                  : null,
-          }),
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) => ({
+                id: threadId,
+                title: `Worker ${threadId}`,
+                titleFallback: null,
+                status: "active",
+                environmentId:
+                  threadId === "thr_pr_worker"
+                    ? "env_pr"
+                    : threadId === "thr_absent_pr"
+                      ? "env_absent"
+                      : null,
+              }),
+              input,
+            ),
         },
         plugins: {
-          callRpc: mockPrStatusRpc(async ({ environmentId }) =>
-            environmentId === "env_absent"
-              ? { outcome: "absent" }
-              : {
-                  outcome: "available",
-                  pullRequest: {
-                    number: 12,
-                    title: "BB-15 Show PRs in tasks",
-                    state: "draft",
-                    url: "https://github.com/acme/bb/pull/12",
-                    baseRefName: "main",
-                    headRefName: "bb/bb-15",
-                    updatedAt: "2026-07-16T10:00:00.000Z",
-                    checks: {
-                      state: "pending",
-                      totalCount: 1,
-                      passedCount: 0,
-                      failedCount: 0,
-                      pendingCount: 1,
+          callRpc: mockPrStatusRpc((input) =>
+            Promise.try(
+              ({ environmentId }) =>
+                environmentId === "env_absent"
+                  ? { outcome: "absent" }
+                  : {
+                      outcome: "available",
+                      pullRequest: {
+                        number: 12,
+                        title: "BB-15 Show PRs in tasks",
+                        state: "draft",
+                        url: "https://github.com/acme/bb/pull/12",
+                        baseRefName: "main",
+                        headRefName: "bb/bb-15",
+                        updatedAt: "2026-07-16T10:00:00.000Z",
+                        checks: {
+                          state: "pending",
+                          totalCount: 1,
+                          passedCount: 0,
+                          failedCount: 0,
+                          pendingCount: 1,
+                        },
+                        review: { state: "none", reviewRequestCount: 0 },
+                        mergeability: {
+                          state: "draft",
+                          mergeStateStatus: null,
+                          mergeable: null,
+                        },
+                        attention: "draft",
+                      },
                     },
-                    review: { state: "none", reviewRequestCount: 0 },
-                    mergeability: {
-                      state: "draft",
-                      mergeStateStatus: null,
-                      mergeable: null,
-                    },
-                    attention: "draft",
-                  },
-                },
+              input,
+            ),
           ),
         },
       },
@@ -1232,19 +1259,25 @@ describe("bb tasks CLI", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) => ({
-            id: threadId,
-            title: `Worker ${threadId}`,
-            titleFallback: null,
-            status: "active",
-            environmentId: "env_down",
-          }),
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) => ({
+                id: threadId,
+                title: `Worker ${threadId}`,
+                titleFallback: null,
+                status: "active",
+                environmentId: "env_down",
+              }),
+              input,
+            ),
         },
         plugins: {
-          callRpc: mockPrStatusRpc(async () => ({
-            outcome: "unavailable",
-            message: "gh pr view failed: authentication required",
-          })),
+          callRpc: mockPrStatusRpc(() =>
+            Promise.resolve({
+              outcome: "unavailable",
+              message: "gh pr view failed: authentication required",
+            }),
+          ),
         },
       },
     });
@@ -1409,12 +1442,16 @@ describe("bb tasks CLI", () => {
         pluginId: "tasks",
         sdk: {
           files: {
-            read: async ({ path }: { path: string }) => ({
-              path,
-              content: "",
-              contentEncoding: "utf8",
-              sizeBytes: 0,
-            }),
+            read: (input: { path: string }) =>
+              Promise.try(
+                ({ path }: { path: string }) => ({
+                  path,
+                  content: "",
+                  contentEncoding: "utf8",
+                  sizeBytes: 0,
+                }),
+                input,
+              ),
           },
         },
       });
@@ -1572,39 +1609,48 @@ describe("bb tasks CLI", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) =>
-            makeThreadResponse({ id: threadId, environmentId: "env-remote" }),
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) =>
+                makeThreadResponse({ id: threadId, environmentId: "env-remote" }),
+              input,
+            ),
         },
         environments: {
-          get: async () => ({ hostId: "machine-remote" }),
+          get: () => Promise.resolve({ hostId: "machine-remote" }),
         },
         hosts: {
-          list: async () => [{ id: "machine-remote", name: "Remote Laptop" }],
+          list: () => Promise.resolve([{ id: "machine-remote", name: "Remote Laptop" }]),
         },
         files: {
-          read: async ({ path }: { path: string }) => {
-            const contents = remoteFiles.get(path);
-            if (!contents) throw new Error(`Path does not exist: ${path}`);
-            const contentEncoding = isUtf8(contents) ? "utf8" : "base64";
-            return {
-              path,
-              content: contents.toString(contentEncoding),
-              contentEncoding,
-              sizeBytes: contents.byteLength,
-            };
-          },
-          write: async ({
-            path,
-            content,
-            contentEncoding,
-          }: {
-            path: string;
-            content: string;
-            contentEncoding?: "utf8" | "base64";
-          }) => {
-            remoteFiles.set(path, Buffer.from(content, contentEncoding));
-            return { outcome: "written", path };
-          },
+          read: (input: { path: string }) =>
+            Promise.try(({ path }: { path: string }) => {
+              const contents = remoteFiles.get(path);
+              if (!contents) throw new Error(`Path does not exist: ${path}`);
+              const contentEncoding = isUtf8(contents) ? "utf8" : "base64";
+              return {
+                path,
+                content: contents.toString(contentEncoding),
+                contentEncoding,
+                sizeBytes: contents.byteLength,
+              };
+            }, input),
+          write: (input: { path: string; content: string; contentEncoding?: "utf8" | "base64" }) =>
+            Promise.try(
+              ({
+                path,
+                content,
+                contentEncoding,
+              }: {
+                path: string;
+                content: string;
+                contentEncoding?: "utf8" | "base64";
+              }) => {
+                remoteFiles.set(path, Buffer.from(content, contentEncoding));
+                return { outcome: "written", path };
+              },
+              input,
+            ),
         },
       },
     });
@@ -1747,11 +1793,11 @@ describe("bb tasks CLI", () => {
     expect(groupHelp).toContain("bb tasks preset list");
     expect(groupHelp).toContain("bb tasks preset delete");
 
-    for (const group of ["project", "folder", "label", "attachment", "preset"]) {
+    await Array.fromAsync(["project", "folder", "label", "attachment", "preset"], async (group) => {
       const help = await harness.runCli([group, "--help"]);
       expect(help.exitCode, group).toBe(0);
       expect(help.stdout, group).toContain(`bb tasks ${group} `);
-    }
+    });
 
     const bareGroup = await harness.runCli(["preset"]);
     expect(bareGroup.exitCode).toBe(1);

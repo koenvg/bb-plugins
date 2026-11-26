@@ -121,34 +121,36 @@ describe("direct command invocation", () => {
       true,
     );
     update(changes);
-    for (const command of commands.slice(0, 2)) await command.run(context());
+    await Array.fromAsync(commands.slice(0, 2), (command) => command.run(context()));
     expect(snooze).not.toHaveBeenCalled();
     expect(wake).not.toHaveBeenCalled();
   });
   it("blocks all retained actions after owner cleanup", async () => {
     const { commands, owner, snooze, wake } = setup();
     owner.stop();
-    for (const command of commands) await command.run(context());
+    await Array.fromAsync(commands, (command) => command.run(context()));
     expect(snooze).not.toHaveBeenCalled();
     expect(wake).not.toHaveBeenCalled();
   });
   it("does not wake a snooze that another client ended, that expired, or that needs input", async () => {
     const { commands, update, snooze, wake } = setup();
     const command = commands[2] ?? missingValue("Expected commands[2]");
-    const inapplicable: Partial<SnoozeSnapshot>[] = [
-      { snoozes: {} },
-      { snoozes: { t1: now.getTime() } },
-      {
-        threads: [thread({ hasPendingInteraction: true })],
-        snoozes: { t1: now.getTime() + 100_000 },
+    await Array.fromAsync(
+      [
+        { snoozes: {} },
+        { snoozes: { t1: now.getTime() } },
+        {
+          threads: [thread({ hasPendingInteraction: true })],
+          snoozes: { t1: now.getTime() + 100_000 },
+        },
+      ],
+      async (changes: Partial<SnoozeSnapshot>) => {
+        update({ snoozes: { t1: now.getTime() + 100_000 } });
+        expect(command.isAvailable?.(context())).toBe(true);
+        update(changes);
+        await command.run(context());
       },
-    ];
-    for (const changes of inapplicable) {
-      update({ snoozes: { t1: now.getTime() + 100_000 } });
-      expect(command.isAvailable?.(context())).toBe(true);
-      update(changes);
-      await command.run(context());
-    }
+    );
     expect(snooze).not.toHaveBeenCalled();
     expect(wake).not.toHaveBeenCalled();
   });
@@ -160,8 +162,9 @@ describe("direct command invocation", () => {
     );
     await (commands[0] ?? missingValue("Expected commands[0]")).run(context("t2"));
     expect(snooze).toHaveBeenCalledExactlyOnceWith("t2", new Date(2026, 9, 8, 9).getTime());
-    for (const id of [null, "unknown"])
-      for (const command of commands) await command.run(context(id));
+    await Array.fromAsync([null, "unknown"], async (id) => {
+      await Array.fromAsync(commands, (command) => command.run(context(id)));
+    });
     expect(snooze).toHaveBeenCalledOnce();
     expect(wake).not.toHaveBeenCalled();
   });

@@ -56,7 +56,15 @@ it("focuses the text box after it mounts", async () => {
     <InlineCommentForm text="" onTextChange={() => {}} onSubmit={() => {}} onCancel={() => {}} />,
   );
 
-  await new Promise((resolve) => requestAnimationFrame(resolve));
+  await (() => {
+    const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+    try {
+      requestAnimationFrame(resolve);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
 
   expect(document.activeElement).toBe(view.getByRole("textbox", { name: "Comment" }));
 });

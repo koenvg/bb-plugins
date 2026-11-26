@@ -3,10 +3,7 @@ import { createTaskEditSession, type SaveOutcome } from "./edit-session.js";
 import { createSafeTaskTransition } from "./safe-transition.js";
 
 function setup() {
-  let resolve!: (value: SaveOutcome) => void;
-  const reply = new Promise<SaveOutcome>((done) => {
-    resolve = done;
-  });
+  const { promise: reply, resolve } = Promise.withResolvers<SaveOutcome>();
   const save = vi.fn().mockReturnValueOnce(reply).mockResolvedValue({ ok: true });
   const edit = createTaskEditSession("A", { save, schedule: () => () => {} });
   const transition = createSafeTaskTransition();
@@ -46,7 +43,7 @@ describe("reentrant safe task transitions", () => {
     edit.stage({ title: "draft" });
     const flight = transition.request(() => {
       nested = Promise.resolve().then(() => {
-        expect(() => transition.request(inner)).toThrow(diagnostic);
+        return void expect(() => transition.request(inner)).toThrow(diagnostic);
       });
     });
     resolve({ ok: true });
@@ -54,6 +51,28 @@ describe("reentrant safe task transitions", () => {
     await nested;
     await transition.retry();
     expect(inner).not.toHaveBeenCalled();
+  });
+
+  it("accepts a later request after a commit throws following a save", async () => {
+    const { transition, edit, resolve } = setup();
+    const retry = Promise.withResolvers<boolean>();
+    const next = vi.fn();
+    const failure = new Error("Commit failed");
+    edit.stage({ title: "draft" });
+    const flight = transition.request(() => {
+      queueMicrotask(() => {
+        queueMicrotask(() => {
+          retry.resolve(Promise.try(() => transition.request(next)));
+        });
+      });
+      throw failure;
+    });
+    const rejected = expect(flight).rejects.toBe(failure);
+    const accepted = expect(retry.promise).resolves.toBe(true);
+    resolve({ ok: true });
+    await rejected;
+    await accepted;
+    expect(next).toHaveBeenCalledOnce();
   });
 
   it.each([false, true])(

@@ -10,10 +10,8 @@ afterEach(cleanup);
 
 it("owns one snooze reader, clears controls on cleanup, and ignores old generation responses", async () => {
   const client = createSnoozeClient();
-  let finish!: (value: ReturnType<typeof snoozeSnapshot>) => void;
-  const pending = new Promise<ReturnType<typeof snoozeSnapshot>>((resolve) => {
-    finish = resolve;
-  });
+  const { promise: pending, resolve: finish } =
+    Promise.withResolvers<ReturnType<typeof snoozeSnapshot>>();
   const mount = (listSnoozes: () => unknown) =>
     renderSlot(
       { component: () => <SnoozeOwner client={client} /> },
@@ -30,7 +28,7 @@ it("owns one snooze reader, clears controls on cleanup, and ignores old generati
   expect(client.getSnapshot().controls).toBeNull();
   const second = mount(() => snoozeSnapshot());
   await waitFor(() => expect(client.getSnapshot().snoozesReady).toBe(true));
-  await act(async () => finish(snoozeSnapshot({ t1: Date.now() + 100_000 })));
+  await act(() => Promise.try(() => finish(snoozeSnapshot({ t1: Date.now() + 100_000 }))));
   expect(client.getSnapshot().snoozes).toEqual({});
   const retained =
     client.getSnapshot().controls ?? missingValue("Expected client.getSnapshot().controls");
@@ -46,7 +44,7 @@ it("owns one snooze reader, clears controls on cleanup, and ignores old generati
 
 it("keeps one early-wake operation in flight across realtime refreshes", async () => {
   const client = createSnoozeClient();
-  const wake = vi.fn(() => new Promise(() => {}));
+  const wake = vi.fn(() => Promise.withResolvers<unknown>().promise);
   const slot = renderSlot(
     { component: () => <SnoozeOwner client={client} /> },
     {},
@@ -66,7 +64,7 @@ it("keeps one early-wake operation in flight across realtime refreshes", async (
 
 it("keeps the full group's effective state awake with one request while multiple members need attention", async () => {
   const client = createSnoozeClient();
-  const wake = vi.fn(() => new Promise(() => {}));
+  const wake = vi.fn(() => Promise.withResolvers<unknown>().promise);
   const later = Date.now() + 100_000;
   const slot = renderSlot(
     { component: () => <SnoozeOwner client={client} /> },

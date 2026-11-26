@@ -79,12 +79,7 @@ function rememberProject() {
   );
 }
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<T>();
   return { promise, resolve, reject };
 }
 describe("remembered Tasks entry", () => {
@@ -136,7 +131,7 @@ describe("remembered Tasks entry", () => {
       expect(slot.queryByText("No projects yet")).toBeNull();
       expect(slot.navigateCalls).toEqual([]);
       expect(remembered()).toEqual({ kind: "project", projectId: project.id });
-      await act(async () => inventory.resolve({ projects: [project, other] }));
+      await act(() => Promise.try(() => inventory.resolve({ projects: [project, other] })));
       await slot.findByText("Tenet");
       expect(slot.navigateCalls).toEqual([destination(`${project.id}?view=list`, true)]);
     },
@@ -148,7 +143,7 @@ describe("remembered Tasks entry", () => {
     const inventory = deferred<{ projects: Project[] }>();
     const slot = open("", { listProjects: () => inventory.promise });
     expect(slot.navigateCalls).toEqual([]);
-    await act(async () => inventory.resolve({ projects: [other] }));
+    await act(() => Promise.try(() => inventory.resolve({ projects: [other] })));
     await slot.findByText("All projects");
     expect(remembered()).toEqual({ kind: "all" });
     expect(slot.navigateCalls).toEqual([destination("all", true)]);
@@ -172,7 +167,7 @@ describe("remembered Tasks entry", () => {
     expect(slot.getByRole("status").textContent).toBe("Loading projects…");
     expect(slot.queryByRole("alert")).toBeNull();
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
-    await act(async () => retry.resolve({ projects: [project] }));
+    await act(() => Promise.try(() => retry.resolve({ projects: [project] })));
     await slot.findByText("Tenet");
     expect(slot.navigateCalls).toEqual([destination(`${project.id}?view=list`, true)]);
   });
@@ -202,7 +197,7 @@ describe("remembered Tasks entry", () => {
       title: "Cross-project task",
     });
     const slot = open("task/CS-1", {
-      listProjects: () => new Promise(() => {}),
+      listProjects: () => Promise.withResolvers<unknown>().promise,
       getTaskByKey: () => ({ task }),
       listAttachments: () => ({ attachments: [] }),
       listTaskThreads: () => ({ taskThreads: [] }),
@@ -221,7 +216,7 @@ describe("remembered Tasks entry", () => {
     rememberProject();
     storeViewMode(other.id, "board");
     const slot = open(`${other.id}?view=list`, {
-      listProjects: () => new Promise(() => {}),
+      listProjects: () => Promise.withResolvers<unknown>().promise,
     });
     expect(slot.getByRole("button", { name: "List" }).getAttribute("aria-pressed")).toBe("true");
     expect(slot.navigateCalls).toEqual([]);
@@ -240,7 +235,7 @@ describe("remembered Tasks entry", () => {
     const inventory = deferred<{ projects: Project[] }>();
     const slot = open("", { listProjects: () => inventory.promise });
     slot.lifecycle.rerender(<Panel subPath="active" />);
-    await act(async () => inventory.resolve({ projects: [] }));
+    await act(() => Promise.try(() => inventory.resolve({ projects: [] })));
     expect(slot.navigateCalls).toEqual([]);
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
   });
@@ -381,7 +376,7 @@ describe("remembered Tasks entry", () => {
       expect(slot.getByRole("status").textContent).toBe("Loading projects…");
       expect(remembered()).toEqual({ kind: "project", projectId: project.id });
       expect(slot.navigateCalls).toEqual([]);
-      await act(async () => nextInventory.resolve({ projects: [project, other] }));
+      await act(() => Promise.try(() => nextInventory.resolve({ projects: [project, other] })));
       await slot.findByText("Tenet");
       expect(slot.navigateCalls).toEqual([destination(`${project.id}?view=list`, true)]);
     },

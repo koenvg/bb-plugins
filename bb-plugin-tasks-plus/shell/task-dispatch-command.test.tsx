@@ -188,7 +188,7 @@ describe("dispatch task command", () => {
     async (state) => {
       const { slot, calls } = fixture({
         presets: () => {
-          if (state === "loading") return new Promise(() => {});
+          if (state === "loading") return Promise.withResolvers<unknown>().promise;
           if (state === "failed") throw new Error("Presets unavailable");
           return { presets: [] };
         },
@@ -206,16 +206,18 @@ describe("dispatch task command", () => {
 
   it("does not replay invocations made before presets load", async () => {
     let resolve!: (value: unknown) => void;
-    const pending = new Promise((done) => {
+    const pending = (() => {
+      const { promise, resolve: done } = Promise.withResolvers<unknown>();
       resolve = done;
-    });
+      return promise;
+    })();
     const { slot, calls } = fixture({ presets: () => pending });
     await ready(slot);
     expect(available()).toBe(false);
     run();
     run();
     fireEvent.keyDown(window, { key: "d" });
-    await act(async () => resolve({ presets: [worker] }));
+    await act(() => Promise.try(() => resolve({ presets: [worker] })));
     await waitFor(() => expect(available()).toBe(true));
     expect(slot.queryByRole("menu")).toBeNull();
     expect(calls).toEqual([]);
@@ -227,9 +229,11 @@ describe("dispatch task command", () => {
   it("rejects refresh loading and failure even with previously loaded presets", async () => {
     let lookup = 0;
     let reject!: (error: Error) => void;
-    const pending = new Promise((_, fail) => {
+    const pending = (() => {
+      const { promise, reject: fail } = Promise.withResolvers<unknown>();
       reject = fail;
-    });
+      return promise;
+    })();
     const { slot, calls } = fixture({
       presets: () => (++lookup === 1 ? { presets: [worker] } : pending),
     });
@@ -240,7 +244,7 @@ describe("dispatch task command", () => {
     });
     await waitFor(() => expect(available()).toBe(false));
     run();
-    await act(async () => reject(new Error("Refresh failed")));
+    await act(() => Promise.try(() => reject(new Error("Refresh failed"))));
     expect(available()).toBe(false);
     run();
     expect(slot.queryByRole("menu")).toBeNull();
@@ -252,9 +256,11 @@ describe("dispatch task command", () => {
     async (layout) => {
       shown = layout;
       let resolve!: (value: unknown) => void;
-      const pending = new Promise((done) => {
+      const pending = (() => {
+        const { promise, resolve: done } = Promise.withResolvers<unknown>();
         resolve = done;
-      });
+        return promise;
+      })();
       const { slot, calls } = fixture({ delegate: () => pending });
       await ready(slot);
       await waitFor(() => expect(available()).toBe(true));
@@ -272,7 +278,7 @@ describe("dispatch task command", () => {
       expect(available()).toBe(true);
       shown = busyLayout;
       expect(available()).toBe(false);
-      await act(async () => resolve({ ok: true }));
+      await act(() => Promise.try(() => resolve({ ok: true })));
       await waitFor(() => expect(available()).toBe(true));
       expect(slot.queryByRole("menu")).toBeNull();
       expect(calls).toEqual([{ taskId: "task-1", presetId: "worker" }]);
@@ -281,9 +287,11 @@ describe("dispatch task command", () => {
 
   it("checks live layout again between listing, execution and the palette handoff", async () => {
     let resolve!: (value: unknown) => void;
-    const pending = new Promise((done) => {
+    const pending = (() => {
+      const { promise, resolve: done } = Promise.withResolvers<unknown>();
       resolve = done;
-    });
+      return promise;
+    })();
     const { slot, calls } = fixture({ delegate: () => pending });
     await ready(slot);
     await waitFor(() => expect(available()).toBe(true));
@@ -292,8 +300,8 @@ describe("dispatch task command", () => {
     shown = "rail";
     expect(available()).toBe(true);
     const frames: FrameRequestCallback[] = [];
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      frames.push(callback);
+    vi.stubGlobal("requestAnimationFrame", (onFrame: FrameRequestCallback) => {
+      frames.push(onFrame);
       return frames.length;
     });
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
@@ -307,7 +315,7 @@ describe("dispatch task command", () => {
     expect(available()).toBe(false);
     run();
     expect(frames).toHaveLength(0);
-    await act(async () => resolve({ ok: true }));
+    await act(() => Promise.try(() => resolve({ ok: true })));
     expect(calls).toEqual([{ taskId: "task-1", presetId: "other" }]);
   });
 
@@ -328,8 +336,8 @@ describe("dispatch task command", () => {
     await ready(slot);
     await waitFor(() => expect(available()).toBe(true));
     const frames: FrameRequestCallback[] = [];
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      frames.push(callback);
+    vi.stubGlobal("requestAnimationFrame", (onFrame: FrameRequestCallback) => {
+      frames.push(onFrame);
       return frames.length;
     });
     const cancel = vi.fn();

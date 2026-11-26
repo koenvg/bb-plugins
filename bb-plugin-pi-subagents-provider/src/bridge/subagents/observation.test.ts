@@ -86,7 +86,7 @@ function harness(
     generation: 1,
     now: () => now,
     emit,
-    reconcile: async () => value,
+    reconcile: () => Promise.try(() => value),
     schedule: () => () => {},
     view,
     inspect,
@@ -187,10 +187,13 @@ it("publishes one coherent unavailable state for equal no-anchor receipts and cl
       (s) => s.availability === "unavailable" && s.reason.includes("observed parent turn"),
     ),
   ).toBe(true);
-  for (let i = 0; i < 80; i++) {
-    h.time(3000 + i * 5000);
-    await h.observation.refresh();
-  }
+  await Array.fromAsync(
+    Array.from({ length: 80 }, (_, index) => index),
+    async (i) => {
+      h.time(3000 + i * 5000);
+      await h.observation.refresh();
+    },
+  );
   expect(states).toHaveLength(1);
   expect(
     (states[0] ?? missingValue("Expected states[0]")).rows.some(
@@ -213,10 +216,7 @@ it("recaptures the terminal result when settlement arrives during an earlier ins
       (s) => states.push(structuredClone(s)),
       () => 3000,
     );
-    let finishFirst!: (raw: unknown) => void;
-    const first = new Promise<unknown>((resolve) => {
-      finishFirst = resolve;
-    });
+    const { promise: first, resolve: finishFirst } = Promise.withResolvers<unknown>();
     const reply = (target: CaptureTarget, requestId: string, finalOutput?: string) => ({
       kind: "pi-subagents.inspect-reply",
       version: 1,
@@ -225,8 +225,10 @@ it("recaptures the terminal result when settlement arrives during an earlier ins
       task: "owned task",
       ...(finalOutput === undefined ? {} : { finalOutput }),
     });
-    const inspect = vi.fn(async (target: CaptureTarget, requestId: string): Promise<unknown> =>
-      inspect.mock.calls.length === 1 ? first : reply(target, requestId, "Owned final answer"),
+    const inspect = vi.fn((target: CaptureTarget, requestId: string): Promise<unknown> =>
+      Promise.try(() =>
+        inspect.mock.calls.length === 1 ? first : reply(target, requestId, "Owned final answer"),
+      ),
     );
     h = harness(view, true, inspect);
     h.set(receipt([{ ...root(), activity: { state: "needs_attention", currentTool: "bash" } }]));
@@ -342,17 +344,20 @@ describe("native single-run observation", () => {
   it("does not settle missing rows, incomplete snapshots, or failed reads", async () => {
     const h = harness();
     await h.observation.refresh();
-    for (const value of [
-      receipt([]),
-      receipt([root("complete")], { runs: 0, children: 1, byteLimitExceeded: false }),
-      { invalid: true },
-    ]) {
-      h.set(value);
-      await h.observation.refresh();
-      expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
-        "pending",
-      );
-    }
+    await Array.fromAsync(
+      [
+        receipt([]),
+        receipt([root("complete")], { runs: 0, children: 1, byteLimitExceeded: false }),
+        { invalid: true },
+      ],
+      async (value) => {
+        h.set(value);
+        await h.observation.refresh();
+        expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
+          "pending",
+        );
+      },
+    );
     expect(h.observation.state().availability).toBe("unavailable");
     h.set(receipt([root("complete")]));
     await h.observation.refresh();
@@ -537,21 +542,24 @@ describe("native single-run observation", () => {
     const deep = root("complete", [
       root("complete", [root("complete", [root("complete", [root()])])]),
     ]);
-    for (const value of [
-      foreign,
-      version,
-      receipt([root(), root()]),
-      receipt([deep]),
-      receipt([{ ...root(), id: "x".repeat(161) }]),
-      receipt([root()], { runs: -1, children: 0, byteLimitExceeded: false }),
-    ]) {
-      h.set(value);
-      await h.observation.refresh();
-      expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
-        "pending",
-      );
-      expect(h.observation.state().availability).toBe("unavailable");
-    }
+    await Array.fromAsync(
+      [
+        foreign,
+        version,
+        receipt([root(), root()]),
+        receipt([deep]),
+        receipt([{ ...root(), id: "x".repeat(161) }]),
+        receipt([root()], { runs: -1, children: 0, byteLimitExceeded: false }),
+      ],
+      async (value) => {
+        h.set(value);
+        await h.observation.refresh();
+        expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
+          "pending",
+        );
+        expect(h.observation.state().availability).toBe("unavailable");
+      },
+    );
   });
 
   it("ignores unknown fields, duplicate snapshots, and older snapshots", async () => {
@@ -595,9 +603,11 @@ describe("native single-run observation", () => {
       emit: (batch) => deltas.push(...batch),
       reconcile: () => {
         requests++;
-        return new Promise((r) => {
+        {
+          const { promise, resolve: r } = Promise.withResolvers<unknown>();
           resolve = r;
-        });
+          return promise;
+        }
       },
       schedule: () => () => {},
     });
@@ -642,9 +652,9 @@ describe("native single-run observation", () => {
       sessionFile,
       generation: 3,
       emit: () => {},
-      reconcile: async () => receipt([]),
-      schedule: (callback) => {
-        scheduled.push(callback);
+      reconcile: () => Promise.try(() => receipt([])),
+      schedule: (runRefresh) => {
+        scheduled.push(runRefresh);
         return () => {};
       },
     });
@@ -718,18 +728,20 @@ it("recaptures an unchanged terminal exact run once when its file route becomes 
   vi.useFakeTimers();
   try {
     const view = createViewStore(() => {});
-    const inspect = vi.fn(async (target: CaptureTarget, requestId: string) => ({
-      kind: "pi-subagents.inspect-reply",
-      version: 1,
-      requestId,
-      asyncId: target.asyncId,
-      finalOutput: "answer",
-    }));
-    const resolveModel = vi.fn(async () => undefined);
+    const inspect = vi.fn((target: CaptureTarget, requestId: string) =>
+      Promise.try(() => ({
+        kind: "pi-subagents.inspect-reply",
+        version: 1,
+        requestId,
+        asyncId: target.asyncId,
+        finalOutput: "answer",
+      })),
+    );
+    const resolveModel = vi.fn(() => Promise.try(() => undefined));
     const observation = createSubagentObservation({
       sessionFile,
       generation: 1,
-      reconcile: async () => receipt([root("complete")]),
+      reconcile: () => Promise.try(() => receipt([root("complete")])),
       emit() {},
       view,
       inspect,

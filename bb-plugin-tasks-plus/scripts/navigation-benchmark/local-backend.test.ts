@@ -5,8 +5,16 @@ import { dirname } from "node:path";
 import { createLocalBackend } from "./local-backend.js";
 const backends: ReturnType<typeof createLocalBackend>[] = [];
 afterEach(async () => {
-  while (backends.length)
-    await (backends.pop() ?? missingValue("Expected backends.pop()")).dispose();
+  {
+    const runStep = async () => {
+      await (backends.pop() ?? missingValue("Expected backends.pop()")).dispose();
+    };
+    for await (const _ of (async function* () {
+      while (backends.length) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 function setup() {
   const backend = createLocalBackend("bbp60-navigation-lab");

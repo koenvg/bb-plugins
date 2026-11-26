@@ -14,7 +14,7 @@ import { TaskRow } from "./row.js";
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   cleanup();
-  for (const dispose of disposers.splice(0)) await dispose();
+  await Array.fromAsync(disposers.splice(0), (dispose) => dispose());
 });
 
 it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
@@ -36,66 +36,71 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
       pluginId: "tasks",
       sdk: {
         plugins: {
-          callRpc: mockPrStatusRpc(async ({ environmentId }) => {
-            reads.environments++;
-            const id = environmentId.slice(4);
-            if (["environment", "shared", "distinct"].includes(failure) && affected(id))
-              throw Error("offline");
-            return {
-              outcome: "available",
-              pullRequest: {
-                ...identity(id),
-                title: "Work",
-                updatedAt: "2020-01-01T00:00:00Z",
-              },
-            };
-          }),
-          list: async () => {
-            reads.plugins++;
-            return {
-              plugins: [{ id: "github-insight", enabled: true, status: "running" }],
-            };
-          },
+          callRpc: mockPrStatusRpc((input) =>
+            Promise.try(({ environmentId }) => {
+              reads.environments++;
+              const id = environmentId.slice(4);
+              if (["environment", "shared", "distinct"].includes(failure) && affected(id))
+                throw Error("offline");
+              return {
+                outcome: "available",
+                pullRequest: {
+                  ...identity(id),
+                  title: "Work",
+                  updatedAt: "2020-01-01T00:00:00Z",
+                },
+              };
+            }, input),
+          ),
+          list: () =>
+            Promise.try(() => {
+              reads.plugins++;
+              return {
+                plugins: [{ id: "github-insight", enabled: true, status: "running" }],
+              };
+            }),
         },
         threads: {
-          get: async ({ threadId }: { threadId: string }) => {
-            reads.threads++;
-            if (failure === "thread" && affected(threadId)) throw Error("offline");
-            return makeThreadResponse({
-              id: threadId,
-              environmentId: `env_${threadId}`,
-              status: "idle",
-              archivedAt: 1,
-              deletedAt: failure === "removed" && affected(threadId) ? 1 : null,
-            });
-          },
-          getPluginMetadata: async ({ threadId }: { threadId: string }) => {
-            reads.metadata++;
-            return {
-              prSummary: {
-                version: 1,
-                updatedAt: new Date().toISOString(),
-                pr: identity(threadId),
-                checks: {
-                  failed: 0,
-                  running: 0,
-                  cancelled: 0,
-                  passed: 3,
-                  skipped: 0,
-                  failedNames: [],
+          get: (input: { threadId: string }) =>
+            Promise.try(({ threadId }: { threadId: string }) => {
+              reads.threads++;
+              if (failure === "thread" && affected(threadId)) throw Error("offline");
+              return makeThreadResponse({
+                id: threadId,
+                environmentId: `env_${threadId}`,
+                status: "idle",
+                archivedAt: 1,
+                deletedAt: failure === "removed" && affected(threadId) ? 1 : null,
+              });
+            }, input),
+          getPluginMetadata: (input: { threadId: string }) =>
+            Promise.try(({ threadId }: { threadId: string }) => {
+              reads.metadata++;
+              return {
+                prSummary: {
+                  version: 1,
+                  updatedAt: new Date().toISOString(),
+                  pr: identity(threadId),
+                  checks: {
+                    failed: 0,
+                    running: 0,
+                    cancelled: 0,
+                    passed: 3,
+                    skipped: 0,
+                    failedNames: [],
+                  },
+                  reviewers: {
+                    pending: 0,
+                    approved: 1,
+                    changesRequested: 0,
+                    pendingNames: [],
+                  },
+                  blockers: [],
+                  mergeQueue: null,
+                  error: null,
                 },
-                reviewers: {
-                  pending: 0,
-                  approved: 1,
-                  changesRequested: 0,
-                  pendingNames: [],
-                },
-                blockers: [],
-                mergeQueue: null,
-                error: null,
-              },
-            };
-          },
+              };
+            }, input),
         },
       },
     });

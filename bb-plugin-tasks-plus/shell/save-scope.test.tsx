@@ -45,20 +45,20 @@ afterEach(() => {
 });
 
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 
 async function editDescription(container: HTMLElement, value: string) {
-  await act(async () => {
-    const editor =
-      container.querySelector<HTMLElement>(".tiptap") ?? missingValue("Expected a non-null value");
-    editor.innerHTML = `<p>${value}</p>`;
-    fireEvent.input(editor);
-  });
+  await act(() =>
+    Promise.try(() => {
+      const editor =
+        container.querySelector<HTMLElement>(".tiptap") ??
+        missingValue("Expected a non-null value");
+      editor.innerHTML = `<p>${value}</p>`;
+      fireEvent.input(editor);
+    }),
+  );
 }
 
 describe("save-before-switch with remembered browse scope", () => {
@@ -148,7 +148,9 @@ describe("save-before-switch with remembered browse scope", () => {
       await waitFor(() => expect(writes).toHaveLength(1));
       assertOrigin("Pending description");
       expect(slot.inspection.navigateCalls).toEqual([]);
-      await act(async () => firstSave.resolve({ ok: false, error: { message: "Save refused" } }));
+      await act(() =>
+        Promise.try(() => firstSave.resolve({ ok: false, error: { message: "Save refused" } })),
+      );
       const byRole = await slot.findByRole("alert");
       expect(byRole.textContent).toContain("Save refused");
       await editDescription(slot.container, "Retained latest description");
@@ -163,11 +165,13 @@ describe("save-before-switch with remembered browse scope", () => {
       });
       assertOrigin("Retained latest description");
       expect(slot.inspection.navigateCalls).toEqual([]);
-      await act(async () =>
-        retrySave.resolve({
-          ok: true,
-          task: { ...task, description: "Retained latest description" },
-        }),
+      await act(() =>
+        Promise.try(() =>
+          retrySave.resolve({
+            ok: true,
+            task: { ...task, description: "Retained latest description" },
+          }),
+        ),
       );
       if (source !== "host") {
         expect(slot.inspection.navigateCalls).toEqual([

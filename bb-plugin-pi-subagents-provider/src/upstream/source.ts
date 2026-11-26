@@ -77,21 +77,34 @@ export async function inspectStableSource(
     const gitRoot = await git(root, ["rev-parse", "--show-toplevel"]);
     if (gitRoot.trim() !== root) throw new Error();
     const packageDir = join(root, packageName);
-    for (const file of prerequisites) {
-      const prerequisitePath = join(packageDir, file);
-      const prerequisiteStat = await lstat(prerequisitePath);
-      if (!prerequisiteStat.isFile() || (await realpath(prerequisitePath)) !== prerequisitePath)
-        throw new Error();
-      await git(root, ["cat-file", "-e", `HEAD:${packageName}/${file}`]);
-      const fileHash = await git(root, ["hash-object", "--no-filters", prerequisitePath]);
-      const actual = fileHash.trim();
-      const headHash = await git(root, ["rev-parse", `HEAD:${packageName}/${file}`]);
-      const committed = headHash.trim();
-      if (actual !== committed)
-        return {
-          ready: false,
-          reason: "Baseline or checker prerequisite bytes differ from committed source",
-        };
+    {
+      const stepItems = prerequisites;
+      const runStep = async (
+        file: typeof stepItems extends Iterable<infer Item> ? Item : never,
+      ) => {
+        const prerequisitePath = join(packageDir, file);
+        const prerequisiteStat = await lstat(prerequisitePath);
+        if (!prerequisiteStat.isFile() || (await realpath(prerequisitePath)) !== prerequisitePath)
+          throw new Error();
+        await git(root, ["cat-file", "-e", `HEAD:${packageName}/${file}`]);
+        const fileHash = await git(root, ["hash-object", "--no-filters", prerequisitePath]);
+        const actual = fileHash.trim();
+        const headHash = await git(root, ["rev-parse", `HEAD:${packageName}/${file}`]);
+        const committed = headHash.trim();
+        if (actual !== committed)
+          return {
+            kind: "return",
+            value: {
+              ready: false,
+              reason: "Baseline or checker prerequisite bytes differ from committed source",
+            },
+          } as const;
+      };
+      for await (const stepResult of (async function* () {
+        for (const stepInput of stepItems) yield runStep(stepInput);
+      })()) {
+        if (stepResult?.kind === "return") return stepResult.value;
+      }
     }
     const dirty = await git(root, [
       "status",

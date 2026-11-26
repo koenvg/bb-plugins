@@ -6,12 +6,7 @@ import { registerLifecycle, THREAD_STATUS_RECONCILE_INTERVAL_MS } from ".";
 
 type Thread = ReturnType<typeof makeThreadResponse>;
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((yes, no) => {
-    resolve = yes;
-    reject = no;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<T>();
   return { promise, resolve, reject };
 }
 function fixture(get: () => Promise<Thread>, liveStatus: "idle" | "working" | "failed" = "idle") {
@@ -42,19 +37,19 @@ const snapshot = (activeBackgroundAgentCount: number) =>
 
 describe("background-only lifecycle", () => {
   it("publishes only execution transitions for idle counts 0, 1, 2, 1, 0 without SDK refetches", async () => {
-    const f = fixture(async () => snapshot(0));
+    const f = fixture(() => Promise.try(() => snapshot(0)));
     try {
       await registerLifecycle(f.bb, f.store);
       const statuses: string[][] = [];
       const signalCounts: number[] = [];
-      for (const count of [0, 1, 2, 1, 0]) {
+      await Array.fromAsync([0, 1, 2, 1, 0], async (count) => {
         await f.harness.behavior.emitThreadEvent("experimental_thread.events", {
           thread: snapshot(count),
           sequence: 7,
         });
         statuses.push(await f.status());
         signalCounts.push(f.harness.realtimeSignals.length);
-      }
+      });
       expect(statuses).toEqual([["idle"], ["working"], ["working"], ["working"], ["idle"]]);
       expect(signalCounts).toEqual([0, 1, 1, 1, 2]);
       expect(f.harness.realtimeSignals).toEqual([
@@ -69,7 +64,7 @@ describe("background-only lifecycle", () => {
   });
 
   it("uses activity on idle events, recovers failures and keeps explicit completion sticky", async () => {
-    const f = fixture(async () => snapshot(0));
+    const f = fixture(() => Promise.try(() => snapshot(0)));
     try {
       await registerLifecycle(f.bb, f.store);
       await f.harness.behavior.emitThreadEvent("thread.idle", {
@@ -127,15 +122,19 @@ for (const phase of ["startup", "sweep"] as const) {
         const pending = deferred<Thread>();
         const started = deferred<undefined>();
         let reads = 0;
-        const f = fixture(async () => {
-          if (phase === "sweep" && ++reads === 1) {
-            return initial === "failed"
-              ? makeThreadResponse({ id: "thr_worker", status: "error" })
-              : snapshot(initial === "working" ? 1 : 0);
-          }
-          started.resolve(undefined);
-          return pending.promise;
-        }, initial);
+        const f = fixture(
+          () =>
+            Promise.try(() => {
+              if (phase === "sweep" && ++reads === 1) {
+                return initial === "failed"
+                  ? makeThreadResponse({ id: "thr_worker", status: "error" })
+                  : snapshot(initial === "working" ? 1 : 0);
+              }
+              started.resolve(undefined);
+              return pending.promise;
+            }),
+          initial,
+        );
         let service: ReturnType<typeof f.harness.runService> | undefined;
         try {
           const startup = registerLifecycle(f.bb, f.store);

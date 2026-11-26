@@ -29,23 +29,27 @@ async function setup(page: Page) {
     db.prepare(`UPDATE task_status_transitions SET changed_at = ?
       WHERE id = (SELECT MAX(id) FROM task_status_transitions WHERE task_id = ?)`).run(at, taskId);
   }
-  for (const [status, at] of [
-    ["in_progress", "2026-10-19T09:00:00.000Z"],
-    ["in_review", "2026-10-19T17:00:00.000Z"],
-    ["done", "2026-10-20T09:00:00.000Z"],
-    ["in_progress", "2026-10-20T11:00:00.000Z"],
-    ["in_review", "2026-10-21T10:00:00.000Z"],
-    ["done", "2026-10-21T17:00:00.000Z"],
-  ] as const)
-    await transition(first.id, status, at);
-  for (const [status, at] of [
-    ["in_progress", "2026-10-12T09:00:00.000Z"],
-    ["todo", "2026-10-13T15:00:00.000Z"],
-    ["in_progress", "2026-10-18T09:00:00.000Z"],
-    ["in_review", "2026-10-19T11:00:00.000Z"],
-    ["done", "2026-10-19T17:00:00.000Z"],
-  ] as const)
-    await transition(second.id, status, at);
+  await Array.fromAsync(
+    [
+      ["in_progress", "2026-10-19T09:00:00.000Z"],
+      ["in_review", "2026-10-19T17:00:00.000Z"],
+      ["done", "2026-10-20T09:00:00.000Z"],
+      ["in_progress", "2026-10-20T11:00:00.000Z"],
+      ["in_review", "2026-10-21T10:00:00.000Z"],
+      ["done", "2026-10-21T17:00:00.000Z"],
+    ] as const,
+    ([status, at]) => transition(first.id, status, at),
+  );
+  await Array.fromAsync(
+    [
+      ["in_progress", "2026-10-12T09:00:00.000Z"],
+      ["todo", "2026-10-13T15:00:00.000Z"],
+      ["in_progress", "2026-10-18T09:00:00.000Z"],
+      ["in_review", "2026-10-19T11:00:00.000Z"],
+      ["done", "2026-10-19T17:00:00.000Z"],
+    ] as const,
+    ([status, at]) => transition(second.id, status, at),
+  );
   const requests: { method: string; input: unknown }[] = [];
   let beforeUpdate: (() => Promise<boolean>) | undefined;
   let failLookup = false;
@@ -180,11 +184,12 @@ for (const width of [1200, 650, 390]) {
   }, testInfo) => {
     const f = await setup(page);
     let release!: (success: boolean) => void;
-    f.pauseUpdates(
-      () =>
-        new Promise<boolean>((resolve) => {
-          release = resolve;
-        }),
+    f.pauseUpdates(() =>
+      (() => {
+        const { promise, resolve } = Promise.withResolvers<boolean>();
+        release = resolve;
+        return promise;
+      })(),
     );
     try {
       await page.setViewportSize({ width, height: 900 });

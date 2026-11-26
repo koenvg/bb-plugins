@@ -345,11 +345,12 @@ it("clears retained attribution on thread changes and ignores a late reply from 
     let finishOld!: (events: ReturnType<typeof payload>) => void;
     h.list
       .mockResolvedValueOnce(payload("Thread A task"))
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            finishOld = resolve;
-          }),
+      .mockImplementationOnce(() =>
+        (() => {
+          const { promise, resolve } = Promise.withResolvers<unknown>();
+          finishOld = resolve;
+          return promise;
+        })(),
       )
       .mockResolvedValue(payload());
     const view = render(<SubagentsPanel {...panelContext} threadId="thread-a" params={{}} />);
@@ -387,9 +388,11 @@ it("clears retained attribution on thread changes and ignores a late reply from 
     expect(view.queryByText("Thread A task")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: /Builder.*Entry/ }));
     expect(view.getByText("Task attribution not captured.")).toBeDefined();
-    await act(async () => {
-      finishOld(payload("Late thread A task"));
-    });
+    await act(() =>
+      Promise.try(() => {
+        finishOld(payload("Late thread A task"));
+      }),
+    );
     expect(view.queryByText("Late thread A task")).toBeNull();
     expect(view.getByText("Task attribution not captured.")).toBeDefined();
     await act(async () => {

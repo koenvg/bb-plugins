@@ -220,7 +220,16 @@ describe("task detail property keys", () => {
   it("does not open the preset menu later when d was pressed during a dispatch", async () => {
     let finish: (value: unknown) => void = () => {};
     const slot = render("TSK-1", {
-      delegate: () => new Promise((resolve) => (finish = resolve)),
+      delegate: () =>
+        (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+          try {
+            finish = resolve;
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })(),
     });
     await ready(slot, "1 / 3");
     const [dispatchButton] = await slot.findAllByRole("button", {
@@ -278,22 +287,21 @@ describe("Markdown dialog in the full Tasks app", () => {
         isImage: false,
         createdAt: "2026-07-20T00:00:00.000Z",
       };
-      const fetch = vi.fn(async () =>
-        Response.json({
-          attachmentId: attachment.id,
-          fileName: attachment.fileName,
-          byteSize: 14,
-          text: "# Investigation".slice(0, 14),
-        }),
+      const fetch = vi.fn(() =>
+        Promise.try(() =>
+          Response.json({
+            attachmentId: attachment.id,
+            fileName: attachment.fileName,
+            byteSize: 14,
+            text: "# Investigation".slice(0, 14),
+          }),
+        ),
       );
       vi.stubGlobal("fetch", fetch);
       const calls: string[] = [];
       const updates: Record<string, unknown>[] = [];
       let saved = { ...(TASKS[0] ?? missingValue("Expected TASKS[0]")) };
-      let finishSave!: () => void;
-      const saveGate = new Promise<void>((resolve) => {
-        finishSave = resolve;
-      });
+      const { promise: saveGate, resolve: finishSave } = Promise.withResolvers<void>();
       const slot = render("TSK-1", {
         attachments: [attachment],
         calls,
@@ -314,10 +322,12 @@ describe("Markdown dialog in the full Tasks app", () => {
       const priority = slot.getAllByRole("button", { name: "No priority" });
       title.textContent = "Edited investigation title";
       fireEvent.input(title);
-      await act(async () => {
-        description.innerHTML = "<p>Unfinished task draft</p>";
-        fireEvent.input(description);
-      });
+      await act(() =>
+        Promise.try(() => {
+          description.innerHTML = "<p>Unfinished task draft</p>";
+          fireEvent.input(description);
+        }),
+      );
       await waitFor(() => {
         expect(updates).toEqual(
           expect.arrayContaining([
@@ -358,7 +368,7 @@ describe("Markdown dialog in the full Tasks app", () => {
         expect(slot.getByText("1 / 3").textContent).toBe("1 / 3");
       };
       const trigger = await slot.findByRole("button", { name: "investigation.MD" });
-      for (const dismissal of ["Close", "Escape"]) {
+      await Array.fromAsync(["Close", "Escape"], async (dismissal) => {
         trigger.focus();
         fireEvent.click(trigger);
         const dialog = await slot.findByRole("dialog", { name: "investigation.MD" });
@@ -375,14 +385,16 @@ describe("Markdown dialog in the full Tasks app", () => {
         await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
         await waitFor(() => expect(document.activeElement).toBe(trigger));
         expectTaskUnchanged();
-      }
-      expect(fetch.mock.calls.length).toBe(2);
-      await act(async () => finishSave());
-      expectTaskUnchanged();
-      await act(async () => {
-        description.innerHTML = "<p>Continued task draft</p>";
-        fireEvent.input(description);
       });
+      expect(fetch.mock.calls.length).toBe(2);
+      await act(() => Promise.try(() => finishSave()));
+      expectTaskUnchanged();
+      await act(() =>
+        Promise.try(() => {
+          description.innerHTML = "<p>Continued task draft</p>";
+          fireEvent.input(description);
+        }),
+      );
       await waitFor(() =>
         expect(updates).toContainEqual({
           taskId: (TASKS[0] ?? missingValue("Expected TASKS[0]")).id,
@@ -413,18 +425,22 @@ describe("Markdown dialog in the full Tasks app", () => {
         "fetch",
         vi.fn((_url, options) => {
           signal = options.signal;
-          return new Promise<Response>((resolve) => {
+          {
+            const { promise, resolve } = Promise.withResolvers<Response>();
             finishPreview = resolve;
-          });
+            return promise;
+          }
         }),
       );
       const slot = render("TSK-1", {
         attachments,
         remove: (input) => {
           removals.push(input);
-          return new Promise((resolve) => {
+          {
+            const { promise, resolve } = Promise.withResolvers<unknown>();
             finishRemoval = resolve;
-          });
+            return promise;
+          }
         },
       });
       await ready(slot, "1 / 3");
@@ -442,14 +458,16 @@ describe("Markdown dialog in the full Tasks app", () => {
       const byRole = await slot.findByRole("dialog", { name: "pending.md" });
       expect(byRole.textContent).toContain("Loading Markdown preview…");
       expect(signal.aborted).toBe(false);
-      await act(async () => {
-        if (success) attachments.splice(0);
-        finishRemoval(
-          success
-            ? { ok: true, deleted: true }
-            : { ok: false, error: { code: "internal", message: "Disk is read-only" } },
-        );
-      });
+      await act(() =>
+        Promise.try(() => {
+          if (success) attachments.splice(0);
+          finishRemoval(
+            success
+              ? { ok: true, deleted: true }
+              : { ok: false, error: { code: "internal", message: "Disk is read-only" } },
+          );
+        }),
+      );
       if (success) {
         await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
         expect(signal.aborted).toBe(true);
@@ -465,14 +483,16 @@ describe("Markdown dialog in the full Tasks app", () => {
         );
         expect(signal.aborted).toBe(false);
       }
-      await act(async () =>
-        finishPreview(
-          Response.json({
-            attachmentId: attachment.id,
-            fileName: "pending.md",
-            byteSize: 14,
-            text: "# Still usable",
-          }),
+      await act(() =>
+        Promise.try(() =>
+          finishPreview(
+            Response.json({
+              attachmentId: attachment.id,
+              fileName: "pending.md",
+              byteSize: 14,
+              text: "# Still usable",
+            }),
+          ),
         ),
       );
       if (success) {

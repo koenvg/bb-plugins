@@ -28,17 +28,19 @@ function setup(options?: Parameters<typeof registerAttachments>[2]) {
   return { bb, harness, store, task, root: dirname(database.file) };
 }
 
-async function upload(
+function upload(
   harness: ReturnType<typeof setup>["harness"],
   taskId: string,
   body: BodyInit,
   fileName = "image.png",
   mime = "image/png",
 ) {
-  const query = new URLSearchParams({ taskId, fileName, mime });
-  return harness.fetchHttp("POST", `/attachments/upload?${query}`, {
-    body,
-    headers: { "content-type": mime },
+  return Promise.try(() => {
+    const query = new URLSearchParams({ taskId, fileName, mime });
+    return harness.fetchHttp("POST", `/attachments/upload?${query}`, {
+      body,
+      headers: { "content-type": mime },
+    });
   });
 }
 
@@ -344,9 +346,10 @@ describe("task attachments", () => {
 
   it("keeps the row and blob reachable and publishes nothing when cleanup fails", async () => {
     const { harness, root, store, task } = setup({
-      removeBlobs: async () => {
-        throw new Error("simulated rm failure");
-      },
+      removeBlobs: () =>
+        Promise.try(() => {
+          throw new Error("simulated rm failure");
+        }),
     });
     try {
       const uploaded = await upload(harness, task.id, "image");

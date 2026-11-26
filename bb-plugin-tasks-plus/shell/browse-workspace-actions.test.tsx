@@ -258,8 +258,10 @@ describe("embedded detail actions and links", () => {
     );
     await select(slot, 2);
     await edit(slot, "Keep B");
-    await act(async () =>
-      uploaded.resolve(new Response(JSON.stringify({ error: "Offline" }), { status: 500 })),
+    await act(() =>
+      Promise.try(() =>
+        uploaded.resolve(new Response(JSON.stringify({ error: "Offline" }), { status: 500 })),
+      ),
     );
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Keep B");
     expect(

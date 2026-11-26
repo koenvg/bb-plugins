@@ -80,7 +80,7 @@ describe("initial label-filtered browse selection", () => {
       await act(async () => {});
       expect(slot.inspection.navigateCalls).toEqual([]);
       expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
-      await act(async () => projects.resolve({ projects: [project] }));
+      await act(() => Promise.try(() => projects.resolve({ projects: [project] })));
       await waitFor(() =>
         expect(
           slot.inspection.rpcCalls.some(
@@ -89,7 +89,7 @@ describe("initial label-filtered browse selection", () => {
         ).toBe(true),
       );
       expect(slot.inspection.navigateCalls).toEqual([]);
-      await act(async () => labels.resolve({ labels: [label] }));
+      await act(() => Promise.try(() => labels.resolve({ labels: [label] })));
       await waitFor(() =>
         expect(
           slot.inspection.rpcCalls.some(
@@ -101,7 +101,7 @@ describe("initial label-filtered browse selection", () => {
       );
       expect(slot.inspection.navigateCalls).toEqual([]);
       expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
-      await act(async () => matches.resolve({ tasks: [selected], nextCursor: null }));
+      await act(() => Promise.try(() => matches.resolve({ tasks: [selected], nextCursor: null })));
       const byRole = await slot.findByRole("textbox", { name: "Task title" });
       expect(byRole.textContent).toBe(selected.title);
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");

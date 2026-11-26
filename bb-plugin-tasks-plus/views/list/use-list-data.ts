@@ -120,6 +120,7 @@ export function useListData({
       }
       void confirmBlockedWork(task).then((confirmed) => {
         if (confirmed) onRequestContextChange(() => edits.edit(task, patch));
+        return;
       });
     },
     [onRequestContextChange, edits.edit, confirmBlockedWork],

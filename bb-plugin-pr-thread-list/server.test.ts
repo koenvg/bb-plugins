@@ -4,29 +4,47 @@ import plugin from "./server";
 
 type Metadata = Record<string, Record<string, unknown>>;
 
-async function setup(metadata: Metadata, options: { listThreads?: () => Promise<unknown> } = {}) {
-  const { bb, harness } = createFakePluginHost({
-    pluginId: "pr-thread-list",
-    sdk: {
-      plugins: {
-        list: async () => ({
-          plugins: [{ id: "github-insight", enabled: true, status: "running" }],
-        }),
-      },
-      threads: {
-        list:
-          options.listThreads ??
-          (async () => Object.keys(metadata).map((id) => ({ id, archivedAt: null }))),
-        getPluginMetadata: async ({ threadId }: { threadId: string }) => metadata[threadId] ?? {},
-      },
-    } as never,
+function setup(metadata: Metadata, options: { listThreads?: () => Promise<unknown> } = {}) {
+  return Promise.try(() => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "pr-thread-list",
+      sdk: {
+        plugins: {
+          list: () =>
+            Promise.resolve({
+              plugins: [{ id: "github-insight", enabled: true, status: "running" }],
+            }),
+        },
+        threads: {
+          list:
+            options.listThreads ??
+            (() =>
+              Promise.try(() => Object.keys(metadata).map((id) => ({ id, archivedAt: null })))),
+          getPluginMetadata: (input: { threadId: string }) =>
+            Promise.try(({ threadId }: { threadId: string }) => metadata[threadId] ?? {}, input),
+        },
+      } as never,
+    });
+    plugin(bb);
+    return harness;
   });
-  plugin(bb);
-  return harness;
 }
 
 async function settle() {
-  for (let round = 0; round < 5; round++) await new Promise((resolve) => setImmediate(resolve));
+  await Array.fromAsync(
+    Array.from({ length: 5 }, (_, index) => index),
+    async () => {
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+        try {
+          setImmediate(resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
+    },
+  );
 }
 
 async function advance(ms: number) {
@@ -91,11 +109,14 @@ describe("summary-watch", () => {
       pluginId: "pr-thread-list",
       sdk: {
         plugins: {
-          list: async () => ({ plugins: [{ id: "github-insight", enabled, status: "running" }] }),
+          list: () =>
+            Promise.try(() => ({
+              plugins: [{ id: "github-insight", enabled, status: "running" }],
+            })),
         },
         threads: {
-          list: async () => [{ id: "thr_1", archivedAt: null }],
-          getPluginMetadata: async () => ({}),
+          list: () => Promise.resolve([{ id: "thr_1", archivedAt: null }]),
+          getPluginMetadata: () => Promise.resolve({}),
         },
       } as never,
     });
@@ -114,10 +135,11 @@ describe("summary-watch", () => {
     let fail = false;
     const metadata: Metadata = { thr_1: { prSummary: { version: 1, n: 1 } } };
     const harness = await setup(metadata, {
-      listThreads: async () => {
-        if (fail) throw new Error("server busy");
-        return [{ id: "thr_1", archivedAt: null }];
-      },
+      listThreads: () =>
+        Promise.try(() => {
+          if (fail) throw new Error("server busy");
+          return [{ id: "thr_1", archivedAt: null }];
+        }),
     });
     const run = harness.behavior.runService("summary-watch");
     await settle();
@@ -144,7 +166,10 @@ describe("summary-watch", () => {
   });
 
   it("stops when aborted while a read never answers", async () => {
-    const harness = await setup({}, { listThreads: () => new Promise(() => {}) });
+    const harness = await setup(
+      {},
+      { listThreads: () => Promise.withResolvers<unknown>().promise },
+    );
     const run = harness.behavior.runService("summary-watch");
     await settle();
     let stopped = false;

@@ -121,15 +121,21 @@ export async function checkUpstream(
       const controller = new AbortController();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        const timeout = new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => {
-              controller.abort();
-              reject(new Error("Upstream request timed out"));
-            },
-            Math.min(remaining, bound.requestMs),
-          );
-        });
+        const timeout = (() => {
+          const { promise, reject } = Promise.withResolvers<never>();
+          try {
+            timer = setTimeout(
+              () => {
+                controller.abort();
+                reject(new Error("Upstream request timed out"));
+              },
+              Math.min(remaining, bound.requestMs),
+            );
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
         const response = await Promise.race([options.transport(path, controller.signal), timeout]);
         if (options.now() - start >= bound.durationMs)
           throw new Error("Comparison time bound exhausted");
@@ -154,100 +160,120 @@ export async function checkUpstream(
     stage = "comparison";
     const commits: string[] = [];
     let total: number | undefined;
-    for (let page = 1; ; page++) {
-      if (page > bound.pages) throw new Error("Comparison page bound exhausted");
-      const response = await get(
-        `${prefix}/compare/${baseline}...${head}?per_page=100&page=${page}`,
-      );
-      const d = response.data;
-      if (
-        sha(object(d.base_commit).sha) !== baseline ||
-        sha(object(d.merge_base_commit).sha) !== baseline ||
-        (d.status !== "ahead" && d.status !== "identical")
-      )
-        throw new Error("Baseline is not an ancestor of upstream head");
-      if (
-        typeof d.total_commits !== "number" ||
-        !Number.isSafeInteger(d.total_commits) ||
-        d.total_commits < 0 ||
-        d.total_commits > bound.commits ||
-        d.ahead_by !== d.total_commits ||
-        (total !== undefined && d.total_commits !== total) ||
-        (d.status === "identical") !== (baseline === head) ||
-        (d.status === "identical") !== (d.total_commits === 0) ||
-        !Array.isArray(d.commits) ||
-        d.commits.length > 100
-      ) {
-        throw new Error("Incomplete comparison commit data");
-      }
-      total = d.total_commits;
-      for (const commit of d.commits) {
-        const id = sha(object(commit).sha);
-        if (id === baseline || commits.includes(id))
-          throw new Error("Duplicate or invalid comparison commit");
-        commits.push(id);
-      }
-      if (
-        commits.length > total ||
-        (response.next && (d.commits.length !== 100 || commits.length >= total))
-      )
-        throw new Error("Incomplete comparison pagination");
-      if (!response.next) {
-        if (commits.length !== total || (total > 0 && commits.at(-1) !== head))
+    {
+      const runStep = async (page: number) => {
+        if (page > bound.pages) throw new Error("Comparison page bound exhausted");
+        const response = await get(
+          `${prefix}/compare/${baseline}...${head}?per_page=100&page=${page}`,
+        );
+        const d = response.data;
+        if (
+          sha(object(d.base_commit).sha) !== baseline ||
+          sha(object(d.merge_base_commit).sha) !== baseline ||
+          (d.status !== "ahead" && d.status !== "identical")
+        )
+          throw new Error("Baseline is not an ancestor of upstream head");
+        if (
+          typeof d.total_commits !== "number" ||
+          !Number.isSafeInteger(d.total_commits) ||
+          d.total_commits < 0 ||
+          d.total_commits > bound.commits ||
+          d.ahead_by !== d.total_commits ||
+          (total !== undefined && d.total_commits !== total) ||
+          (d.status === "identical") !== (baseline === head) ||
+          (d.status === "identical") !== (d.total_commits === 0) ||
+          !Array.isArray(d.commits) ||
+          d.commits.length > 100
+        ) {
+          throw new Error("Incomplete comparison commit data");
+        }
+        total = d.total_commits;
+        for (const commit of d.commits) {
+          const id = sha(object(commit).sha);
+          if (id === baseline || commits.includes(id))
+            throw new Error("Duplicate or invalid comparison commit");
+          commits.push(id);
+        }
+        if (
+          commits.length > total ||
+          (response.next && (d.commits.length !== 100 || commits.length >= total))
+        )
           throw new Error("Incomplete comparison pagination");
-        break;
+        if (!response.next) {
+          if (commits.length !== total || (total > 0 && commits.at(-1) !== head))
+            throw new Error("Incomplete comparison pagination");
+          return { kind: "break" } as const;
+        }
+      };
+      for await (const stepResult of (async function* () {
+        for (let page = 1; ; page++) yield runStep(page);
+      })()) {
+        if (stepResult?.kind === "break") break;
       }
     }
     const watched = [b.sourcePath, ...b.watchedContractPaths];
     const relevant = (p: string) => watched.some((w) => p === w || p.startsWith(`${w}/`));
     const verifyFiles = treeCoverage(prefix, get);
     const changes: { commit: string; paths: string[] }[] = [];
-    for (const commit of commits) {
+    await Array.fromAsync(commits, async (commit) => {
       stage = "commit-files";
       const files = new Set<string>();
       const changedFiles = new Set<string>();
       let metadata: Record<string, unknown> = {};
       const paths = new Set<string>();
-      for (let page = 1; ; page++) {
-        if (page > bound.pages) throw new Error("Commit file page bound exhausted");
-        const response = await get(`${prefix}/commits/${commit}?per_page=100&page=${page}`);
-        const d = response.data;
-        if (page === 1) metadata = d;
-        if (sha(d.sha) !== commit || !Array.isArray(d.files) || d.files.length > 100)
-          throw new Error("Incomplete commit file data");
-        for (const item of d.files) {
-          const f = object(item);
-          const name = repoPath(f.filename);
-          if (
-            files.has(name) ||
-            typeof f.status !== "string" ||
-            !["added", "removed", "modified", "renamed", "copied", "changed", "unchanged"].includes(
-              f.status,
-            )
-          )
+      {
+        const runStep = async (page: number) => {
+          if (page > bound.pages) throw new Error("Commit file page bound exhausted");
+          const response = await get(`${prefix}/commits/${commit}?per_page=100&page=${page}`);
+          const d = response.data;
+          if (page === 1) metadata = d;
+          if (sha(d.sha) !== commit || !Array.isArray(d.files) || d.files.length > 100)
             throw new Error("Incomplete commit file data");
-          files.add(name);
-          changedFiles.add(name);
-          if (relevant(name)) paths.add(name);
-          if (f.status === "renamed" || f.status === "copied") {
-            const previous = repoPath(f.previous_filename);
-            if (f.status === "renamed") changedFiles.add(previous);
-            if (relevant(previous)) paths.add(previous);
+          for (const item of d.files) {
+            const f = object(item);
+            const name = repoPath(f.filename);
+            if (
+              files.has(name) ||
+              typeof f.status !== "string" ||
+              ![
+                "added",
+                "removed",
+                "modified",
+                "renamed",
+                "copied",
+                "changed",
+                "unchanged",
+              ].includes(f.status)
+            )
+              throw new Error("Incomplete commit file data");
+            files.add(name);
+            changedFiles.add(name);
+            if (relevant(name)) paths.add(name);
+            if (f.status === "renamed" || f.status === "copied") {
+              const previous = repoPath(f.previous_filename);
+              if (f.status === "renamed") changedFiles.add(previous);
+              if (relevant(previous)) paths.add(previous);
+            }
           }
+          // GitHub caps commit files at 3000. Complete trees below independently verify coverage.
+          if (
+            files.size >= bound.filesPerCommit ||
+            (response.next && d.files.length !== 100) ||
+            (page > 1 && d.files.length === 0)
+          )
+            throw new Error("Incomplete or bounded commit file coverage");
+          if (!response.next) return { kind: "break" } as const;
+        };
+        for await (const stepResult of (async function* () {
+          for (let page = 1; ; page++) yield runStep(page);
+        })()) {
+          if (stepResult?.kind === "break") break;
         }
-        // GitHub caps commit files at 3000. Complete trees below independently verify coverage.
-        if (
-          files.size >= bound.filesPerCommit ||
-          (response.next && d.files.length !== 100) ||
-          (page > 1 && d.files.length === 0)
-        )
-          throw new Error("Incomplete or bounded commit file coverage");
-        if (!response.next) break;
       }
       stage = "tree-coverage";
       await verifyFiles(metadata, changedFiles);
       if (paths.size) changes.push({ commit, paths: [...paths].sort() });
-    }
+    });
     return {
       status: changes.length ? "review-required" : "no-relevant-change",
       baseline,

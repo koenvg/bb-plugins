@@ -71,10 +71,10 @@ try {
       ledger.database = backend.databasePath;
       await saveLedger();
       // Confirm every fixture read through the schema-validating SDK boundary.
-      for (const task of backend.fixture.tasks) {
+      await Array.fromAsync(backend.fixture.tasks, async (task) => {
         const { task: current } = await backend.call("getTaskByKey", { taskKey: task.key });
         task.revision = current.updatedAt;
-      }
+      });
       backend.calls.length = 0;
       await write("fixture.json", backend.fixture);
       const browserBuild = await build({
@@ -242,10 +242,16 @@ try {
             .end(JSON.stringify({ ok: false, error: error.message }));
         }
       });
-      await new Promise((resolve, reject) => {
-        server.once("error", reject);
-        server.listen(0, "127.0.0.1", resolve);
-      });
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers();
+        try {
+          server.once("error", reject);
+          server.listen(0, "127.0.0.1", resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       const endpoint = `http://127.0.0.1:${server.address().port}`;
       ledger.server = { pid: process.pid, endpoint, host: new URL(endpoint).host };
       await saveLedger();
@@ -263,14 +269,16 @@ try {
         timezoneId: "UTC",
         serviceWorkers: "block",
       });
-      await context.route("**/*", async (route) => {
-        const url = new URL(route.request().url());
-        if (url.origin !== endpoint) {
-          blocked.push(url.href);
-          return route.abort("blockedbyclient");
-        }
-        return route.continue();
-      });
+      await context.route("**/*", (route) =>
+        Promise.try(() => {
+          const url = new URL(route.request().url());
+          if (url.origin !== endpoint) {
+            blocked.push(url.href);
+            return route.abort("blockedbyclient");
+          }
+          return route.continue();
+        }),
+      );
       resources.page = page = await context.newPage();
       page.on("pageerror", (error) => consoleErrors.push(error.message));
       page.on("request", (request) =>
@@ -351,9 +359,16 @@ try {
           await page.waitForFunction(
             () => window.lab.read().rendered && window.lab.read().detailKey === "BENCH-80",
           );
-          await page.evaluate(
-            () =>
-              new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+          await page.evaluate(() =>
+            (() => {
+              const { promise, resolve, reject } = Promise.withResolvers();
+              try {
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            })(),
           );
           const coldAfter = await page.evaluate(
             (before) => ({
@@ -394,9 +409,16 @@ try {
           await page.waitForFunction(
             () => window.lab.read().rendered && window.lab.read().detailKey === "BENCH-99",
           );
-          await page.evaluate(
-            () =>
-              new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+          await page.evaluate(() =>
+            (() => {
+              const { promise, resolve, reject } = Promise.withResolvers();
+              try {
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            })(),
           );
           await write(
             "cold-retry.json",

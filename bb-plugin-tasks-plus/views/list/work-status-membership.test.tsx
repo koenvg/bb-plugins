@@ -30,12 +30,7 @@ const result = (ids: string[], execution: "idle" | "working" | "failed" = "worki
 });
 type Result = ReturnType<typeof result>;
 function deferred() {
-  let resolve!: (value: Result) => void;
-  let reject!: (reason: Error) => void;
-  const promise = new Promise<Result>((pass, fail) => {
-    resolve = pass;
-    reject = fail;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<Result>();
   return { promise, resolve, reject };
 }
 function fixture(
@@ -107,7 +102,9 @@ it("retains survivors immediately on shrink, reads only additions, and refetches
   expect(f.calls).toEqual([{ taskIds: [A, B] }, { taskIds: [C] }]);
   expect(f.latest.data?.get(B)).toBe(survivor);
   expect(f.latest.isLoading).toBe(true);
-  await act(async () => (pending ?? missingValue("Expected pending")).resolve(result([C], "idle")));
+  await act(() =>
+    Promise.try(() => (pending ?? missingValue("Expected pending")).resolve(result([C], "idle"))),
+  );
   expect(f.latest.data?.get(C)?.threads[0]?.execution).toBe("idle");
   f.rerender([B]);
   pending = undefined;
@@ -153,7 +150,9 @@ it.each(["missing", "full"])(
     }
     f.rerender([A]);
     expect(f.latest.data?.get(A)?.threads[0]?.execution).toBe("working");
-    await act(async () => pending.resolve(result(mode === "missing" ? [B] : [A, B], "failed")));
+    await act(() =>
+      Promise.try(() => pending.resolve(result(mode === "missing" ? [B] : [A, B], "failed"))),
+    );
     expect(f.calls).toEqual([
       { taskIds: mode === "missing" ? [A] : [A, B] },
       { taskIds: mode === "missing" ? [B] : [A, B] },
@@ -161,7 +160,7 @@ it.each(["missing", "full"])(
     ]);
     expect(f.latest.isLoading).toBe(true);
     expect(f.latest.data?.get(A)?.threads[0]?.execution).toBe("working");
-    await act(async () => trailing.resolve(result([A], "idle")));
+    await act(() => Promise.try(() => trailing.resolve(result([A], "idle"))));
     expect(f.latest.isLoading).toBe(false);
     expect(f.latest.data?.get(A)?.threads[0]?.execution).toBe("idle");
     expect(f.calls).toHaveLength(3);
@@ -184,7 +183,7 @@ it("rejects obsolete shared-generation responses before React processes the new 
   expect(
     f.history.some((snapshot) => snapshot.data?.get(A)?.threads[0]?.execution === "failed"),
   ).toBe(false);
-  await act(async () => trailing.resolve(result([A], "idle")));
+  await act(() => Promise.try(() => trailing.resolve(result([A], "idle"))));
   expect(f.latest.data?.get(A)?.threads[0]?.execution).toBe("idle");
   expect(f.latest.isLoading).toBe(false);
   expect(f.calls).toHaveLength(2);
@@ -261,7 +260,7 @@ it("ages rich PR claims during membership churn while a full refresh remains pen
   expect(f.latest.data?.get(A)).toBe(beforeExpiry);
   await act(() => vi.advanceTimersByTimeAsync(60_000));
   expect(f.latest.data?.get(A)?.pullRequests.items[0]?.details).toBe("stale");
-  await act(async () => pending.reject(new Error("offline")));
+  await act(() => Promise.try(() => pending.reject(new Error("offline"))));
   expect(f.latest.data?.get(A)?.pullRequests.items[0]).toMatchObject({
     state: "unknown",
     details: "stale",

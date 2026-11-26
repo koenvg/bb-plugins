@@ -139,7 +139,7 @@ for (const scenario of [
     await page.screenshot({ path: testInfo.outputPath("overlay-top.png"), fullPage: false });
 
     const themes: Record<string, ReturnType<typeof reportMeasures>> = {};
-    for (const theme of ["light", "dark", "custom"]) {
+    await Array.fromAsync(["light", "dark", "custom"], async (theme) => {
       await page.evaluate((value) => {
         document.documentElement.dataset.theme = value;
       }, theme);
@@ -167,7 +167,7 @@ for (const scenario of [
           ),
         ),
       ).toEqual([true, true]);
-    }
+    });
     expect(
       (themes.light ?? missingValue("Expected themes.light")).bodyContrast.foreground,
     ).not.toEqual((themes.dark ?? missingValue("Expected themes.dark")).bodyContrast.foreground);
@@ -178,7 +178,7 @@ for (const scenario of [
     await dialog.getByRole("button", { name: "Raw", exact: true }).click();
     const raw = dialog.getByLabel("Raw Markdown");
     const originalRaw = await raw.elementHandle();
-    for (const theme of ["dark", "light", "custom", scenario.theme]) {
+    await Array.fromAsync(["dark", "light", "custom", scenario.theme], async (theme) => {
       await page.evaluate((value) => {
         document.documentElement.dataset.theme = value;
       }, theme);
@@ -192,7 +192,7 @@ for (const scenario of [
         "true",
       );
       expect(await page.locator("html").getAttribute("data-reads")).toBe("1");
-    }
+    });
     await dialog.getByRole("button", { name: "Preview", exact: true }).click();
     expect(await prose.textContent()).toBe(text);
     await page.keyboard.press("Tab");
@@ -208,12 +208,15 @@ for (const scenario of [
     await page.keyboard.press("ArrowRight");
     await expect.poll(() => code.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
     await page.screenshot({ path: testInfo.outputPath("overlay-code-focus.png"), fullPage: false });
-    for (let i = 0; i < 12; i++) {
-      await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(
-        true,
-      );
-    }
+    await Array.fromAsync(
+      Array.from({ length: 12 }, (_, index) => index),
+      async () => {
+        await page.keyboard.press("Tab");
+        expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(
+          true,
+        );
+      },
+    );
     await page.keyboard.press("s");
     await page.keyboard.press("]");
     await writeFile(

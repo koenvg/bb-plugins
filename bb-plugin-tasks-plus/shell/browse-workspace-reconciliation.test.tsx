@@ -120,12 +120,14 @@ describe("ongoing browse selection", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(slot.inspection.navigateCalls).toEqual([]);
-    await act(async () => refresh.resolve({ tasks: [...tasks].reverse(), nextCursor: null }));
+    await act(() =>
+      Promise.try(() => refresh.resolve({ tasks: [...tasks].reverse(), nextCursor: null })),
+    );
     expect(title(slot).textContent).toBe("Title 1");
     const failed = deferred<unknown>();
     response = failed.promise;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    await act(async () => failed.resolve(Promise.reject(new Error("Offline"))));
+    await act(() => Promise.try(() => failed.resolve(Promise.reject(new Error("Offline")))));
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     response = { tasks: tasks.slice(1), nextCursor: null };
@@ -301,9 +303,9 @@ describe("ongoing browse selection", () => {
     const refresh = deferred<unknown>();
     response = refresh.promise;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     expect(slot.inspection.navigateCalls).toEqual([]);
-    await act(async () => refresh.resolve({ task: tasks[0] }));
+    await act(() => Promise.try(() => refresh.resolve({ task: tasks[0] })));
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
   });
   it("does not commit a queued removal if a newer settled refresh restores the row", async () => {
@@ -322,7 +324,7 @@ describe("ongoing browse selection", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     removed = false;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
   });

@@ -112,9 +112,11 @@ for (const scope of scopes) {
   it(`waits for loaded ${scope.name} before restoring header-only scroll`, async () => {
     writeListScroll(scopeKey, 70);
     let resolve!: (value: unknown) => void;
-    const response = new Promise((done) => {
+    const response = (() => {
+      const { promise, resolve: done } = Promise.withResolvers<unknown>();
       resolve = done;
-    });
+      return promise;
+    })();
     const report = vi.fn<(order: VisibleTaskOrder) => void>();
     const slot = renderSlot(
       { component: List },
@@ -131,7 +133,7 @@ for (const scope of scopes) {
       fireEvent.scroll(scroll);
     });
     expect(readListScroll(scopeKey)).toBe(70);
-    await act(async () => resolve({ tasks: records, nextCursor: null }));
+    await act(() => Promise.try(() => resolve({ tasks: records, nextCursor: null })));
     await slot.findByRole("button", { name: "Backlog" });
     await waitFor(() => expect(scroll.scrollTop).toBe(70));
     expect(report.mock.calls.at(-1)?.[0]).toEqual({ keys: [], settled: true });
@@ -199,7 +201,7 @@ it("restores each scope against its own saved layout during mounted transitions 
   );
   await waitFor(() => expect(scrollContainer(slot).scrollTop).toBe(150));
   act(() => fireEvent.scroll(scrollContainer(slot)));
-  for (const [index, scope] of scopes.entries()) {
+  await Array.fromAsync(scopes.entries(), async ([index, scope]) => {
     slot.lifecycle.rerender(
       <List
         projectId={scope.projectId}
@@ -226,7 +228,7 @@ it("restores each scope against its own saved layout during mounted transitions 
     expect(slot.container.querySelectorAll("[data-task-key]")).toHaveLength(
       [0, 5, 6, 0][index] ?? missingValue("Expected [0, 5, 6, 0][index]"),
     );
-  }
+  });
   slot.lifecycle.rerender(<List projectId={null} onVisibleOrderChange={report} />);
   await waitFor(() => expect(scrollContainer(slot).scrollTop).toBe(150));
   expect(readListScroll(scrollKey(scopes[1] ?? missingValue("Expected scopes[1]")))).toBe(300);

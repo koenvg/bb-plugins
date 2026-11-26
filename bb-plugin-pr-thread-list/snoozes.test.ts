@@ -39,25 +39,30 @@ function setup(
     pluginId: "pr-thread-list",
     sdk: {
       threads: {
-        list: async ({
-          archived,
-          offset = 0,
-          limit = 100,
-        }: {
-          archived: boolean;
-          offset?: number;
-          limit?: number;
-        }) =>
-          rows
-            .filter((row) => (row.archivedAt !== null) === archived)
-            .slice(offset, offset + limit),
-        get: async ({ threadId }: { threadId: string }) => {
-          const found = rows.find(({ id }) => id === threadId);
-          if (!found) throw new Error("not found");
-          return makeThreadResponse({ id: threadId, archivedAt: found.archivedAt });
-        },
-        markRead: async () => ({}),
-        markUnread: options.markUnread ?? (async () => ({})),
+        list: (input: { archived: boolean; offset?: number; limit?: number }) =>
+          Promise.try(
+            ({
+              archived,
+              offset = 0,
+              limit = 100,
+            }: {
+              archived: boolean;
+              offset?: number;
+              limit?: number;
+            }) =>
+              rows
+                .filter((row) => (row.archivedAt !== null) === archived)
+                .slice(offset, offset + limit),
+            input,
+          ),
+        get: (input: { threadId: string }) =>
+          Promise.try(({ threadId }: { threadId: string }) => {
+            const found = rows.find(({ id }) => id === threadId);
+            if (!found) throw new Error("not found");
+            return makeThreadResponse({ id: threadId, archivedAt: found.archivedAt });
+          }, input),
+        markRead: () => Promise.resolve({}),
+        markUnread: options.markUnread ?? (() => Promise.resolve({})),
       },
     } as never,
   });
@@ -111,9 +116,11 @@ describe("snoozes", () => {
 
   it("does not store the snooze when the thread cannot be marked read", async () => {
     const harness = setup();
-    harness.sdk.stub("threads.markRead", async () => {
-      throw new Error("not found");
-    });
+    harness.sdk.stub("threads.markRead", () =>
+      Promise.try(() => {
+        throw new Error("not found");
+      }),
+    );
 
     await expect(
       harness.callRpc("snooze", { threadId: "thr_1", wakeAt: NOW + HOUR }),
@@ -179,9 +186,15 @@ describe("snoozes", () => {
     let finishMarkUnread: () => void = () => {};
     const harness = setup({
       markUnread: () =>
-        new Promise<unknown>((resolve) => {
-          finishMarkUnread = () => resolve({});
-        }),
+        (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+          try {
+            finishMarkUnread = () => resolve({});
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })(),
     });
     await harness.callRpc("snooze", { threadId: "thr_1", wakeAt: NOW + HOUR });
     vi.setSystemTime(NOW + HOUR);
@@ -193,8 +206,17 @@ describe("snoozes", () => {
       .callRpc("snooze", { threadId: "thr_1", wakeAt: NOW + 5 * HOUR })
       .then(() => {
         replaced = true;
+        return;
       });
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        setImmediate(resolve);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     const replacedBeforeUnread = replaced;
     finishMarkUnread();
     await Promise.all([sweep, replacement]);
@@ -206,9 +228,10 @@ describe("snoozes", () => {
 
   it("ends the snooze of a deleted thread in a sweep", async () => {
     const harness = setup({
-      markUnread: async () => {
-        throw new Error("thread not found");
-      },
+      markUnread: () =>
+        Promise.try(() => {
+          throw new Error("thread not found");
+        }),
     });
     await harness.callRpc("snooze", { threadId: "thr_gone", wakeAt: NOW + HOUR });
     vi.setSystemTime(NOW + HOUR);
@@ -277,10 +300,12 @@ describe("snoozes", () => {
     const harness = setup({ rows: family });
     await harness.callRpc("snooze", { threadId: "child", wakeAt: NOW + 9 * HOUR });
     const before = await harness.callRpc("listSnoozes", {});
-    harness.sdk.stub("threads.markRead", async ({ threadId }: { threadId: string }) => {
-      if (threadId === "child") throw new Error("cannot mark child read");
-      return {};
-    });
+    harness.sdk.stub("threads.markRead", (input: { threadId: string }) =>
+      Promise.try(({ threadId }: { threadId: string }) => {
+        if (threadId === "child") throw new Error("cannot mark child read");
+        return {};
+      }, input),
+    );
     await expect(
       harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR }),
     ).rejects.toThrow();
@@ -392,17 +417,21 @@ describe("snoozes", () => {
       rows: family,
       markUnread: async ({ threadId }) => {
         if (threadId === "child")
-          await new Promise<void>((resolve) => {
+          await (() => {
+            const { promise, resolve } = Promise.withResolvers<void>();
             finishUnread = resolve;
-          });
+            return promise;
+          })();
         read.set(threadId, false);
         return {};
       },
     });
-    harness.sdk.stub("threads.markRead", async ({ threadId }: { threadId: string }) => {
-      read.set(threadId, true);
-      return {};
-    });
+    harness.sdk.stub("threads.markRead", (input: { threadId: string }) =>
+      Promise.try(({ threadId }: { threadId: string }) => {
+        read.set(threadId, true);
+        return {};
+      }, input),
+    );
     await harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR });
     vi.setSystemTime(NOW + HOUR);
     const sweep = harness.runSchedule(SNOOZE_WAKE_SCHEDULE);
@@ -410,7 +439,15 @@ describe("snoozes", () => {
       expect(harness.sdk.callsTo("threads.markUnread")).toContainEqual([{ threadId: "child" }]),
     );
     const replacement = harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + 5 * HOUR });
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        setImmediate(resolve);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     finishUnread();
     await Promise.all([sweep, replacement]);
     const result = await list(harness);
@@ -492,9 +529,11 @@ describe("snoozes", () => {
       rows: family,
       markUnread: async ({ threadId }) => {
         if (threadId === "child")
-          await new Promise<void>((resolve) => {
+          await (() => {
+            const { promise, resolve } = Promise.withResolvers<void>();
             finishUnread = resolve;
-          });
+            return promise;
+          })();
         return {};
       },
     });
@@ -503,7 +542,15 @@ describe("snoozes", () => {
     const sweep = harness.runSchedule(SNOOZE_WAKE_SCHEDULE);
     await vi.waitFor(() => expect(harness.sdk.callsTo("threads.markUnread")).toHaveLength(1));
     const replacement = harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + 5 * HOUR });
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        setImmediate(resolve);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     await harness.emitThreadEvent("thread.failed", thread("child"));
     finishUnread();
     await Promise.all([sweep, replacement]);
@@ -513,10 +560,12 @@ describe("snoozes", () => {
 
   it("releases the mutation queue after a failed read update", async () => {
     const harness = setup({ rows: family });
-    harness.sdk.stub("threads.markRead", async ({ threadId }: { threadId: string }) => {
-      if (threadId === "child") throw new Error("cannot mark read");
-      return {};
-    });
+    harness.sdk.stub("threads.markRead", (input: { threadId: string }) =>
+      Promise.try(({ threadId }: { threadId: string }) => {
+        if (threadId === "child") throw new Error("cannot mark read");
+        return {};
+      }, input),
+    );
     await expect(
       harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR }),
     ).rejects.toThrow("cannot mark read");

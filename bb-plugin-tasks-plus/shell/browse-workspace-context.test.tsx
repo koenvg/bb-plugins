@@ -88,7 +88,7 @@ describe("removal combined with context transitions", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-2" }));
     fireEvent.click(row(slot, 2));
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     expect(slot.inspection.navigateCalls).toHaveLength(1);
     expect(slot.inspection.navigateCalls[0]).toMatchObject({
       options: { subPath: "all?task=TSK-2" },
@@ -112,10 +112,10 @@ describe("removal combined with context transitions", () => {
     const currentInventory = deferred<unknown>();
     response = currentInventory.promise;
     await slot.behavior.emitRealtime("projects:changed", {});
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.queryByText("No projects yet")).toBeNull();
-    await act(async () => currentInventory.resolve({ projects: [project] }));
+    await act(() => Promise.try(() => currentInventory.resolve({ projects: [project] })));
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
   });
   it("keeps failed removal and Escape retry accessible, then reconciles without losing native-pane context or comment ownership", async () => {

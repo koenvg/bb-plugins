@@ -23,8 +23,10 @@ function statusPayload() {
   return { name: TASKS_PLUGIN_NAME, version: TASKS_PLUGIN_VERSION };
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  return registerTasks(bb);
+export default function plugin(bb: BbPluginApi) {
+  return Promise.try(() => {
+    return registerTasks(bb);
+  });
 }
 
 export async function registerTasks(bb: BbPluginApi) {

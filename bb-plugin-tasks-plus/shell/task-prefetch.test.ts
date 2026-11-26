@@ -6,16 +6,26 @@ import { createTaskPreviews } from "./task-previews.js";
 const task = (key: string) => makeTask({ key, id: key });
 function transport() {
   const pending: { key: string; resolve: (value: ReturnType<typeof task> | null) => void }[] = [];
-  const fetch = vi.fn(
-    (key: string) =>
-      new Promise<ReturnType<typeof task> | null>((resolve) => {
+  const fetch = vi.fn((key: string) =>
+    (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<ReturnType<typeof task> | null>();
+      try {
         pending.push({ key, resolve });
-      }),
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })(),
   );
   return { fetch, pending };
 }
 const flush = async () => {
-  for (let i = 0; i < 12; i++) await Promise.resolve();
+  await Array.fromAsync(
+    Array.from({ length: 12 }, (_, index) => index),
+    async () => {
+      await Promise.resolve();
+    },
+  );
 };
 
 describe("adjacent preview queue", () => {

@@ -220,7 +220,7 @@ test("real resource events, refresh, reconnect and tracker switches update the b
   await emit(page, "projects:changed", { projectId: "project-1" });
   await expect(card).toContainText("renamed");
 
-  for (const action of ["refresh", "reconnect"]) {
+  await Array.fromAsync(["refresh", "reconnect"], async (action) => {
     const before = fixture.counts();
     fixture.attachments.push(makeAttachment("task-1"));
     (fixture.threads[0] ?? missingValue("Expected fixture.threads[0]")).presetName = action;
@@ -236,7 +236,7 @@ test("real resource events, refresh, reconnect and tracker switches update the b
     const after = fixture.counts();
     for (const resource of Object.keys(before) as (keyof typeof before)[])
       expect(after[resource]).toBeGreaterThan(before[resource]);
-  }
+  });
   await page.getByRole("button", { name: "Switch tracker" }).click();
   await expect(card).toHaveCount(0);
   await page.getByRole("button", { name: "Switch tracker" }).click();

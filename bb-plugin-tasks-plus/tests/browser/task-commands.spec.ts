@@ -224,9 +224,17 @@ for (const width of [1200, 650]) {
     await palette(page, "Set due date");
     await expect(input).toBeFocused();
     const remove = page.getByRole("button", { name: "Remove due date" });
-    for (let step = 0; step < 5; step++) {
-      await page.keyboard.press("Tab");
-      if (await remove.evaluate((element) => element === document.activeElement)) break;
+    {
+      const runStep = async () => {
+        await page.keyboard.press("Tab");
+        if (await remove.evaluate((element) => element === document.activeElement))
+          return { kind: "break" } as const;
+      };
+      for await (const stepResult of (async function* () {
+        for (let step = 0; step < 5; step++) yield runStep();
+      })()) {
+        if (stepResult?.kind === "break") break;
+      }
     }
     await expect(remove).toBeFocused();
     await page.keyboard.press("Enter");
@@ -269,45 +277,53 @@ for (const width of [1200, 650]) {
     await page.keyboard.press("Tab");
     const layout = page.locator(`[data-properties-layout="${width === 1200 ? "rail" : "inline"}"]`);
     await expect(layout).toBeVisible();
-    for (const [title, triggerName, choice, expected] of [
-      ["Change status", "Todo", "Done", { taskId: "task-1", status: "done" }],
-      ["Set priority", "No priority", "High", { taskId: "task-1", priority: "high" }],
-      ["Edit labels", "Edit labels", "frontend", { taskId: "task-1", labelIds: ["label-1"] }],
-    ] as const) {
-      const updatesBefore = await page.getByLabel("Fixture updates").textContent();
-      await palette(page, title);
-      const role = title === "Edit labels" ? "option" : "menuitem";
-      await expect(page.getByRole(role, { name: choice, exact: true })).toBeVisible();
-      if (role === "option") await expect(page.getByPlaceholder("Add labels…")).toBeFocused();
-      else await expect(page.getByRole("menuitem").first()).toBeFocused();
-      await page.screenshot({ path: testInfo.outputPath(`${title.replaceAll(" ", "-")}.png`) });
-      await page.keyboard.press("Escape");
-      await expect(layout.getByRole("button", { name: triggerName, exact: true })).toBeFocused();
-      await expect(page.getByLabel("Fixture updates")).toHaveText(
-        updatesBefore ?? missingValue("Expected updatesBefore"),
-      );
-      await palette(page, title);
-      if (role === "option") await expect(page.getByPlaceholder("Add labels…")).toBeFocused();
-      else await expect(page.getByRole("menuitem").first()).toBeFocused();
-      if (role === "option") await page.keyboard.press("Enter");
-      else {
-        for (let step = 0; step < (title === "Change status" ? 4 : 1); step++) {
-          await page.keyboard.press(width === 650 ? "Tab" : "ArrowDown");
-          await expect(page.getByRole("menuitem").nth(step + 1)).toBeFocused();
+    await Array.fromAsync(
+      [
+        ["Change status", "Todo", "Done", { taskId: "task-1", status: "done" }],
+        ["Set priority", "No priority", "High", { taskId: "task-1", priority: "high" }],
+        ["Edit labels", "Edit labels", "frontend", { taskId: "task-1", labelIds: ["label-1"] }],
+      ] as const,
+      async ([title, triggerName, choice, expected]) => {
+        const updatesBefore = await page.getByLabel("Fixture updates").textContent();
+        await palette(page, title);
+        const role = title === "Edit labels" ? "option" : "menuitem";
+        await expect(page.getByRole(role, { name: choice, exact: true })).toBeVisible();
+        if (role === "option") await expect(page.getByPlaceholder("Add labels…")).toBeFocused();
+        else await expect(page.getByRole("menuitem").first()).toBeFocused();
+        await page.screenshot({ path: testInfo.outputPath(`${title.replaceAll(" ", "-")}.png`) });
+        await page.keyboard.press("Escape");
+        await expect(layout.getByRole("button", { name: triggerName, exact: true })).toBeFocused();
+        await expect(page.getByLabel("Fixture updates")).toHaveText(
+          updatesBefore ?? missingValue("Expected updatesBefore"),
+        );
+        await palette(page, title);
+        if (role === "option") await expect(page.getByPlaceholder("Add labels…")).toBeFocused();
+        else await expect(page.getByRole("menuitem").first()).toBeFocused();
+        if (role === "option") await page.keyboard.press("Enter");
+        else {
+          await Array.fromAsync(
+            (function* () {
+              for (let step = 0; step < (title === "Change status" ? 4 : 1); step++) yield step;
+            })(),
+            async (step) => {
+              await page.keyboard.press(width === 650 ? "Tab" : "ArrowDown");
+              await expect(page.getByRole("menuitem").nth(step + 1)).toBeFocused();
+            },
+          );
+          await expect(page.getByRole(role, { name: choice, exact: true })).toBeFocused();
+          await page.keyboard.press("Enter");
         }
-        await expect(page.getByRole(role, { name: choice, exact: true })).toBeFocused();
-        await page.keyboard.press("Enter");
-      }
-      await expect
-        .poll(async () =>
-          JSON.parse(
-            (await page.getByLabel("Fixture updates").textContent()) ??
-              missingValue("Expected a non-null value"),
-          ),
-        )
-        .toContainEqual(expected);
-      if (role === "option") await page.keyboard.press("Escape");
-    }
+        await expect
+          .poll(async () =>
+            JSON.parse(
+              (await page.getByLabel("Fixture updates").textContent()) ??
+                missingValue("Expected a non-null value"),
+            ),
+          )
+          .toContainEqual(expected);
+        if (role === "option") await page.keyboard.press("Escape");
+      },
+    );
     await page.keyboard.press("Alt+2");
     await expect(page.getByRole("textbox", { name: "Task title" })).toHaveText("Task 2");
     await palette(page, "Set priority");

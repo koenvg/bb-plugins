@@ -713,9 +713,9 @@ describe("thread list slot", () => {
     const rename = vi.spyOn(window, "prompt").mockReturnValue("Renamed");
     const sdk = {
       threads: {
-        reorderPinned: vi.fn(async () => ({}) as never),
-        unarchive: vi.fn(async () => ({}) as never),
-        update: vi.fn(async () => ({}) as never),
+        reorderPinned: vi.fn(() => Promise.resolve({} as never)),
+        unarchive: vi.fn(() => Promise.resolve({} as never)),
+        update: vi.fn(() => Promise.resolve({} as never)),
       },
     };
     const pinned = [
@@ -762,7 +762,7 @@ describe("thread list slot", () => {
     rename.mockRestore();
   });
   it("offers pin reordering only between pinned top threads", () => {
-    const sdk = { threads: { reorderPinned: vi.fn(async () => ({}) as never) } };
+    const sdk = { threads: { reorderPinned: vi.fn(() => Promise.resolve({} as never)) } };
     const slot = mount(
       [
         thread({
@@ -801,12 +801,12 @@ describe("thread list slot", () => {
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("Later renamed");
     const sdk = {
       threads: {
-        update: vi.fn(async () => ({}) as never),
-        unarchive: vi.fn(async () => ({}) as never),
+        update: vi.fn(() => Promise.resolve({} as never)),
+        unarchive: vi.fn(() => Promise.resolve({} as never)),
       },
       threadSections: {
-        create: vi.fn(async () => ({}) as never),
-        update: vi.fn(async () => ({}) as never),
+        create: vi.fn(() => Promise.resolve({} as never)),
+        update: vi.fn(() => Promise.resolve({} as never)),
       },
     };
     const slot = mount(
@@ -830,7 +830,7 @@ describe("thread list slot", () => {
   });
   it("offers section group creation, rename and a scoped new-thread action", () => {
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("Renamed section");
-    const sdk = { threadSections: { update: vi.fn(async () => ({}) as never) } };
+    const sdk = { threadSections: { update: vi.fn(() => Promise.resolve({} as never)) } };
     const slot = mount(
       [],
       { sections: [{ id: "s1", name: "Later", createdAt: 1, updatedAt: 1 }] },
@@ -970,9 +970,8 @@ describe("thread list slot", () => {
     expect(second).toHaveBeenCalledOnce();
     expect(first).not.toHaveBeenCalled();
   });
-  it.each(["title", "split"])(
-    "cancels a pending badge request on ordinary %s navigation",
-    async (kind) => {
+  it.each(["title", "split"])("cancels a pending badge request on ordinary %s navigation", (kind) =>
+    Promise.try(() => {
       const slot = mount();
       requestPrPanel("t1", () => {});
       if (kind === "title") fireEvent.click(slot.getByRole("link", { name: /Prepare release/ }));
@@ -983,7 +982,7 @@ describe("thread list slot", () => {
       const open = vi.fn(() => true);
       receivers.push(receivePrPanel("t1", open));
       expect(open).not.toHaveBeenCalled();
-    },
+    }),
   );
   it("shows a badge only on rows with a summary", async () => {
     const shared = prSummary({ blockers: ["review_required"] });
@@ -1034,9 +1033,11 @@ describe("thread list slot", () => {
       showTab(slot, "All");
       await slot.findByRole("button", { name: "Open PR tab, PR #42: checks running" });
       summary = prSummary({ blockers: [] });
-      await act(async () => {
-        vi.advanceTimersByTime(60_000);
-      });
+      await act(() =>
+        Promise.try(() => {
+          vi.advanceTimersByTime(60_000);
+        }),
+      );
       await slot.findByRole("button", { name: "Open PR tab, PR #42: ready to merge" });
     } finally {
       vi.useRealTimers();
@@ -1173,7 +1174,16 @@ describe("thread list slot", () => {
       channel.postMessage({ threadId: "t1" });
       channel.close();
     };
-    const quietly = () => new Promise((resolve) => setTimeout(resolve, 20));
+    const quietly = () =>
+      (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+        try {
+          setTimeout(resolve, 20);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
     const answers = (...results: (unknown | Promise<unknown>)[]) => {
       let call = 0;
       return {
@@ -1200,9 +1210,11 @@ describe("thread list slot", () => {
 
     it("keeps the newest summaries when an older load finishes after them", async () => {
       let finishOlder: (value: unknown) => void = () => {};
-      const older = new Promise((resolve) => {
+      const older = (() => {
+        const { promise, resolve } = Promise.withResolvers<unknown>();
         finishOlder = resolve;
-      });
+        return promise;
+      })();
       const slot = mount(
         [thread()],
         {},
@@ -1264,16 +1276,26 @@ describe("thread list slot", () => {
 
     it("keeps the newest summaries when a load from before the signal finishes last", async () => {
       let finishOlder: (value: unknown) => void = () => {};
-      const older = new Promise((resolve) => {
+      const older = (() => {
+        const { promise, resolve } = Promise.withResolvers<unknown>();
         finishOlder = resolve;
-      });
+        return promise;
+      })();
       const slot = mount([thread({ displayTitle: "Opened a PR" })], {}, answers(older, running));
       await vi.waitFor(() => expect(summaryLoads(slot)).toHaveLength(1));
 
       await slot.behavior.emitRealtime("summaries.changed", {});
       await vi.waitFor(() => expect(slot.queryByRole("link", { name: "Opened a PR" })).toBeNull());
       finishOlder(none);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+        try {
+          setTimeout(resolve, 20);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
 
       expect(slot.queryByRole("link", { name: "Opened a PR" })).toBeNull();
     });

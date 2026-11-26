@@ -23,7 +23,7 @@ const asyncId = "11111111-1111-4111-8111-111111111111";
 const executorId = "22222222-2222-4222-8222-222222222222";
 const owned: string[] = [];
 afterEach(async () => {
-  for (const path of owned.splice(0)) await rm(path, { recursive: true, force: true });
+  await Array.fromAsync(owned.splice(0), (path) => rm(path, { recursive: true, force: true }));
 });
 
 async function fixture(existing = false) {
@@ -87,7 +87,7 @@ async function fixture(existing = false) {
     command: true,
   };
   let current = true;
-  let readContext: () => Promise<unknown> = async () => context;
+  let readContext: () => Promise<unknown> = () => Promise.try(() => context);
   const reader = createSessionModelReader({
     parentFile,
     env: { BB_PI_SUBAGENTS_BRIDGE_SESSION_DIR: base },
@@ -336,11 +336,15 @@ it("coalesces identical starts and completions without a second readiness notice
 });
 it("never rearms an identity evicted by neither the record nor metadata cap", async () => {
   const h = await fixture();
-  for (let i = 0; i < 65; i++)
-    await h.emit("subagent:async-complete", {
-      ...h.complete,
-      runId: `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`,
-    });
+  await Array.fromAsync(
+    Array.from({ length: 65 }, (_, index) => index),
+    async (i) => {
+      await h.emit("subagent:async-complete", {
+        ...h.complete,
+        runId: `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`,
+      });
+    },
+  );
   await h.emit("subagent:async-started", h.start);
   await h.save();
   await h.emit("subagent:async-complete", h.complete);
@@ -503,9 +507,11 @@ it.each([
 ])("rejects %s across an awaited context boundary", async (scenario) => {
   const h = await readyFixture();
   let release!: () => void;
-  const waiting = new Promise<void>((r) => {
+  const waiting = (() => {
+    const { promise, resolve: r } = Promise.withResolvers<void>();
     release = r;
-  });
+    return promise;
+  })();
   h.setContextRead(async () => {
     await waiting;
     return h.context;
@@ -526,9 +532,11 @@ it("keeps one operation gate occupied after logical timeout, including absence p
   const h = await readyFixture();
   let calls = 0;
   let release!: () => void;
-  const waiting = new Promise<void>((r) => {
+  const waiting = (() => {
+    const { promise, resolve: r } = Promise.withResolvers<void>();
     release = r;
-  });
+    return promise;
+  })();
   h.setContextRead(async () => {
     calls++;
     await waiting;
@@ -547,8 +555,16 @@ it("keeps one operation gate occupied after logical timeout, including absence p
   });
   expect(calls).toBe(1);
   release();
-  await new Promise((r) => setTimeout(r, 10));
-  h.setContextRead(async () => h.context);
+  await (() => {
+    const { promise, resolve: r, reject } = Promise.withResolvers<unknown>();
+    try {
+      setTimeout(r, 10);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
+  h.setContextRead(() => Promise.try(() => h.context));
   expect(await resolveModel(h)).toMatchObject({ model: "child-actual" });
   const secondFile = join(secondRoot, "run-0", "session.jsonl");
   await mkdir(join(secondRoot, "run-0"));
@@ -635,24 +651,27 @@ it("never rearms a rejected reused root even after its old file is removed", asy
 });
 it("saturates retained proof metadata without evicting or rearming routes", async () => {
   const h = await fixture();
-  for (let i = 0; i < 63; i++) {
-    const id = `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`;
-    const root = join(
-      h.base,
-      "parent",
-      `${String(i).padStart(8, "0")}-5555-4555-8555-555555555555`,
-    );
-    await mkdir(root, { recursive: true });
-    await h.emit("subagent:async-started", {
-      ...h.start,
-      id,
-      sessionRoot: root,
-      nestedRoute: {
-        ...h.start.nestedRoute,
-        rootRunId: `${String(i).padStart(8, "0")}-5555-4555-8555-555555555555`,
-      },
-    });
-  }
+  await Array.fromAsync(
+    Array.from({ length: 63 }, (_, index) => index),
+    async (i) => {
+      const id = `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`;
+      const root = join(
+        h.base,
+        "parent",
+        `${String(i).padStart(8, "0")}-5555-4555-8555-555555555555`,
+      );
+      await mkdir(root, { recursive: true });
+      await h.emit("subagent:async-started", {
+        ...h.start,
+        id,
+        sessionRoot: root,
+        nestedRoute: {
+          ...h.start.nestedRoute,
+          rootRunId: `${String(i).padStart(8, "0")}-5555-4555-8555-555555555555`,
+        },
+      });
+    },
+  );
   await h.emit("subagent:async-started", h.start);
   await h.save();
   await h.emit("subagent:async-complete", h.complete);
@@ -665,23 +684,29 @@ it.each(["unknown-completion", "foreign-duplicate", "saturated-reuse"])(
   async (scenario) => {
     const h = await readyFixture();
     if (scenario === "saturated-reuse") {
-      for (let i = 0; i < 63; i++)
-        await h.emit("subagent:async-complete", {
-          ...h.complete,
-          runId: `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`,
-          results: [
-            {
-              ...(h.complete.results[0] ?? missingValue("Expected h.complete.results[0]")),
-              sessionFile: "/other",
-              sessionPath: "/other",
-            },
-          ],
-        });
+      await Array.fromAsync(
+        Array.from({ length: 63 }, (_, index) => index),
+        async (i) => {
+          await h.emit("subagent:async-complete", {
+            ...h.complete,
+            runId: `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`,
+            results: [
+              {
+                ...(h.complete.results[0] ?? missingValue("Expected h.complete.results[0]")),
+                sessionFile: "/other",
+                sessionPath: "/other",
+              },
+            ],
+          });
+        },
+      );
     }
     let release!: () => void;
-    const waiting = new Promise<void>((r) => {
+    const waiting = (() => {
+      const { promise, resolve: r } = Promise.withResolvers<void>();
       release = r;
-    });
+      return promise;
+    })();
     h.setContextRead(async () => {
       await waiting;
       return h.context;

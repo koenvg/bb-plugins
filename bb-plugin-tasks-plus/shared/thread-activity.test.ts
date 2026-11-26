@@ -52,15 +52,17 @@ for (const consumer of ["attach", "delegate", "startup", "api"] as const) {
           pluginId: "tasks",
           sdk: {
             threads: {
-              spawn: async () => ({ id: "thr_worker" }),
-              get: async () =>
-                makeThreadResponse({
-                  id: "thr_worker",
-                  status,
-                  activeBackgroundAgentCount,
-                  deletedAt: deletedAt ?? null,
-                  archivedAt: archivedAt ?? null,
-                }),
+              spawn: () => Promise.resolve({ id: "thr_worker" }),
+              get: () =>
+                Promise.try(() =>
+                  makeThreadResponse({
+                    id: "thr_worker",
+                    status,
+                    activeBackgroundAgentCount,
+                    deletedAt: deletedAt ?? null,
+                    archivedAt: archivedAt ?? null,
+                  }),
+                ),
             },
           },
         });

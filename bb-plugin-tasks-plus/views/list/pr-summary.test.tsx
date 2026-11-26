@@ -165,38 +165,39 @@ it.each([false, true])(
   },
 );
 
-it("distinguishes initial PR loading, authoritative absence, lookup unavailable, partial merged and unknown lifecycle", async () => {
-  const initial = row(undefined);
-  expect(initial.slot.getByText("PRs loading").getAttribute("aria-busy")).toBe("true");
-  initial.slot.lifecycle.unmount();
-  const absent = row(meta([]));
-  expect(absent.slot.queryByText(/PR/)).toBeNull();
-  absent.slot.lifecycle.unmount();
-  const unavailable = row({
-    ...meta([]),
-    pullRequests: {
-      availability: "unavailable",
-      items: [],
-      unavailableThreadIds: ["thr_a", "thr_b"],
-    },
-  });
-  expect(
-    unavailable.slot.getByRole("button", {
-      name: /PRs for ABC-1: PRs unavailable/,
-    }),
-  ).toBeTruthy();
-  unavailable.slot.lifecycle.unmount();
-  const partial = row(meta([pr("merged")], ["thr_b"]));
-  expect(partial.slot.getByRole("link", { name: /Open GitHub PR.*Merged/ })).toBeTruthy();
-  expect(
-    partial.slot.getByRole("button", { name: /PR details.*lookup unavailable/ }).textContent,
-  ).toContain("Details incomplete");
-  partial.slot.lifecycle.unmount();
-  const unknown = row(meta([pr("unknown"), pr("merged", "other")]));
-  expect(unknown.slot.getByRole("button", { name: /PRs for ABC-1/ }).textContent).toContain(
-    "1 Lifecycle unavailable",
-  );
-});
+it("distinguishes initial PR loading, authoritative absence, lookup unavailable, partial merged and unknown lifecycle", () =>
+  Promise.try(() => {
+    const initial = row(undefined);
+    expect(initial.slot.getByText("PRs loading").getAttribute("aria-busy")).toBe("true");
+    initial.slot.lifecycle.unmount();
+    const absent = row(meta([]));
+    expect(absent.slot.queryByText(/PR/)).toBeNull();
+    absent.slot.lifecycle.unmount();
+    const unavailable = row({
+      ...meta([]),
+      pullRequests: {
+        availability: "unavailable",
+        items: [],
+        unavailableThreadIds: ["thr_a", "thr_b"],
+      },
+    });
+    expect(
+      unavailable.slot.getByRole("button", {
+        name: /PRs for ABC-1: PRs unavailable/,
+      }),
+    ).toBeTruthy();
+    unavailable.slot.lifecycle.unmount();
+    const partial = row(meta([pr("merged")], ["thr_b"]));
+    expect(partial.slot.getByRole("link", { name: /Open GitHub PR.*Merged/ })).toBeTruthy();
+    expect(
+      partial.slot.getByRole("button", { name: /PR details.*lookup unavailable/ }).textContent,
+    ).toContain("Details incomplete");
+    partial.slot.lifecycle.unmount();
+    const unknown = row(meta([pr("unknown"), pr("merged", "other")]));
+    expect(unknown.slot.getByRole("button", { name: /PRs for ABC-1/ }).textContent).toContain(
+      "1 Lifecycle unavailable",
+    );
+  }));
 
 function richPr(
   state: "open" | "draft" | "merged" | "closed" = "open",

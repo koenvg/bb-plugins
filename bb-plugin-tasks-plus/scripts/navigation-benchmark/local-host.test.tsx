@@ -36,7 +36,8 @@ afterEach(() => {
     (containers.pop() ?? missingValue("Expected containers.pop()")).remove();
 });
 function setup(
-  rpc: LocalHostOptions["rpc"] = async (_method: string, input: unknown) => ({ input }),
+  rpc: LocalHostOptions["rpc"] = (_method: string, input: unknown) =>
+    Promise.try(() => ({ input })),
   tabs: LocalHostOptions["tabs"] = app.tabs,
 ) {
   const host = createLocalHost({ panel, tabs, rpc });
@@ -166,12 +167,16 @@ describe("production-mounting host boundary without test renderer", () => {
   });
   it("round-trips RPC, delivers latest realtime handlers and connection state, and revokes response/subscription rights on disposal", async () => {
     let resolve!: (value: unknown) => void;
-    const rpcBackend = vi.fn(async (method: string, input: unknown) =>
-      method === "pending"
-        ? new Promise((done) => {
-            resolve = done;
-          })
-        : { input },
+    const rpcBackend = vi.fn((method: string, input: unknown) =>
+      Promise.try(() =>
+        method === "pending"
+          ? (() => {
+              const { promise, resolve: done } = Promise.withResolvers<unknown>();
+              resolve = done;
+              return promise;
+            })()
+          : { input },
+      ),
     );
     const { host, container } = setup(rpcBackend);
     const received: unknown[] = [];
@@ -224,7 +229,7 @@ describe("production-mounting host boundary without test renderer", () => {
     const { host, container } = setup();
     const transition = createSafeTaskTransition();
     const editor = createTaskEditSession("BENCH-1", {
-      save: async () => ({ ok: true }),
+      save: () => Promise.resolve({ ok: true }),
       schedule: () => () => {},
     });
     transition.register(editor);

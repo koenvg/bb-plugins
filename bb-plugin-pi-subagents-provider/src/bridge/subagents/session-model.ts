@@ -179,28 +179,27 @@ async function ancestry(path: string, base: string, check: () => void): Promise<
     paths.unshift(p);
     if (p === parse(p).root) break;
   }
-  const result: Ancestry = [];
-  for (const p of paths) {
+  const result = await Array.fromAsync(paths, async (p) => {
     check();
     const stat = await lstat(p);
     check();
     secure(stat, p === base || p.startsWith(base + sep));
     if (!stat.isDirectory()) throw new Error("Not a directory");
-    result.push({ path: p, stat });
-  }
+    return { path: p, stat };
+  });
   if ((await realpath(path)) !== path) throw new Error("Noncanonical path");
   check();
   return result;
 }
 async function recheck(paths: Ancestry, check: () => void, unchanged: boolean, base?: string) {
-  for (const { path, stat } of paths) {
+  await Array.fromAsync(paths, async ({ path, stat }) => {
     check();
     const next = await lstat(path);
     check();
     const owned = base && (path === base || path.startsWith(base + sep));
     if (!(unchanged && owned ? stable(stat, next) : sameIdentity(stat, next)))
       throw new Error("Changed ancestry");
-  }
+  });
 }
 function parseModel(
   bytes: Buffer,
@@ -393,13 +392,19 @@ export function createSessionModelReader(options: {
     try {
       return await Promise.race([
         physical,
-        new Promise<undefined>((resolve) => {
-          timer = setTimeout(() => {
-            expired = true;
-            resolve(undefined);
-          }, 250);
-          timer.unref?.();
-        }),
+        (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<undefined>();
+          try {
+            timer = setTimeout(() => {
+              expired = true;
+              resolve(undefined);
+            }, 250);
+            timer.unref?.();
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })(),
       ]);
     } finally {
       clearTimeout(timer);
@@ -497,19 +502,31 @@ export function createSessionModelReader(options: {
         if (!put(fact.id, probing)) return;
         const proof = await operation(async (check) => {
           const paths = await ancestry(root, base, check);
-          for (const path of [join(root, "run-0"), file]) {
-            check();
-            try {
-              const stat = await lstat(path);
+          {
+            const stepItems = [join(root, "run-0"), file];
+            const runStep = async (
+              path: typeof stepItems extends Iterable<infer Item> ? Item : never,
+            ) => {
               check();
-              secure(stat, true);
-              if (path === file || !stat.isDirectory()) return;
-              paths.push({ path, stat });
-            } catch (error) {
-              check();
-              if ((error as NodeJS.ErrnoException).code !== "ENOENT") return;
-              await recheck(paths, check, false);
-              return paths;
+              try {
+                const stat = await lstat(path);
+                check();
+                secure(stat, true);
+                if (path === file || !stat.isDirectory())
+                  return { kind: "return", value: undefined } as const;
+                paths.push({ path, stat });
+              } catch (error) {
+                check();
+                if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+                  return { kind: "return", value: undefined } as const;
+                await recheck(paths, check, false);
+                return { kind: "return", value: paths } as const;
+              }
+            };
+            for await (const stepResult of (async function* () {
+              for (const stepInput of stepItems) yield runStep(stepInput);
+            })()) {
+              if (stepResult?.kind === "return") return stepResult.value;
             }
           }
         });
@@ -627,12 +644,19 @@ export function createSessionModelReader(options: {
           if (!stable(checked, opened)) return;
           const bytes = Buffer.alloc(opened.size + 1);
           let used = 0;
-          while (used < bytes.length) {
-            valid();
-            const { bytesRead } = await fd.read(bytes, used, bytes.length - used, used);
-            valid();
-            if (!bytesRead) break;
-            used += bytesRead;
+          {
+            const runStep = async () => {
+              valid();
+              const { bytesRead } = await fd.read(bytes, used, bytes.length - used, used);
+              valid();
+              if (!bytesRead) return { kind: "break" } as const;
+              used += bytesRead;
+            };
+            for await (const stepResult of (async function* () {
+              while (used < bytes.length) yield runStep();
+            })()) {
+              if (stepResult?.kind === "break") break;
+            }
           }
           if (used !== opened.size || !stable(opened, await fd.stat())) return;
           valid();

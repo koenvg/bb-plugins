@@ -96,7 +96,7 @@ for (const scope of ["all", "active", project.id]) {
       origin.focus();
       fireEvent.click(header);
       expect(header.getAttribute("aria-expanded")).toBe("true");
-      await act(async () => save.resolve({ ok: true, task: selected }));
+      await act(() => Promise.try(() => save.resolve({ ok: true, task: selected })));
       await waitFor(() =>
         expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
           options: { subPath: returnPath },
@@ -120,7 +120,7 @@ it("restores header focus after delayed save and hidden-selection reconciliation
   fireEvent.click(header);
   expect(header.getAttribute("aria-expanded")).toBe("true");
   expect(loadListPreference("all").collapsedStatuses).toEqual([]);
-  await act(async () => save.resolve({ ok: true, task: tasks[0] }));
+  await act(() => Promise.try(() => save.resolve({ ok: true, task: tasks[0] })));
   await waitFor(() =>
     expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({ options: { subPath: "all" } }),
   );
@@ -142,7 +142,7 @@ it("does not take focus from outside Tasks after delayed section save and reconc
   document.body.append(outside);
   try {
     outside.focus();
-    await act(async () => save.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => save.resolve({ ok: true, task: tasks[0] })));
     await waitFor(() =>
       expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({ options: { subPath: "all" } }),
     );
@@ -169,7 +169,7 @@ it("cancels delayed header focus for an open overlay, including after it closes"
   overlay.setAttribute("role", "dialog");
   document.body.append(overlay);
   try {
-    await act(async () => save.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => save.resolve({ ok: true, task: tasks[0] })));
     await waitFor(() =>
       expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({ options: { subPath: "all" } }),
     );
@@ -203,7 +203,7 @@ it("consumes canceled header focus before later reconciliation regains browse ow
   document.body.append(outside);
   try {
     outside.focus();
-    await act(async () => save.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => save.resolve({ ok: true, task: tasks[0] })));
     await waitFor(() =>
       expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({ options: { subPath: "all" } }),
     );
@@ -243,7 +243,7 @@ it("leaves an editable Ticket field in use after a delayed collapse in another s
   const header = sectionHeader(slot, "Done");
   fireEvent.click(header);
   title.focus();
-  await act(async () => save.resolve({ ok: true, task: tasks[2] }));
+  await act(() => Promise.try(() => save.resolve({ ok: true, task: tasks[2] })));
   await waitFor(() => expect(header.getAttribute("aria-expanded")).toBe("false"));
   expect(row(slot, 3).getAttribute("aria-current")).toBe("true");
   expect(slot.inspection.navigateCalls).toEqual([]);

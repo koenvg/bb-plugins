@@ -28,10 +28,7 @@ const Probe = () => {
   );
 };
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 afterEach(cleanup);
@@ -79,10 +76,12 @@ it("keeps unfinished resource reads through a task-status update", async () => {
   task = { ...first, status: "done" };
   await slot.behavior.emitRealtime("tasks:changed", { taskId: task.id, projectId: task.projectId });
   await waitFor(() => expect(output().statuses).toEqual(["done"]));
-  await act(async () => {
-    attachments.resolve({ attachments: [makeAttachment(first.id)] });
-    threads.resolve({ taskThreads: [workingThread] });
-  });
+  await act(() =>
+    Promise.try(() => {
+      attachments.resolve({ attachments: [makeAttachment(first.id)] });
+      threads.resolve({ taskThreads: [workingThread] });
+    }),
+  );
   await waitFor(() => expect(output().meta[first.id]?.attachmentCount).toBe(1));
   await waitFor(() => expect(output().meta[first.id].workingThreads).toEqual([workingThread]));
   expect(slot.rpcCalls.filter((call) => call.method === "listAttachments")).toHaveLength(1);
@@ -126,7 +125,7 @@ it("rejects an attachment response overtaken by a real attachment change", async
     resource: "attachments",
   });
   await waitFor(() => expect(output().meta[first.id]?.attachmentCount).toBe(2));
-  await act(async () => old.resolve({ attachments: [] }));
+  await act(() => Promise.try(() => old.resolve({ attachments: [] })));
   expect(output().meta[first.id].attachmentCount).toBe(2);
 });
 
@@ -164,10 +163,12 @@ it("does not publish old tracker inventory or counts after a tracker switch", as
   await waitFor(() => expect(output().tasks).toEqual([first.key]));
   fireEvent.click(slot.getByRole("button", { name: "Switch tracker" }));
   expect(output().tasks).toBeUndefined();
-  await act(async () => {
-    old.resolve({ attachments: [makeAttachment(first.id)] });
-    next.resolve({ tasks: [second], nextCursor: null });
-  });
+  await act(() =>
+    Promise.try(() => {
+      old.resolve({ attachments: [makeAttachment(first.id)] });
+      next.resolve({ tasks: [second], nextCursor: null });
+    }),
+  );
   await waitFor(() => expect(output().tasks).toEqual([second.key]));
   expect(output().meta[first.id]).toBeUndefined();
   expect(output().meta[second.id].attachmentCount).toBe(0);

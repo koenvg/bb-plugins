@@ -37,7 +37,7 @@ export async function uploadStagedAttachments(
   owner: AttachmentOwnerRef,
 ): Promise<StagedAttachment[]> {
   const failed: StagedAttachment[] = [];
-  for (const entry of staged) {
+  await Array.fromAsync(staged, async (entry) => {
     try {
       await uploadAttachment(entry.file, owner);
     } catch (cause) {
@@ -48,7 +48,7 @@ export async function uploadStagedAttachments(
         error: errorMessage(cause),
       });
     }
-  }
+  });
   return failed;
 }
 

@@ -70,7 +70,10 @@ export function useListTasks(
     { reconcile: reuseListTasks },
   );
   const scope = useTasksQuery<Task[] | null>(
-    async (rpc) => (needsScope ? listAllTasks(rpc, projectId === null ? {} : { projectId }) : null),
+    (rpc) =>
+      Promise.try(() =>
+        needsScope ? listAllTasks(rpc, projectId === null ? {} : { projectId }) : null,
+      ),
     ["tasks:changed", "threads:changed"],
     [projectId, needsScope],
     { reconcile: (previous, next) => (next === null ? null : reuseListTasks(previous, next)) },

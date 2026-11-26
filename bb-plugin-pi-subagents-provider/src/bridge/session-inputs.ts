@@ -27,12 +27,11 @@ export class PiSessionInputs {
   }
 
   track(queue: PiInputQueue): TrackedSessionInput {
-    let resolvePromise: () => void = () => undefined;
-    let rejectPromise: (error: Error) => void = () => undefined;
-    const consumed = new Promise<void>((resolve, reject) => {
-      resolvePromise = resolve;
-      rejectPromise = reject;
-    });
+    const {
+      promise: consumed,
+      resolve: resolvePromise,
+      reject: rejectPromise,
+    } = Promise.withResolvers<void>();
     const pending: PendingInput = {
       queue,
       queuedText: null,
@@ -114,7 +113,7 @@ export class PiSessionInputs {
         if (this.terminalSteerSettlement !== settlement) return;
         this.terminalSteerSettlement = null;
         if (this.autoRetryInProgress || isStreaming) return;
-        this.rejectPending("Pi turn ended before steer was consumed", "steering");
+        return void this.rejectPending("Pi turn ended before steer was consumed", "steering");
       });
     this.terminalSteerSettlement = settlement;
   }

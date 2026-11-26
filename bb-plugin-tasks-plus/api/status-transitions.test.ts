@@ -8,7 +8,16 @@ import { mockPrStatusRpc } from "../test-fixtures";
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+  {
+    const runStep = async () => {
+      await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 async function setup() {
@@ -16,8 +25,12 @@ async function setup() {
     pluginId: "tasks",
     sdk: {
       threads: {
-        spawn: async () => ({ id: "thr_worker" }),
-        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "idle" }),
+        spawn: () => Promise.resolve({ id: "thr_worker" }),
+        get: (input) =>
+          Promise.try(
+            ({ threadId }) => makeThreadResponse({ id: threadId, status: "idle" }),
+            input,
+          ),
       },
     },
   });
@@ -76,14 +89,17 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
     it(`${method} persists transitions and excludes same-status retries`, async () => {
       const f = await setup();
       const task = f.task("todo");
-      for (const status of ["in_progress", "in_review", "done", "done", "todo"] as const) {
-        expect(await f.harness.behavior.callRpc(method, { taskId: task.id, status })).toMatchObject(
-          {
+      await Array.fromAsync(
+        ["in_progress", "in_review", "done", "done", "todo"] as const,
+        async (status) => {
+          expect(
+            await f.harness.behavior.callRpc(method, { taskId: task.id, status }),
+          ).toMatchObject({
             ok: true,
             task: { id: task.id, status },
-          },
-        );
-      }
+          });
+        },
+      );
       expectRows(f, [
         [task.id, "todo", "in_progress"],
         [task.id, "in_progress", "in_review"],
@@ -95,19 +111,25 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
     it(`${method} records todo immediately and excludes same-status writes and creator events`, async () => {
       const f = await setup();
       const task = f.task("backlog", "thr_creator");
-      for (let retry = 0; retry < 2; retry++) {
-        expect(
-          await f.harness.behavior.callRpc(method, { taskId: task.id, status: "todo" }),
-        ).toMatchObject({
-          ok: true,
-          task: { status: "todo", createdByThreadId: "thr_creator" },
-        });
-      }
-      for (const event of ["thread.archived", "thread.unarchived", "thread.deleted"] as const) {
-        await f.harness.behavior.emitThreadEvent(event, {
-          thread: makeThreadResponse({ id: "thr_creator" }),
-        });
-      }
+      await Array.fromAsync(
+        Array.from({ length: 2 }, (_, index) => index),
+        async () => {
+          expect(
+            await f.harness.behavior.callRpc(method, { taskId: task.id, status: "todo" }),
+          ).toMatchObject({
+            ok: true,
+            task: { status: "todo", createdByThreadId: "thr_creator" },
+          });
+        },
+      );
+      await Array.fromAsync(
+        ["thread.archived", "thread.unarchived", "thread.deleted"] as const,
+        async (event) => {
+          await f.harness.behavior.emitThreadEvent(event, {
+            thread: makeThreadResponse({ id: "thr_creator" }),
+          });
+        },
+      );
       expectRows(f, [[task.id, "backlog", "todo"]]);
     });
 
@@ -121,35 +143,40 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
         presetName: "Fixture",
         liveStatus: "completed",
       });
-      f.harness.sdk.stub("threads.get", async ({ threadId }) =>
-        makeThreadResponse({ id: threadId, environmentId: "env_work" }),
+      f.harness.sdk.stub("threads.get", (input) =>
+        Promise.try(
+          ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: "env_work" }),
+          input,
+        ),
       );
       f.harness.sdk.stub(
         "plugins.callRpc",
-        mockPrStatusRpc(async () => ({
-          outcome: "available",
-          pullRequest: {
-            number: 347,
-            url: "https://github.com/acme/tasks/pull/347",
-            title: "Work",
-            state: "open",
-            baseRefName: "main",
-            headRefName: "work",
-            updatedAt: "2026-01-01T00:00:00.000Z",
-            checks: {
-              state: "passing",
-              totalCount: 1,
-              passedCount: 1,
-              failedCount: 0,
-              pendingCount: 0,
+        mockPrStatusRpc(() =>
+          Promise.resolve({
+            outcome: "available",
+            pullRequest: {
+              number: 347,
+              url: "https://github.com/acme/tasks/pull/347",
+              title: "Work",
+              state: "open",
+              baseRefName: "main",
+              headRefName: "work",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              checks: {
+                state: "passing",
+                totalCount: 1,
+                passedCount: 1,
+                failedCount: 0,
+                pendingCount: 0,
+              },
+              review: { state: "none", reviewRequestCount: 0 },
+              mergeability: { state: "mergeable", mergeStateStatus: null, mergeable: null },
+              attention: "none",
+              autoMerge: false,
+              inMergeQueue: false,
             },
-            review: { state: "none", reviewRequestCount: 0 },
-            mergeability: { state: "mergeable", mergeStateStatus: null, mergeable: null },
-            attention: "none",
-            autoMerge: false,
-            inMergeQueue: false,
-          },
-        })),
+          }),
+        ),
       );
       const before = f.store.tasks.getTask(task.id);
       expect(
@@ -162,7 +189,7 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
       expectRows(f, []);
       f.harness.sdk.stub(
         "plugins.callRpc",
-        mockPrStatusRpc(async () => ({ outcome: "absent" })),
+        mockPrStatusRpc(() => Promise.resolve({ outcome: "absent" })),
       );
       expect(
         await f.harness.behavior.callRpc(method, { taskId: task.id, status: "done" }),
@@ -240,22 +267,25 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
       await f.harness.behavior.runCli(["update", task.key, "--status", "invalid", "--json"]),
     ).toMatchObject({ exitCode: 1 });
     expectRows(f, []);
-    for (const [option, status] of [
-      ["--status", "todo"],
-      ["--status", "todo"],
-      ["--state", "in_progress"],
-      ["--state", "in_progress"],
-    ]) {
-      const result = await f.harness.behavior.runCli([
-        "update",
-        task.key,
-        option ?? missingValue("Expected option"),
-        status ?? missingValue("Expected status"),
-        "--json",
-      ]);
-      expect(result, result.stderr).toMatchObject({ exitCode: 0 });
-      expect(JSON.parse(result.stdout).task).toMatchObject({ id: task.id, status });
-    }
+    await Array.fromAsync(
+      [
+        ["--status", "todo"],
+        ["--status", "todo"],
+        ["--state", "in_progress"],
+        ["--state", "in_progress"],
+      ],
+      async ([option, status]) => {
+        const result = await f.harness.behavior.runCli([
+          "update",
+          task.key,
+          option ?? missingValue("Expected option"),
+          status ?? missingValue("Expected status"),
+          "--json",
+        ]);
+        expect(result, result.stderr).toMatchObject({ exitCode: 0 });
+        expect(JSON.parse(result.stdout).task).toMatchObject({ id: task.id, status });
+      },
+    );
     expectRows(f, [
       [task.id, "backlog", "todo"],
       [task.id, "todo", "in_progress"],
@@ -301,16 +331,18 @@ describe("status history through fixture-only delegation", () => {
     const task = f.task("todo");
     const preset = f.preset();
     const before = f.store.tasks.getTask(task.id);
-    f.harness.sdk.stub("threads.spawn", async () => {
-      throw new Error("fixture spawn refused");
-    });
+    f.harness.sdk.stub("threads.spawn", () =>
+      Promise.try(() => {
+        throw new Error("fixture spawn refused");
+      }),
+    );
     await expect(
       f.harness.behavior.callRpc("delegate", { taskId: task.id, presetId: preset.id }),
     ).rejects.toThrow("fixture spawn refused");
     expect(f.store.tasks.getTask(task.id)).toEqual(before);
     expect(f.store.tasks.listTaskThreads(task.id)).toEqual([]);
     expectRows(f, []);
-    f.harness.sdk.stub("threads.spawn", async () => ({ id: "thr_worker" }));
+    f.harness.sdk.stub("threads.spawn", () => Promise.resolve({ id: "thr_worker" }));
     f.db.exec(`CREATE TRIGGER test_abort_history BEFORE INSERT ON task_status_transitions
       BEGIN SELECT RAISE(ABORT, 'forced promotion failure'); END;`);
     await expect(

@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createTaskInventory } from "./task-inventory.js";
 
 function deferred<T>() {
-  let resolve!: (data: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 describe("current session inventories", () => {
@@ -68,7 +65,7 @@ describe("current session inventories", () => {
       current,
     );
     const other = createTaskInventory(
-      async () => ["Other binding"],
+      () => Promise.resolve(["Other binding"]),
       () => 0,
     );
     const work = resource.load();

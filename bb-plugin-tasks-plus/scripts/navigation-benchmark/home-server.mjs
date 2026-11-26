@@ -92,10 +92,11 @@ await runLocalHarness({
           `\n:root{--background:white;--foreground:#242424;--muted:#f2f2f2;--muted-foreground:#666;--border:#ddd;--border-hairline:#e5e5e5;--input:#bbb;--popover:white;--popover-foreground:#242424;--primary:#242424;--primary-foreground:white;--accent:#eee;--accent-foreground:#242424;--ring:#777;--radius:6px;--bb-sidebar-row-height:34px}*{box-sizing:border-box}body{margin:0;font:13px/1.43 system-ui}button,input{font:inherit}button[data-nav-item]{background:transparent;border:0}.lab-sidebar{display:none}.lab-ticket[hidden]{display:none!important}.lab-workspace{display:grid;grid-template-columns:60% 40%;height:100vh}.lab-list,.lab-ticket{height:100%;min-width:0;overflow:hidden}.lab-ticket{border-left:1px solid #ddd;display:flex;flex-direction:column}.lab-ticket>div{flex:1;min-height:0}`,
       );
       const hashes = {};
-      for (const name of ["app.js", "app.css", "lab.css", "fixture.json"])
+      await Array.fromAsync(["app.js", "app.css", "lab.css", "fixture.json"], async (name) => {
         hashes[name] = createHash("sha256")
           .update(await readFile(join(output, name)))
           .digest("hex");
+      });
       await write("provenance.json", {
         commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).trim(),
         dirty: execFileSync("git", ["status", "--short"], { cwd: repo, encoding: "utf8" }),
@@ -156,7 +157,15 @@ await runLocalHarness({
         }
       });
       resources.server = server;
-      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers();
+        try {
+          server.listen(0, "127.0.0.1", resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       const origin = `http://127.0.0.1:${server.address().port}`;
       await write("ownership.json", {
         pid: process.pid,
@@ -165,10 +174,16 @@ await runLocalHarness({
         database: backend.databasePath,
       });
       console.log(`BB_FIXTURE_READY ${JSON.stringify({ origin })}`);
-      await new Promise((resolve) => {
-        process.once("SIGINT", resolve);
-        process.once("SIGTERM", resolve);
-      });
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers();
+        try {
+          process.once("SIGINT", resolve);
+          process.once("SIGTERM", resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
     } finally {
       await capture("calls.json", () => backend?.calls ?? []);
     }

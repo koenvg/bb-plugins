@@ -73,12 +73,13 @@ test("observer preserves response and socket semantics and restores its own wrap
       this.handlers.set(k, f);
     }
   }
-  const fetch = async () => ({
-    ok: true,
-    clone: () => ({
-      json: async () => ({ ok: true, result: { task: { key: "A", updatedAt: "a1" } } }),
-    }),
-  });
+  const fetch = () =>
+    Promise.try(() => ({
+      ok: true,
+      clone: () => ({
+        json: () => Promise.resolve({ ok: true, result: { task: { key: "A", updatedAt: "a1" } } }),
+      }),
+    }));
   const win = {
     WebSocket: Socket,
     fetch,
@@ -134,10 +135,12 @@ function observerWindow(fetch) {
 
 test("settle waits for current reads, excludes later reads and clears completed work", async () => {
   const bodies = Object.fromEntries(["A", "B", "C"].map((key) => [key, Promise.withResolvers()]));
-  const win = observerWindow(async (_input, options) => {
-    const key = JSON.parse(options.body).taskKey;
-    return { ok: true, clone: () => ({ json: () => bodies[key].promise }) };
-  });
+  const win = observerWindow((_input, options) =>
+    Promise.try(() => {
+      const key = JSON.parse(options.body).taskKey;
+      return { ok: true, clone: () => ({ json: () => bodies[key].promise }) };
+    }),
+  );
   const installed = installQualificationObservers(win, { A: "a1", B: "b1", C: "c1" });
   const read = (key) =>
     win.fetch("/api/v1/plugins/tasks-plus/rpc/getTaskByKey", {
@@ -179,10 +182,12 @@ test("settle records parsing failure and preserves native fetch rejection", asyn
   const body = Promise.withResolvers();
   const failure = new Error("Network failed.");
   let rejectFetch = false;
-  const win = observerWindow(async () => {
-    if (rejectFetch) throw failure;
-    return { ok: true, clone: () => ({ json: () => body.promise }) };
-  });
+  const win = observerWindow(() =>
+    Promise.try(() => {
+      if (rejectFetch) throw failure;
+      return { ok: true, clone: () => ({ json: () => body.promise }) };
+    }),
+  );
   const installed = installQualificationObservers(win, { A: "a1" });
   const read = () =>
     win.fetch("/api/v1/plugins/tasks-plus/rpc/getTaskByKey", {

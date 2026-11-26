@@ -7,18 +7,23 @@ describe("lookupPullRequest", () => {
   it("preserves available PR metadata for the requested environment", async () => {
     const result = await lookupPullRequest(
       {
-        callRpc: mockPrStatusRpc(async ({ environmentId }) => ({
-          outcome: "available",
-          pullRequest: {
-            url: "https://github.com/acme/bb/pull/321",
-            number: 321,
-            title: environmentId,
-            state: "open",
-            updatedAt: "2026-10-19T10:00:00.000Z",
-            headRefName: "fix/completion",
-            checks: { state: "passing", totalCount: 1 },
-          },
-        })),
+        callRpc: mockPrStatusRpc((input) =>
+          Promise.try(
+            ({ environmentId }) => ({
+              outcome: "available",
+              pullRequest: {
+                url: "https://github.com/acme/bb/pull/321",
+                number: 321,
+                title: environmentId,
+                state: "open",
+                updatedAt: "2026-10-19T10:00:00.000Z",
+                headRefName: "fix/completion",
+                checks: { state: "passing", totalCount: 1 },
+              },
+            }),
+            input,
+          ),
+        ),
       },
       "env_work",
     );
@@ -41,7 +46,10 @@ describe("lookupPullRequest", () => {
     "returns the $outcome outcome",
     async (response) => {
       expect(
-        await lookupPullRequest({ callRpc: mockPrStatusRpc(async () => response) }, "env_work"),
+        await lookupPullRequest(
+          { callRpc: mockPrStatusRpc(() => Promise.try(() => response)) },
+          "env_work",
+        ),
       ).toEqual(response);
     },
   );
@@ -49,7 +57,7 @@ describe("lookupPullRequest", () => {
   it("reports unavailable when the response omits the requested environment", async () => {
     expect(
       await lookupPullRequest(
-        { callRpc: async ({ outputSchema }) => outputSchema.parse({}) },
+        { callRpc: (input) => Promise.try(({ outputSchema }) => outputSchema.parse({}), input) },
         "env_missing",
       ),
     ).toEqual({
@@ -62,10 +70,12 @@ describe("lookupPullRequest", () => {
     await expect(
       lookupPullRequest(
         {
-          callRpc: mockPrStatusRpc(async () => ({
-            outcome: "available",
-            pullRequest: { state: "unexpected" },
-          })),
+          callRpc: mockPrStatusRpc(() =>
+            Promise.resolve({
+              outcome: "available",
+              pullRequest: { state: "unexpected" },
+            }),
+          ),
         },
         "env_work",
       ),

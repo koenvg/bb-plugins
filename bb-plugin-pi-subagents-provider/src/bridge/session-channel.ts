@@ -126,22 +126,29 @@ export class PiSessionChannel {
 
   awaitReady(timeoutMs: number): Promise<void> {
     if (this.disposedError) return Promise.reject(this.disposedError);
-    return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error("pi extension did not report ready in time"));
-      }, timeoutMs);
-      timer.unref?.();
-      this.ready.promise.then(
-        () => {
+    {
+      const { promise: promise_, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        const timer = setTimeout(() => {
+          reject(new Error("pi extension did not report ready in time"));
+        }, timeoutMs);
+        timer.unref?.();
+        void (async () => {
+          try {
+            await this.ready.promise;
+          } catch (error) {
+            clearTimeout(timer);
+            reject(error);
+            return;
+          }
           clearTimeout(timer);
           resolve();
-        },
-        (error: Error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      );
-    });
+        })();
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise_;
+    }
   }
 
   request(
@@ -150,30 +157,36 @@ export class PiSessionChannel {
   ): Promise<unknown> {
     if (this.disposedError) return Promise.reject(this.disposedError);
     const id = `cr-${++this.nextRequestId}`;
-    return new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.replies.delete(id);
-        reject(new Error(`pi extension did not answer ${String(request.method)}`));
-      }, timeoutMs);
-      timer.unref?.();
-      const reply: ChannelReply = {
-        resolve: (result) => {
-          clearTimeout(timer);
-          resolve(result);
-        },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      };
-      this.replies.set(id, reply);
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<unknown>();
       try {
-        this.send({ kind: "request", id, ...request });
-      } catch (error) {
-        this.replies.delete(id);
-        reply.reject(error instanceof Error ? error : new Error(String(error)));
+        const timer = setTimeout(() => {
+          this.replies.delete(id);
+          reject(new Error(`pi extension did not answer ${String(request.method)}`));
+        }, timeoutMs);
+        timer.unref?.();
+        const reply: ChannelReply = {
+          resolve: (result) => {
+            clearTimeout(timer);
+            resolve(result);
+          },
+          reject: (error) => {
+            clearTimeout(timer);
+            reject(error);
+          },
+        };
+        this.replies.set(id, reply);
+        try {
+          this.send({ kind: "request", id, ...request });
+        } catch (error) {
+          this.replies.delete(id);
+          reply.reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      } catch (setupError) {
+        reject(setupError);
       }
-    });
+      return promise;
+    }
   }
 
   // Event delivery is serialized by PiRpcSession, so there is at most one leaf waiter.
@@ -181,54 +194,72 @@ export class PiSessionChannel {
     const queued = this.leafReports.shift();
     if (queued !== undefined) return Promise.resolve(queued);
     if (this.disposedError) return Promise.resolve(null);
-    return new Promise<string | null>((resolve) => {
-      const timer = setTimeout(() => {
-        if (this.leafWaiter === settle) this.leafWaiter = null;
-        resolve(null);
-      }, AGENT_END_LEAF_TIMEOUT_MS);
-      timer.unref?.();
-      const settle = (leafId: string | null) => {
-        clearTimeout(timer);
-        resolve(leafId);
-      };
-      this.leafWaiter = settle;
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<string | null>();
+      try {
+        const timer = setTimeout(() => {
+          if (this.leafWaiter === settle) this.leafWaiter = null;
+          resolve(null);
+        }, AGENT_END_LEAF_TIMEOUT_MS);
+        timer.unref?.();
+        const settle = (leafId: string | null) => {
+          clearTimeout(timer);
+          resolve(leafId);
+        };
+        this.leafWaiter = settle;
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }
 
   takeAgentStart(): Promise<StartReport | null> {
     if (this.disposedError) return Promise.resolve(null);
     const queued = this.agentStartReports.shift();
     if (queued !== undefined) return Promise.resolve(queued);
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        if (this.agentStartWaiter === settle) this.agentStartWaiter = null;
-        resolve(null);
-      }, AGENT_END_LEAF_TIMEOUT_MS);
-      timer.unref?.();
-      const settle = (report: StartReport | null) => {
-        clearTimeout(timer);
-        resolve(report);
-      };
-      this.agentStartWaiter = settle;
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<StartReport | null>();
+      try {
+        const timer = setTimeout(() => {
+          if (this.agentStartWaiter === settle) this.agentStartWaiter = null;
+          resolve(null);
+        }, AGENT_END_LEAF_TIMEOUT_MS);
+        timer.unref?.();
+        const settle = (report: StartReport | null) => {
+          clearTimeout(timer);
+          resolve(report);
+        };
+        this.agentStartWaiter = settle;
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }
 
   takeAgentSettledLeaf(): Promise<SettlementReport | null> {
     if (this.disposedError) return Promise.resolve(null);
     const queued = this.agentSettledLeafReports.shift();
     if (queued !== undefined) return Promise.resolve(queued);
-    return new Promise<SettlementReport | null>((resolve) => {
-      const timer = setTimeout(() => {
-        if (this.agentSettledLeafWaiter === settle) this.agentSettledLeafWaiter = null;
-        resolve(null);
-      }, AGENT_END_LEAF_TIMEOUT_MS);
-      timer.unref?.();
-      const settle = (report: SettlementReport | null) => {
-        clearTimeout(timer);
-        resolve(report);
-      };
-      this.agentSettledLeafWaiter = settle;
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<SettlementReport | null>();
+      try {
+        const timer = setTimeout(() => {
+          if (this.agentSettledLeafWaiter === settle) this.agentSettledLeafWaiter = null;
+          resolve(null);
+        }, AGENT_END_LEAF_TIMEOUT_MS);
+        timer.unref?.();
+        const settle = (report: SettlementReport | null) => {
+          clearTimeout(timer);
+          resolve(report);
+        };
+        this.agentSettledLeafWaiter = settle;
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }
 
   dispose(error: Error): void {
@@ -252,12 +283,7 @@ function createDeferred(): {
   resolve: () => void;
   reject: (error: Error) => void;
 } {
-  let resolve: () => void = () => undefined;
-  let reject: (error: Error) => void = () => undefined;
-  const promise = new Promise<void>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<void>();
   void promise.catch(() => undefined);
   return { promise, resolve, reject };
 }

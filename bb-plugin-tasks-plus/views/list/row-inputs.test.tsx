@@ -150,9 +150,11 @@ it("uses the current context action for edits and reports pending writes as unse
       listTasks: () => ({ tasks: [task], nextCursor: null }),
       listTaskWorkStatus: () => ({ byTaskId: {} }),
       updateTask: () =>
-        new Promise((resolve) => {
+        (() => {
+          const { promise, resolve } = Promise.withResolvers<unknown>();
           finish = resolve;
-        }),
+          return promise;
+        })(),
     },
   });
   await slot.findByRole("button", { name: "Open TSK-1: Original" });
@@ -170,7 +172,7 @@ it("uses the current context action for edits and reports pending writes as unse
   expect(report.mock.calls.at(-1)?.[0]).toEqual({ keys: ["TSK-1"], settled: false });
   expect(currentContext).toHaveBeenCalledTimes(1);
   expect(oldContext).not.toHaveBeenCalled();
-  await act(async () => finish?.({ ok: true, task: { ...task, status: "done" } }));
+  await act(() => Promise.try(() => finish?.({ ok: true, task: { ...task, status: "done" } })));
   await waitFor(() =>
     expect(
       slot.container.querySelector('[data-task-key="TSK-1"]')?.getAttribute("aria-busy"),

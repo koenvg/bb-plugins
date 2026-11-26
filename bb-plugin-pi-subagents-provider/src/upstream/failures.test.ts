@@ -77,16 +77,18 @@ const failures: {
   {
     label: "network rejection",
     reason: "Upstream network failure",
-    respond: async () => {
-      throw new Error(malicious);
-    },
+    respond: () =>
+      Promise.try(() => {
+        throw new Error(malicious);
+      }),
   },
   {
     label: "untrusted SyntaxError",
     reason: "Upstream network failure",
-    respond: async () => {
-      throw new SyntaxError(malicious);
-    },
+    respond: () =>
+      Promise.try(() => {
+        throw new SyntaxError(malicious);
+      }),
   },
   {
     label: "stream read failure",
@@ -115,7 +117,7 @@ describe.each(stages.map((stage, index) => ({ stage, index })))(
       const fetcher = vi.fn<typeof fetch>();
       for (const response of responses.slice(0, index))
         fetcher.mockResolvedValueOnce(new Response(JSON.stringify(response)));
-      fetcher.mockImplementationOnce(async () => failure.respond());
+      fetcher.mockImplementationOnce(() => Promise.try(() => failure.respond()));
       const priorBytes = responses
         .slice(0, index)
         .reduce((total, response) => total + Buffer.byteLength(JSON.stringify(response)), 0);
@@ -195,7 +197,7 @@ it("reports baseline-stage failures without making requests", async () => {
 it("retains the request-timeout category and stage", async () => {
   vi.useFakeTimers();
   try {
-    const transport = vi.fn<Transport>(() => new Promise<never>(() => {}));
+    const transport = vi.fn<Transport>(() => Promise.withResolvers<never>().promise);
     const pending = checkUpstream(baseline, { transport, now: () => 0, bounds: { requestMs: 1 } });
     await vi.advanceTimersByTimeAsync(1);
     expect(await pending).toEqual({

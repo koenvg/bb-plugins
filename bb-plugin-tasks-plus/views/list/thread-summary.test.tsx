@@ -252,8 +252,8 @@ describe("agent activity presentation", () => {
     vi.stubGlobal(
       "IntersectionObserver",
       class {
-        constructor(callback: IntersectionObserverCallback) {
-          observe = callback;
+        constructor(onIntersection: IntersectionObserverCallback) {
+          observe = onIntersection;
         }
         observe() {}
         disconnect = disconnect;

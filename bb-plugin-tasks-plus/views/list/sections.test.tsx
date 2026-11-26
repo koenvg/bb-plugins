@@ -174,7 +174,7 @@ it("stages section changes through the context-change contract", async () => {
   fireEvent.click(header);
   expect(header.getAttribute("aria-expanded")).toBe("true");
   expect(loadListPreference("all").collapsedStatuses).toEqual([]);
-  await act(async () => commit?.());
+  await act(() => Promise.try(() => commit?.()));
   expect(header.getAttribute("aria-expanded")).toBe("false");
   expect(loadListPreference("all").collapsedStatuses).toEqual(["todo"]);
 });

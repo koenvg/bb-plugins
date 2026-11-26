@@ -24,12 +24,13 @@ describe("Manage labels", () => {
             sidebarSummary: () => ({ projects: [] }),
             listTasks: () => ({ tasks: [] }),
             listLabels: () => ({ labels: [] }),
-            createLabel: async (raw: unknown) => {
-              const input = rpcInput(raw);
-              createCalls.push(input);
-              if (createCalls.length === 1) throw new Error("Label creation unavailable");
-              return { label: { id: "label-new", ...input } };
-            },
+            createLabel: (raw: unknown) =>
+              Promise.try(() => {
+                const input = rpcInput(raw);
+                createCalls.push(input);
+                if (createCalls.length === 1) throw new Error("Label creation unavailable");
+                return { label: { id: "label-new", ...input } };
+              }),
           },
         },
       );

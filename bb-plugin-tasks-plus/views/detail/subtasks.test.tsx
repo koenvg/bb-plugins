@@ -63,7 +63,11 @@ function renderParent(
     {
       sdk: {
         threads: {
-          get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "idle" }),
+          get: (input) =>
+            Promise.try(
+              ({ threadId }) => makeThreadResponse({ id: threadId, status: "idle" }),
+              input,
+            ),
         },
       },
       rpc: {
@@ -142,10 +146,11 @@ describe("sub-task rows in the parent detail view", () => {
       const slot = renderParent(
         () => store.tasks.listSubtasks(parent.id).map((entry) => makeTask(entry)),
         makeTask(parent),
-        async (raw) => {
-          calls.push(rpcInput(raw));
-          return host.harness.callRpc("createTask", rpcInput(raw));
-        },
+        (raw) =>
+          Promise.try(() => {
+            calls.push(rpcInput(raw));
+            return host.harness.callRpc("createTask", rpcInput(raw));
+          }),
       );
       const byText = await slot.findByText("Not archived");
       expect(byText.textContent).toBe("Not archived");

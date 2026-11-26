@@ -79,15 +79,19 @@ function fixture(projectId: string | null, status: Task["status"] = "backlog") {
         listProjects: () => ({ projects: [] }),
         listTasks: () =>
           refresh
-            ? new Promise((resolve) => {
+            ? (() => {
+                const { promise, resolve } = Promise.withResolvers<unknown>();
                 finishRefresh = resolve;
-              })
+                return promise;
+              })()
             : { tasks, nextCursor: null },
         listTaskWorkStatus: () => ({ byTaskId: {} }),
         updateTask: () =>
-          new Promise((resolve) => {
+          (() => {
+            const { promise, resolve } = Promise.withResolvers<unknown>();
             finishSave = resolve;
-          }),
+            return promise;
+          })(),
       },
     },
   );
@@ -111,20 +115,22 @@ function fixture(projectId: string | null, status: Task["status"] = "backlog") {
     order,
     expected,
     context,
-    save: (result: TaskMutationResult) => act(async () => finishSave(result)),
+    save: (result: TaskMutationResult) => act(() => Promise.try(() => finishSave(result))),
     async refetch(saved: Task) {
       refresh = true;
       await slot.behavior.emitRealtime("tasks:changed", {});
       await waitFor(() => expect(finishRefresh).toBeTypeOf("function"));
       expect(order()).toEqual(expected);
       const byKey = new Map([...tasks.slice(1), saved].map((task) => [task.key, task]));
-      await act(async () =>
-        finishRefresh({
-          tasks: expected.map((key) =>
-            structuredClone(byKey.get(key) ?? missingValue("Expected byKey.get(key)")),
-          ),
-          nextCursor: null,
-        }),
+      await act(() =>
+        Promise.try(() =>
+          finishRefresh({
+            tasks: expected.map((key) =>
+              structuredClone(byKey.get(key) ?? missingValue("Expected byKey.get(key)")),
+            ),
+            nextCursor: null,
+          }),
+        ),
       );
     },
   };

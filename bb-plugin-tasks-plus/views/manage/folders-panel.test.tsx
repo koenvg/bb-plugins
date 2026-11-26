@@ -47,12 +47,13 @@ describe("Manage folders", () => {
     async (submitWith) => {
       const renameCalls: Record<string, unknown>[] = [];
       const slot = renderFolders({
-        renameFolder: async (raw: unknown) => {
-          const input = rpcInput(raw);
-          renameCalls.push(input);
-          if (renameCalls.length === 1) throw new Error("Folder rename unavailable");
-          return { folder: { ...parentFolder, name: input.name } };
-        },
+        renameFolder: (raw: unknown) =>
+          Promise.try(() => {
+            const input = rpcInput(raw);
+            renameCalls.push(input);
+            if (renameCalls.length === 1) throw new Error("Folder rename unavailable");
+            return { folder: { ...parentFolder, name: input.name } };
+          }),
       });
       fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
       fireEvent.click(await slot.findByRole("button", { name: "Rename folder bb" }));
@@ -104,10 +105,7 @@ describe("Manage folders", () => {
   });
 
   it("withholds the delete impact until the project list has loaded", async () => {
-    let releaseProjects: (() => void) | undefined;
-    const projectsLoaded = new Promise<void>((resolve) => {
-      releaseProjects = resolve;
-    });
+    const { promise: projectsLoaded, resolve: releaseProjects } = Promise.withResolvers<void>();
     const deleteCalls: Record<string, unknown>[] = [];
     const slot = renderFolders({
       listProjects: async () => {

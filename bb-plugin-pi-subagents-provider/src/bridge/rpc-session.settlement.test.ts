@@ -22,18 +22,15 @@ import { PiRpcSession, type PiRpcEvent } from "./rpc-session.js";
 import { PiSessionChannel } from "./session-channel.js";
 
 function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<void>();
   return { promise, resolve };
 }
 
 function harness(settlement = true) {
   const events: PiRpcEvent[] = [];
   const aDelivered = deferred();
-  const requestOk = vi.fn<(command: Record<string, unknown>) => Promise<unknown>>(
-    async () => undefined,
+  const requestOk = vi.fn<(command: Record<string, unknown>) => Promise<unknown>>(() =>
+    Promise.try(() => undefined),
   );
   const onDone = vi.fn();
   const kill = vi.fn();
@@ -46,7 +43,7 @@ function harness(settlement = true) {
       extensionPath: "unused",
       recordThreadId: "settlement-test",
     },
-    async () => ({ content: "" }),
+    () => Promise.resolve({ content: "" }),
     (event) => {
       events.push(event);
       if (event.type === "agent_settled") aDelivered.resolve();

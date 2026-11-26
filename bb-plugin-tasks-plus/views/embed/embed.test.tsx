@@ -171,10 +171,7 @@ describe("Task directive card", () => {
   });
 
   it("shows the title fallback while loading and keeps it when not found", async () => {
-    let resolveFetch: ((value: { task: null }) => void) | undefined;
-    const pending = new Promise<{ task: null }>((resolve) => {
-      resolveFetch = resolve;
-    });
+    const { promise: pending, resolve: resolveFetch } = Promise.withResolvers<{ task: null }>();
     const slot = renderSlot(
       app.messageDirectives[0] ?? missingValue("Expected app.messageDirectives[0]"),
       directiveProps({ key: "TSK-9", title: "Old embed work" }),
@@ -319,11 +316,12 @@ describe("Task embed panel", () => {
     let finishSave!: (result: unknown) => void;
     const updateTask = vi
       .fn()
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            finishSave = resolve;
-          }),
+      .mockImplementationOnce(() =>
+        (() => {
+          const { promise, resolve } = Promise.withResolvers<unknown>();
+          finishSave = resolve;
+          return promise;
+        })(),
       )
       .mockResolvedValue({ ok: true, task: { ...task, title: "Edited A" } });
     const slot = renderSlot(
@@ -354,7 +352,9 @@ describe("Task embed panel", () => {
     await waitFor(() => expect(updateTask).toHaveBeenCalledOnce());
     expect(slot.queryByText("TSK-5")).toBeNull();
     expect(slot.getByText("TSK-4")).toBeTruthy();
-    await act(async () => finishSave({ ok: false, error: { message: "Save rejected" } }));
+    await act(() =>
+      Promise.try(() => finishSave({ ok: false, error: { message: "Save rejected" } })),
+    );
     const byRole = await slot.findByRole("alert");
     expect(byRole.textContent).toContain("Save rejected");
     expect(slot.getByRole("button", { name: "Open TSK-4 in Tasks" })).toBeTruthy();
@@ -381,9 +381,11 @@ describe("Task embed panel", () => {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
           updateTask: () =>
-            new Promise((resolve) => {
+            (() => {
+              const { promise, resolve } = Promise.withResolvers<unknown>();
               finishSave = resolve;
-            }),
+              return promise;
+            })(),
         },
       },
     );
@@ -392,11 +394,13 @@ describe("Task embed panel", () => {
     fireEvent.input(title);
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-4 in Tasks" }));
     expect(slot.inspection.navigateCalls).toEqual([]);
-    await act(async () =>
-      finishSave({
-        ok: true,
-        task: { ...task, title: "Edited before opening" },
-      }),
+    await act(() =>
+      Promise.try(() =>
+        finishSave({
+          ok: true,
+          task: { ...task, title: "Edited before opening" },
+        }),
+      ),
     );
     expect(slot.inspection.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -501,15 +505,17 @@ describe("Task embed panel", () => {
         rpc: {
           ...taskDetailRpc(() => ({ task })),
           getTasksForThread: () =>
-            new Promise((done) => {
+            (() => {
+              const { promise, resolve: done } = Promise.withResolvers<unknown>();
               resolve = done;
-            }),
+              return promise;
+            })(),
         },
       },
     );
     slot.getByRole("status", { name: "Loading linked task" });
     expect(slot.queryByText("No task is linked to this thread.")).toBeNull();
-    await act(async () => resolve({ tasks: [task] }));
+    await act(() => Promise.try(() => resolve({ tasks: [task] })));
     await slot.findByRole("textbox", { name: "Task title" });
   });
 
@@ -579,11 +585,12 @@ describe("Task embed panel", () => {
     let tasks = [task];
     const other = makeTask({ id: "01HZZZZZZZZZZZZZZZZZZZZZT2", key: "TSK-5", title: "Next task" });
     let finishSave!: (result: unknown) => void;
-    const updateTask = vi.fn(
-      () =>
-        new Promise((resolve) => {
-          finishSave = resolve;
-        }),
+    const updateTask = vi.fn(() =>
+      (() => {
+        const { promise, resolve } = Promise.withResolvers<unknown>();
+        finishSave = resolve;
+        return promise;
+      })(),
     );
     const slot = renderSlot(
       taskRegistration,
@@ -605,11 +612,13 @@ describe("Task embed panel", () => {
     await waitFor(() => expect(updateTask).toHaveBeenCalledOnce());
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(slot.getByRole("button", { name: "Open TSK-4 in Tasks" })).toBeTruthy();
-    await act(async () =>
-      finishSave(
-        ok
-          ? { ok: true, task: { ...task, title: "Edited linked task" } }
-          : { ok: false, error: { message: "Save rejected" } },
+    await act(() =>
+      Promise.try(() =>
+        finishSave(
+          ok
+            ? { ok: true, task: { ...task, title: "Edited linked task" } }
+            : { ok: false, error: { message: "Save rejected" } },
+        ),
       ),
     );
     if (ok) {
@@ -640,10 +649,16 @@ describe("Task embed panel", () => {
           rpc: {
             ...taskDetailRpc(() => ({ task })),
             getTasksForThread: () =>
-              new Promise((resolve, reject) => {
-                finishLookup = resolve;
-                failLookup = reject;
-              }),
+              (() => {
+                const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+                try {
+                  finishLookup = resolve;
+                  failLookup = reject;
+                } catch (setupError) {
+                  reject(setupError);
+                }
+                return promise;
+              })(),
             updateTask,
           },
         },
@@ -653,23 +668,25 @@ describe("Task embed panel", () => {
       try {
         title.textContent = "Unsaved explicit edit";
         fireEvent.input(title);
-        await act(async () =>
-          slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
+        await act(() =>
+          Promise.try(() =>
+            slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
+          ),
         );
         slot.getByRole("status", { name: "Loading linked task" });
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
         expect(title.textContent).toBe("Unsaved explicit edit");
         slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
         if (outcome === "same task") {
-          await act(async () => finishLookup({ tasks: [task] }));
+          await act(() => Promise.try(() => finishLookup({ tasks: [task] })));
         } else if (outcome === "no linked task") {
-          await act(async () => finishLookup({ tasks: [] }));
+          await act(() => Promise.try(() => finishLookup({ tasks: [] })));
           slot.getByText("No task is linked to this thread.");
           expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
           expect(updateTask).toHaveBeenCalledOnce();
           return;
         } else {
-          await act(async () => failLookup(new Error("Offline")));
+          await act(() => Promise.try(() => failLookup(new Error("Offline"))));
           slot.getByRole("alert");
           slot.getByRole("button", { name: "Retry" });
         }
@@ -704,10 +721,16 @@ describe("Task embed panel", () => {
           rpc: {
             ...taskDetailRpc(() => ({ task: savedTask })),
             getTasksForThread: () =>
-              new Promise((resolve, reject) => {
-                finishLookup = resolve;
-                failLookup = reject;
-              }),
+              (() => {
+                const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+                try {
+                  finishLookup = resolve;
+                  failLookup = reject;
+                } catch (setupError) {
+                  reject(setupError);
+                }
+                return promise;
+              })(),
             updateTask,
           },
         },
@@ -717,17 +740,19 @@ describe("Task embed panel", () => {
       try {
         title.textContent = "Autosaved explicit edit";
         fireEvent.input(title);
-        await act(async () =>
-          slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
+        await act(() =>
+          Promise.try(() =>
+            slot.lifecycle.rerender(<Panel threadId="thr_1" environment={null} params={null} />),
+          ),
         );
         slot.getByRole("status", { name: "Loading linked task" });
         expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
         expect(title.textContent).toBe("Autosaved explicit edit");
         expect(updateTask).not.toHaveBeenCalled();
 
-        await act(async () => vi.advanceTimersByTimeAsync(799));
+        await act(() => Promise.try(() => vi.advanceTimersByTimeAsync(799)));
         expect(updateTask).not.toHaveBeenCalled();
-        await act(async () => vi.advanceTimersByTimeAsync(1));
+        await act(() => Promise.try(() => vi.advanceTimersByTimeAsync(1)));
         expect(updateTask).toHaveBeenCalledOnce();
         expect(slot.rpcCalls.filter(({ method }) => method === "updateTask")).toEqual([
           {
@@ -741,14 +766,14 @@ describe("Task embed panel", () => {
         slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
 
         if (outcome === "same task") {
-          await act(async () => finishLookup({ tasks: [savedTask] }));
+          await act(() => Promise.try(() => finishLookup({ tasks: [savedTask] })));
         } else if (outcome === "no linked task") {
-          await act(async () => finishLookup({ tasks: [] }));
+          await act(() => Promise.try(() => finishLookup({ tasks: [] })));
           slot.getByText("No task is linked to this thread.");
           expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
           expect(slot.queryByRole("button", { name: "Open TSK-4 in Tasks" })).toBeNull();
         } else {
-          await act(async () => failLookup(new Error("Offline")));
+          await act(() => Promise.try(() => failLookup(new Error("Offline"))));
           expect(slot.getByRole("alert").textContent).toContain("Couldn't load the linked task.");
           slot.getByRole("button", { name: "Retry" });
         }
@@ -759,7 +784,7 @@ describe("Task embed panel", () => {
           slot.getByRole("button", { name: "Open TSK-4 in Tasks" });
           expect(slot.queryByText("No task is linked to this thread.")).toBeNull();
         }
-        await act(async () => vi.advanceTimersByTimeAsync(800));
+        await act(() => Promise.try(() => vi.advanceTimersByTimeAsync(800)));
         expect(updateTask).toHaveBeenCalledOnce();
       } finally {
         try {

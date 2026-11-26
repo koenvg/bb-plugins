@@ -33,9 +33,15 @@ window.fetch = async (input, init) => {
       Number(document.documentElement.dataset.reads || 0) + 1,
     );
     if (mode === "delayed")
-      await new Promise<void>((resolve) =>
-        window.addEventListener("fixture-ready", () => resolve(), { once: true }),
-      );
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          window.addEventListener("fixture-ready", () => resolve(), { once: true });
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
     if (
       mode === "error" ||
       (mode === "recoverable" && document.documentElement.dataset.reads === "1")
@@ -120,10 +126,12 @@ const TaskFixture = () => {
       <AttachmentsGrid
         attachments={attachments}
         onPreview={preview.open}
-        onRemove={async (item) => {
-          preview.removed(item.id);
-          setAttachments([]);
-        }}
+        onRemove={(item) =>
+          Promise.try(() => {
+            preview.removed(item.id);
+            setAttachments([]);
+          })
+        }
         onError={() => {}}
       />
       {preview.dialog}

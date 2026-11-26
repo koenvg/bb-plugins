@@ -17,20 +17,24 @@ function fakeSdk({
     broken: new Error("read failed"),
     old: { prSummary: { version: 1 } },
   };
-  const getPluginMetadata = vi.fn(async ({ threadId }: { threadId: string }) => {
-    const value = metadata[threadId] ?? missingValue("Expected metadata[threadId]");
-    if (value instanceof Error) throw value;
-    return value;
-  });
+  const getPluginMetadata = vi.fn((input: { threadId: string }) =>
+    Promise.try(({ threadId }: { threadId: string }) => {
+      const value = metadata[threadId] ?? missingValue("Expected metadata[threadId]");
+      if (value instanceof Error) throw value;
+      return value;
+    }, input),
+  );
   const sdk = {
-    plugins: { list: listPlugins ?? (async () => ({ plugins })) },
+    plugins: { list: listPlugins ?? (() => Promise.try(() => ({ plugins }))) },
     threads: {
-      list: vi.fn(async () => [
-        { id: "withPr", archivedAt: null },
-        { id: "withoutPr", archivedAt: null },
-        { id: "broken", archivedAt: null },
-        { id: "old", archivedAt: 5 },
-      ]),
+      list: vi.fn(() =>
+        Promise.resolve([
+          { id: "withPr", archivedAt: null },
+          { id: "withoutPr", archivedAt: null },
+          { id: "broken", archivedAt: null },
+          { id: "old", archivedAt: 5 },
+        ]),
+      ),
       getPluginMetadata,
     },
   } as unknown as Sdk;
@@ -53,11 +57,17 @@ describe("listSummaries", () => {
     );
   });
   it("reports github-insight as unavailable when it is missing or disabled", async () => {
-    for (const plugins of [[], [{ id: "github-insight", enabled: false, status: "disabled" }]]) {
-      const { sdk, getPluginMetadata } = fakeSdk({ plugins });
-      await expect(listSummaries(sdk)).resolves.toEqual({ insightAvailable: false, summaries: {} });
-      expect(getPluginMetadata).not.toHaveBeenCalled();
-    }
+    await Array.fromAsync(
+      [[], [{ id: "github-insight", enabled: false, status: "disabled" }]],
+      async (plugins) => {
+        const { sdk, getPluginMetadata } = fakeSdk({ plugins });
+        await expect(listSummaries(sdk)).resolves.toEqual({
+          insightAvailable: false,
+          summaries: {},
+        });
+        expect(getPluginMetadata).not.toHaveBeenCalled();
+      },
+    );
   });
   it("still reads summaries when the plugin list cannot be read", async () => {
     const { sdk } = fakeSdk({ listPlugins: () => Promise.reject(new Error("forbidden")) });

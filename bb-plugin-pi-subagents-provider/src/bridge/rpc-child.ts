@@ -125,9 +125,11 @@ export class PiRpcChild {
     this.args = args;
     const launch = resolvePiLaunch(process.env);
     let resolveSettledExit: (info: PiRpcChildExitInfo) => void = () => undefined;
-    this.settledExit = new Promise((resolve) => {
+    this.settledExit = (() => {
+      const { promise, resolve } = Promise.withResolvers<PiRpcChildExitInfo>();
       resolveSettledExit = resolve;
-    });
+      return promise;
+    })();
     this.channel = new PiBridgeChannel({
       onLine: (line) => this.handleChannelLine(line),
       onOverflow: (bytes) => {
@@ -222,18 +224,24 @@ export class PiRpcChild {
     }
     this.nextRequestId += 1;
     const id = `bb-${this.nextRequestId}`;
-    return new Promise<PiRpcResponse>((resolve, reject) => {
-      const timer =
-        timeoutMs === NO_REQUEST_TIMEOUT
-          ? null
-          : setTimeout(() => {
-              this.pending.delete(id);
-              reject(new Error(`pi did not answer ${String(command.type)} in time`));
-            }, timeoutMs);
-      timer?.unref?.();
-      this.pending.set(id, { resolve, reject, timer });
-      this.writeStdin(`${JSON.stringify({ ...command, id })}\n`);
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<PiRpcResponse>();
+      try {
+        const timer =
+          timeoutMs === NO_REQUEST_TIMEOUT
+            ? null
+            : setTimeout(() => {
+                this.pending.delete(id);
+                reject(new Error(`pi did not answer ${String(command.type)} in time`));
+              }, timeoutMs);
+        timer?.unref?.();
+        this.pending.set(id, { resolve, reject, timer });
+        this.writeStdin(`${JSON.stringify({ ...command, id })}\n`);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }
 
   async requestOk(command: Record<string, unknown>, timeoutMs?: number): Promise<unknown> {
@@ -390,8 +398,8 @@ function createChannelRecorder(threadId: string | null): ChannelRecorder | null 
   }
   const fromChild = new PassThrough();
   const toChild = new Writable({
-    write(_chunk, _encoding, callback) {
-      callback();
+    write(_chunk, _encoding, writeComplete) {
+      writeComplete();
     },
   });
   experimental_recordProviderChildIo({ stdin: toChild, stdout: fromChild }, { threadId });

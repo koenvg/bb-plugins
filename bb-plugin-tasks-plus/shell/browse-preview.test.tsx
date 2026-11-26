@@ -93,7 +93,7 @@ describe("retained browse detail", () => {
     await acceptNavigation(slot);
     expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
     expect(slot.getByText("Loading TSK-2…")).toBeTruthy();
-    await act(async () => pending.resolve({}));
+    await act(() => Promise.try(() => pending.resolve({})));
     await slot.findByText("Lookup offline");
     failure = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));

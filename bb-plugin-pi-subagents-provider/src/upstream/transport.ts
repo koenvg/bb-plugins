@@ -36,14 +36,21 @@ export function githubTransport(fetcher: typeof fetch = fetch, bounds = byteLimi
     const chunks: Uint8Array[] = [];
     let size = 0;
     try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        total += value.byteLength;
-        if (size > bounds.responseBytes || total > bounds.totalBytes)
-          throw new Error("Upstream response bound exhausted");
-        chunks.push(value);
+      {
+        const runStep = async () => {
+          const { value, done } = await reader.read();
+          if (done) return { kind: "break" } as const;
+          size += value.byteLength;
+          total += value.byteLength;
+          if (size > bounds.responseBytes || total > bounds.totalBytes)
+            throw new Error("Upstream response bound exhausted");
+          chunks.push(value);
+        };
+        for await (const stepResult of (async function* () {
+          while (true) yield runStep();
+        })()) {
+          if (stepResult?.kind === "break") break;
+        }
       }
       const bytes = Buffer.concat(chunks);
       let body: string;

@@ -25,7 +25,7 @@ describe("Tasks RPC domain API", () => {
       status: "todo",
     });
     const ids = new Set<string>();
-    for (const status of ["in_progress", "done"] as const) {
+    await Array.fromAsync(["in_progress", "done"] as const, async (status) => {
       const result = tasksRpcContract.updateTask.output.parse(
         await harness.callRpc("updateTask", { taskId: task.id, status }),
       );
@@ -37,7 +37,7 @@ describe("Tasks RPC domain API", () => {
         channel: "tasks:changed",
         payload: { taskId: task.id, projectId: project.id, changeId: result.changeId },
       });
-    }
+    });
     expect(ids.size).toBe(2);
     const signals = harness.realtimeSignals.length;
     await expect(
@@ -168,8 +168,11 @@ describe("Tasks RPC domain API", () => {
     "refreshes summary counts after completing, canceling, and reopening through %s",
     async (method) => {
       const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-      harness.sdk.stub("threads.get", async ({ threadId }) =>
-        makeThreadResponse({ id: threadId, environmentId: null }),
+      harness.sdk.stub("threads.get", (input) =>
+        Promise.try(
+          ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: null }),
+          input,
+        ),
       );
       const store = createStore(bb);
       registerTasksApi(bb, store);
@@ -194,31 +197,34 @@ describe("Tasks RPC domain API", () => {
       await expect(harness.behavior.callRpc("sidebarSummary", null)).resolves.toEqual({
         projects: [{ projectId: project.id, taskCount: 1, activeAgentCount: 1 }],
       });
-      for (const [status, taskCount] of [
-        ["done", 0],
-        ["todo", 1],
-        ["canceled", 0],
-        ["in_review", 1],
-      ] as const) {
-        const signalsBefore = harness.inspection.realtimeSignals.length;
-        await expect(
-          harness.behavior.callRpc(method, { taskId: task.id, status }),
-        ).resolves.toMatchObject({ ok: true, task: { status } });
-        await expect(harness.behavior.callRpc("sidebarSummary", null)).resolves.toEqual({
-          projects: [{ projectId: project.id, taskCount, activeAgentCount: 1 }],
-        });
-        await expect(
-          harness.behavior.callRpc("listTasks", { projectId: project.id }),
-        ).resolves.toMatchObject({ tasks: [{ id: task.id, status }] });
-        expect(harness.inspection.realtimeSignals.slice(signalsBefore)).toContainEqual({
-          channel: "tasks:changed",
-          payload: {
-            taskId: task.id,
-            projectId: project.id,
-            ...(method === "updateTask" ? { changeId: expect.any(String) } : {}),
-          },
-        });
-      }
+      await Array.fromAsync(
+        [
+          ["done", 0],
+          ["todo", 1],
+          ["canceled", 0],
+          ["in_review", 1],
+        ] as const,
+        async ([status, taskCount]) => {
+          const signalsBefore = harness.inspection.realtimeSignals.length;
+          await expect(
+            harness.behavior.callRpc(method, { taskId: task.id, status }),
+          ).resolves.toMatchObject({ ok: true, task: { status } });
+          await expect(harness.behavior.callRpc("sidebarSummary", null)).resolves.toEqual({
+            projects: [{ projectId: project.id, taskCount, activeAgentCount: 1 }],
+          });
+          await expect(
+            harness.behavior.callRpc("listTasks", { projectId: project.id }),
+          ).resolves.toMatchObject({ tasks: [{ id: task.id, status }] });
+          expect(harness.inspection.realtimeSignals.slice(signalsBefore)).toContainEqual({
+            channel: "tasks:changed",
+            payload: {
+              taskId: task.id,
+              projectId: project.id,
+              ...(method === "updateTask" ? { changeId: expect.any(String) } : {}),
+            },
+          });
+        },
+      );
       await harness.lifecycle.dispose();
     },
   );
@@ -295,10 +301,11 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         projects: {
-          list: async () => [
-            { id: "proj_personal", name: "Personal", extra: "dropped" },
-            { id: "proj_bb", name: "bb" },
-          ],
+          list: () =>
+            Promise.resolve([
+              { id: "proj_personal", name: "Personal", extra: "dropped" },
+              { id: "proj_bb", name: "bb" },
+            ]),
         },
       },
     });
@@ -320,18 +327,19 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         hosts: {
-          list: async () => [
-            {
-              id: "host_primary",
-              name: "Sawyer Air",
-              status: "connected",
-            },
-            {
-              id: "host_remote",
-              name: "Build box",
-              status: "disconnected",
-            },
-          ],
+          list: () =>
+            Promise.resolve([
+              {
+                id: "host_primary",
+                name: "Sawyer Air",
+                status: "connected",
+              },
+              {
+                id: "host_remote",
+                name: "Build box",
+                status: "disconnected",
+              },
+            ]),
         },
       },
     });
@@ -360,29 +368,31 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          search: async () => ({
-            active: {
-              results: [
-                {
-                  thread: thread("thr_old", "Old match", null, 10, "idle"),
-                },
-                {
-                  thread: thread("thr_new", null, "New fallback", 30, "active"),
-                },
-              ],
-            },
-            archived: {
-              results: [
-                {
-                  thread: thread("thr_middle", "Middle match", null, 20, "error"),
-                },
-              ],
-            },
-          }),
-          list: async () => [
-            thread("thr_recent_old", "Recent old", null, 40, "idle"),
-            thread("thr_recent_new", null, "Recent new", 50, "starting"),
-          ],
+          search: () =>
+            Promise.try(() => ({
+              active: {
+                results: [
+                  {
+                    thread: thread("thr_old", "Old match", null, 10, "idle"),
+                  },
+                  {
+                    thread: thread("thr_new", null, "New fallback", 30, "active"),
+                  },
+                ],
+              },
+              archived: {
+                results: [
+                  {
+                    thread: thread("thr_middle", "Middle match", null, 20, "error"),
+                  },
+                ],
+              },
+            })),
+          list: () =>
+            Promise.try(() => [
+              thread("thr_recent_old", "Recent old", null, 40, "idle"),
+              thread("thr_recent_new", null, "Recent new", 50, "starting"),
+            ]),
         },
       },
     });
@@ -454,11 +464,11 @@ describe("Tasks RPC domain API", () => {
       await expect(harness.callRpc("deleteTask", { taskId: task.id })).resolves.toEqual({
         deleted: true,
       });
-      for (const blobDirectory of blobDirectories) {
+      await Array.fromAsync(blobDirectories, async (blobDirectory) => {
         await expect(stat(blobDirectory)).rejects.toMatchObject({
           code: "ENOENT",
         });
-      }
+      });
     } finally {
       await harness.dispose();
     }
@@ -695,12 +705,12 @@ describe("Tasks RPC domain API", () => {
     );
     expect(caseInsensitive.task?.id).toBe(task.id);
 
-    for (const taskKey of ["PLUG-999", "NOPE-1", "not a key", "PLUG-"]) {
+    await Array.fromAsync(["PLUG-999", "NOPE-1", "not a key", "PLUG-"], async (taskKey) => {
       const missing = tasksRpcContract.getTaskByKey.output.parse(
         await harness.callRpc("getTaskByKey", { taskKey }),
       );
       expect(missing.task).toBeNull();
-    }
+    });
   });
 
   it("returns the API tasks linked to a thread and an empty list for an unlinked thread", async () => {
@@ -867,20 +877,25 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) => {
-            if (threadId === "thr_deleted00") {
-              throw new Error("thread_not_found");
-            }
-            return makeThreadResponse({
-              id: threadId,
-              environmentId: environmentByThread[threadId] ?? null,
-            });
-          },
+          get: (input: { threadId: string }) =>
+            Promise.try(({ threadId }: { threadId: string }) => {
+              if (threadId === "thr_deleted00") {
+                throw new Error("thread_not_found");
+              }
+              return makeThreadResponse({
+                id: threadId,
+                environmentId: environmentByThread[threadId] ?? null,
+              });
+            }, input),
         },
         plugins: {
-          callRpc: mockPrStatusRpc(
-            async ({ environmentId }) =>
-              pullRequestsByEnvironment[environmentId] ?? missingValue("Expected a non-null value"),
+          callRpc: mockPrStatusRpc((input) =>
+            Promise.try(
+              ({ environmentId }) =>
+                pullRequestsByEnvironment[environmentId] ??
+                missingValue("Expected a non-null value"),
+              input,
+            ),
           ),
         },
       },
@@ -949,20 +964,24 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) =>
-            makeThreadResponse({
-              id: threadId,
-              environmentId:
-                threadId === "thr_absent000"
-                  ? "env_absent"
-                  : threadId === "thr_crash0000"
-                    ? "env_crash"
-                    : "env_no_auth",
-            }),
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) =>
+                makeThreadResponse({
+                  id: threadId,
+                  environmentId:
+                    threadId === "thr_absent000"
+                      ? "env_absent"
+                      : threadId === "thr_crash0000"
+                        ? "env_crash"
+                        : "env_no_auth",
+                }),
+              input,
+            ),
         },
         plugins: {
-          callRpc: mockPrStatusRpc(
-            async ({ environmentId }: { environmentId: string }): Promise<PullRequestLookup> => {
+          callRpc: mockPrStatusRpc((input: { environmentId: string }): Promise<PullRequestLookup> =>
+            Promise.try(({ environmentId }: { environmentId: string }) => {
               if (environmentId === "env_absent") return { outcome: "absent" };
               if (environmentId === "env_crash") {
                 throw new Error("host offline");
@@ -971,7 +990,7 @@ describe("Tasks RPC domain API", () => {
                 outcome: "unavailable",
                 message: "gh pr view failed: authentication required",
               };
-            },
+            }, input),
           ),
         },
       },
@@ -1016,18 +1035,27 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) =>
-            makeThreadResponse({
-              id: threadId,
-              environmentId: threadId === "thr_beta00000" ? "env_b" : "env_a",
-            }),
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) =>
+                makeThreadResponse({
+                  id: threadId,
+                  environmentId: threadId === "thr_beta00000" ? "env_b" : "env_a",
+                }),
+              input,
+            ),
         },
         plugins: {
-          callRpc: mockPrStatusRpc(
-            ({ environmentId }) =>
-              new Promise<PullRequestLookup>((resolve) => {
+          callRpc: mockPrStatusRpc(({ environmentId }) =>
+            (() => {
+              const { promise, resolve, reject } = Promise.withResolvers<PullRequestLookup>();
+              try {
                 resolvers.set(environmentId, resolve);
-              }),
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            })(),
           ),
         },
       },
@@ -1112,16 +1140,23 @@ describe("Tasks RPC domain API", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async ({ threadId }: { threadId: string }) =>
-            makeThreadResponse({
-              id: threadId,
-              environmentId: threadId === "thr_stale0000" ? "env_stale" : "env_fresh",
-            }),
+          get: (input: { threadId: string }) =>
+            Promise.try(
+              ({ threadId }: { threadId: string }) =>
+                makeThreadResponse({
+                  id: threadId,
+                  environmentId: threadId === "thr_stale0000" ? "env_stale" : "env_fresh",
+                }),
+              input,
+            ),
         },
         plugins: {
-          callRpc: mockPrStatusRpc(
-            async ({ environmentId }) =>
-              lookupByEnvironment[environmentId] ?? missingValue("Expected a non-null value"),
+          callRpc: mockPrStatusRpc((input) =>
+            Promise.try(
+              ({ environmentId }) =>
+                lookupByEnvironment[environmentId] ?? missingValue("Expected a non-null value"),
+              input,
+            ),
           ),
         },
       },

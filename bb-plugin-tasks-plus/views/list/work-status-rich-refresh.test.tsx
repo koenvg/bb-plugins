@@ -13,7 +13,7 @@ import { PrSummary } from "./pr-summary.js";
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   cleanup();
-  for (const dispose of disposers.splice(0)) await dispose();
+  await Array.fromAsync(disposers.splice(0), (dispose) => dispose());
   vi.useRealTimers();
 });
 const url = "https://github.com/acme/bb/pull/42";
@@ -67,10 +67,11 @@ it.each(["checks", "ready"])(
       {
         rpc: {
           listTaskWorkStatus: () => {
-            if (++calls > 1)
-              return new Promise((_resolve, fail) => {
-                reject = fail;
-              });
+            if (++calls > 1) {
+              const { promise, reject: fail } = Promise.withResolvers<unknown>();
+              reject = fail;
+              return promise;
+            }
             return {
               byTaskId: {
                 [task.id]: {
@@ -148,9 +149,11 @@ it.each(["checks", "ready"])(
     expect(slot.getByRole("link", { name: /Open GitHub PR/ }).textContent).not.toContain(
       "Checks failing",
     );
-    await act(async () => {
-      reject(new Error("offline"));
-    });
+    await act(() =>
+      Promise.try(() => {
+        reject(new Error("offline"));
+      }),
+    );
     expect(latest?.pullRequests.items[0]).toMatchObject({
       state: "unknown",
       details: "stale",
@@ -166,42 +169,52 @@ it.each(["checks", "ready"])(
 
 it("shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads", async () => {
   let phase = 0;
-  const plugins = vi.fn(async () => ({
-    plugins: [{ id: "github-insight", enabled: true, status: "running" }],
-  }));
-  const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-    makeThreadResponse({
-      id: threadId,
-      environmentId: "env_shared",
-      archivedAt: 1,
+  const plugins = vi.fn(() =>
+    Promise.resolve({
+      plugins: [{ id: "github-insight", enabled: true, status: "running" }],
     }),
   );
-  const getPluginMetadata = vi.fn(async ({ threadId }: { threadId: string }) => {
-    if (threadId === "thr_error" && phase === 0) throw new Error("offline");
-    if (threadId === "thr_none") return {};
-    return {
-      prSummary: {
-        version: 1,
+  const get = vi.fn((input: { threadId: string }) =>
+    Promise.try(
+      ({ threadId }: { threadId: string }) =>
+        makeThreadResponse({
+          id: threadId,
+          environmentId: "env_shared",
+          archivedAt: 1,
+        }),
+      input,
+    ),
+  );
+  const getPluginMetadata = vi.fn((input: { threadId: string }) =>
+    Promise.try(({ threadId }: { threadId: string }) => {
+      if (threadId === "thr_error" && phase === 0) throw new Error("offline");
+      if (threadId === "thr_none") return {};
+      return {
+        prSummary: {
+          version: 1,
+          updatedAt: new Date().toISOString(),
+          pr: { url, number: 42, state: phase === 0 ? "open" : "merged" },
+          checks: counts,
+          reviewers,
+          blockers: ["checks_failed", "review_required"],
+          mergeQueue: null,
+          error: null,
+        },
+      };
+    }, input),
+  );
+  const pullRequest = vi.fn(() =>
+    Promise.try(() => ({
+      outcome: "available",
+      pullRequest: {
+        url,
+        number: 42,
+        title: "Work",
+        state: phase === 0 ? "open" : "merged",
         updatedAt: new Date().toISOString(),
-        pr: { url, number: 42, state: phase === 0 ? "open" : "merged" },
-        checks: counts,
-        reviewers,
-        blockers: ["checks_failed", "review_required"],
-        mergeQueue: null,
-        error: null,
       },
-    };
-  });
-  const pullRequest = vi.fn(async () => ({
-    outcome: "available",
-    pullRequest: {
-      url,
-      number: 42,
-      title: "Work",
-      state: phase === 0 ? "open" : "merged",
-      updatedAt: new Date().toISOString(),
-    },
-  }));
+    })),
+  );
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: {

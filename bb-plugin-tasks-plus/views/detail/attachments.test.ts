@@ -8,19 +8,20 @@ afterEach(() => {
 
 it("uploads attachments through the Tasks Plus token and HTTP routes", async () => {
   const requests: string[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = String(input);
-    requests.push(url);
-    if (url.endsWith("/token")) {
-      return new Response(JSON.stringify({ token: "test-token" }), { status: 200 });
-    }
-    if (url.includes("/attachments/upload")) {
-      return new Response(JSON.stringify({ attachmentId: "att-1", url: "/download" }), {
-        status: 201,
-      });
-    }
-    throw new Error(`Unexpected request: ${url}`);
-  }) as typeof fetch;
+  globalThis.fetch = ((input: RequestInfo | URL) =>
+    Promise.try(() => {
+      const url = String(input);
+      requests.push(url);
+      if (url.endsWith("/token")) {
+        return new Response(JSON.stringify({ token: "test-token" }), { status: 200 });
+      }
+      if (url.includes("/attachments/upload")) {
+        return new Response(JSON.stringify({ attachmentId: "att-1", url: "/download" }), {
+          status: 201,
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    })) as typeof fetch;
 
   const { uploadAttachment } = await import("./attachments.js");
   await uploadAttachment(new File(["data"], "note.txt", { type: "text/plain" }), {

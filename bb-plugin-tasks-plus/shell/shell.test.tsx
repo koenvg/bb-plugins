@@ -285,10 +285,11 @@ describe("tasks app shell", () => {
       {
         realtimeConnectionState: "reconnecting",
         rpc: seededRpc({
-          listTasks: async () => {
-            if (!serverAvailable) throw new Error("server unavailable");
-            return { tasks: [task] };
-          },
+          listTasks: () =>
+            Promise.try(() => {
+              if (!serverAvailable) throw new Error("server unavailable");
+              return { tasks: [task] };
+            }),
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
           listTaskThreads: () => ({ taskThreads: [] }),
@@ -353,9 +354,11 @@ describe("tasks app shell", () => {
           },
           listFolders: async () => {
             if (holdFolders)
-              await new Promise<void>((resolve) => {
+              await (() => {
+                const { promise, resolve } = Promise.withResolvers<void>();
                 releaseFolders = resolve;
-              });
+                return promise;
+              })();
             return { folders: [folder] };
           },
         }),
@@ -447,9 +450,15 @@ describe("tasks app shell", () => {
             if (!holdListTasks) {
               return { tasks: [{ ...task, title }] };
             }
-            return new Promise((resolve) => {
-              pendingResolvers.push(() => resolve({ tasks: [{ ...task, title }] }));
-            });
+            {
+              const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+              try {
+                pendingResolvers.push(() => resolve({ tasks: [{ ...task, title }] }));
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            }
           },
           listLabels: () => ({ labels: [] }),
           listAttachments: () => ({ attachments: [] }),
@@ -487,10 +496,26 @@ describe("tasks app shell", () => {
     fireEvent.click(refresh);
     refresh.focus();
     fireEvent.click(refresh);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+      try {
+        setTimeout(resolve, 50);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     expect(listTasksCalls).toBe(callsWhilePending);
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+      try {
+        setTimeout(resolve, 600);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     expect(refresh.disabled).toBe(true);
     expect(listTasksCalls).toBe(callsWhilePending);
 
@@ -612,10 +637,7 @@ describe("tasks app shell", () => {
     const projectsKey = querySnapshotStorageKey("projects");
     const foldersKey = querySnapshotStorageKey("folders");
     function deferred<T>() {
-      let resolve!: (value: T) => void;
-      const promise = new Promise<T>((r) => {
-        resolve = r;
-      });
+      const { promise, resolve } = Promise.withResolvers<T>();
       return { promise, resolve };
     }
 
@@ -771,9 +793,15 @@ describe("tasks app shell", () => {
       listTasks: (input: { activeOnly?: boolean }) => {
         if (input.activeOnly === true) return { tasks: [] };
         if (!deferAll) return { tasks };
-        return new Promise((resolve) => {
-          releaseAll = () => resolve({ tasks });
-        });
+        {
+          const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+          try {
+            releaseAll = () => resolve({ tasks });
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        }
       },
     });
     const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;

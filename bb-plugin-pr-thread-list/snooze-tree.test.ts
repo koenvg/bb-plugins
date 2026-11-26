@@ -81,18 +81,19 @@ describe("server hierarchy adapter", () => {
 
   it("pages active and archived threads, including hidden relationship records", async () => {
     const calls: unknown[] = [];
-    const list = async (
+    const list = (
       args: { archived?: boolean; includeHidden?: boolean; limit?: number; offset?: number } = {},
-    ) => {
-      calls.push(args);
-      const rows = Array.from({ length: args.archived ? 1 : 101 }, (_, i) => ({
-        id: `${args.archived ? "archived" : "active"}-${i}`,
-        parentThreadId: null,
-        archivedAt: args.archived ? 1 : null,
-        visibility: "visible" as const,
-      }));
-      return rows.slice(args.offset, (args.offset ?? 0) + (args.limit ?? 100));
-    };
+    ) =>
+      Promise.try(() => {
+        calls.push(args);
+        const rows = Array.from({ length: args.archived ? 1 : 101 }, (_, i) => ({
+          id: `${args.archived ? "archived" : "active"}-${i}`,
+          parentThreadId: null,
+          archivedAt: args.archived ? 1 : null,
+          visibility: "visible" as const,
+        }));
+        return rows.slice(args.offset, (args.offset ?? 0) + (args.limit ?? 100));
+      });
     const rows = await listSnoozeThreads({ list });
     expect(rows).toHaveLength(102);
     expect(calls).toEqual([

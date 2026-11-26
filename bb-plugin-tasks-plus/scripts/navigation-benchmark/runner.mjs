@@ -108,7 +108,7 @@ export async function runNavigation(
     }
     // Visit all ten keys and return to the first. Retain warm-up evidence separately.
     const warmupOrder = fixture.movements.slice(0, 18);
-    for (const key of warmupOrder) await move(key, "cold");
+    await Array.fromAsync(warmupOrder, (key) => move(key, "cold"));
     const warmup = await page.evaluate(() => {
       globalThis.bbp60Probe.dispose();
       return globalThis.bbp60Probe.export();
@@ -117,7 +117,7 @@ export async function runNavigation(
       globalThis.bbp60Probe = globalThis.bbp60Module.createProbe({ window, mode });
     }, mode);
     page.on("request", onRequest);
-    for (const key of fixture.movements) await move(key, "warm");
+    await Array.fromAsync(fixture.movements, (key) => move(key, "warm"));
     run = { warmup };
   } catch (e) {
     error = e.message;

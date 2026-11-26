@@ -122,13 +122,19 @@ async function within(ms, code, work, parent, clock) {
   const started = clock.now(),
     abort = new AbortController();
   let reject, timer;
-  const expired = new Promise((_, no) => {
-    reject = no;
-    timer = clock.later(() => {
-      abort.abort();
-      no(new Error(code));
-    }, ms);
-  });
+  const expired = (() => {
+    const { promise, reject: no } = Promise.withResolvers();
+    try {
+      reject = no;
+      timer = clock.later(() => {
+        abort.abort();
+        no(new Error(code));
+      }, ms);
+    } catch (setupError) {
+      no(setupError);
+    }
+    return promise;
+  })();
   const cancelled = () => {
     abort.abort();
     reject(new Error("SWEEP_SIGNAL_CANCELLED"));
@@ -314,7 +320,11 @@ export function createSweepCoordinator({
         }
       },
       acceptCompletion: () => true,
-      stop: async ({ reason, signal }) => ports.cleanup({ scope, reason, normal, signal }),
+      stop: (input) =>
+        Promise.try(
+          ({ reason, signal }) => ports.cleanup({ scope, reason, normal, signal }),
+          input,
+        ),
       verifyAbsence: async ({ signal }) => {
         closed = await ports.readClosed(scope, signal);
         return isClosed(scope, closed, guard);

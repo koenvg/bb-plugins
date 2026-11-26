@@ -53,25 +53,31 @@ export function registerWebhookSettings(bb: BbPluginApi, store: TasksApiStore, w
         endpoint: await webhooks.create(scope, JSON.stringify(secret)),
       }));
     },
-    async renameWebhook(input) {
-      const parsed = renameInput.safeParse(input);
-      if (!parsed.success) return failure("invalid_input");
-      return action(async () => ({
-        endpoint: await webhooks.rename(parsed.data.id, parsed.data.name),
-      }));
-    },
-    async testWebhook(input) {
-      const parsed = byId.safeParse(input);
-      if (!parsed.success) return failure("invalid_input");
-      return action(async () => {
-        const result = await webhooks.test(parsed.data.id);
-        return { outcome: result.outcome };
+    renameWebhook(input) {
+      return Promise.try(() => {
+        const parsed = renameInput.safeParse(input);
+        if (!parsed.success) return failure("invalid_input");
+        return action(async () => ({
+          endpoint: await webhooks.rename(parsed.data.id, parsed.data.name),
+        }));
       });
     },
-    async deleteWebhook(input) {
-      const parsed = byId.safeParse(input);
-      if (!parsed.success) return failure("invalid_input");
-      return action(async () => ({ endpoint: await webhooks.delete(parsed.data.id) }));
+    testWebhook(input) {
+      return Promise.try(() => {
+        const parsed = byId.safeParse(input);
+        if (!parsed.success) return failure("invalid_input");
+        return action(async () => {
+          const result = await webhooks.test(parsed.data.id);
+          return { outcome: result.outcome };
+        });
+      });
+    },
+    deleteWebhook(input) {
+      return Promise.try(() => {
+        const parsed = byId.safeParse(input);
+        if (!parsed.success) return failure("invalid_input");
+        return action(async () => ({ endpoint: await webhooks.delete(parsed.data.id) }));
+      });
     },
   });
 }

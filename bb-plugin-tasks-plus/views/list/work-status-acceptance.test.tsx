@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   cleanup();
-  for (const dispose of disposers.splice(0)) await dispose();
+  await Array.fromAsync(disposers.splice(0), (dispose) => dispose());
 });
 const url = "https://github.com/acme/bb/pull/42";
 const clear = (overrides: Record<string, unknown> = {}) => ({
@@ -63,51 +63,56 @@ function host(
   const reads: string[] = [];
   const sdk = {
     plugins: {
-      callRpc: mockPrStatusRpc(async () => {
-        reads.push("environment");
-        return {
-          outcome: "available",
-          pullRequest: {
-            url,
-            number: 42,
-            state: "open",
-            title: "Work",
-            updatedAt: "2020-01-01T00:00:00Z",
-          },
-        };
-      }),
-      list: async () => {
-        reads.push("plugins");
-        if (integration === "error") throw Error("offline");
-        return {
-          plugins:
-            integration === "absent"
-              ? []
-              : [
-                  {
-                    id: "github-insight",
-                    enabled: integration !== "disabled",
-                    status: integration === "disabled" ? "disabled" : "running",
-                  },
-                ],
-        };
-      },
+      callRpc: mockPrStatusRpc(() =>
+        Promise.try(() => {
+          reads.push("environment");
+          return {
+            outcome: "available",
+            pullRequest: {
+              url,
+              number: 42,
+              state: "open",
+              title: "Work",
+              updatedAt: "2020-01-01T00:00:00Z",
+            },
+          };
+        }),
+      ),
+      list: () =>
+        Promise.try(() => {
+          reads.push("plugins");
+          if (integration === "error") throw Error("offline");
+          return {
+            plugins:
+              integration === "absent"
+                ? []
+                : [
+                    {
+                      id: "github-insight",
+                      enabled: integration !== "disabled",
+                      status: integration === "disabled" ? "disabled" : "running",
+                    },
+                  ],
+          };
+        }),
     },
     threads: {
-      get: async ({ threadId }: { threadId: string }) => {
-        reads.push(`thread:${threadId}`);
-        return makeThreadResponse({
-          id: threadId,
-          environmentId: "env_shared",
-          status: "error",
-          archivedAt: 1,
-        });
-      },
-      getPluginMetadata: async ({ threadId }: { threadId: string }) => {
-        reads.push(`metadata:${threadId}`);
-        if (metadataError) throw Error("offline");
-        return { prSummary: packet };
-      },
+      get: (input: { threadId: string }) =>
+        Promise.try(({ threadId }: { threadId: string }) => {
+          reads.push(`thread:${threadId}`);
+          return makeThreadResponse({
+            id: threadId,
+            environmentId: "env_shared",
+            status: "error",
+            archivedAt: 1,
+          });
+        }, input),
+      getPluginMetadata: (input: { threadId: string }) =>
+        Promise.try(({ threadId }: { threadId: string }) => {
+          reads.push(`metadata:${threadId}`);
+          if (metadataError) throw Error("offline");
+          return { prSummary: packet };
+        }, input),
     },
   };
   const { bb, harness } = createFakePluginHost({ pluginId: "tasks", sdk });
@@ -396,7 +401,15 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
     active++;
     peak = Math.max(peak, active);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+        try {
+          setTimeout(resolve, 2);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       return read();
     } finally {
       active--;

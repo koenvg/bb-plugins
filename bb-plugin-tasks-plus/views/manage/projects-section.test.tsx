@@ -14,12 +14,7 @@ afterEach(() => {
 });
 
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<T>();
   return { promise, resolve, reject };
 }
 
@@ -108,9 +103,11 @@ function openProjects(slot: ReturnType<typeof setup>["slot"]) {
   fireEvent.mouseDown(slot.getByRole("tab", { name: "Projects" }));
 }
 
-async function loaded(env: ReturnType<typeof setup>) {
-  openProjects(env.slot);
-  return env.slot.findByRole("textbox", { name: "Project name for HOME" });
+function loaded(env: ReturnType<typeof setup>) {
+  return Promise.try(() => {
+    openProjects(env.slot);
+    return env.slot.findByRole("textbox", { name: "Project name for HOME" });
+  });
 }
 
 async function ready(env: ReturnType<typeof setup>) {
@@ -194,7 +191,7 @@ describe("Manage production project table", () => {
     fireEvent.change(home, { target: { value: "Unsaved home" } });
     fireEvent.change(work, { target: { value: "Unsaved work" } });
     const trigger = env.slot.getByRole("button", { name: "Delete HOME" });
-    for (const dismissal of ["cancel", "escape"]) {
+    await Array.fromAsync(["cancel", "escape"], async (dismissal) => {
       fireEvent.click(trigger);
       const dialog = await within(document.body).findByRole("dialog", {
         name: "Delete Home Lab (HOME)?",
@@ -216,7 +213,7 @@ describe("Manage production project table", () => {
       else fireEvent.keyDown(dialog, { key: "Escape" });
       await waitFor(() => expect(within(document.body).queryByRole("dialog")).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(trigger));
-    }
+    });
     expect(home).toHaveProperty("value", "Unsaved home");
     expect(work).toHaveProperty("value", "Unsaved work");
     expect(env.calls).toEqual([]);

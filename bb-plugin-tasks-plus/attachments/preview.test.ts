@@ -113,22 +113,25 @@ describe("registered saved attachment preview", () => {
     try {
       const missing = await harness.fetchHttp("GET", "/attachments/preview?attachmentId=missing");
       expect(await missing.json()).toEqual({ error: { code: "missing" } });
-      for (const [fileName, mime] of [
-        ["picture.md", "image/png"],
-        ["notes.txt", "text/plain"],
-      ]) {
-        const attachment = await saveAttachmentFromBytes(store, Buffer.from("hello"), {
-          taskId: task.id,
-          fileName,
-          mime,
-        });
-        const response = await harness.fetchHttp(
-          "GET",
-          `/attachments/preview?attachmentId=${attachment.id}`,
-        );
-        expect(response.status).toBe(415);
-        expect(await response.json()).toEqual({ error: { code: "unsupported" } });
-      }
+      await Array.fromAsync(
+        [
+          ["picture.md", "image/png"],
+          ["notes.txt", "text/plain"],
+        ],
+        async ([fileName, mime]) => {
+          const attachment = await saveAttachmentFromBytes(store, Buffer.from("hello"), {
+            taskId: task.id,
+            fileName,
+            mime,
+          });
+          const response = await harness.fetchHttp(
+            "GET",
+            `/attachments/preview?attachmentId=${attachment.id}`,
+          );
+          expect(response.status).toBe(415);
+          expect(await response.json()).toEqual({ error: { code: "unsupported" } });
+        },
+      );
       const attachment = store.createAttachment({
         taskId: task.id,
         fileName: "missing.md",

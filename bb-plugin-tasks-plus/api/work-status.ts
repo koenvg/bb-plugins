@@ -88,7 +88,16 @@ export function createWorkStatusReader({
     fallback: T,
     session?: RefreshSession,
   ): Promise<T> => {
-    if (active >= 8) await new Promise<void>((resolve) => waiting.push(resolve));
+    if (active >= 8)
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          waiting.push(resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
     else active++;
     try {
       // Both thread and environment reads share one global eight-read budget.

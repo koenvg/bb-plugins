@@ -85,83 +85,98 @@ export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") 
   const drain = useCallback(() => {
     if (!mounted.current || running.current) return;
     running.current = true;
-    void (async () => {
-      try {
-        while (mounted.current) {
-          observeGeneration();
-          const current = input.current;
-          const previous = retained.current.byTaskId;
-          const { requested, settled, generation } = refreshes.current;
-          const full = requested > settled;
-          const targetIds = full ? current.ids : current.ids.filter((id) => !previous.has(id));
-          if (targetIds.length === 0) {
-            refreshes.current.settled = requested;
-            publish();
-            break;
-          }
-          publish();
-          const observations = new Map<string, Observation>();
-          // One bounded observation session for this pass's sequential chunks.
-          let refreshId =
-            targetIds.length > WORK_STATUS_TASK_LIMIT ? crypto.randomUUID() : undefined;
-          try {
-            for (let offset = 0; offset < targetIds.length; offset += WORK_STATUS_TASK_LIMIT) {
-              if (!mounted.current || input.current.version !== current.version) break;
-              const chunk = targetIds.slice(offset, offset + WORK_STATUS_TASK_LIMIT);
-              const step =
-                offset === 0
-                  ? "start"
-                  : offset + WORK_STATUS_TASK_LIMIT >= targetIds.length
-                    ? "finish"
-                    : "continue";
-              try {
-                const result = await current.rpc.call("listTaskWorkStatus", {
-                  taskIds: chunk,
-                  ...(refreshId ? { refresh: { id: refreshId, step } } : {}),
-                });
-                if (step === "finish") refreshId = undefined;
-                for (const id of chunk)
-                  observations.set(id, {
-                    meta: result.byTaskId[id] ?? unavailable(previous.get(id)?.meta),
-                    error: null,
-                  });
-              } catch (cause) {
-                const error = errorMessage(cause);
-                for (const id of chunk)
-                  observations.set(id, { meta: unavailable(previous.get(id)?.meta), error });
-              }
-            }
-          } finally {
-            // Scope change/unmount/transport failure can skip the final chunk.
-            // This empty, read-only finish releases retained observations early.
-            if (refreshId) {
-              try {
-                await current.rpc.call("listTaskWorkStatus", {
-                  taskIds: [],
-                  refresh: { id: refreshId, step: "finish" },
-                });
-              } catch {
-                // A lost connection still has the host's fixed expiry as fallback.
-              }
-            }
-          }
-          // The shared clock can advance before React renders the new generation.
-          observeGeneration();
-          if (
-            !mounted.current ||
-            input.current.version !== current.version ||
-            refreshes.current.generation !== generation
-          )
-            continue;
-          for (const [id, observation] of observations)
-            retained.current.byTaskId.set(id, observation);
-          if (full) refreshes.current.settled = requested;
-          publish();
+    const fail = (cause: unknown) => {
+      running.current = false;
+      throw cause;
+    };
+    const refreshPass = (): Promise<void> =>
+      Promise.try(() => {
+        if (!mounted.current) {
+          running.current = false;
+          return;
         }
-      } finally {
-        running.current = false;
-      }
-    })();
+        observeGeneration();
+        const current = input.current;
+        const previous = retained.current.byTaskId;
+        const { requested, settled, generation } = refreshes.current;
+        const full = requested > settled;
+        const targetIds = full ? current.ids : current.ids.filter((id) => !previous.has(id));
+        if (targetIds.length === 0) {
+          refreshes.current.settled = requested;
+          publish();
+          running.current = false;
+          return;
+        }
+        publish();
+        const observations = new Map<string, Observation>();
+        // One bounded observation session for this pass's sequential chunks.
+        let refreshId = targetIds.length > WORK_STATUS_TASK_LIMIT ? crypto.randomUUID() : undefined;
+        const releaseRefresh = async (id: string) => {
+          try {
+            // Scope change/unmount/transport failure can skip the final chunk.
+            await current.rpc.call("listTaskWorkStatus", {
+              taskIds: [],
+              refresh: { id, step: "finish" },
+            });
+          } catch {
+            // A lost connection still has the host's fixed expiry as fallback.
+          }
+        };
+        const readChunk = async (offset: number) => {
+          if (
+            offset >= targetIds.length ||
+            !mounted.current ||
+            input.current.version !== current.version
+          ) {
+            if (refreshId) await releaseRefresh(refreshId);
+            // The shared clock can advance before React renders the new generation.
+            observeGeneration();
+            if (
+              mounted.current &&
+              input.current.version === current.version &&
+              refreshes.current.generation === generation
+            ) {
+              for (const [id, observation] of observations)
+                retained.current.byTaskId.set(id, observation);
+              if (full) refreshes.current.settled = requested;
+              publish();
+            }
+            void refreshPass().catch(fail);
+            return;
+          }
+          try {
+            const chunk = targetIds.slice(offset, offset + WORK_STATUS_TASK_LIMIT);
+            const step =
+              offset === 0
+                ? "start"
+                : offset + WORK_STATUS_TASK_LIMIT >= targetIds.length
+                  ? "finish"
+                  : "continue";
+            try {
+              const result = await current.rpc.call("listTaskWorkStatus", {
+                taskIds: chunk,
+                ...(refreshId ? { refresh: { id: refreshId, step } } : {}),
+              });
+              if (step === "finish") refreshId = undefined;
+              for (const id of chunk)
+                observations.set(id, {
+                  meta: result.byTaskId[id] ?? unavailable(previous.get(id)?.meta),
+                  error: null,
+                });
+            } catch (cause) {
+              const error = errorMessage(cause);
+              for (const id of chunk)
+                observations.set(id, { meta: unavailable(previous.get(id)?.meta), error });
+            }
+          } catch (cause) {
+            if (refreshId) await releaseRefresh(refreshId);
+            throw cause;
+          }
+          void readChunk(offset + WORK_STATUS_TASK_LIMIT).catch(fail);
+        };
+        return readChunk(0);
+      });
+    void refreshPass().catch(fail);
   }, [observeGeneration, publish]);
   const refresh = useCallback(() => {
     if (!mounted.current) return;

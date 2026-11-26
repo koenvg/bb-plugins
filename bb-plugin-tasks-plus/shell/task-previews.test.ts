@@ -5,10 +5,7 @@ import { createTaskPreviews, TASK_PREVIEW_BYTES, TASK_PREVIEW_ENTRIES } from "./
 const task = (n: number, description = `Description ${n}`) =>
   makeTask({ id: `task-${n}`, key: `TSK-${n}`, number: n, title: `Title ${n}`, description });
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 
@@ -52,10 +49,12 @@ describe("session task previews", () => {
         { id: blocker.id, key: blocker.key, title: blocker.title, status: blocker.status },
       ],
     };
-    const fetch = vi.fn(async (key: string) => ({
-      ...(key === blocker.key ? blocker : linked),
-      description,
-    }));
+    const fetch = vi.fn((key: string) =>
+      Promise.try(() => ({
+        ...(key === blocker.key ? blocker : linked),
+        description,
+      })),
+    );
     const previews = createTaskPreviews(fetch);
     await previews.load("TSK-1");
     await previews.load("TSK-2");
@@ -81,13 +80,18 @@ describe("session task previews", () => {
   });
 
   it("bounds change history and permits a safe extra read after eviction", async () => {
-    const fetch = vi.fn(async () => task(1));
+    const fetch = vi.fn(() => Promise.try(() => task(1)));
     const previews = createTaskPreviews(fetch);
     await previews.load("TSK-1");
-    for (let n = 0; n <= TASK_PREVIEW_ENTRIES; n++) {
-      previews.invalidate("TSK-1", `save-${n}`);
-      await previews.load("TSK-1");
-    }
+    await Array.fromAsync(
+      (function* () {
+        for (let n = 0; n <= TASK_PREVIEW_ENTRIES; n++) yield n;
+      })(),
+      async (n) => {
+        previews.invalidate("TSK-1", `save-${n}`);
+        await previews.load("TSK-1");
+      },
+    );
     const before = fetch.mock.calls.length;
     previews.invalidate("TSK-1", "save-0");
     await previews.load("TSK-1");
@@ -112,9 +116,18 @@ describe("session task previews", () => {
   });
 
   it("evicts least recently used unselected data at 32 entries", async () => {
-    const previews = createTaskPreviews(async (key) => task(Number(key.split("-")[1])));
+    const previews = createTaskPreviews((key) =>
+      Promise.try(() => task(Number(key.split("-")[1]))),
+    );
     const release = previews.subscribe("TSK-1", () => {});
-    for (let n = 1; n <= TASK_PREVIEW_ENTRIES; n++) await previews.load(`TSK-${n}`);
+    await Array.fromAsync(
+      (function* () {
+        for (let n = 1; n <= TASK_PREVIEW_ENTRIES; n++) yield n;
+      })(),
+      async (n) => {
+        await previews.load(`TSK-${n}`);
+      },
+    );
     await previews.load("TSK-2");
     await previews.load("TSK-33");
     expect(previews.read("TSK-1").current).toBe(true);
@@ -125,14 +138,19 @@ describe("session task previews", () => {
   });
 
   it("counts serialized UTF-8 bytes, evicts under 2 MiB, and does not retain oversized tasks", async () => {
-    const previews = createTaskPreviews(async (key) =>
-      task(Number(key.split("-")[1]), "é".repeat(350_000)),
+    const previews = createTaskPreviews((key) =>
+      Promise.try(() => task(Number(key.split("-")[1]), "é".repeat(350_000))),
     );
-    for (let n = 1; n <= 4; n++) await previews.load(`TSK-${n}`);
+    await Array.fromAsync(
+      Array.from({ length: 4 }, (_, index) => index + 1),
+      async (n) => {
+        await previews.load(`TSK-${n}`);
+      },
+    );
     expect(previews.retention().bytes).toBeLessThanOrEqual(TASK_PREVIEW_BYTES);
     expect(previews.retention().entries).toBe(2);
     const huge = task(5, "x".repeat(TASK_PREVIEW_BYTES));
-    const oversize = createTaskPreviews(async () => huge);
+    const oversize = createTaskPreviews(() => Promise.try(() => huge));
     const release = oversize.subscribe("TSK-5", () => {});
     await oversize.load("TSK-5");
     expect(oversize.read("TSK-5").data).toEqual(huge);
@@ -160,7 +178,9 @@ describe("session task previews", () => {
   });
 
   it("invalidates unknown in-flight identities but leaves unrelated known data current", async () => {
-    const previews = createTaskPreviews(async (key) => task(Number(key.split("-")[1])));
+    const previews = createTaskPreviews((key) =>
+      Promise.try(() => task(Number(key.split("-")[1]))),
+    );
     await previews.load("TSK-1");
     await previews.load("TSK-2");
     previews.invalidateTask("task-1");
@@ -223,7 +243,7 @@ describe("session task previews", () => {
     expect(previews.read("TSK-1").data).toBeUndefined();
   });
   it("holds a warm active snapshot when a write revokes reuse, then releases it on switch", async () => {
-    const previews = createTaskPreviews(async () => task(1));
+    const previews = createTaskPreviews(() => Promise.try(() => task(1)));
     await previews.load("TSK-1");
     const release = previews.subscribe("TSK-1", () => {});
     previews.invalidateReuse("TSK-1");
@@ -257,8 +277,8 @@ describe("session task previews", () => {
         status: linked.status,
       };
       const dependent = { ...task(2), [relationship]: [reference] };
-      const fetch = vi.fn(async (key: string) =>
-        key === "TSK-2" ? dependent : task(Number(key.split("-")[1])),
+      const fetch = vi.fn((key: string) =>
+        Promise.try(() => (key === "TSK-2" ? dependent : task(Number(key.split("-")[1])))),
       );
       const previews = createTaskPreviews(fetch);
       await previews.load("TSK-1");

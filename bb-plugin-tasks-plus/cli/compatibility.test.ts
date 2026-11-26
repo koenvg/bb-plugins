@@ -50,14 +50,14 @@ describe("CLI compatibility", () => {
     try {
       registerTasksCli(bb, createStore(bb), { name: "Tasks", version: "0.1.2" });
       const results: Record<string, unknown> = {};
-      for (const command of commands) {
+      await Array.fromAsync(commands, async (command) => {
         const argv = command ? command.split(" ") : [];
         results[command || "root"] = {
           help: await harness.behavior.runCli([...argv, "--help"]),
           textError: await harness.behavior.runCli([...argv, "--unknown-option"]),
           jsonError: await harness.behavior.runCli([...argv, "--unknown-option", "--json"]),
         };
-      }
+      });
       expect(results).toMatchSnapshot();
     } finally {
       await harness.lifecycle.dispose();

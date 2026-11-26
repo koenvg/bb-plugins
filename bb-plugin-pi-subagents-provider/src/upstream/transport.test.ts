@@ -4,13 +4,15 @@ import { checkUpstream } from "./checker.ts";
 
 it("uses bounded credential-free GET requests and checks page links", async () => {
   const path = "/repos/get-bb/bb/commits/abc?per_page=100&page=1";
-  const fetcher = vi.fn(
-    async () =>
-      new Response('{"files":[]}', {
-        headers: {
-          link: '<https://api.github.com/repos/get-bb/bb/commits/abc?per_page=100&page=2>; rel="next"',
-        },
-      }),
+  const fetcher = vi.fn(() =>
+    Promise.try(
+      () =>
+        new Response('{"files":[]}', {
+          headers: {
+            link: '<https://api.github.com/repos/get-bb/bb/commits/abc?per_page=100&page=2>; rel="next"',
+          },
+        }),
+    ),
   );
   const transport = githubTransport(fetcher);
   expect(await transport(path, new AbortController().signal)).toMatchObject({
@@ -29,7 +31,7 @@ it("accepts GitHub's observed numeric comparison pagination hints", async () => 
   const path = `/repos/get-bb/bb/compare/${range}?per_page=100&page=1`;
   const alias = `https://api.github.com/repositories/1166119443/compare/${range}`;
   const link = `<${alias}?per_page=100&page=4>; rel="last", <${alias}?per_page=100&page=2>; rel="next", <${alias}?per_page=100&page=1>; rel="first"`;
-  const fetcher = vi.fn(async () => new Response("{}", { headers: { link } }));
+  const fetcher = vi.fn(() => Promise.try(() => new Response("{}", { headers: { link } })));
   const transport = githubTransport(fetcher);
   expect(await transport(path, new AbortController().signal)).toMatchObject({
     status: 200,
@@ -45,7 +47,9 @@ describe.each(["/repos/get-bb/bb", "/repositories/1166119443"])("%s pagination h
   describe.each(["compare/base...head", "commits/abc"])("%s", (endpoint) => {
     it.each([1, 3])("rejects first=2 on current page %i", async (currentPage) => {
       const link = `<https://api.github.com${route}/${endpoint}?per_page=100&page=2>; rel="first"`;
-      const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+      const transport = githubTransport(() =>
+        Promise.try(() => new Response("{}", { headers: { link } })),
+      );
       await expect(
         transport(
           `/repos/get-bb/bb/${endpoint}?per_page=100&page=${currentPage}`,
@@ -62,7 +66,9 @@ describe.each(["/repos/get-bb/bb", "/repositories/1166119443"])("%s pagination h
       [3, 4],
     ])("rejects a prev hint from page %i to page %i", async (currentPage, previousPage) => {
       const link = `<https://api.github.com${route}/${endpoint}?per_page=100&page=${previousPage}>; rel="prev"`;
-      const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+      const transport = githubTransport(() =>
+        Promise.try(() => new Response("{}", { headers: { link } })),
+      );
       await expect(
         transport(
           `/repos/get-bb/bb/${endpoint}?per_page=100&page=${currentPage}`,
@@ -108,7 +114,9 @@ describe.each(["/repos/get-bb/bb", "/repositories/1166119443"])("%s pagination h
               `<https://api.github.com${route}/${endpoint}?per_page=100&page=${page}>; rel="${relation}"`,
           )
           .join(", ");
-        const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+        const transport = githubTransport(() =>
+          Promise.try(() => new Response("{}", { headers: { link } })),
+        );
         expect(
           await transport(
             `/repos/get-bb/bb/${endpoint}?per_page=100&page=${currentPage}`,
@@ -129,7 +137,9 @@ it.each([
   const range =
     "fdd3de3b19b97e6cd1ef7300cbb54711431249d3...72279d019a9ac82351dd3f7bd70862cbd050a02e";
   const link = `<https://api.github.com/repositories/1166119443/compare/${range}?${next}>; rel="next"`;
-  const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+  const transport = githubTransport(() =>
+    Promise.try(() => new Response("{}", { headers: { link } })),
+  );
   await expect(
     transport(`/repos/get-bb/bb/compare/${range}?${current}`, new AbortController().signal),
   ).rejects.toThrow("Invalid upstream pagination");
@@ -210,7 +220,9 @@ it.each([
 ])("accepts a complete final page's numeric %s hints", async (endpoint, revision) => {
   const alias = `https://api.github.com/repositories/1166119443/${endpoint}/${revision}`;
   const link = `<${alias}?per_page=100&page=4>; rel="last", <${alias}?per_page=100&page=3>; rel="prev", <${alias}?per_page=100&page=1>; rel="first"`;
-  const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+  const transport = githubTransport(() =>
+    Promise.try(() => new Response("{}", { headers: { link } })),
+  );
   expect(
     await transport(
       `/repos/get-bb/bb/${endpoint}/${revision}?per_page=100&page=4`,
@@ -265,7 +277,9 @@ it.each([
   ],
 ])("rejects an unsafe alias hint: %s", async (_label, target) => {
   const link = `<${target.startsWith("/") ? `https://api.github.com${target}` : target}>; rel="next"`;
-  const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+  const transport = githubTransport(() =>
+    Promise.try(() => new Response("{}", { headers: { link } })),
+  );
   await expect(
     transport(
       "/repos/get-bb/bb/compare/base...head?per_page=100&page=1",
@@ -280,7 +294,9 @@ it.each([
   '?per_page=100&page=2>; rel="next", <https://api.github.com/repositories/1166119443/compare/base...head?per_page=100&page=2>; rel="next"',
 ])("rejects incomplete or contradictory alias pagination %s", async (suffix) => {
   const link = `<https://api.github.com/repositories/1166119443/compare/base...head${suffix}`;
-  const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+  const transport = githubTransport(() =>
+    Promise.try(() => new Response("{}", { headers: { link } })),
+  );
   await expect(
     transport(
       "/repos/get-bb/bb/compare/base...head?per_page=100&page=1",
@@ -296,7 +312,9 @@ it.each([
   "invalid link",
   '<https://api.github.com/repos/get-bb/bb/commits/abc?page=2>; rel="next"',
 ])("rejects incomplete or foreign pagination %s", async (link) => {
-  const transport = githubTransport(async () => new Response("{}", { headers: { link } }));
+  const transport = githubTransport(() =>
+    Promise.try(() => new Response("{}", { headers: { link } })),
+  );
   await expect(
     transport("/repos/get-bb/bb/commits/abc?per_page=100&page=1", new AbortController().signal),
   ).rejects.toThrow();
@@ -305,15 +323,18 @@ it.each([
 it("rejects truncated JSON and response or total byte bounds", async () => {
   const signal = new AbortController().signal;
   await expect(
-    githubTransport(async () => new Response("{"))("/repos/get-bb/bb/branches/main", signal),
+    githubTransport(() => Promise.try(() => new Response("{")))(
+      "/repos/get-bb/bb/branches/main",
+      signal,
+    ),
   ).rejects.toThrow();
   await expect(
-    githubTransport(async () => new Response('{"large":"payload"}'), {
+    githubTransport(() => Promise.try(() => new Response('{"large":"payload"}')), {
       responseBytes: 4,
       totalBytes: 20,
     })("/repos/get-bb/bb/branches/main", signal),
   ).rejects.toThrow();
-  const transport = githubTransport(async () => new Response("{}"), {
+  const transport = githubTransport(() => Promise.try(() => new Response("{}")), {
     responseBytes: 4,
     totalBytes: 3,
   });

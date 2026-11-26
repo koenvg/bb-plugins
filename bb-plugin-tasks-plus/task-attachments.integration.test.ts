@@ -13,10 +13,11 @@ async function setup(fileCount = 100) {
     pluginId: "tasks",
     sdk: {
       threads: {
-        spawn: async () => ({ id: "thr_attachments" }),
-        get: async () => makeThreadResponse({ id: "thr_attachments", status: "starting" }),
+        spawn: () => Promise.resolve({ id: "thr_attachments" }),
+        get: () =>
+          Promise.try(() => makeThreadResponse({ id: "thr_attachments", status: "starting" })),
       },
-      providers: { list: async () => [] },
+      providers: { list: () => Promise.resolve([]) },
     },
   });
   const store = createStore(bb);
@@ -51,22 +52,26 @@ async function setup(fileCount = 100) {
     instructions: "",
     builtin: false,
   });
-  const add = async (owner: { taskId: string }, fileName: string) =>
-    saveAttachmentFromBytes(store.tasks, Buffer.from(fileName), {
-      ...owner,
-      fileName,
-      mime: "text/plain",
-    });
-  for (const index of Array.from({ length: fileCount }, (_, index) => index)) {
-    await add({ taskId: task.id }, `file-${index}.txt`);
-    await add({ taskId: task.id }, `file-${index}-second.txt`);
-  }
+  const add = (owner: { taskId: string }, fileName: string) =>
+    Promise.try(() =>
+      saveAttachmentFromBytes(store.tasks, Buffer.from(fileName), {
+        ...owner,
+        fileName,
+        mime: "text/plain",
+      }),
+    );
+  await Array.fromAsync(
+    Array.from({ length: fileCount }, (_, index) => index),
+    async (index) => {
+      await add({ taskId: task.id }, `file-${index}.txt`);
+      await add({ taskId: task.id }, `file-${index}-second.txt`);
+    },
+  );
   await add({ taskId: task.id }, "task.txt");
   await add({ taskId: task.id }, "task-second.txt");
-  const excluded = [];
-  for (const excludedTask of [other, foreign]) {
-    excluded.push(await add({ taskId: excludedTask.id }, `${excludedTask.key}-task.txt`));
-  }
+  const excluded = await Array.fromAsync([other, foreign], (excludedTask) =>
+    add({ taskId: excludedTask.id }, `${excludedTask.key}-task.txt`),
+  );
   const expected = store.tasks.listAttachmentsForTask(task.id);
   const metadata = expected.map(({ blobPath: _blobPath, ...attachment }) => attachment);
   return { bb, harness, store, project, task, other, preset, expected, metadata, excluded };
@@ -175,20 +180,20 @@ describe("complete task attachment enumeration", () => {
               });
         expect(result).toMatchObject({ deleted: true });
         expect(attachmentQueries(prepare)).toHaveLength(scope === "task" ? 1 : 2);
-        for (const attachment of removed) {
+        await Array.fromAsync(removed, async (attachment) => {
           expect(store.tasks.getAttachment(attachment.id)).toBeUndefined();
           await expect(
             stat(dirname(join(dirname(database.file), attachment.blobPath))),
           ).rejects.toMatchObject({ code: "ENOENT" });
-        }
-        for (const attachment of retained) {
+        });
+        await Array.fromAsync(retained, async (attachment) => {
           expect(store.tasks.getAttachment(attachment.id)).toEqual(attachment);
           const result2 = await stat(join(dirname(database.file), attachment.blobPath));
           expect(result2.isFile()).toBe(true);
           expect(await readFile(join(dirname(database.file), attachment.blobPath), "utf8")).toBe(
             attachment.fileName,
           );
-        }
+        });
       } finally {
         await harness.dispose();
       }

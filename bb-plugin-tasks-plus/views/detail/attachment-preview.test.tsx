@@ -58,11 +58,16 @@ function deferredFetch() {
   pending.length = 0;
   vi.stubGlobal(
     "fetch",
-    vi.fn(
-      (url, options) =>
-        new Promise<Response>((resolve) =>
-          pending.push({ resolve, signal: options.signal, url: String(url) }),
-        ),
+    vi.fn((url, options) =>
+      (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<Response>();
+        try {
+          pending.push({ resolve, signal: options.signal, url: String(url) });
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })(),
     ),
   );
 }
@@ -76,8 +81,10 @@ function reply(item: Attachment, text: string, extra = {}) {
   });
 }
 async function resolve(index: number, response: Response) {
-  await act(async () =>
-    (pending[index] ?? missingValue("Expected pending[index]")).resolve(response),
+  await act(() =>
+    Promise.try(() =>
+      (pending[index] ?? missingValue("Expected pending[index]")).resolve(response),
+    ),
   );
 }
 afterEach(() => {
@@ -112,7 +119,7 @@ const Fixture = ({
       <AttachmentsGrid
         attachments={confirmed ?? [a, b]}
         onPreview={preview.open}
-        onRemove={async (item) => preview.removed(item.id)}
+        onRemove={(item) => Promise.try(() => preview.removed(item.id))}
         onError={() => {}}
       />
       <button
@@ -480,7 +487,15 @@ describe("task-scoped attachment owner", () => {
       const target = within(dialog).getByRole("button", { name: "Newer action" });
       target.focus();
       await act(async () => {
-        await new Promise((done) => setTimeout(done, 30));
+        await (() => {
+          const { promise, resolve: done, reject } = Promise.withResolvers<unknown>();
+          try {
+            setTimeout(done, 30);
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
       });
       expect(document.activeElement).toBe(target);
     },

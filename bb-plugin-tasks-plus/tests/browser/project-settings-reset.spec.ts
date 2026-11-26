@@ -48,18 +48,21 @@ for (const route of ["table.html", "index.html"]) {
     await expect(name).toBeEnabled();
     await page.getByRole("button", { name: "Remove first fixture project", exact: true }).click();
     await expect(name).toHaveCount(0);
-    for (const label of [
-      "Fail next save",
-      "Fail next task count",
-      "Fail next deletion",
-      "Fail post-delete refresh",
-      "Overlap stale inventory on next delete",
-      "Toggle zero task count",
-      "Toggle light/dark",
-      "Fail next inventory refresh",
-    ]) {
-      await page.getByRole("button", { name: label, exact: true }).click();
-    }
+    await Array.fromAsync(
+      [
+        "Fail next save",
+        "Fail next task count",
+        "Fail next deletion",
+        "Fail post-delete refresh",
+        "Overlap stale inventory on next delete",
+        "Toggle zero task count",
+        "Toggle light/dark",
+        "Fail next inventory refresh",
+      ],
+      async (label) => {
+        await page.getByRole("button", { name: label, exact: true }).click();
+      },
+    );
     await expect(page.locator("html")).toHaveClass("light");
 
     await page.evaluate(

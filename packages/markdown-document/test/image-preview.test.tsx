@@ -117,8 +117,10 @@ it("separates reference, mixed and multiple image links from navigation without 
   expect(screen.getByRole("link", { name: "text" })).toBeTruthy();
 });
 it("reuses the owned blob across reopen and closes synchronously before error release", async () => {
-  const fetch = vi.fn(
-    async () => new Response(new Uint8Array([1]), { headers: { "content-type": "image/png" } }),
+  const fetch = vi.fn(() =>
+    Promise.try(
+      () => new Response(new Uint8Array([1]), { headers: { "content-type": "image/png" } }),
+    ),
   );
   vi.stubGlobal("fetch", fetch);
   const create = vi.fn(() => "blob:borrowed");
@@ -194,30 +196,33 @@ it("recognizes cached decoded images without waiting for another load event", as
     Reflect.deleteProperty(HTMLImageElement.prototype, "decode");
   }
 });
-it("keeps denied and pending images inert, including image-bearing denied links", async () => {
-  const denied = createDocumentModel("[![Chart](chart.png)](next.md)", "denied");
-  const { rerender } = render(<MarkdownDocument model={denied} view="preview" />);
-  expect(screen.queryByRole("button")).toBeNull();
-  expect(screen.getByText("Open linked destination: Chart").tagName).toBe("SPAN");
-  expect(document.querySelector("a button, button a")).toBeNull();
-  const pending = createDocumentModel("![Chart](https://images.example/chart.png)", "pending");
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(() => new Promise(() => {})),
-  );
-  rerender(
-    <MarkdownDocument
-      model={pending}
-      view="preview"
-      destinations={{ kind: "attachment", remoteImages: true }}
-    />,
-  );
-  expect(screen.getByRole("img", { name: "Chart" }).textContent).toBe("Chart");
-  expect(screen.queryByRole("button")).toBeNull();
-});
+it("keeps denied and pending images inert, including image-bearing denied links", () =>
+  Promise.try(() => {
+    const denied = createDocumentModel("[![Chart](chart.png)](next.md)", "denied");
+    const { rerender } = render(<MarkdownDocument model={denied} view="preview" />);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("Open linked destination: Chart").tagName).toBe("SPAN");
+    expect(document.querySelector("a button, button a")).toBeNull();
+    const pending = createDocumentModel("![Chart](https://images.example/chart.png)", "pending");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.withResolvers<unknown>().promise),
+    );
+    rerender(
+      <MarkdownDocument
+        model={pending}
+        view="preview"
+        destinations={{ kind: "attachment", remoteImages: true }}
+      />,
+    );
+    expect(screen.getByRole("img", { name: "Chart" }).textContent).toBe("Chart");
+    expect(screen.queryByRole("button")).toBeNull();
+  }));
 it("closes on equivalent policy churn without releasing or reloading the inline blob", async () => {
-  const fetch = vi.fn(
-    async () => new Response(new Uint8Array([1]), { headers: { "content-type": "image/png" } }),
+  const fetch = vi.fn(() =>
+    Promise.try(
+      () => new Response(new Uint8Array([1]), { headers: { "content-type": "image/png" } }),
+    ),
   );
   vi.stubGlobal("fetch", fetch);
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:retained");

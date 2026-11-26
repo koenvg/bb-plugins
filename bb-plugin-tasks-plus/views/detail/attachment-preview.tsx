@@ -89,15 +89,20 @@ async function loadPreview(subject: Attachment, signal: AbortSignal): Promise<Re
     const chunks: Uint8Array[] = [];
     let size = 0;
     try {
-      while (true) {
+      const runStep = async () => {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done) return { kind: "break" } as const;
         size += value.byteLength;
         if (size > limit || signal.aborted) {
           await reader.cancel();
           throw new Error("bounded body");
         }
         chunks.push(value);
+      };
+      for await (const stepResult of (async function* () {
+        while (true) yield runStep();
+      })()) {
+        if (stepResult?.kind === "break") break;
       }
     } finally {
       reader.releaseLock();
@@ -283,7 +288,7 @@ export function useAttachmentPreview({
     void loadPreview(subject, ticket.controller.signal).then((resource) => {
       const current = runtime.current;
       if (!current.mounted || current.ticket !== ticket || current.taskId !== ticket.taskId) return;
-      setState((value) =>
+      return void setState((value) =>
         current.ticket === ticket &&
         value.kind === "open" &&
         value.sequence === ticket.sequence &&

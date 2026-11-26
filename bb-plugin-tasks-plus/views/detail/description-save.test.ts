@@ -30,16 +30,26 @@ function setup(save: (taskId: string, markdown: string) => Promise<DescriptionSa
   return { timer, errors, saver };
 }
 
-const flushMicrotasks = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+const flushMicrotasks = () =>
+  (() => {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    try {
+      setTimeout(resolve, 0);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
 
 describe("createDescriptionSaver", () => {
   it("flush waits for confirmation and retains a server-rejected draft for retry", async () => {
     let confirm!: (outcome: DescriptionSaveOutcome) => void;
-    const { saver } = setup(
-      () =>
-        new Promise((resolve) => {
-          confirm = resolve;
-        }),
+    const { saver } = setup(() =>
+      (() => {
+        const { promise, resolve } = Promise.withResolvers<DescriptionSaveOutcome>();
+        confirm = resolve;
+        return promise;
+      })(),
     );
     saver.onChange("task-1", "latest draft");
     const pending = saver.flush("task-1");
@@ -54,10 +64,12 @@ describe("createDescriptionSaver", () => {
   });
   it("clears the pending draft only after the server confirms the save", async () => {
     const calls: string[] = [];
-    const { timer, errors, saver } = setup(async (_taskId, markdown) => {
-      calls.push(markdown);
-      return { ok: true };
-    });
+    const { timer, errors, saver } = setup((_taskId, markdown) =>
+      Promise.try(() => {
+        calls.push(markdown);
+        return { ok: true };
+      }),
+    );
 
     saver.onChange("task-1", "draft v1");
     expect(saver.hasPending()).toBe(true);
@@ -74,11 +86,13 @@ describe("createDescriptionSaver", () => {
   it("keeps the draft after a transport failure so the unmount flush retries", async () => {
     const calls: string[] = [];
     let fail = true;
-    const { timer, errors, saver } = setup(async (_taskId, markdown) => {
-      calls.push(markdown);
-      if (fail) throw new Error("network down");
-      return { ok: true };
-    });
+    const { timer, errors, saver } = setup((_taskId, markdown) =>
+      Promise.try(() => {
+        calls.push(markdown);
+        if (fail) throw new Error("network down");
+        return { ok: true };
+      }),
+    );
 
     saver.onChange("task-1", "draft v1");
     timer.fire();
@@ -98,9 +112,11 @@ describe("createDescriptionSaver", () => {
     let release: (() => void) | undefined;
     const { timer, saver } = setup(async (_taskId, markdown) => {
       calls.push(markdown);
-      await new Promise<void>((resolve) => {
+      await (() => {
+        const { promise, resolve } = Promise.withResolvers<void>();
         release = resolve;
-      });
+        return promise;
+      })();
       return { ok: true };
     });
 
@@ -119,10 +135,12 @@ describe("createDescriptionSaver", () => {
 
   it("only flushes drafts belonging to the flushed task", async () => {
     const calls: [string, string][] = [];
-    const { saver } = setup(async (taskId, markdown) => {
-      calls.push([taskId, markdown]);
-      return { ok: true };
-    });
+    const { saver } = setup((taskId, markdown) =>
+      Promise.try(() => {
+        calls.push([taskId, markdown]);
+        return { ok: true };
+      }),
+    );
     saver.onChange("task-2", "other task draft");
     saver.flush("task-1");
     await flushMicrotasks();

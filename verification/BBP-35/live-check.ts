@@ -65,7 +65,7 @@ const unwrap = (r: { ok: true; data: unknown } | { ok: false; failure: unknown }
   return r.data;
 };
 const service = createReviewService({
-  resolvePr: async () => ({ kind: "pr", target }),
+  resolvePr: () => Promise.try(() => ({ kind: "pr", target })),
   renderMarkdown: async (_t: unknown, text: string) => {
     const r = await handlers.renderMarkdown({ owner, repo, text }, context);
     if (!r.ok) throw new Error(JSON.stringify(r.failure));
@@ -81,21 +81,22 @@ const service = createReviewService({
     deleteComment: unsupported,
     saveSummary: unsupported,
     deleteReviewDrafts: unsupported,
-    knownDrafts: async () => ({}),
-    comments: async () => [
-      {
-        id: "d1",
-        path: "a",
-        side: "RIGHT",
-        line: 1,
-        startLine: null,
-        commitOid: "x",
-        body,
-        updatedAt: 0,
-        source: "agent",
-      },
-    ],
-    summary: async () => null,
+    knownDrafts: () => Promise.resolve({}),
+    comments: () =>
+      Promise.try(() => [
+        {
+          id: "d1",
+          path: "a",
+          side: "RIGHT",
+          line: 1,
+          startLine: null,
+          commitOid: "x",
+          body,
+          updatedAt: 0,
+          source: "agent",
+        },
+      ]),
+    summary: () => Promise.resolve(null),
   },
   fetchPrHead: async () => unwrap(await handlers.fetchPrHead({ owner, repo, number }, context)),
   fetchPrFilesPage: async (_t: unknown, page: number) =>

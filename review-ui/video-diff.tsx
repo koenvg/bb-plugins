@@ -80,7 +80,7 @@ const VideoFigure = ({
             return;
           }
           url = URL.createObjectURL(result.blob);
-          setState({ kind: "ready", url });
+          return void setState({ kind: "ready", url });
         })
         .catch(() => {
           if (!controller.signal.aborted)

@@ -89,18 +89,21 @@ for (const size of [
         await page.locator("#root").evaluate((node) => node.getBoundingClientRect().width),
       ).toBe(360);
 
-    for (const [row, entry] of [
-      [betaRow, "Entry 3"],
-      [alphaRow, "Entry 4"],
-    ] as const) {
-      await expect(row.locator(".pi-subagents-label")).toHaveText(label);
-      await expect(row.locator(".pi-subagents-label")).toHaveAttribute("title", label);
-      await paintedReference(row.locator(".pi-subagents-reference"), entry);
-      if (size.narrow) {
-        await ellipsis(row.locator(".pi-subagents-label"));
-        await ellipsis(row.locator(".pi-subagents-purpose"));
-      }
-    }
+    await Array.fromAsync(
+      [
+        [betaRow, "Entry 3"],
+        [alphaRow, "Entry 4"],
+      ] as const,
+      async ([row, entry]) => {
+        await expect(row.locator(".pi-subagents-label")).toHaveText(label);
+        await expect(row.locator(".pi-subagents-label")).toHaveAttribute("title", label);
+        await paintedReference(row.locator(".pi-subagents-reference"), entry);
+        if (size.narrow) {
+          await ellipsis(row.locator(".pi-subagents-label"));
+          await ellipsis(row.locator(".pi-subagents-purpose"));
+        }
+      },
+    );
     if (size.narrow) await page.screenshot({ path: info.outputPath("narrow-overview.png") });
 
     await betaRow.click();

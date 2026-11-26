@@ -280,7 +280,7 @@ export const DependencySections = ({
   // TaskDetail is task-id keyed. Demand and candidates end with that detail session.
   const [requested, setRequested] = useState(false);
   const allTasks = useTasksQuery(
-    async (query) => (requested ? listAllTasks(query, {}) : []),
+    (query) => Promise.try(() => (requested ? listAllTasks(query, {}) : [])),
     ["tasks:changed"],
     [requested],
   );

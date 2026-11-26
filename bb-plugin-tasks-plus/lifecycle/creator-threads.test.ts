@@ -12,7 +12,11 @@ function fixture() {
     pluginId: "creator-lifecycle",
     sdk: {
       threads: {
-        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
+        get: (input) =>
+          Promise.try(
+            ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
+            input,
+          ),
       },
     },
   });
@@ -36,11 +40,14 @@ describe("creator attribution and attached worker lifecycle", () => {
       await vi.advanceTimersByTimeAsync(
         THREAD_STATUS_IDLE_INTERVAL_MS + THREAD_STATUS_RECONCILE_INTERVAL_MS,
       );
-      for (const event of ["thread.archived", "thread.unarchived", "thread.deleted"] as const) {
-        await f.harness.emitThreadEvent(event, {
-          thread: makeThreadResponse({ id: "thr_source" }),
-        });
-      }
+      await Array.fromAsync(
+        ["thread.archived", "thread.unarchived", "thread.deleted"] as const,
+        async (event) => {
+          await f.harness.emitThreadEvent(event, {
+            thread: makeThreadResponse({ id: "thr_source" }),
+          });
+        },
+      );
       expect(f.harness.sdk.callsTo("threads.get")).toEqual([]);
       expect(f.harness.realtimeSignals).toEqual([]);
       expect(f.store.tasks.getTask(f.task.id)).toEqual(f.task);

@@ -56,12 +56,7 @@ const Root = (props: ProbeProps) => {
   );
 };
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: Error) => void;
-  const promise = new Promise<T>((done, fail) => {
-    resolve = done;
-    reject = fail;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<T>();
   return { promise, resolve, reject };
 }
 const first = makeTask();
@@ -108,7 +103,7 @@ describe("Tasks query identity", () => {
       expect.objectContaining({ isLoading: false }),
     );
 
-    await act(async () => pending.resolve({ task: second }));
+    await act(() => Promise.try(() => pending.resolve({ task: second })));
     expect(probe.current()).toEqual({
       taskKey: second.key,
       resultKey: second.key,
@@ -135,7 +130,7 @@ describe("Tasks query identity", () => {
       error: null,
     });
 
-    await act(async () => pending.reject(new Error("Second request failed")));
+    await act(() => Promise.try(() => pending.reject(new Error("Second request failed"))));
     expect(probe.current()).toEqual({
       taskKey: second.key,
       resultKey: null,
@@ -157,7 +152,7 @@ describe("Tasks query identity", () => {
       expect(probe.current().isLoading).toBe(true);
       expect(probe.current().resultKey).toBe(first.key);
 
-      await act(async () => pending.reject(new Error("Request failed")));
+      await act(() => Promise.try(() => pending.reject(new Error("Request failed"))));
       expect(probe.current()).toEqual({
         taskKey: changed ? second.key : first.key,
         resultKey: changed ? null : first.key,
@@ -186,10 +181,12 @@ describe("Tasks query identity", () => {
       probe.change(second.key);
       await waitFor(() => expect(probe.current().isLoading).toBe(false));
 
-      await act(async () => {
-        if (outcome === "success") pending.resolve({ task: first });
-        else pending.reject(new Error("Old request failed"));
-      });
+      await act(() =>
+        Promise.try(() => {
+          if (outcome === "success") pending.resolve({ task: first });
+          else pending.reject(new Error("Old request failed"));
+        }),
+      );
       expect(probe.current()).toEqual({
         taskKey: second.key,
         resultKey: second.key,
@@ -210,7 +207,7 @@ describe("Tasks query identity", () => {
     fireEvent.click(probe.slot.getByRole("button", { name: "Refresh tasks" }));
     expect(probe.frames).not.toContainEqual(expect.objectContaining({ isLoading: false }));
     expect(probe.current().resultKey).toBe(first.key);
-    await act(async () => pending.resolve({ task: null }));
+    await act(() => Promise.try(() => pending.resolve({ task: null })));
     expect(probe.current()).toEqual({
       taskKey: first.key,
       resultKey: null,
@@ -265,7 +262,7 @@ describe("Tasks query without a context provider", () => {
     fireEvent.click(slot.getByRole("button", { name: "Refresh standalone" }));
     expect(current()).toEqual({ key: first.key, error: null, loading: true });
     expect(slot.getByRole("button").hasAttribute("disabled")).toBe(true);
-    await act(async () => pending.reject(new Error("offline")));
+    await act(() => Promise.try(() => pending.reject(new Error("offline"))));
     expect(current()).toEqual({ key: first.key, error: "offline", loading: false });
     expect(slot.getByRole("button").hasAttribute("disabled")).toBe(false);
     response = { task: second };
