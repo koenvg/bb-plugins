@@ -17,15 +17,13 @@ export default defineConfig({
   use: {
     baseURL: process.env.LIVE_OUTPUT_BASE_URL,
     browserName: "chromium",
+    channel: "chromium",
     viewport: { width: 1280, height: 900 },
     locale: "en-US",
     timezoneId: "UTC",
     hasTouch: true,
     headless: true,
-    launchOptions: {
-      executablePath:
-        "/Users/koen/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-    },
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

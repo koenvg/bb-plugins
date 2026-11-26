@@ -50,4 +50,12 @@ bb plugin install .
 
 Install the root repository tools before lint or formatting checks. Local installation runs trusted plugin code. The build needs the BB CLI but no running server. Tests use the public SDK backend and frontend harnesses. They do not prove installed navigation layout, live provider timing, theme rendering or reconnect behavior in the real app. Check those after installation.
 
-`test:browser` bundles a synthetic SDK-harness page and uses fresh Playwright contexts against loopback only. It uses the explicit cached Chromium 153 executable in `scripts/playwright.config.mjs`; it never downloads a browser or connects to BB. Set `LIVE_OUTPUT_EVIDENCE` to an external directory to retain fixture bundles, JSON results, traces and screenshots. The fixture's host utility styles and theme tokens are synthetic, not proof of every installed theme. The long-date cases expand real Intl formatting in the fixture only. Browser fixtures are excluded from Vitest; all original unit/backend suites remain included. `LICENSE.tanstack-charts` matches the pinned package's MIT license.
+### Live Output browser check
+
+From `bb-plugin-live-output`, run `bun run test:browser` with the full Chromium build pinned by the workspace's Playwright version. If it is not cached, install it separately with `bun x --no-install playwright install chromium`, or select an existing full Chrome or Chromium executable:
+
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE="/absolute/path/to/chromium" bun run test:browser
+```
+
+The runner never downloads a browser. It bundles a synthetic SDK-harness page and launches fresh Playwright contexts against an isolated loopback server, without connecting to BB. Set `LIVE_OUTPUT_EVIDENCE` to a new directory outside the checkout to retain the selected executable path in `browser-command.json`, fixture bundle, JSON results and failure traces or screenshots. The fixture uses synthetic host styles and theme tokens. Its long-date cases expand real Intl formatting only in the fixture. Vitest excludes the browser fixture and still runs the unit and backend suites. `LICENSE.tanstack-charts` matches the pinned package's MIT license.

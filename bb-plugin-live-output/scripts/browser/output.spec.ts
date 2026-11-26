@@ -65,8 +65,9 @@ test("native 600-sample series, literal rates/domains, shared footer and contrib
   page,
   browser,
 }, info) => {
-  expect(browser.version()).toBe("153.0.8010.12");
-  await info.attach("browser-version", { body: browser.version(), contentType: "text/plain" });
+  const browserVersion = browser.version();
+  await info.attach("browser-version", { body: browserVersion, contentType: "text/plain" });
+  expect(browserVersion).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
   await page.clock.install({ time: new Date("2026-10-10T00:00:00Z") });
   await page.clock.pauseAt(new Date("2026-10-10T00:00:01Z"));
   await start(page);
