@@ -13,7 +13,7 @@ it.each(["26.0.0", "26.3.0", "26.12.1", "26.99.99"])(
       sourcePath: "plugins/provider-pi",
       watchedContractPaths: ["packages/plugin-sdk"],
     };
-    const readBaseline = vi.fn(async () => baseline);
+    const readBaseline = vi.fn(() => Promise.try(() => baseline));
     const output = await checkerCommand(
       ["--source", "/owned/fixture", "--project", "proj_fixture"],
       {
@@ -21,20 +21,21 @@ it.each(["26.0.0", "26.3.0", "26.12.1", "26.99.99"])(
         now: () => 0,
         projectId: "proj_fixture",
         nodeVersion,
-        transport: async (p) => ({
-          status: 200,
-          next: false,
-          data: p.includes("branches")
-            ? { commit: { sha: base } }
-            : {
-                status: "identical",
-                base_commit: { sha: base },
-                merge_base_commit: { sha: base },
-                total_commits: 0,
-                ahead_by: 0,
-                commits: [],
-              },
-        }),
+        transport: (p) =>
+          Promise.try(() => ({
+            status: 200,
+            next: false,
+            data: p.includes("branches")
+              ? { commit: { sha: base } }
+              : {
+                  status: "identical",
+                  base_commit: { sha: base },
+                  merge_base_commit: { sha: base },
+                  total_commits: 0,
+                  ahead_by: 0,
+                  commits: [],
+                },
+          })),
       },
     );
     expect(output).toEqual({ exitCode: 0, stdout: "", stderr: "" });

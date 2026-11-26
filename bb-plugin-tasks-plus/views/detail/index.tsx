@@ -293,7 +293,7 @@ const TaskDetail = ({
     [task.parentTaskId],
   );
   const subtasks = useTasksQuery(
-    async (query) => listAllTasks(query, { parentTaskId: task.id }),
+    (query) => Promise.try(() => listAllTasks(query, { parentTaskId: task.id })),
     ["tasks:changed"],
     [task.id],
   );
@@ -322,7 +322,7 @@ const TaskDetail = ({
   );
   const presets = useSessionPresets();
   const pullRequests = useTasksQuery(
-    async (query) => query.call("listTaskPullRequests", { taskId: task.id }),
+    (query) => Promise.try(() => query.call("listTaskPullRequests", { taskId: task.id })),
     ["threads:changed"],
     [task.id],
   );
@@ -417,13 +417,13 @@ const TaskDetail = ({
   };
 
   const onPickFiles = async (files: FileList | null) => {
-    for (const file of files ?? []) {
+    await Array.fromAsync(files ?? [], async (file) => {
       try {
         await uploadAttachment(file, { taskId: task.id });
       } catch (error) {
         push(errorMessage(error));
       }
-    }
+    });
     attachments.refresh();
   };
 

@@ -7,8 +7,11 @@ import { createWorkStatusReader, WORK_STATUS_REFRESH_THREAD_LIMIT } from "./work
 const refreshId = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
 
 function setup(
-  get = vi.fn(async ({ threadId }: { threadId: string }) =>
-    makeThreadResponse({ id: threadId, status: "idle" }),
+  get = vi.fn((input: { threadId: string }) =>
+    Promise.try(
+      ({ threadId }: { threadId: string }) => makeThreadResponse({ id: threadId, status: "idle" }),
+      input,
+    ),
   ),
 ) {
   const { bb, harness } = createFakePluginHost({
@@ -42,11 +45,13 @@ describe("read-only task work status", () => {
   it.each(["future-status", "constructor"])(
     "keeps unknown parent status %s unavailable even with background activity",
     async (status) => {
-      const get = vi.fn(async ({ threadId }: { threadId: string }) => {
-        const thread = makeThreadResponse({ id: threadId, activeBackgroundAgentCount: 1 });
-        Reflect.set(thread, "status", status);
-        return thread;
-      });
+      const get = vi.fn((input: { threadId: string }) =>
+        Promise.try(({ threadId }: { threadId: string }) => {
+          const thread = makeThreadResponse({ id: threadId, activeBackgroundAgentCount: 1 });
+          Reflect.set(thread, "status", status);
+          return thread;
+        }, input),
+      );
       const { harness, store, task, attach } = setup(get);
       try {
         attach("thr_unknown");
@@ -79,15 +84,17 @@ describe("read-only task work status", () => {
       idle: "idle",
       error: "failed",
     } as const;
-    const get = vi.fn(async ({ threadId }: { threadId: string }) => {
-      const status = threadId.slice(4);
-      if (status === "unreadable") throw new Error("offline");
-      return makeThreadResponse({
-        id: threadId,
-        title: `Current ${status}`,
-        status: status as keyof typeof statuses,
-      });
-    });
+    const get = vi.fn((input: { threadId: string }) =>
+      Promise.try(({ threadId }: { threadId: string }) => {
+        const status = threadId.slice(4);
+        if (status === "unreadable") throw new Error("offline");
+        return makeThreadResponse({
+          id: threadId,
+          title: `Current ${status}`,
+          status: status as keyof typeof statuses,
+        });
+      }, input),
+    );
     const { harness, store, task, attach } = setup(get);
     for (const status of [...Object.keys(statuses), "unreadable"]) attach(`thr_${status}`);
     const before = store.tasks.listTaskThreads(task.id);
@@ -155,7 +162,15 @@ describe("read-only task work status", () => {
     const releases: (() => void)[] = [];
     const get = vi.fn(async ({ threadId }: { threadId: string }) => {
       peak = Math.max(peak, ++active);
-      await new Promise<void>((resolve) => releases.push(resolve));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          releases.push(resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       active--;
       return makeThreadResponse({ id: threadId, status: "active" });
     });
@@ -176,9 +191,24 @@ describe("read-only task work status", () => {
     const a = read([task.id, other.id]);
     const b = read([other.id]);
     await vi.waitFor(() => expect(active).toBe(8));
-    while (get.mock.calls.length < 18 || active) {
-      releases.splice(0).forEach((resolve) => resolve());
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    {
+      const runStep = async () => {
+        releases.splice(0).forEach((resolve) => resolve());
+        await (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+          try {
+            setTimeout(resolve, 0);
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
+      };
+      for await (const _ of (async function* () {
+        while (get.mock.calls.length < 18 || active) yield runStep();
+      })()) {
+        continue;
+      }
     }
     const [first, second] = await Promise.all([a, b]);
     expect(peak).toBe(8);
@@ -195,19 +225,21 @@ describe("read-only task work status", () => {
   });
 
   it("distinguishes confirmed removal from generic lookup errors and never infers archive from either", async () => {
-    const get = vi.fn(async ({ threadId }: { threadId: string }) => {
-      if (threadId === "thr_missing")
-        throw Object.assign(new Error("Thread missing"), {
-          code: "thread_not_found",
+    const get = vi.fn((input: { threadId: string }) =>
+      Promise.try(({ threadId }: { threadId: string }) => {
+        if (threadId === "thr_missing")
+          throw Object.assign(new Error("Thread missing"), {
+            code: "thread_not_found",
+          });
+        if (threadId === "thr_error") throw new Error("not found");
+        return makeThreadResponse({
+          id: threadId,
+          status: "error",
+          archivedAt: 1,
+          deletedAt: 0,
         });
-      if (threadId === "thr_error") throw new Error("not found");
-      return makeThreadResponse({
-        id: threadId,
-        status: "error",
-        archivedAt: 1,
-        deletedAt: 0,
-      });
-    });
+      }, input),
+    );
     const { harness, store, task, attach } = setup(get);
     ["thr_missing", "thr_error", "thr_deleted"].forEach((t) => attach(t));
     const before = store.tasks.listTaskThreads(task.id);
@@ -248,16 +280,18 @@ describe("read-only task work status", () => {
   });
 
   it("preserves readable execution with unknown archive fields and rejects unknown existence", async () => {
-    const get = vi.fn(async ({ threadId }: { threadId: string }) => {
-      const thread = makeThreadResponse({
-        id: threadId,
-        status: "idle",
-        archivedAt: 1,
-      });
-      if (threadId === "thr_unknown_existence") Reflect.deleteProperty(thread, "deletedAt");
-      else Reflect.deleteProperty(thread, "archivedAt");
-      return thread;
-    });
+    const get = vi.fn((input: { threadId: string }) =>
+      Promise.try(({ threadId }: { threadId: string }) => {
+        const thread = makeThreadResponse({
+          id: threadId,
+          status: "idle",
+          archivedAt: 1,
+        });
+        if (threadId === "thr_unknown_existence") Reflect.deleteProperty(thread, "deletedAt");
+        else Reflect.deleteProperty(thread, "archivedAt");
+        return thread;
+      }, input),
+    );
     const { harness, task, attach } = setup(get);
     ["thr_unknown_archive", "thr_unknown_existence"].forEach((t) => attach(t));
     expect(
@@ -286,12 +320,16 @@ describe("read-only task work status", () => {
   });
 
   it("hydrates archive independently of failed runtime without changing completed attachments or workflow", async () => {
-    const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-      makeThreadResponse({
-        id: threadId,
-        status: "error",
-        archivedAt: threadId === "thr_archived" ? 1 : null,
-      }),
+    const get = vi.fn((input: { threadId: string }) =>
+      Promise.try(
+        ({ threadId }: { threadId: string }) =>
+          makeThreadResponse({
+            id: threadId,
+            status: "error",
+            archivedAt: threadId === "thr_archived" ? 1 : null,
+          }),
+        input,
+      ),
     );
     const { harness, store, task, attach } = setup(get);
     ["thr_archived", "thr_unarchived"].forEach((t) => attach(t));
@@ -332,8 +370,11 @@ describe("read-only task work status", () => {
   it("bounds refresh admission, rejects collisions, releases finished/expired sessions and retries with fresh execution", async () => {
     vi.useFakeTimers();
     let status: "idle" | "active" = "idle";
-    const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-      makeThreadResponse({ id: threadId, status }),
+    const get = vi.fn((input: { threadId: string }) =>
+      Promise.try(
+        ({ threadId }: { threadId: string }) => makeThreadResponse({ id: threadId, status }),
+        input,
+      ),
     );
     const { harness, task, attach } = setup(get);
     attach("thr_shared");
@@ -343,9 +384,14 @@ describe("read-only task work status", () => {
         refresh: { id: refreshId(i), step },
       });
     try {
-      for (let i = 0; i < 8; i++) await call(i, "start");
+      await Array.fromAsync(
+        Array.from({ length: 8 }, (_, index) => index),
+        async (i) => {
+          await call(i, "start");
+        },
+      );
       expect(get).toHaveBeenCalledTimes(8);
-      for (const i of [0, 8])
+      await Array.fromAsync([0, 8], async (i) => {
         expect(await call(i, "start")).toMatchObject({
           byTaskId: {
             [task.id]: {
@@ -354,6 +400,7 @@ describe("read-only task work status", () => {
             },
           },
         });
+      });
       expect(get).toHaveBeenCalledTimes(8);
       expect(await call(0, "continue")).toMatchObject({
         byTaskId: {
@@ -455,7 +502,15 @@ describe("read-only task work status", () => {
     const releases: (() => void)[] = [];
     const get = vi.fn(async ({ threadId }: { threadId: string }) => {
       peak = Math.max(peak, ++active);
-      await new Promise<void>((resolve) => releases.push(resolve));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          releases.push(resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       active--;
       return makeThreadResponse({ id: threadId, status: "active" });
     });
@@ -469,18 +524,34 @@ describe("read-only task work status", () => {
         }),
       );
       await vi.waitFor(() => expect(active).toBe(8));
-      while (get.mock.calls.length < 24 || active) {
-        releases.splice(0).forEach((resolve) => resolve());
-        await new Promise((resolve) => setTimeout(resolve, 0));
+      {
+        const runStep = async () => {
+          releases.splice(0).forEach((resolve) => resolve());
+          await (() => {
+            const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+            try {
+              setTimeout(resolve, 0);
+            } catch (setupError) {
+              reject(setupError);
+            }
+            return promise;
+          })();
+        };
+        for await (const _ of (async function* () {
+          while (get.mock.calls.length < 24 || active) yield runStep();
+        })()) {
+          continue;
+        }
       }
       await Promise.all(requests);
       expect(peak).toBe(8);
       expect(get).toHaveBeenCalledTimes(24);
-      for (const i of [0, 1])
+      await Array.fromAsync([0, 1], async (i) => {
         await harness.behavior.callRpc("listTaskWorkStatus", {
           taskIds: [],
           refresh: { id: refreshId(i), step: "finish" },
         });
+      });
     } finally {
       await harness.lifecycle.dispose();
     }

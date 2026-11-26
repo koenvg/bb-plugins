@@ -125,7 +125,7 @@ describe("browse focus transitions", () => {
       press(key);
       await acceptNavigation(slot);
       expect(document.activeElement).toBe(first);
-      await act(async () => loaded.resolve({ task: tasks[0] }));
+      await act(() => Promise.try(() => loaded.resolve({ task: tasks[0] })));
       await waitFor(() => expect(document.activeElement).toBe(detail(slot)));
       press("Escape");
       expect(document.activeElement).toBe(first);
@@ -145,7 +145,7 @@ describe("browse focus transitions", () => {
     press("o");
     await acceptNavigation(slot);
     await move(slot, "j", 2);
-    await act(async () => loaded.resolve({ task: tasks[0] }));
+    await act(() => Promise.try(() => loaded.resolve({ task: tasks[0] })));
     expect(document.activeElement).toBe(row(slot, 2));
   });
 
@@ -161,7 +161,7 @@ describe("browse focus transitions", () => {
     press("j");
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
-    await act(async () => saved.resolve({ ok: false, error: { message: "Offline" } }));
+    await act(() => Promise.try(() => saved.resolve({ ok: false, error: { message: "Offline" } })));
     await slot.findByRole("alert");
     expect(document.activeElement).toBe(detail(slot));
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Keep origin");

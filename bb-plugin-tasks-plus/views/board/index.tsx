@@ -340,9 +340,10 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
             setMoveError(result.error.message);
             board.refresh();
           }
+          return;
         },
-        (error) => {
-          setMoveError(errorMessage(error));
+        (moveError) => {
+          setMoveError(errorMessage(moveError));
           board.refresh();
         },
       );

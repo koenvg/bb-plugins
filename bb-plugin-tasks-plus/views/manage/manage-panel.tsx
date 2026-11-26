@@ -68,6 +68,7 @@ const LabelEditorRow = ({
         setName("");
         setColor(DEFAULT_COLOR);
       }
+      return;
     });
   };
   return (
@@ -415,6 +416,7 @@ const FolderRow = ({
   const rename = () => {
     void onRename(draftName.trim()).then((succeeded) => {
       if (succeeded) setRenaming(false);
+      return;
     });
   };
 

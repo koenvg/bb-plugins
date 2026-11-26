@@ -127,7 +127,9 @@ describe("project picker shell navigation", () => {
       kind: "project",
       projectId: project.id,
     });
-    await act(async () => pending.resolve({ ok: false, error: { message: "Save refused" } }));
+    await act(() =>
+      Promise.try(() => pending.resolve({ ok: false, error: { message: "Save refused" } })),
+    );
     const byRole = await slot.findByRole("alert");
     expect(byRole.textContent).toContain("Save refused");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe(

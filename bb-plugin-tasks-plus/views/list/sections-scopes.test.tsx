@@ -115,7 +115,7 @@ it("keeps four section choices independent through scope transitions and remount
     ["BET-1", "BET-2", "BET-3"],
   ];
   const choices = [["todo"], ["in_progress"], ["done"], []];
-  for (const [index, scope] of scopes.entries()) {
+  await Array.fromAsync(scopes.entries(), async ([index, scope]) => {
     report.mockClear();
     slot.lifecycle.rerender(<List scope={scope} report={report} />);
     await waitFor(() =>
@@ -137,14 +137,14 @@ it("keeps four section choices independent through scope transitions and remount
       ...DEFAULT_LIST_PREFERENCE,
       collapsedStatuses: choices[index],
     });
-  }
+  });
   slot.lifecycle.unmount();
-  for (const [index, scope] of scopes.entries()) {
+  await Array.fromAsync(scopes.entries(), async ([index, scope]) => {
     const remount = renderSlot({ component: List }, { scope, report }, { rpc });
     await waitFor(() => expect(rows(remount)).toEqual(expected[index]));
     expect(loadListPreference(scope.name).collapsedStatuses).toEqual(choices[index]);
     remount.lifecycle.unmount();
-  }
+  });
 });
 
 for (const scope of scopes) {

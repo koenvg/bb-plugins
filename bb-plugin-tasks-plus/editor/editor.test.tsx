@@ -284,7 +284,15 @@ describe("mention extension", () => {
       .focus()
       .insertContent("@")
       .run();
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+      try {
+        setTimeout(resolve, 30);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 

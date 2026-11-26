@@ -43,7 +43,7 @@ it("auto-cancels extension dialogs in a helper session without a UI handler", as
       recordThreadId: "thr_helper_ui",
       noSession: true,
     },
-    async () => ({ content: "", isError: true }),
+    () => Promise.resolve({ content: "", isError: true }),
     () => undefined,
     () => undefined,
   );

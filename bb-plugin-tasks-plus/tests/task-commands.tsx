@@ -65,7 +65,16 @@ const bbProjects = [
 const refreshOrder = new URLSearchParams(window.location.search).get("refreshOrder");
 let previewReads = 0;
 let deliveredEvents = 0;
-const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 60));
+const pause = () =>
+  (() => {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    try {
+      setTimeout(resolve, 60);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
 async function deliverChange(changeId?: string) {
   await slot.behavior.emitRealtime("tasks:changed", {
     taskId: "task-1",
@@ -270,9 +279,15 @@ const slot = renderSlot(
       delegate: async (raw) => {
         delegations.push(rpcInput(raw));
         window.dispatchEvent(new Event("fixture-update"));
-        await new Promise<void>((resolve) => {
-          window.addEventListener("fixture-finish-delegation", () => resolve(), { once: true });
-        });
+        await (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<void>();
+          try {
+            window.addEventListener("fixture-finish-delegation", () => resolve(), { once: true });
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
         return { ok: true };
       },
       listTaskPullRequests: () => ({ pullRequests: [], unavailableThreadIds: [] }),

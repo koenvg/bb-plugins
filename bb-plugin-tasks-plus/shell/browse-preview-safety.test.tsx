@@ -77,7 +77,9 @@ describe("retained preview safety", () => {
     await slot.behavior.emitRealtime("tasks:changed", {
       taskId: (tasks[1] ?? missingValue("Expected tasks[1]")).id,
     });
-    await act(async () => old.resolve({ task: { ...tasks[1], description: "Obsolete B" } }));
+    await act(() =>
+      Promise.try(() => old.resolve({ task: { ...tasks[1], description: "Obsolete B" } })),
+    );
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 3");
     expect(slot.container.textContent).not.toContain("Obsolete B");
     await select(slot, 2);

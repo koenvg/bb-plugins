@@ -208,10 +208,7 @@ describe("inline Tasks navigation", () => {
       projectId: other.id,
       title: "ClassSpotter work",
     });
-    let release!: () => void;
-    const pending = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const { promise: pending, resolve: release } = Promise.withResolvers<void>();
     const slot = renderSlot(
       panel,
       { subPath: project.id },

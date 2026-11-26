@@ -4,12 +4,14 @@ import { runPiTransientAuthConstruction } from "./rpc-session.js";
 
 it("exhausts the initial construction and eight transient-auth retries deterministically", async () => {
   const errors = Array.from({ length: 9 }, (_, index) => new Error(`mismatch ${index + 1}`));
-  const attempt = vi.fn(async () => ({
-    ok: false as const,
-    error: errors[attempt.mock.calls.length - 1] ?? missingValue("Expected a non-null value"),
-  }));
+  const attempt = vi.fn(() =>
+    Promise.try(() => ({
+      ok: false as const,
+      error: errors[attempt.mock.calls.length - 1] ?? missingValue("Expected a non-null value"),
+    })),
+  );
   const discardFailedAttempt = vi.fn();
-  const waitBeforeRetry = vi.fn(async () => undefined);
+  const waitBeforeRetry = vi.fn(() => Promise.try(() => undefined));
 
   await expect(
     runPiTransientAuthConstruction({

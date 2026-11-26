@@ -73,7 +73,9 @@ export async function measureLocalNavigation({
       throw error;
     }
   }
-  for (const key of fixture.movements.slice(0, 18)) warmup.push(await move(key, "observed"));
+  await Array.fromAsync(fixture.movements.slice(0, 18), async (key) => {
+    warmup.push(await move(key, "observed"));
+  });
   // Persist the excluded interval before startProbe destroys/replaces its observers.
   const warmupRaw = await page.evaluate(() => {
     window.lab.probe.dispose();
@@ -94,7 +96,9 @@ export async function measureLocalNavigation({
     });
     evidence.tracingRunning = true;
   }
-  for (const key of fixture.movements) movements.push(await move(key, "warm"));
+  await Array.fromAsync(fixture.movements, async (key) => {
+    movements.push(await move(key, "warm"));
+  });
   if (phase === "profile") {
     evidence.profilerRunning = false;
     const { profile } = await cdp.send("Profiler.stop");

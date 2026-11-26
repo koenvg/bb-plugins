@@ -64,8 +64,10 @@ slot = createLocalHost({
     });
     const body = await response.json();
     if (!body.ok) throw new Error(body.error);
-    for (const signal of body.signals)
-      await slot.behavior.emitRealtime(signal.channel, signal.payload);
+    await Array.fromAsync(
+      body.signals as { channel: string; payload: unknown }[],
+      ({ channel, payload }) => slot.behavior.emitRealtime(channel, payload),
+    );
     return body.result;
   },
 });

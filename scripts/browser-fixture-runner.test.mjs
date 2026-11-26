@@ -128,12 +128,19 @@ process.on('SIGINT',()=>{server.closeAllConnections();server.close()});
     exited,
     output: () => output,
     async waitFor(file) {
-      for (let n = 0; n < 300; n++) {
-        try {
-          return await readFile(join(root, file), "utf8");
-        } catch {}
-        if (child.exitCode !== null) throw new Error(output);
-        await delay(10);
+      {
+        const runStep = async () => {
+          try {
+            return { kind: "return", value: await readFile(join(root, file), "utf8") };
+          } catch {}
+          if (child.exitCode !== null) throw new Error(output);
+          await delay(10);
+        };
+        for await (const stepResult of (async function* () {
+          for (let n = 0; n < 300; n++) yield runStep();
+        })()) {
+          if (stepResult?.kind === "return") return stepResult.value;
+        }
       }
       throw new Error(`Timed out waiting for ${file}: ${output}`);
     },
@@ -244,7 +251,7 @@ for (const [mode, signal, code, runtime] of [
 }
 
 test("invalid worker runtime fails before launching the preview", async () => {
-  for (const runtime of ["deno", "", "/usr/bin/node"]) {
+  await Array.fromAsync(["deno", "", "/usr/bin/node"], async (runtime) => {
     const run = await scenario("success", [], false, runtime);
     try {
       const result = await run.exited;
@@ -256,7 +263,7 @@ test("invalid worker runtime fails before launching the preview", async () => {
     } finally {
       await run.clean();
     }
-  }
+  });
 });
 
 test.each([undefined, "node"])(

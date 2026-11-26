@@ -40,6 +40,7 @@ export function useLiveRpc<T>(
             setValue(result);
             setLoadStatus({ status: "ready", generation });
           }
+          return;
         })
         .catch(() => {
           if (current && thisLoad === latestLoad) setLoadStatus({ status: "error", generation });

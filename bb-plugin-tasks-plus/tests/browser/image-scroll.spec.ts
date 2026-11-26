@@ -96,9 +96,9 @@ for (const width of [1280, 390]) {
       page.evaluate(() => {
         const dialog = document.querySelector(".mr-image-dialog");
         if (!dialog) throw new Error("Missing image dialog");
-        return new Promise<void>((resolve) => {
-          dialog.addEventListener("scrollend", () => resolve(), { once: true });
-        });
+        const { promise, resolve } = Promise.withResolvers<void>();
+        dialog.addEventListener("scrollend", () => resolve(), { once: true });
+        return promise;
       });
     const initial = await scroll();
     expect(initial.height).toBeGreaterThan(initial.client);

@@ -51,17 +51,19 @@ describe("video revision previews", () => {
   });
   it("aborts on hiding and ignores delayed completion, requiring another click", async () => {
     let finish!: (value: typeof ready) => void;
-    const load = vi.fn<ReviewImageDiffProps["load"]>(
-      () =>
-        new Promise((resolve) => {
-          finish = resolve;
-        }),
+    const load = vi.fn<ReviewImageDiffProps["load"]>(() =>
+      (() => {
+        const { promise, resolve } =
+          Promise.withResolvers<Awaited<ReturnType<ReviewImageDiffProps["load"]>>>();
+        finish = resolve;
+        return promise;
+      })(),
     );
     const screen = render(<ReviewVideoDiff {...labels} active load={load} />);
     fireEvent.click(screen.getByRole("button", { name: "Load before video" }));
     screen.rerender(<ReviewVideoDiff {...labels} active={false} load={load} />);
     expect((load.mock.calls[0] ?? missingValue("Expected a non-null value"))[1].aborted).toBe(true);
-    await act(async () => finish(ready));
+    await act(() => Promise.try(() => finish(ready)));
     expect(URL.createObjectURL).not.toHaveBeenCalled();
     screen.rerender(<ReviewVideoDiff {...labels} active load={load} />);
     expect(load).toHaveBeenCalledTimes(1);
@@ -69,7 +71,9 @@ describe("video revision previews", () => {
   });
   it("reports unsupported playback without allocating a URL", async () => {
     vi.mocked(HTMLMediaElement.prototype.canPlayType).mockReturnValue("");
-    const screen = render(<ReviewVideoDiff {...labels} active load={async () => ready} />);
+    const screen = render(
+      <ReviewVideoDiff {...labels} active load={() => Promise.try(() => ready)} />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Load before video" }));
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(screen.getByRole("alert").textContent).toContain("local player");

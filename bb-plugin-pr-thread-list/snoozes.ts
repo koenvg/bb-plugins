@@ -33,8 +33,8 @@ export function registerSnoozes(bb: BbPluginApi, now: () => number = Date.now) {
       const at = now();
       const due = store.due(at);
       let ended = false;
-      for (const group of due) {
-        for (const threadId of group.threadIds) {
+      await Array.fromAsync(due, async (group) => {
+        await Array.fromAsync(group.threadIds, async (threadId) => {
           try {
             const thread = await bb.sdk.threads.get({ threadId });
             if (
@@ -46,9 +46,9 @@ export function registerSnoozes(bb: BbPluginApi, now: () => number = Date.now) {
           } catch {
             // A deleted member must not prevent the remaining group from waking.
           }
-        }
+        });
         ended = store.deleteDue(group.id, at) || ended;
-      }
+      });
       if (ended) changed();
     }),
   );
@@ -68,8 +68,9 @@ export function registerSnoozes(bb: BbPluginApi, now: () => number = Date.now) {
           return subtreeMembers(threads, threadId).map(({ id }) => id);
         },
         async (action) => {
-          for (const memberId of action.members)
-            await bb.sdk.threads.markRead({ threadId: memberId });
+          await Array.fromAsync(action.members, (memberId) =>
+            bb.sdk.threads.markRead({ threadId: memberId }),
+          );
           const members = [...action.members];
           const [first] = members;
           if (first !== undefined) {

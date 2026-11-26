@@ -10,9 +10,9 @@ const target = {
 };
 const context = { sessionId: "pi", sessionFile: "/owned/session", command: true, guard: true };
 it("checks capability and session before command dispatch without a prompt fallback", async () => {
-  const command = vi.fn(async () => ({ disposition: "handled" }));
+  const command = vi.fn(() => Promise.resolve({ disposition: "handled" }));
   const q = createInspectionChannel({
-    context: async () => ({ ...context, command: false }),
+    context: () => Promise.try(() => ({ ...context, command: false })),
     command,
     current: () => true,
   });
@@ -21,18 +21,19 @@ it("checks capability and session before command dispatch without a prompt fallb
 });
 it("requires handled acknowledgement and a correlated widget in the same session", async () => {
   const q = createInspectionChannel({
-    context: async () => context,
-    command: async () => {
-      q.widget({
-        method: "setWidget",
-        widgetKey: "subagent-inspect",
-        widgetLines: [
-          INSPECTION_PREFIX + JSON.stringify({ requestId: "req", asyncId: "owned-run" }),
-        ],
-      });
-      q.widget({ method: "setWidget", widgetKey: "subagent-inspect" });
-      return { disposition: "handled" };
-    },
+    context: () => Promise.try(() => context),
+    command: () =>
+      Promise.try(() => {
+        q.widget({
+          method: "setWidget",
+          widgetKey: "subagent-inspect",
+          widgetLines: [
+            INSPECTION_PREFIX + JSON.stringify({ requestId: "req", asyncId: "owned-run" }),
+          ],
+        });
+        q.widget({ method: "setWidget", widgetKey: "subagent-inspect" });
+        return { disposition: "handled" };
+      }),
     current: () => true,
   });
   await expect(q.inspect(target, "req")).resolves.toMatchObject({ requestId: "req" });
@@ -43,29 +44,30 @@ it("requires handled acknowledgement and a correlated widget in the same session
 it("ignores foreign request IDs, rejects started prompts and invalidates replacement replies", async () => {
   let current = context;
   const q = createInspectionChannel({
-    context: async () => current,
-    command: async () => {
-      q.widget({
-        method: "setWidget",
-        widgetKey: "subagent-inspect",
-        widgetLines: [INSPECTION_PREFIX + JSON.stringify({ requestId: "foreign" })],
-      });
-      q.widget({
-        method: "setWidget",
-        widgetKey: "subagent-inspect",
-        widgetLines: [
-          INSPECTION_PREFIX + JSON.stringify({ requestId: "req", asyncId: "owned-run" }),
-        ],
-      });
-      current = { ...context, sessionId: "replacement" };
-      return { disposition: "handled" };
-    },
+    context: () => Promise.try(() => current),
+    command: () =>
+      Promise.try(() => {
+        q.widget({
+          method: "setWidget",
+          widgetKey: "subagent-inspect",
+          widgetLines: [INSPECTION_PREFIX + JSON.stringify({ requestId: "foreign" })],
+        });
+        q.widget({
+          method: "setWidget",
+          widgetKey: "subagent-inspect",
+          widgetLines: [
+            INSPECTION_PREFIX + JSON.stringify({ requestId: "req", asyncId: "owned-run" }),
+          ],
+        });
+        current = { ...context, sessionId: "replacement" };
+        return { disposition: "handled" };
+      }),
     current: () => true,
   });
   await expect(q.inspect(target, "req")).rejects.toThrow("replaced");
   const wrong = createInspectionChannel({
-    context: async () => context,
-    command: async () => ({ disposition: "started" }),
+    context: () => Promise.try(() => context),
+    command: () => Promise.resolve({ disposition: "started" }),
     current: () => true,
   });
   await expect(wrong.inspect(target, "r")).rejects.toThrow("not confirmed handled");
@@ -75,8 +77,8 @@ it("bounds timeout and concurrent preflights, and cancels an awaiting widget on 
   vi.useFakeTimers();
   try {
     const q = createInspectionChannel({
-      context: async () => context,
-      command: async () => ({ disposition: "handled" }),
+      context: () => Promise.try(() => context),
+      command: () => Promise.resolve({ disposition: "handled" }),
       current: () => true,
     });
     const first = q.inspect(target, "r");
@@ -86,8 +88,8 @@ it("bounds timeout and concurrent preflights, and cancels an awaiting widget on 
     await rejected;
     q.dispose();
     const next = createInspectionChannel({
-      context: async () => context,
-      command: async () => ({ disposition: "handled" }),
+      context: () => Promise.try(() => context),
+      command: () => Promise.resolve({ disposition: "handled" }),
       current: () => true,
     });
     const p = next.inspect(target, "x");
@@ -107,10 +109,11 @@ it("does not dispatch a private command after a child epoch changes during conte
   const channel = createInspectionChannel({
     current: () => true,
     epoch: () => epoch,
-    context: async () => {
-      epoch = {};
-      return context;
-    },
+    context: () =>
+      Promise.try(() => {
+        epoch = {};
+        return context;
+      }),
     command,
   });
   await expect(channel.inspect(target, "req")).rejects.toThrow("replaced");

@@ -21,12 +21,7 @@ interface TaskPage {
 }
 
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<T>();
   return { promise, resolve, reject };
 }
 
@@ -92,9 +87,11 @@ async function load(env: ReturnType<typeof setup>) {
   return input;
 }
 
-async function open(env: ReturnType<typeof setup>, prefix = "HOME") {
-  fireEvent.click(env.slot.getByRole("button", { name: `Delete ${prefix}` }));
-  return within(document.body).findByRole("dialog");
+function open(env: ReturnType<typeof setup>, prefix = "HOME") {
+  return Promise.try(() => {
+    fireEvent.click(env.slot.getByRole("button", { name: `Delete ${prefix}` }));
+    return within(document.body).findByRole("dialog");
+  });
 }
 
 async function confirm(dialog: HTMLElement, prefix = "HOME") {
@@ -118,23 +115,27 @@ describe("production project deletion safeguards", () => {
     const button = within(dialog).getByRole("button", { name: "Delete project and tasks" });
     expect(button).toHaveProperty("disabled", true);
     expect(within(dialog).getByRole("status").textContent).toContain("Counting all tasks");
-    await act(async () => {
-      first.resolve({ tasks: [makeTask({ status: "done" })], nextCursor: "second" });
-    });
+    await act(() =>
+      Promise.try(() => {
+        first.resolve({ tasks: [makeTask({ status: "done" })], nextCursor: "second" });
+      }),
+    );
     await waitFor(() => expect(env.calls("listTasks")).toHaveLength(2));
     expect(button).toHaveProperty("disabled", true);
     expect(env.calls("listTasks").map((call) => call.input)).toEqual([
       { projectId: project.id, limit: TASKS_PAGE_MAX_LIMIT },
       { projectId: project.id, limit: TASKS_PAGE_MAX_LIMIT, cursor: "second" },
     ]);
-    await act(async () => {
-      last.resolve({
-        tasks: [
-          makeTask({ id: "child", status: "canceled", parentTaskId: "parent" }),
-          makeTask({ id: "grandchild", parentTaskId: "child" }),
-        ],
-      });
-    });
+    await act(() =>
+      Promise.try(() => {
+        last.resolve({
+          tasks: [
+            makeTask({ id: "child", status: "canceled", parentTaskId: "parent" }),
+            makeTask({ id: "grandchild", parentTaskId: "child" }),
+          ],
+        });
+      }),
+    );
     await waitFor(() =>
       expect(within(dialog).getByRole("status").textContent).toBe(
         "Delete this project and all 3 tasks? This cannot be undone.",
@@ -163,9 +164,11 @@ describe("production project deletion safeguards", () => {
     env.handlers.tasks = () => retry.promise;
     fireEvent.click(within(dialog).getByRole("button", { name: "Retry task count" }));
     expect(button).toHaveProperty("disabled", true);
-    await act(async () => {
-      retry.resolve({ tasks: [] });
-    });
+    await act(() =>
+      Promise.try(() => {
+        retry.resolve({ tasks: [] });
+      }),
+    );
     await waitFor(() => expect(button).toHaveProperty("disabled", false));
     expect(env.calls("listTasks")).toHaveLength(2);
     expect(env.calls("deleteProject")).toEqual([]);
@@ -186,9 +189,11 @@ describe("production project deletion safeguards", () => {
     dialog = await open(env, "WORK");
     const workInput = within(dialog).getByRole("textbox", { name: "Type WORK to confirm" });
     expect(workInput).toHaveProperty("value", "");
-    await act(async () => {
-      count.resolve({ tasks: Array.from({ length: 42 }, () => makeTask()) });
-    });
+    await act(() =>
+      Promise.try(() => {
+        count.resolve({ tasks: Array.from({ length: 42 }, () => makeTask()) });
+      }),
+    );
     await waitFor(() =>
       expect(within(dialog).getByRole("status").textContent).toContain("all 0 tasks"),
     );
@@ -244,16 +249,18 @@ describe("production project deletion safeguards", () => {
       const dialog = await open(env);
       const { input, button } = await confirm(dialog);
       const cancel = within(dialog).getByRole("button", { name: "Cancel" });
-      await act(async () => {
-        fireEvent.click(button);
-        fireEvent.click(button);
-        fireEvent.submit(work.closest("form") ?? missingValue("Expected a non-null value"));
-        fireEvent.click(deleteWork);
-        fireEvent.click(cancel);
-        fireEvent.change(input, { target: { value: "WORK" } });
-        fireEvent.change(work, { target: { value: "Changed while pending" } });
-        fireEvent.keyDown(dialog, { key: "Escape" });
-      });
+      await act(() =>
+        Promise.try(() => {
+          fireEvent.click(button);
+          fireEvent.click(button);
+          fireEvent.submit(work.closest("form") ?? missingValue("Expected a non-null value"));
+          fireEvent.click(deleteWork);
+          fireEvent.click(cancel);
+          fireEvent.change(input, { target: { value: "WORK" } });
+          fireEvent.change(work, { target: { value: "Changed while pending" } });
+          fireEvent.keyDown(dialog, { key: "Escape" });
+        }),
+      );
       expect(env.calls("deleteProject")).toHaveLength(1);
       expect(env.calls("updateProject")).toEqual([]);
       for (const control of [home, work, input, cancel, workSave, deleteWork, button])
@@ -262,14 +269,16 @@ describe("production project deletion safeguards", () => {
       expect(work).toHaveProperty("value", "Keep work draft");
       expect(within(document.body).getByRole("dialog")).toBe(dialog);
       expect(button.textContent).toBe("Deleting…");
-      await act(async () => {
-        if (failure === "transport") pending.reject(new Error("Transport failed"));
-        else
-          pending.resolve({
-            ok: false,
-            error: { code: "project_not_empty", message: "Domain refused deletion" },
-          });
-      });
+      await act(() =>
+        Promise.try(() => {
+          if (failure === "transport") pending.reject(new Error("Transport failed"));
+          else
+            pending.resolve({
+              ok: false,
+              error: { code: "project_not_empty", message: "Domain refused deletion" },
+            });
+        }),
+      );
       const byRole = await within(dialog).findByRole("alert");
       expect(byRole.textContent).toContain(
         failure === "transport" ? "Transport failed" : "Domain refused deletion",
@@ -296,21 +305,25 @@ describe("production project deletion safeguards", () => {
     const save = deferred<{ project: Project }>();
     env.handlers.save = () => save.promise;
     fireEvent.change(home, { target: { value: "Pending save" } });
-    await act(async () => {
-      fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
-      fireEvent.click(trigger);
-    });
+    await act(() =>
+      Promise.try(() => {
+        fireEvent.submit(home.closest("form") ?? missingValue("Expected a non-null value"));
+        fireEvent.click(trigger);
+      }),
+    );
     expect(env.calls("updateProject")).toHaveLength(1);
     expect(env.calls("deleteProject")).toEqual([]);
     expect(within(document.body).queryByRole("dialog")).toBeNull();
-    await act(async () => {
-      save.resolve({
-        project: {
-          ...(env.state.projects[0] ?? missingValue("Expected a non-null value")),
-          name: "Pending save",
-        },
-      });
-    });
+    await act(() =>
+      Promise.try(() => {
+        save.resolve({
+          project: {
+            ...(env.state.projects[0] ?? missingValue("Expected a non-null value")),
+            name: "Pending save",
+          },
+        });
+      }),
+    );
     await waitFor(() => expect(trigger).toHaveProperty("disabled", false));
   });
 
@@ -325,22 +338,28 @@ describe("production project deletion safeguards", () => {
       env.handlers.projects = () => read.promise;
       await env.slot.emitRealtime("projects:changed", {});
       if (state === "failure")
-        await act(async () => {
-          read.reject(new Error("Inventory unavailable"));
-        });
+        await act(() =>
+          Promise.try(() => {
+            read.reject(new Error("Inventory unavailable"));
+          }),
+        );
       if (state === "removed")
-        await act(async () => {
-          read.resolve({
-            projects: [env.state.projects[1] ?? missingValue("Expected a non-null value")],
-          });
-        });
+        await act(() =>
+          Promise.try(() => {
+            read.resolve({
+              projects: [env.state.projects[1] ?? missingValue("Expected a non-null value")],
+            });
+          }),
+        );
       await waitFor(() => expect(button).toHaveProperty("disabled", true));
       fireEvent.click(button);
       expect(env.calls("deleteProject")).toEqual([]);
       if (state === "loading")
-        await act(async () => {
-          read.resolve({ projects: env.state.projects });
-        });
+        await act(() =>
+          Promise.try(() => {
+            read.resolve({ projects: env.state.projects });
+          }),
+        );
     },
   );
   it("retains the delete lock and confirmation through Manage-tab transitions", async () => {
@@ -366,9 +385,11 @@ describe("production project deletion safeguards", () => {
     fireEvent.submit(work.closest("form") ?? missingValue("Expected a non-null value"));
     expect(env.calls("updateProject")).toEqual([]);
     expect(env.calls("deleteProject")).toHaveLength(1);
-    await act(async () => {
-      deletion.reject(new Error("Transition fixture failure"));
-    });
+    await act(() =>
+      Promise.try(() => {
+        deletion.reject(new Error("Transition fixture failure"));
+      }),
+    );
     await within(dialog).findByRole("alert");
     expect(work).toHaveProperty("disabled", false);
     expect(within(dialog).getByRole("textbox", { name: "Type HOME to confirm" })).toHaveProperty(
@@ -406,14 +427,18 @@ describe("production project deletion safeguards", () => {
     const overlap = deferred<{ projects: Project[] }>();
     env.handlers.projects = () => overlap.promise;
     await env.slot.emitRealtime("projects:changed", {});
-    await act(async () => {
-      deletion.resolve({ ok: true, deleted: true });
-    });
+    await act(() =>
+      Promise.try(() => {
+        deletion.resolve({ ok: true, deleted: true });
+      }),
+    );
     await waitFor(() => expect(within(document.body).queryByRole("dialog")).toBeNull());
     expect(env.slot.queryByRole("textbox", { name: "Project name for HOME" })).toBeNull();
-    await act(async () => {
-      overlap.resolve({ projects: env.state.projects });
-    });
+    await act(() =>
+      Promise.try(() => {
+        overlap.resolve({ projects: env.state.projects });
+      }),
+    );
     await waitFor(() => expect(work).toHaveProperty("disabled", false));
     expect(env.slot.queryByRole("textbox", { name: "Project name for HOME" })).toBeNull();
     env.handlers.projects = () => {

@@ -54,12 +54,13 @@ export function createTaskInventory<T>(
             snapshot = { data, error: null, isLoading: false, current: true };
             notify();
           }
+          return;
         },
-        (error: unknown) => {
+        (inventoryError: unknown) => {
           if (canPublish()) {
             snapshot = {
               ...snapshot,
-              error: errorMessage(error),
+              error: errorMessage(inventoryError),
               isLoading: false,
               current: false,
             };

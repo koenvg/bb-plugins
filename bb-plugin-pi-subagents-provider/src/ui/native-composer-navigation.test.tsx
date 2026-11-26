@@ -147,7 +147,7 @@ function panelHandlers(open: (request: HostTabRequest) => boolean) {
 async function mount(
   rows = roots,
   openTab = vi.fn<(request: HostTabRequest) => boolean>(() => true),
-  list = vi.fn(async () => events(rows) as never),
+  list = vi.fn(() => Promise.try(() => events(rows) as never)),
   providerId = "pi-subagents",
 ) {
   const customization = app.composerCustomizations.find(
@@ -211,12 +211,14 @@ it.each(["singleton", "aggregate", "narrow"] as const)(
   "binds a validated %s from a full bounded history window",
   async (shape) => {
     const { header } = fixture(shape);
-    const list = vi.fn(
-      async (_args?: unknown) =>
-        Array.from(
-          { length: 64 },
-          () => events()[0] ?? missingValue("Expected events()[0]"),
-        ) as never,
+    const list = vi.fn((_args?: unknown) =>
+      Promise.try(
+        () =>
+          Array.from(
+            { length: 64 },
+            () => events()[0] ?? missingValue("Expected events()[0]"),
+          ) as never,
+      ),
     );
     const { openTab } = await mount(
       roots,
@@ -240,15 +242,17 @@ it.each(["singleton", "aggregate", "narrow"] as const)(
 
 it("still rejects malformed latest state when older valid data fills the window", async () => {
   const { header } = fixture();
-  const list = vi.fn(
-    async () =>
-      [
-        {
-          ...(events()[0] ?? missingValue("Expected events()[0]")),
-          data: { kind: VIEW_EXTENSION_KIND, payload: { ...state(), version: 2 } },
-        },
-        ...Array.from({ length: 63 }, () => events()[0] ?? missingValue("Expected events()[0]")),
-      ] as never,
+  const list = vi.fn(() =>
+    Promise.try(
+      () =>
+        [
+          {
+            ...(events()[0] ?? missingValue("Expected events()[0]")),
+            data: { kind: VIEW_EXTENSION_KIND, payload: { ...state(), version: 2 } },
+          },
+          ...Array.from({ length: 63 }, () => events()[0] ?? missingValue("Expected events()[0]")),
+        ] as never,
+    ),
   );
   const { openTab } = await mount(
     roots,
@@ -425,15 +429,12 @@ describe("native composer navigation", () => {
   });
 
   it("does not accept late history from a previous thread", async () => {
-    let finish!: (value: never) => void;
-    const pending = new Promise<never>((resolve) => {
-      finish = resolve;
-    });
+    const { promise: pending, resolve: finish } = Promise.withResolvers<never>();
     const nextRoots = [root("run-new", "New reviewer")];
     const list = vi
-      .fn(async () => pending)
-      .mockImplementationOnce(async () => pending)
-      .mockImplementationOnce(async () => events(nextRoots) as never);
+      .fn(() => Promise.try(() => pending))
+      .mockImplementationOnce(() => Promise.try(() => pending))
+      .mockImplementationOnce(() => Promise.try(() => events(nextRoots) as never));
     const first = fixture();
     const { view, openTab } = await mount(
       roots,
@@ -474,7 +475,7 @@ describe("native composer navigation", () => {
         scope: { kind: "thread", threadId: "thread-2" },
         selection: { providerId: "pi-subagents" },
       },
-      sdk: { threads: { events: { list: async () => events() as never } } },
+      sdk: { threads: { events: { list: () => Promise.try(() => events() as never) } } },
       ...panelHandlers(open),
     } satisfies Parameters<typeof renderSlot>[2];
     const second = renderSlot(
@@ -521,7 +522,7 @@ describe("native composer navigation", () => {
       const { list, openTab } = await mount(
         roots,
         vi.fn(() => true),
-        vi.fn(async () => events() as never),
+        vi.fn(() => Promise.try(() => events() as never)),
         providerId,
       );
       fireEvent.click(header);

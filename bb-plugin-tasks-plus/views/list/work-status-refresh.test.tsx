@@ -40,7 +40,7 @@ const List = (props: ComponentProps<typeof ListView>) => {
 afterEach(async () => {
   cleanup();
   window.localStorage.clear();
-  for (const dispose of disposers.splice(0)) await dispose();
+  await Array.fromAsync(disposers.splice(0), (dispose) => dispose());
   vi.useRealTimers();
 });
 
@@ -48,7 +48,7 @@ it("renders Idle to Running to Idle from background-only lifecycle publications 
   let activeBackgroundAgentCount = 0;
   const snapshot = () =>
     makeThreadResponse({ id: "thr_background", status: "idle", activeBackgroundAgentCount });
-  const get = vi.fn(async () => snapshot());
+  const get = vi.fn(() => Promise.try(() => snapshot()));
   const { bb, harness } = createFakePluginHost({ pluginId: "tasks", sdk: { threads: { get } } });
   disposers.push(() => harness.lifecycle.dispose());
   const store = createStore(bb);
@@ -94,26 +94,31 @@ it("renders Idle to Running to Idle from background-only lifecycle publications 
   const result = await badge("1 Idle");
   expect(result.textContent).toContain("1 Idle");
   let signalIndex = 0;
-  for (const [count, label, status] of [
-    [1, "1 Running", "working"],
-    [0, "1 Idle", "idle"],
-  ] as const) {
-    activeBackgroundAgentCount = count;
-    await harness.behavior.emitThreadEvent("experimental_thread.events", {
-      thread: snapshot(),
-      sequence: 12,
-    });
-    const signals = harness.realtimeSignals.slice(signalIndex);
-    signalIndex = harness.realtimeSignals.length;
-    expect(signals).toEqual([{ channel: "threads:changed", payload: { taskId: task.id } }]);
-    for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
-    const result2 = await badge(label);
-    expect(result2.textContent).toContain(label);
-    expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.liveStatus)).toEqual([
-      status,
-    ]);
-    expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
-  }
+  await Array.fromAsync(
+    [
+      [1, "1 Running", "working"],
+      [0, "1 Idle", "idle"],
+    ] as const,
+    async ([count, label, status]) => {
+      activeBackgroundAgentCount = count;
+      await harness.behavior.emitThreadEvent("experimental_thread.events", {
+        thread: snapshot(),
+        sequence: 12,
+      });
+      const signals = harness.realtimeSignals.slice(signalIndex);
+      signalIndex = harness.realtimeSignals.length;
+      expect(signals).toEqual([{ channel: "threads:changed", payload: { taskId: task.id } }]);
+      await Array.fromAsync(signals, (signal) =>
+        slot.behavior.emitRealtime(signal.channel, signal.payload),
+      );
+      const result2 = await badge(label);
+      expect(result2.textContent).toContain(label);
+      expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.liveStatus)).toEqual([
+        status,
+      ]);
+      expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
+    },
+  );
   expect(get).toHaveBeenCalledTimes(4);
   expect(harness.realtimeSignals).toEqual([
     { channel: "threads:changed", payload: { taskId: task.id } },
@@ -124,10 +129,12 @@ it("renders Idle to Running to Idle from background-only lifecycle publications 
 it("shares thread reads across sequential visible chunks, retains every association and reads fresh execution on the next refresh", async () => {
   let status: "active" | "idle" = "active";
   let unreadable = true;
-  const get = vi.fn(async ({ threadId }: { threadId: string }) => {
-    if (threadId === "thr_unreadable" && unreadable) throw new Error("offline");
-    return makeThreadResponse({ id: threadId, status });
-  });
+  const get = vi.fn((input: { threadId: string }) =>
+    Promise.try(({ threadId }: { threadId: string }) => {
+      if (threadId === "thr_unreadable" && unreadable) throw new Error("offline");
+      return makeThreadResponse({ id: threadId, status });
+    }, input),
+  );
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: { threads: { get } },
@@ -261,13 +268,17 @@ it("updates archived failure, unarchive and confirmed deletion through the mount
   vi.useFakeTimers();
   let archivedAt: number | null = 1;
   let deletedAt: number | null = null;
-  const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-    makeThreadResponse({
-      id: threadId,
-      status: "error",
-      archivedAt,
-      deletedAt,
-    }),
+  const get = vi.fn((input: { threadId: string }) =>
+    Promise.try(
+      ({ threadId }: { threadId: string }) =>
+        makeThreadResponse({
+          id: threadId,
+          status: "error",
+          archivedAt,
+          deletedAt,
+        }),
+      input,
+    ),
   );
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
@@ -348,28 +359,34 @@ it("updates archived failure, unarchive and confirmed deletion through the mount
 
 it("shares settled environment successes, absence and failures across 501 sequential rows, then reads fresh PR lifecycle and recovery on the next refresh", async () => {
   let phase = 0;
-  const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-    makeThreadResponse({
-      id: threadId,
-      status: "idle",
-      environmentId:
-        threadId === "thr_a" || threadId === "thr_b" ? "env_shared" : `env_${threadId}`,
-    }),
+  const get = vi.fn((input: { threadId: string }) =>
+    Promise.try(
+      ({ threadId }: { threadId: string }) =>
+        makeThreadResponse({
+          id: threadId,
+          status: "idle",
+          environmentId:
+            threadId === "thr_a" || threadId === "thr_b" ? "env_shared" : `env_${threadId}`,
+        }),
+      input,
+    ),
   );
-  const pullRequest = vi.fn(async ({ environmentId }: { environmentId: string }) => {
-    if (environmentId === "env_thr_none") return { outcome: "absent" as const };
-    if (environmentId === "env_thr_bad" && phase === 0) throw new Error("offline");
-    return {
-      outcome: "available" as const,
-      pullRequest: {
-        url: `https://github.com/koenvg/${environmentId === "env_shared" ? "bb-plugins" : "other"}/pull/42`,
-        number: 42,
-        title: "Work",
-        state: phase === 0 ? ("open" as const) : ("merged" as const),
-        updatedAt: "2026-10-02T00:00:00Z",
-      },
-    };
-  });
+  const pullRequest = vi.fn((input: { environmentId: string }) =>
+    Promise.try(({ environmentId }: { environmentId: string }) => {
+      if (environmentId === "env_thr_none") return { outcome: "absent" as const };
+      if (environmentId === "env_thr_bad" && phase === 0) throw new Error("offline");
+      return {
+        outcome: "available" as const,
+        pullRequest: {
+          url: `https://github.com/koenvg/${environmentId === "env_shared" ? "bb-plugins" : "other"}/pull/42`,
+          number: 42,
+          title: "Work",
+          state: phase === 0 ? ("open" as const) : ("merged" as const),
+          updatedAt: "2026-10-02T00:00:00Z",
+        },
+      };
+    }, input),
+  );
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: { threads: { get }, plugins: { callRpc: mockPrStatusRpc(pullRequest) } },
@@ -492,8 +509,12 @@ it("shares settled environment successes, absence and failures across 501 sequen
 it("keeps work metadata stable after a status edit and refreshes it for a thread event", async () => {
   window.localStorage.clear();
   let threadStatus: "active" | "idle" = "active";
-  const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-    makeThreadResponse({ id: threadId, status: threadStatus }),
+  const get = vi.fn((input: { threadId: string }) =>
+    Promise.try(
+      ({ threadId }: { threadId: string }) =>
+        makeThreadResponse({ id: threadId, status: threadStatus }),
+      input,
+    ),
   );
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
@@ -551,7 +572,9 @@ it("keeps work metadata stable after a status edit and refreshes it for a thread
     await waitFor(() => expect(harness.realtimeSignals.length).toBeGreaterThan(signalIndex));
     const signals = harness.realtimeSignals.slice(signalIndex);
     signalIndex = harness.realtimeSignals.length;
-    for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
+    await Array.fromAsync(signals, (signal) =>
+      slot.behavior.emitRealtime(signal.channel, signal.payload),
+    );
     return signals;
   };
 
@@ -597,8 +620,12 @@ it("keeps remaining work metadata without rereads when a status filter removes a
     ["thr_removed", "active" as const],
     ["thr_remaining", "idle" as const],
   ]);
-  const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-    makeThreadResponse({ id: threadId, status: threadStatus.get(threadId) ?? "idle" }),
+  const get = vi.fn((input: { threadId: string }) =>
+    Promise.try(
+      ({ threadId }: { threadId: string }) =>
+        makeThreadResponse({ id: threadId, status: threadStatus.get(threadId) ?? "idle" }),
+      input,
+    ),
   );
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks",
@@ -656,7 +683,9 @@ it("keeps remaining work metadata without rereads when a status filter removes a
     await waitFor(() => expect(harness.realtimeSignals.length).toBeGreaterThan(signalIndex));
     const signals = harness.realtimeSignals.slice(signalIndex);
     signalIndex = harness.realtimeSignals.length;
-    for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
+    await Array.fromAsync(signals, (signal) =>
+      slot.behavior.emitRealtime(signal.channel, signal.payload),
+    );
   };
 
   await slot.findByRole("button", { name: `Open ${removed.key}: Move out` });

@@ -136,10 +136,7 @@ async function setup() {
   const raw = JSON.stringify(log);
   const release = { log, raw, source: { sha256: createHash("sha256").update(raw).digest("hex") } };
   const effects = { signals: [], controlReceipts: [], stops: 0, archives: [], armed: false };
-  let deliver;
-  const delivered = new Promise((resolve) => {
-    deliver = resolve;
-  });
+  const { promise: delivered, resolve: deliver } = Promise.withResolvers();
   const complete = {
     type: "complete",
     threadId: scope.targetThreadId,
@@ -155,46 +152,50 @@ async function setup() {
     ownedResult: scope.expectedResult,
   };
   const ports = {
-    authenticateRelease: async () => scope.daemonIdentity,
-    readTarget: async () => proof(scope),
-    completeControl: async (receipt) => effects.controlReceipts.push(receipt),
-    armSignal: async (plan) => {
-      effects.armed = true;
-      return {
-        type: "armed",
-        threadId: scope.targetThreadId,
-        pid: 800,
-        start: "independent-guard",
-        stopAtMs: plan.stopAtMs,
-        deadlineMs: plan.deadlineMs,
-      };
-    },
-    writeSignal: async (_scope, signal, window) => {
-      if (signal.aborted || window.nowMs() >= window.deadlineMs)
-        throw new Error("SWEEP_SIGNAL_TOO_LATE");
-      assert.equal(effects.armed, true);
-      effects.signals.push("owned fixture signal");
-      deliver(complete);
-    },
+    authenticateRelease: () => Promise.try(() => scope.daemonIdentity),
+    readTarget: () => Promise.try(() => proof(scope)),
+    completeControl: (receipt) => Promise.try(() => effects.controlReceipts.push(receipt)),
+    armSignal: (plan) =>
+      Promise.try(() => {
+        effects.armed = true;
+        return {
+          type: "armed",
+          threadId: scope.targetThreadId,
+          pid: 800,
+          start: "independent-guard",
+          stopAtMs: plan.stopAtMs,
+          deadlineMs: plan.deadlineMs,
+        };
+      }),
+    writeSignal: (_scope, signal, window) =>
+      Promise.try(() => {
+        if (signal.aborted || window.nowMs() >= window.deadlineMs)
+          throw new Error("SWEEP_SIGNAL_TOO_LATE");
+        assert.equal(effects.armed, true);
+        effects.signals.push("owned fixture signal");
+        deliver(complete);
+      }),
     waitForCompletion: () => delivered,
-    cleanup: async () => {
-      effects.stops++;
-    },
-    readClosed: async () => ({
-      thread: {
-        id: scope.targetThreadId,
-        providerId: "pi-subagents",
-        parentThreadId: scope.ownerThreadId,
-        status: "idle",
-        archivedAt: null,
-        deletedAt: null,
-        createdAt: 1_000_000,
-      },
-      queue: [],
-      pidRows: "",
-      guardPidRows: "",
-    }),
-    archive: async (threadId) => effects.archives.push(threadId),
+    cleanup: () =>
+      Promise.try(() => {
+        effects.stops++;
+      }),
+    readClosed: () =>
+      Promise.try(() => ({
+        thread: {
+          id: scope.targetThreadId,
+          providerId: "pi-subagents",
+          parentThreadId: scope.ownerThreadId,
+          status: "idle",
+          archivedAt: null,
+          deletedAt: null,
+          createdAt: 1_000_000,
+        },
+        queue: [],
+        pidRows: "",
+        guardPidRows: "",
+      })),
+    archive: (threadId) => Promise.try(() => effects.archives.push(threadId)),
   };
   const coordinator = (options = {}) =>
     createSweepCoordinator({ timing: timing(), scope, ports, nowMs: 3_200_000, ...options });
@@ -242,10 +243,11 @@ function stoppedClock() {
 test("late proof fails even if a timer callback is delayed, without writing a signal", async () => {
   const f = await setup(),
     clock = stoppedClock();
-  f.ports.readTarget = async () => {
-    clock.jump(6001);
-    return proof(f.scope);
-  };
+  f.ports.readTarget = () =>
+    Promise.try(() => {
+      clock.jump(6001);
+      return proof(f.scope);
+    });
   const result = await f.coordinator({ clock }).run(f.release);
   assert.equal(result.passed, false);
   assert.equal(result.failure, "SWEEP_PROOF_TIMEOUT");
@@ -255,9 +257,10 @@ test("late proof fails even if a timer callback is delayed, without writing a si
 
 test("adapter errors cannot publish private raw text in the failure category", async () => {
   const f = await setup();
-  f.ports.authenticateRelease = async () => {
-    throw new Error("PRIVATE token and local path");
-  };
+  f.ports.authenticateRelease = () =>
+    Promise.try(() => {
+      throw new Error("PRIVATE token and local path");
+    });
   const result = await f.coordinator().run(f.release);
   assert.equal(result.failure, "SWEEP_ADAPTER_FAILED");
   assert.equal(JSON.stringify(result).includes("PRIVATE"), false);
@@ -285,19 +288,20 @@ test("a new queued message after cleanup prevents archive, even though cleanup h
   const f = await setup(),
     controller = f.coordinator();
   await controller.run(f.release);
-  f.ports.readClosed = async () => ({
-    thread: {
-      id: "thr_target",
-      providerId: "pi-subagents",
-      parentThreadId: "thr_owner",
-      status: "idle",
-      archivedAt: null,
-      deletedAt: null,
-      createdAt: 1_000_000,
-    },
-    queue: [{ id: "unowned-message" }],
-    pidRows: "",
-  });
+  f.ports.readClosed = () =>
+    Promise.resolve({
+      thread: {
+        id: "thr_target",
+        providerId: "pi-subagents",
+        parentThreadId: "thr_owner",
+        status: "idle",
+        archivedAt: null,
+        deletedAt: null,
+        createdAt: 1_000_000,
+      },
+      queue: [{ id: "unowned-message" }],
+      pidRows: "",
+    });
   await assert.rejects(controller.archive(), /PRE_ARCHIVE_ABSENCE_UNPROVED/);
   assert.deepEqual(f.effects.archives, []);
 });
@@ -314,21 +318,22 @@ for (const defect of [
 ]) {
   test(`a ${defect} cannot write the owned signal`, async () => {
     const f = await setup();
-    f.ports.readTarget = async () => {
-      const s = proof(f.scope);
-      if (defect === "gap") s.events[1].seq = 9;
-      if (defect === "changed-parent") s.processes[0].start = "replacement";
-      if (defect === "changed-child") s.processes[1].args = "foreign native run";
-      if (defect === "foreign-item") s.events[1].data.item.id = "foreign-item";
-      if (defect === "stale-generation") s.events[2].data.payload.rows[0].generation = 2;
-      if (defect === "local-step-only") s.events[2].data.payload.rows[0].parentId = "some-root";
-      if (defect === "extra-turn") {
-        s.events[0].type = "turn/started";
-        s.events[0].createdAt = 1_050_001;
-      }
-      if (defect === "unavailable-view") s.events[2].data.payload.availability = "unavailable";
-      return s;
-    };
+    f.ports.readTarget = () =>
+      Promise.try(() => {
+        const s = proof(f.scope);
+        if (defect === "gap") s.events[1].seq = 9;
+        if (defect === "changed-parent") s.processes[0].start = "replacement";
+        if (defect === "changed-child") s.processes[1].args = "foreign native run";
+        if (defect === "foreign-item") s.events[1].data.item.id = "foreign-item";
+        if (defect === "stale-generation") s.events[2].data.payload.rows[0].generation = 2;
+        if (defect === "local-step-only") s.events[2].data.payload.rows[0].parentId = "some-root";
+        if (defect === "extra-turn") {
+          s.events[0].type = "turn/started";
+          s.events[0].createdAt = 1_050_001;
+        }
+        if (defect === "unavailable-view") s.events[2].data.payload.availability = "unavailable";
+        return s;
+      });
     const result = await f.coordinator().run(f.release);
     assert.equal(result.passed, false);
     assert.deepEqual(f.effects.signals, []);
@@ -347,12 +352,14 @@ test("a stalled signal guard is bounded by its own arm budget", async () => {
   const f = await setup(),
     clock = stoppedClock();
   let ready;
-  const entered = new Promise((resolve) => {
+  const entered = (() => {
+    const { promise, resolve } = Promise.withResolvers();
     ready = resolve;
-  });
+    return promise;
+  })();
   f.ports.armSignal = () => {
     ready();
-    return new Promise(() => {});
+    return Promise.withResolvers().promise;
   };
   const action = f.coordinator({ clock }).run(f.release);
   await entered;
@@ -365,7 +372,7 @@ test("a stalled signal guard is bounded by its own arm budget", async () => {
 
 test("incomplete source coverage cannot be replaced by a contiguous prefix", async () => {
   const f = await setup();
-  f.ports.readTarget = async () => ({ ...proof(f.scope), coverageComplete: false });
+  f.ports.readTarget = () => Promise.try(() => ({ ...proof(f.scope), coverageComplete: false }));
   const result = await f.coordinator().run(f.release);
   assert.equal(result.passed, false);
   assert.deepEqual(f.effects.signals, []);
@@ -380,7 +387,7 @@ test("child expiry must leave the full normal-completion budget before target cu
 
 test("a normal-looking result received before a signal cannot be treated as intended work", async () => {
   const f = await setup();
-  f.ports.waitForCompletion = async () => f.complete;
+  f.ports.waitForCompletion = () => Promise.try(() => f.complete);
   const result = await f.coordinator().run(f.release);
   assert.equal(result.passed, false);
   assert.deepEqual(f.effects.signals, []);
@@ -398,12 +405,13 @@ test("temporary log append reaches the coordinator and writes only the new owned
   fs.writeFileSync(file, "");
   const f = await setup();
   const oldWrite = f.ports.writeSignal;
-  f.ports.writeSignal = async (scope, signal, window) => {
-    if (signal.aborted || window.nowMs() >= window.deadlineMs)
-      throw new Error("SWEEP_SIGNAL_TOO_LATE");
-    fs.writeFileSync(signalFile, "owned-signal-nonce", { flag: "wx" });
-    return oldWrite(scope, signal, window);
-  };
+  f.ports.writeSignal = (scope, signal, window) =>
+    Promise.try(() => {
+      if (signal.aborted || window.nowMs() >= window.deadlineMs)
+        throw new Error("SWEEP_SIGNAL_TOO_LATE");
+      fs.writeFileSync(signalFile, "owned-signal-nonce", { flag: "wx" });
+      return oldWrite(scope, signal, window);
+    });
   const observer = await openSweepLog({ directory, scope: f.scope, afterMs: 0, timeoutMs: 2000 });
   t.after(observer.close);
   const controller = f.coordinator();
@@ -431,7 +439,7 @@ test("a still-running owned signal guard cannot pass cleanup or permit archive",
 for (const reply of [undefined, null, false, {}, { type: "armed", pid: 800 }]) {
   test(`an invalid arm reply ${JSON.stringify(reply)} leaves guard absence unproved through archive`, async () => {
     const f = await setup();
-    f.ports.armSignal = async () => reply;
+    f.ports.armSignal = () => Promise.try(() => reply);
     const old = f.ports.readClosed;
     f.ports.readClosed = async () => {
       const snapshot = await old();
@@ -452,13 +460,14 @@ test("an asynchronous write cannot create its signal after child expiry", async 
     clock = stoppedClock(),
     write = f.ports.writeSignal;
   let deadline;
-  f.ports.writeSignal = async (scope, signal, window) => {
-    deadline = window?.deadlineMs;
-    clock.jump(2); // Complete asynchronous preparation without firing timer callbacks.
-    if (signal.aborted || (window && window.nowMs() >= window.deadlineMs))
-      throw new Error("SWEEP_SIGNAL_TOO_LATE");
-    return write(scope, signal, window);
-  };
+  f.ports.writeSignal = (scope, signal, window) =>
+    Promise.try(() => {
+      deadline = window?.deadlineMs;
+      clock.jump(2);
+      if (signal.aborted || (window && window.nowMs() >= window.deadlineMs))
+        throw new Error("SWEEP_SIGNAL_TOO_LATE");
+      return write(scope, signal, window);
+    });
   const result = await f.coordinator({ clock, nowMs: 3_519_999 }).run(f.release);
   assert.equal(result.passed, false);
   assert.equal(result.failure, "SWEEP_SIGNAL_TOO_LATE");
@@ -471,11 +480,12 @@ test("signal creation also honours an action cutoff earlier than child expiry", 
     clock = stoppedClock(),
     write = f.ports.writeSignal;
   let deadline;
-  f.ports.writeSignal = async (scope, signal, window) => {
-    deadline = window.deadlineMs;
-    clock.jump(90_000);
-    return write(scope, signal, window);
-  };
+  f.ports.writeSignal = (scope, signal, window) =>
+    Promise.try(() => {
+      deadline = window.deadlineMs;
+      clock.jump(90_000);
+      return write(scope, signal, window);
+    });
   const result = await f.coordinator({ clock }).run(f.release);
   assert.equal(result.passed, false);
   assert.equal(deadline, 3_290_000);
@@ -486,13 +496,15 @@ test("a stalled write is cancelled at child expiry instead of the longer action 
   const f = await setup(),
     clock = stoppedClock();
   let ready, writing;
-  const entered = new Promise((resolve) => {
+  const entered = (() => {
+    const { promise, resolve } = Promise.withResolvers();
     ready = resolve;
-  });
+    return promise;
+  })();
   f.ports.writeSignal = (_scope, signal) => {
     writing = signal;
     ready();
-    return new Promise(() => {});
+    return Promise.withResolvers().promise;
   };
   const action = f.coordinator({ clock, nowMs: 3_519_999 }).run(f.release);
   await entered;

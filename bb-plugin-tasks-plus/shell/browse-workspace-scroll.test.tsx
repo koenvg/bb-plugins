@@ -85,7 +85,15 @@ for (const collapsed of [true, false]) {
     await act(async () => {
       scroll.scrollTop = 0;
       fireEvent.scroll(scroll);
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          requestAnimationFrame(() => resolve());
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
     });
     expect(readListScroll(scopeKey)).toBe(70);
     // Also unmount before a second event can reach an animation frame.

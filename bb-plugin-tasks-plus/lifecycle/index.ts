@@ -69,17 +69,23 @@ function hasNonTerminalTrackedThreads(store: TasksApiStore): boolean {
 
 function waitForNextReconciliation(signal: AbortSignal, intervalMs: number): Promise<void> {
   if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const onAbort = () => {
-      clearTimeout(timer);
-      resolve();
-    };
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, intervalMs);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
+  {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    try {
+      const onAbort = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, intervalMs);
+      signal.addEventListener("abort", onAbort, { once: true });
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  }
 }
 
 export async function registerLifecycle(bb: BbPluginApi, store: TasksApiStore): Promise<void> {
@@ -121,9 +127,19 @@ export async function registerLifecycle(bb: BbPluginApi, store: TasksApiStore): 
     const nonTerminalThreads = trackedThreads(store).filter(
       (thread) => !TERMINAL_LIVE_STATUSES.has(thread.liveStatus),
     );
-    for (const trackedThread of nonTerminalThreads) {
-      if (disposed) break;
-      await reconcileTrackedThread(trackedThread);
+    {
+      const stepItems = nonTerminalThreads;
+      const runStep = async (
+        trackedThread: typeof stepItems extends Iterable<infer Item> ? Item : never,
+      ) => {
+        if (disposed) return { kind: "break" } as const;
+        await reconcileTrackedThread(trackedThread);
+      };
+      for await (const stepResult of (async function* () {
+        for (const stepInput of stepItems) yield runStep(stepInput);
+      })()) {
+        if (stepResult?.kind === "break") break;
+      }
     }
   }
 
@@ -141,14 +157,21 @@ export async function registerLifecycle(bb: BbPluginApi, store: TasksApiStore): 
 
   bb.background.service("thread-status-reconcile", {
     async start(signal) {
-      while (!signal.aborted) {
-        if (!hasNonTerminalTrackedThreads(store)) {
-          await waitForNextReconciliation(signal, THREAD_STATUS_IDLE_INTERVAL_MS);
-          continue;
+      {
+        const runStep = async () => {
+          if (!hasNonTerminalTrackedThreads(store)) {
+            await waitForNextReconciliation(signal, THREAD_STATUS_IDLE_INTERVAL_MS);
+            return;
+          }
+          await waitForNextReconciliation(signal, THREAD_STATUS_RECONCILE_INTERVAL_MS);
+          if (signal.aborted) return { kind: "break" } as const;
+          await reconcileTrackedThreads();
+        };
+        for await (const stepResult of (async function* () {
+          while (!signal.aborted) yield runStep();
+        })()) {
+          if (stepResult?.kind === "break") break;
         }
-        await waitForNextReconciliation(signal, THREAD_STATUS_RECONCILE_INTERVAL_MS);
-        if (signal.aborted) break;
-        await reconcileTrackedThreads();
       }
     },
   });

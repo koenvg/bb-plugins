@@ -8,7 +8,7 @@ import { mockPrStatusRpc } from "../test-fixtures.js";
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  for (const dispose of disposers.splice(0)) await dispose();
+  await Array.fromAsync(disposers.splice(0), (dispose) => dispose());
   vi.useRealTimers();
 });
 const pr = (
@@ -63,28 +63,34 @@ function setup(
 
 describe("basic list PR lifecycle without optional plugins", () => {
   it("deduplicates canonical URLs, keeps all shared threads and equal numbers in different repositories, and preserves all four states", async () => {
-    const pullRequest = vi.fn(async ({ environmentId }: { environmentId: string }) => {
-      switch (environmentId) {
-        case "env_a":
-          return pr("open", "https://GITHUB.com/Acme/BB/pull/42/?from=bb#discussion");
-        case "env_b":
-          return pr("open");
-        case "env_draft":
-          return pr("draft", "https://github.com/acme/other/pull/42");
-        case "env_merged":
-          return pr("merged", "https://github.com/acme/merged/pull/42");
-        default:
-          return pr("closed", "https://github.com/acme/closed/pull/42");
-      }
-    });
+    const pullRequest = vi.fn((input: { environmentId: string }) =>
+      Promise.try(({ environmentId }: { environmentId: string }) => {
+        switch (environmentId) {
+          case "env_a":
+            return pr("open", "https://GITHUB.com/Acme/BB/pull/42/?from=bb#discussion");
+          case "env_b":
+            return pr("open");
+          case "env_draft":
+            return pr("draft", "https://github.com/acme/other/pull/42");
+          case "env_merged":
+            return pr("merged", "https://github.com/acme/merged/pull/42");
+          default:
+            return pr("closed", "https://github.com/acme/closed/pull/42");
+        }
+      }, input),
+    );
     const { read, attach, store, task, harness } = setup(
-      async ({ threadId }) =>
-        makeThreadResponse({
-          id: threadId,
-          environmentId: `env_${threadId.slice(4)}`,
-          archivedAt: 1,
-          status: "error",
-        }),
+      (input) =>
+        Promise.try(
+          ({ threadId }) =>
+            makeThreadResponse({
+              id: threadId,
+              environmentId: `env_${threadId.slice(4)}`,
+              archivedAt: 1,
+              status: "error",
+            }),
+          input,
+        ),
       pullRequest,
     );
     for (const id of ["thr_a", "thr_b", "thr_draft", "thr_merged", "thr_closed"]) attach(id);
@@ -126,21 +132,27 @@ describe("basic list PR lifecycle without optional plugins", () => {
   });
 
   it("keeps merged work alongside partial, explicit unavailable, unreadable and removed attachments, and confirms absence only from completed reads", async () => {
-    const pullRequest = vi.fn(async ({ environmentId }: { environmentId: string }) => {
-      if (environmentId === "env_absent") return { outcome: "absent" };
-      if (environmentId === "env_error") throw new Error("offline");
-      if (environmentId === "env_unavailable")
-        return { outcome: "unavailable", message: "offline" };
-      return pr("merged");
-    });
-    const { read, attach } = setup(async ({ threadId }) => {
-      if (threadId === "thr_unreadable") throw new Error("offline");
-      return makeThreadResponse({
-        id: threadId,
-        environmentId: threadId === "thr_no_env" ? null : `env_${threadId.slice(4)}`,
-        deletedAt: threadId === "thr_removed" ? 1 : null,
-      });
-    }, pullRequest);
+    const pullRequest = vi.fn((input: { environmentId: string }) =>
+      Promise.try(({ environmentId }: { environmentId: string }) => {
+        if (environmentId === "env_absent") return { outcome: "absent" };
+        if (environmentId === "env_error") throw new Error("offline");
+        if (environmentId === "env_unavailable")
+          return { outcome: "unavailable", message: "offline" };
+        return pr("merged");
+      }, input),
+    );
+    const { read, attach } = setup(
+      (input) =>
+        Promise.try(({ threadId }) => {
+          if (threadId === "thr_unreadable") throw new Error("offline");
+          return makeThreadResponse({
+            id: threadId,
+            environmentId: threadId === "thr_no_env" ? null : `env_${threadId.slice(4)}`,
+            deletedAt: threadId === "thr_removed" ? 1 : null,
+          });
+        }, input),
+      pullRequest,
+    );
     for (const id of [
       "thr_merged",
       "thr_absent",
@@ -165,7 +177,11 @@ describe("basic list PR lifecycle without optional plugins", () => {
     expect(result.pullRequests.unavailableThreadIds).toHaveLength(4);
     expect(pullRequest).toHaveBeenCalledTimes(4);
     const absent = setup(
-      async ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: "env_absent" }),
+      (input) =>
+        Promise.try(
+          ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: "env_absent" }),
+          input,
+        ),
       pullRequest,
     );
     absent.attach("thr_absent");
@@ -184,8 +200,12 @@ describe("basic list PR lifecycle without optional plugins", () => {
     "https://github.com/acme/bb/issues/42",
   ])("treats invalid identity %s as unavailable, not confirmed absence", async (url) => {
     const { read, attach } = setup(
-      async ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: "env_pr" }),
-      async () => pr("open", url),
+      (input) =>
+        Promise.try(
+          ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: "env_pr" }),
+          input,
+        ),
+      () => Promise.try(() => pr("open", url)),
     );
     attach("thr_a");
     const result = await read();
@@ -198,13 +218,23 @@ describe("basic list PR lifecycle without optional plugins", () => {
 
   it("uses a newer lifecycle and exposes unresolved same-identity conflicts without losing links or threads", async () => {
     const { read, attach } = setup(
-      async ({ threadId }) =>
-        makeThreadResponse({
-          id: threadId,
-          environmentId: `env_${threadId.slice(4)}`,
-        }),
-      async ({ environmentId }) =>
-        environmentId === "env_a" ? pr("merged", undefined, "2026-10-01T00:00:00Z") : pr("open"),
+      (input) =>
+        Promise.try(
+          ({ threadId }) =>
+            makeThreadResponse({
+              id: threadId,
+              environmentId: `env_${threadId.slice(4)}`,
+            }),
+          input,
+        ),
+      (input) =>
+        Promise.try(
+          ({ environmentId }) =>
+            environmentId === "env_a"
+              ? pr("merged", undefined, "2026-10-01T00:00:00Z")
+              : pr("open"),
+          input,
+        ),
     );
     attach("thr_a");
     attach("thr_b");
@@ -214,12 +244,20 @@ describe("basic list PR lifecycle without optional plugins", () => {
       threadIds: expect.arrayContaining(["thr_a", "thr_b"]),
     });
     const conflicting = setup(
-      async ({ threadId }) =>
-        makeThreadResponse({
-          id: threadId,
-          environmentId: `env_${threadId.slice(4)}`,
-        }),
-      async ({ environmentId }) => (environmentId === "env_a" ? pr("merged") : pr("open")),
+      (input) =>
+        Promise.try(
+          ({ threadId }) =>
+            makeThreadResponse({
+              id: threadId,
+              environmentId: `env_${threadId.slice(4)}`,
+            }),
+          input,
+        ),
+      (input) =>
+        Promise.try(
+          ({ environmentId }) => (environmentId === "env_a" ? pr("merged") : pr("open")),
+          input,
+        ),
     );
     conflicting.attach("thr_a");
     conflicting.attach("thr_b");
@@ -244,17 +282,25 @@ describe("basic list PR lifecycle without optional plugins", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-10-03T00:00:00Z"));
       const { read, attach, store, task } = setup(
-        async ({ threadId }) =>
-          makeThreadResponse({
-            id: threadId,
-            environmentId: `env_${threadId.slice(4)}`,
-          }),
-        async ({ environmentId }) =>
-          environmentId === "env_old"
-            ? pr("open", undefined, "2026-10-01T00:00:00Z")
-            : environmentId === "env_unordered"
-              ? pr("open", undefined, "invalid timestamp")
-              : pr("merged", undefined, "2026-10-02T00:00:00Z"),
+        (input) =>
+          Promise.try(
+            ({ threadId }) =>
+              makeThreadResponse({
+                id: threadId,
+                environmentId: `env_${threadId.slice(4)}`,
+              }),
+            input,
+          ),
+        (input) =>
+          Promise.try(
+            ({ environmentId }) =>
+              environmentId === "env_old"
+                ? pr("open", undefined, "2026-10-01T00:00:00Z")
+                : environmentId === "env_unordered"
+                  ? pr("open", undefined, "invalid timestamp")
+                  : pr("merged", undefined, "2026-10-02T00:00:00Z"),
+            input,
+          ),
       );
       for (const id of [...order].reverse()) {
         attach(id);
@@ -290,7 +336,15 @@ describe("basic list PR lifecycle without optional plugins", () => {
     const releases: (() => void)[] = [];
     const pause = async () => {
       peak = Math.max(peak, ++active);
-      await new Promise<void>((resolve) => releases.push(resolve));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          releases.push(resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       active--;
     };
     const get = vi.fn(async ({ threadId }: { threadId: string }) => {
@@ -313,18 +367,49 @@ describe("basic list PR lifecycle without optional plugins", () => {
       now: () => new Date(),
     });
     const first = reader([task.id], refresh(1, "start"));
-    while (pullRequest.mock.calls.length < 8) {
-      releases.splice(0).forEach((resolve) => resolve());
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    {
+      const runStep = async () => {
+        releases.splice(0).forEach((resolve) => resolve());
+        await (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+          try {
+            setTimeout(resolve, 0);
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
+      };
+      for await (const _ of (async function* () {
+        while (pullRequest.mock.calls.length < 8) yield runStep();
+      })()) {
+        continue;
+      }
     }
     const second = reader([task.id], refresh(2, "start"));
     let done = false;
     const both = Promise.all([first, second]).then(() => {
       done = true;
+      return;
     });
-    while (!done) {
-      releases.splice(0).forEach((resolve) => resolve());
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    {
+      const runStep = async () => {
+        releases.splice(0).forEach((resolve) => resolve());
+        await (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+          try {
+            setTimeout(resolve, 0);
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
+      };
+      for await (const _ of (async function* () {
+        while (!done) yield runStep();
+      })()) {
+        continue;
+      }
     }
     await both;
     expect(peak).toBe(8);
@@ -335,10 +420,14 @@ describe("basic list PR lifecycle without optional plugins", () => {
 
   it("keeps the combined 4096 observation budget and explicit overflow, releases environments on finish and expiry, and recovers next refresh", async () => {
     vi.useFakeTimers();
-    const get = vi.fn(async ({ threadId }: { threadId: string }) =>
-      makeThreadResponse({ id: threadId, environmentId: `env_${threadId}` }),
+    const get = vi.fn((input: { threadId: string }) =>
+      Promise.try(
+        ({ threadId }: { threadId: string }) =>
+          makeThreadResponse({ id: threadId, environmentId: `env_${threadId}` }),
+        input,
+      ),
     );
-    const pullRequest = vi.fn(async () => pr());
+    const pullRequest = vi.fn(() => Promise.try(() => pr()));
     const { bb, store, task, attach } = setup(get, pullRequest);
     attach("thr_template");
     const template =

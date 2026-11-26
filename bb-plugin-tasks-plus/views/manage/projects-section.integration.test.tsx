@@ -22,8 +22,8 @@ describe("production project table persistence and consumer refresh", () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "tasks-project-deletion-integration",
       sdk: {
-        projects: { get: async () => ({ ...workspace }) },
-        threads: { get: async () => ({ ...thread }) },
+        projects: { get: () => Promise.try(() => ({ ...workspace })) },
+        threads: { get: () => Promise.try(() => ({ ...thread })) },
       },
     });
     const slots: RenderedSlot[] = [];
@@ -73,11 +73,15 @@ describe("production project table persistence and consumer refresh", () => {
           async (raw: unknown) => {
             const before = harness.inspection.realtimeSignals.length;
             const result = await harness.behavior.callRpc(method, raw ?? null);
-            for (const event of harness.inspection.realtimeSignals.slice(before)) {
-              if (event.channel === "projects:changed")
-                for (const slot of slots)
-                  await slot.behavior.emitRealtime(event.channel, event.payload);
-            }
+            await Array.fromAsync(
+              harness.inspection.realtimeSignals.slice(before),
+              async (event) => {
+                if (event.channel === "projects:changed")
+                  await Array.fromAsync(slots, (slot) =>
+                    slot.behavior.emitRealtime(event.channel, event.payload),
+                  );
+              },
+            );
             return result;
           },
         ]),
@@ -202,12 +206,13 @@ describe("production project table persistence and consumer refresh", () => {
               // Deliver only real backend publications, before returning the response,
               // to exercise the supported event-before-response ordering.
               const events = harness.inspection.realtimeSignals.slice(before);
-              for (const event of events) {
+              await Array.fromAsync(events, async (event) => {
                 if (event.channel === "projects:changed") {
-                  for (const slot of slots)
-                    await slot.behavior.emitRealtime(event.channel, event.payload);
+                  await Array.fromAsync(slots, (slot) =>
+                    slot.behavior.emitRealtime(event.channel, event.payload),
+                  );
                 }
-              }
+              });
               return result;
             },
           ]),

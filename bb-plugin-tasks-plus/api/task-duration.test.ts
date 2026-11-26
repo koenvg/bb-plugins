@@ -7,7 +7,16 @@ import { taskDurationSchema, tasksRpcContract, type TaskStatus } from "../shared
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
-  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+  {
+    const runStep = async () => {
+      await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 function setup() {
@@ -45,15 +54,17 @@ const completed = {
 describe("single-task duration from persisted status history", () => {
   it("includes review and reopened periods and reads the last completion", async () => {
     const f = setup();
-    for (const [status, at] of [
-      ["in_progress", "2026-10-19T09:00:00.000Z"],
-      ["in_review", "2026-10-19T17:00:00.000Z"],
-      ["done", "2026-10-20T09:00:00.000Z"],
-      ["in_progress", "2026-10-20T11:00:00.000Z"],
-      ["in_review", "2026-10-21T10:00:00.000Z"],
-      ["done", "2026-10-21T17:00:00.000Z"],
-    ] as const)
-      await f.transition(status, at);
+    await Array.fromAsync(
+      [
+        ["in_progress", "2026-10-19T09:00:00.000Z"],
+        ["in_review", "2026-10-19T17:00:00.000Z"],
+        ["done", "2026-10-20T09:00:00.000Z"],
+        ["in_progress", "2026-10-20T11:00:00.000Z"],
+        ["in_review", "2026-10-21T10:00:00.000Z"],
+        ["done", "2026-10-21T17:00:00.000Z"],
+      ] as const,
+      ([status, at]) => f.transition(status, at),
+    );
     const result = await f.lookup();
     expect(result.duration).toEqual(completed);
     const byId = tasksRpcContract.getTask.output.parse(

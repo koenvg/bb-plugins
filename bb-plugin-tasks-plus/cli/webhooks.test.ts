@@ -4,13 +4,14 @@ import { createServer } from "node:http";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import plugin from "../server";
 
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => {
-  for (const close of cleanup.splice(0).reverse()) await close();
+  await Array.fromAsync(cleanup.splice(0).reverse(), (close) => close());
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -34,14 +35,20 @@ async function receiver(statuses = [204]) {
     );
     res.end("private response body");
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  cleanup.push(
-    () =>
-      new Promise<void>((resolve, reject) => {
-        server.close((error) => (error ? reject(error) : resolve()));
-        server.closeAllConnections();
-      }),
-  );
+  await (() => {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    try {
+      server.listen(0, "127.0.0.1", resolve);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
+  cleanup.push(() => {
+    const closed = promisify(server.close).call(server);
+    server.closeAllConnections();
+    return closed;
+  });
   return {
     requests,
     url: `http://127.0.0.1:${(server.address() as { port: number }).port}/hook?token=url-secret`,
@@ -349,7 +356,7 @@ describe("bb tasks webhook", () => {
     await writeFile(binary, Buffer.from([255]));
     const huge = join(f.directory, "huge-secret");
     await writeFile(huge, "x".repeat(8193));
-    for (const path of ["missing-secret", ".", "/dev/stdin", binary, huge]) {
+    await Array.fromAsync(["missing-secret", ".", "/dev/stdin", binary, huge], async (path) => {
       const result = await f.harness.runCli(
         ["webhook", "create", "--config-file", path, "--json"],
         { cwd: f.directory },
@@ -360,7 +367,7 @@ describe("bb tasks webhook", () => {
         error: { code: "webhook_file_error", message: "Could not read webhook config file" },
       });
       expect(result.stdout).not.toContain(path);
-    }
+    });
     expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [] });
   });
 
@@ -637,13 +644,17 @@ describe("bb tasks webhook", () => {
   it("does not replace a completed Rename with an older in-flight Settings list", async () => {
     const target = await receiver();
     let markStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
+    const started = (() => {
+      const { promise, resolve } = Promise.withResolvers<void>();
       markStarted = resolve;
-    });
+      return promise;
+    })();
     let resume!: () => void;
-    const paused = new Promise<void>((resolve) => {
+    const paused = (() => {
+      const { promise, resolve } = Promise.withResolvers<void>();
       resume = resolve;
-    });
+      return promise;
+    })();
     let pauseNextRead = false;
     const f = await fixture(undefined, () => {
       if (!pauseNextRead) return;
@@ -662,7 +673,15 @@ describe("bb tasks webhook", () => {
       }),
     ]);
     const rename = rpc("renameWebhook", { id: endpoint.id, name: "New name" });
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        setImmediate(resolve);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     resume();
     await list;
     expect(await rename).toEqual({ ok: true, endpoint: { ...endpoint, name: "New name" } });
@@ -675,13 +694,17 @@ describe("bb tasks webhook", () => {
   it("does not restore a cleared webhook from an older in-flight Settings list", async () => {
     const target = await receiver();
     let markStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
+    const started = (() => {
+      const { promise, resolve } = Promise.withResolvers<void>();
       markStarted = resolve;
-    });
+      return promise;
+    })();
     let resume!: () => void;
-    const paused = new Promise<void>((resolve) => {
+    const paused = (() => {
+      const { promise, resolve } = Promise.withResolvers<void>();
       resume = resolve;
-    });
+      return promise;
+    })();
     let pauseNextRead = false;
     const f = await fixture(undefined, () => {
       if (!pauseNextRead) return;
@@ -714,12 +737,22 @@ describe("bb tasks webhook", () => {
     const rpc = f.harness.behavior.callRpc;
     const id = `wh_${"a".repeat(32)}`;
     expect(await rpc("listWebhooks", null)).toEqual({ state: "blocked" });
-    for (const [method, input] of [
-      ["addWebhook", { scope: { kind: "global" }, url: "https://127.0.0.1:1/private-url" }],
-      ["deleteWebhook", { id }],
-      ["testWebhook", { id }],
-    ] as const) {
-      expect(await rpc(method, input)).toEqual({ ok: false, code: "invalid_stored" });
+    {
+      const stepItems = [
+        ["addWebhook", { scope: { kind: "global" }, url: "https://127.0.0.1:1/private-url" }],
+        ["deleteWebhook", { id }],
+        ["testWebhook", { id }],
+      ] as const;
+      const runStep = async ([method, input]: typeof stepItems extends Iterable<infer Item>
+        ? Item
+        : never) => {
+        expect(await rpc(method, input)).toEqual({ ok: false, code: "invalid_stored" });
+      };
+      for await (const _ of (async function* () {
+        for (const stepInput of stepItems) yield runStep(stepInput);
+      })()) {
+        continue;
+      }
     }
   });
   it("returns successful CLI and RPC creation before a stalled receiver settles and aborts on host disposal", async () => {
@@ -727,13 +760,19 @@ describe("bb tasks webhook", () => {
     const signals: AbortSignal[] = [];
     vi.stubGlobal("fetch", (_url: string, options: RequestInit) => {
       signals.push(options.signal ?? missingValue("Expected options.signal"));
-      return new Promise<Response>((_resolve, reject) =>
-        (options.signal ?? missingValue("Expected options.signal")).addEventListener(
-          "abort",
-          () => reject(new Error("private receiver failure")),
-          { once: true },
-        ),
-      );
+      {
+        const { promise, reject } = Promise.withResolvers<Response>();
+        try {
+          (options.signal ?? missingValue("Expected options.signal")).addEventListener(
+            "abort",
+            () => reject(new Error("private receiver failure")),
+            { once: true },
+          );
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      }
     });
     const f = await fixture();
     const project = await f.project("SLOW");
@@ -781,7 +820,7 @@ describe("bb tasks webhook", () => {
         hasAuthorization: false,
       },
     });
-    for (const command of ["delete", "test"]) {
+    await Array.fromAsync(["delete", "test"], async (command) => {
       const missing = await f.harness.runCli([
         "webhook",
         command,
@@ -793,6 +832,6 @@ describe("bb tasks webhook", () => {
         error: { code: "webhook_not_found", message: "Webhook endpoint not found" },
       });
       expect(missing.stderr).toBe("Webhook endpoint not found\n");
-    }
+    });
   });
 });

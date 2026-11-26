@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import { reportPreviewReady } from "../../scripts/browser-fixture-runner.mjs";
 
@@ -33,28 +34,36 @@ try {
   });
   cancellation.signal.throwIfAborted();
   http.on("request", vite.middlewares);
-  await new Promise<void>((resolve, reject) => {
-    http.once("error", reject);
-    http.listen(Number(requested), "127.0.0.1", resolve);
-  });
+  await (() => {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    try {
+      http.once("error", reject);
+      http.listen(Number(requested), "127.0.0.1", resolve);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
   cancellation.signal.throwIfAborted();
   const address = http.address();
   if (!address || typeof address === "string") throw new Error("Expected owned loopback listener");
   const origin = `http://127.0.0.1:${address.port}`;
   console.log(`Synthetic preview ready at ${origin} (${cache})`);
   reportPreviewReady(origin);
-  await new Promise<void>((resolve) =>
-    cancellation.signal.addEventListener("abort", () => resolve(), { once: true }),
-  );
+  await (() => {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    try {
+      cancellation.signal.addEventListener("abort", () => resolve(), { once: true });
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
 } catch (error) {
   if (!cancellation.signal.aborted) throw error;
 } finally {
   try {
-    const closed = http.listening
-      ? new Promise<void>((resolve, reject) =>
-          http.close((error) => (error ? reject(error) : resolve())),
-        )
-      : Promise.resolve();
+    const closed = http.listening ? promisify(http.close).call(http) : Promise.resolve();
     http.closeAllConnections();
     try {
       const optimizer = vite?.environments.client.depsOptimizer;

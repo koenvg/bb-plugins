@@ -63,12 +63,14 @@ export function createSnoozeClient() {
             controls: currentControls && {
               snoozed: currentControls.snoozed,
               canSnooze: eligible,
-              snooze: async (id, at) => {
-                if (eligible(id)) return currentControls?.snooze(id, at);
-              },
-              wake: async (id) => {
-                if (ready() && active(id)) return currentControls?.wake(id);
-              },
+              snooze: (id, at) =>
+                Promise.try(() => {
+                  if (eligible(id)) return currentControls?.snooze(id, at);
+                }),
+              wake: (id) =>
+                Promise.try(() => {
+                  if (ready() && active(id)) return currentControls?.wake(id);
+                }),
             },
           });
         },

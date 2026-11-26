@@ -27,19 +27,19 @@ export function useTasksBadge(): ExperimentalBadge | null {
     if (request.isRunning) return;
     request.isRunning = true;
 
-    void (async () => {
-      try {
-        while (request.isMounted && request.refreshQueued) {
-          request.refreshQueued = false;
-          try {
-            const { openTaskCount } = await rpcRef.current.call("sidebarOpenTaskCount");
-            if (request.isMounted) setCount(openTaskCount);
-          } catch {}
-        }
-      } finally {
+    const readCount = async () => {
+      if (!request.isMounted || !request.refreshQueued) {
         request.isRunning = false;
+        return;
       }
-    })();
+      request.refreshQueued = false;
+      try {
+        const { openTaskCount } = await rpcRef.current.call("sidebarOpenTaskCount");
+        if (request.isMounted) setCount(openTaskCount);
+      } catch {}
+      void readCount();
+    };
+    void readCount();
   }, []);
 
   useEffect(() => {

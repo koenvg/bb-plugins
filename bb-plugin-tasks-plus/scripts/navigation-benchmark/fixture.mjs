@@ -70,10 +70,10 @@ export async function cleanupFixture(dir, owner) {
   names.sort();
   if (names.join(",") !== "fixture.json,ownership.json")
     throw new Error("Unexpected files; cleanup refused.");
-  for (const name of names) {
+  await Array.fromAsync(names, async (name) => {
     const file = await lstat(join(dir, name));
     if (!file.isFile()) throw new Error("Not an owned regular file.");
-  }
+  });
   const identity = JSON.parse(await readFile(join(dir, "ownership.json"), "utf8"));
   const bytes = await readFile(join(dir, "fixture.json"));
   if (
@@ -82,6 +82,6 @@ export async function cleanupFixture(dir, owner) {
     identity.sha256 !== digest(bytes)
   )
     throw new Error("Owner or digest changed; cleanup refused.");
-  for (const name of names) await unlink(join(dir, name));
+  await Array.fromAsync(names, (name) => unlink(join(dir, name)));
   await rmdir(dir);
 }

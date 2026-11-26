@@ -23,7 +23,8 @@ export function renderSidebarSlot<Props extends object>(
         ...options.sdk?.threads,
         update:
           options.sdk?.threads?.update ??
-          (async () => ({}) as Awaited<ReturnType<PluginBrowserBbSdk["threads"]["update"]>>),
+          (() =>
+            Promise.resolve({} as Awaited<ReturnType<PluginBrowserBbSdk["threads"]["update"]>>)),
       },
     },
     threadActions:
@@ -41,9 +42,10 @@ export function renderSidebarSlot<Props extends object>(
           action: {
             label: String(id),
             icon: "Pin" as const,
-            run: async () => {
-              calls.push({ method: String(method), threadId: thread.id, ...(fields as object) });
-            },
+            run: () =>
+              Promise.try(() => {
+                calls.push({ method: String(method), threadId: thread.id, ...(fields as object) });
+              }),
           },
         }))),
   });

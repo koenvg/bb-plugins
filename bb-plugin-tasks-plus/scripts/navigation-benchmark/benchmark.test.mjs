@@ -60,12 +60,12 @@ function harness(mode = "latency") {
     innerWidth: 1440,
     innerHeight: 900,
     performance: { now: () => time },
-    requestAnimationFrame: (cb) => {
-      frames.push(cb);
+    requestAnimationFrame: (onFrame) => {
+      frames.push(onFrame);
       return frames.length;
     },
-    addEventListener: (_, cb) => {
-      listener = cb;
+    addEventListener: (_, onEvent) => {
+      listener = onEvent;
     },
     removeEventListener() {},
   };
@@ -222,41 +222,48 @@ test("bounded driver warms ten keys, records 36 paired movements, and removes on
   const page = {
     setViewportSize: async () => {},
     context: () => ({
-      newCDPSession: async () => ({
-        send: async (...args) => cdpCommands.push(args),
-        detach: async () => {
-          detached = true;
-        },
-      }),
+      newCDPSession: () =>
+        Promise.try(() => ({
+          send: (...args) => Promise.try(() => cdpCommands.push(args)),
+          detach: () =>
+            Promise.try(() => {
+              detached = true;
+            }),
+        })),
       browser: () => ({ version: () => "test-browser" }),
     }),
-    evaluate: async (fn, arg) => fn(arg),
-    addScriptTag: async () => {
-      globalThis.bbp60Module = {
-        createProbe: (options) => createProbe({ ...options, read }),
-        readNativeTicket: read,
-      };
-    },
-    waitForFunction: async (fn, arg) => {
-      for (let i = 0; i < 100; i++) {
-        if (fn(arg)) return;
-        time += 16;
-        frames.shift()?.();
-      }
-      throw new Error("Mock timeout.");
-    },
+    evaluate: (fn, arg) => Promise.try(() => fn(arg)),
+    addScriptTag: () =>
+      Promise.try(() => {
+        globalThis.bbp60Module = {
+          createProbe: (options) => createProbe({ ...options, read }),
+          readNativeTicket: read,
+        };
+      }),
+    waitForFunction: (fn, arg) =>
+      Promise.try(() => {
+        for (let i = 0; i < 100; i++) {
+          if (fn(arg)) return;
+          time += 16;
+          frames.shift()?.();
+        }
+        throw new Error("Mock timeout.");
+      }),
     locator: (selector) => ({
-      evaluateAll: async (fn) => fn(fixture.tasks.map((t) => ({ dataset: { taskKey: t.key } }))),
-      click: async () => {
-        current = fixture.tasks.find((t) => selector.includes(`"${t.key}"`));
-      },
+      evaluateAll: (fn) =>
+        Promise.try(() => fn(fixture.tasks.map((t) => ({ dataset: { taskKey: t.key } })))),
+      click: () =>
+        Promise.try(() => {
+          current = fixture.tasks.find((t) => selector.includes(`"${t.key}"`));
+        }),
       focus: async () => {},
     }),
     keyboard: {
-      press: async (key) => {
-        listener({ key, target: {} });
-        current = fixture.tasks[fixture.tasks.indexOf(current) + (key === "ArrowDown" ? 1 : -1)];
-      },
+      press: (key) =>
+        Promise.try(() => {
+          listener({ key, target: {} });
+          current = fixture.tasks[fixture.tasks.indexOf(current) + (key === "ArrowDown" ? 1 : -1)];
+        }),
     },
     on() {},
     off() {},
@@ -329,14 +336,17 @@ test("CDP configuration failure still detaches the created session", async () =>
     setViewportSize: async () => {},
     off() {},
     context: () => ({
-      newCDPSession: async () => ({
-        send: async () => {
-          throw new Error("Configuration failed.");
-        },
-        detach: async () => {
-          detached = true;
-        },
-      }),
+      newCDPSession: () =>
+        Promise.try(() => ({
+          send: () =>
+            Promise.try(() => {
+              throw new Error("Configuration failed.");
+            }),
+          detach: () =>
+            Promise.try(() => {
+              detached = true;
+            }),
+        })),
       browser: () => ({ version: () => "test-browser" }),
     }),
   };
@@ -359,30 +369,35 @@ test("probe disposal failure cannot skip CDP detachment", async () => {
     setViewportSize: async () => {},
     off() {},
     context: () => ({
-      newCDPSession: async () => ({
-        send: async () => {},
-        detach: async () => {
-          detached = true;
-        },
-      }),
+      newCDPSession: () =>
+        Promise.try(() => ({
+          send: async () => {},
+          detach: () =>
+            Promise.try(() => {
+              detached = true;
+            }),
+        })),
       browser: () => ({ version: () => "test-browser" }),
     }),
-    evaluate: async (fn, arg) => fn(arg),
+    evaluate: (fn, arg) => Promise.try(() => fn(arg)),
     waitForFunction: async () => {},
-    addScriptTag: async () => {
-      globalThis.bbp60Module = {
-        createProbe: () => ({
-          dispose() {
-            throw new Error("Disposal failed.");
-          },
-        }),
-      };
-    },
+    addScriptTag: () =>
+      Promise.try(() => {
+        globalThis.bbp60Module = {
+          createProbe: () => ({
+            dispose() {
+              throw new Error("Disposal failed.");
+            },
+          }),
+        };
+      }),
     locator: () => ({
-      evaluateAll: async (fn) => fn(fixture.tasks.map((t) => ({ dataset: { taskKey: t.key } }))),
-      click: async () => {
-        throw new Error("Click failed.");
-      },
+      evaluateAll: (fn) =>
+        Promise.try(() => fn(fixture.tasks.map((t) => ({ dataset: { taskKey: t.key } })))),
+      click: () =>
+        Promise.try(() => {
+          throw new Error("Click failed.");
+        }),
     }),
   };
   const previousWindow = globalThis.window;

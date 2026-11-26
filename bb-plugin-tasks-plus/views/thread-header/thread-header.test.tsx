@@ -93,12 +93,7 @@ interface Response {
   tasks: Task[];
 }
 function deferred() {
-  let resolve!: (value: Response) => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<Response>((done, fail) => {
-    resolve = done;
-    reject = fail;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<Response>();
   return { promise, resolve, reject };
 }
 function setup(load: (id: string) => Response | Promise<Response>, ids = ["A"], accepted = true) {
@@ -244,10 +239,12 @@ describe("Thread header task action", () => {
     probe.change(["B", "C"]);
     expect([...probe.current().keys()]).toEqual(["B"]);
     expect(probe.current().get("B")).toBe(publishedB);
-    await act(async () => {
-      pendingB.reject(new Error("offline"));
-      pendingC.reject(new Error("offline"));
-    });
+    await act(() =>
+      Promise.try(() => {
+        pendingB.reject(new Error("offline"));
+        pendingC.reject(new Error("offline"));
+      }),
+    );
     expect([...probe.current().keys()]).toEqual(["B"]);
     expect(probe.frames.slice(start).every((data) => !data.has("A") && !data.has("C"))).toBe(true);
   });
@@ -268,12 +265,12 @@ describe("Thread header task action", () => {
     const published = probe.current().get("B");
     phase = 1;
     await invalidate(probe.slot);
-    await act(async () => oldB.resolve({ tasks: [reviewTask] }));
+    await act(() => Promise.try(() => oldB.resolve({ tasks: [reviewTask] })));
     expect(probe.current().get("B")).toBe(published);
     phase = 2;
     probe.change(["B", "C"]);
     await waitFor(() => expect(probe.slot.inspection.rpcCalls).toHaveLength(6));
-    await act(async () => oldA.resolve({ tasks: [] }));
+    await act(() => Promise.try(() => oldA.resolve({ tasks: [] })));
     expect([...probe.current().keys()]).toEqual(["B"]);
     expect(probe.current().get("B")).toBe(published);
     await invalidate(probe.slot);

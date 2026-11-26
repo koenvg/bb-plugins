@@ -46,10 +46,11 @@ export function useListTaskEdits(
             setEntries((prev) => settleFailure(prev, task.id, patch, gen));
             onErrorRef.current(result.error.message);
           }
+          return;
         },
-        (error: unknown) => {
+        (updateError: unknown) => {
           setEntries((prev) => settleFailure(prev, task.id, patch, gen));
-          onErrorRef.current(errorMessage(error));
+          onErrorRef.current(errorMessage(updateError));
         },
       );
     },

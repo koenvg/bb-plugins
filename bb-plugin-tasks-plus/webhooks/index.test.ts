@@ -11,7 +11,7 @@ const task = {
 };
 const closes: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  for (const close of closes.splice(0)) await close();
+  await Array.fromAsync(closes.splice(0), (close) => close());
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -36,13 +36,19 @@ function stalledFetch() {
     "fetch",
     vi.fn((_url, options: RequestInit) => {
       signals.push(options.signal ?? missingValue("Expected a non-null value"));
-      return new Promise<Response>((_resolve, reject) => {
-        (options.signal ?? missingValue("Expected a non-null value")).addEventListener(
-          "abort",
-          () => reject(new Error("private url and authorization")),
-          { once: true },
-        );
-      });
+      {
+        const { promise, reject } = Promise.withResolvers<Response>();
+        try {
+          (options.signal ?? missingValue("Expected a non-null value")).addEventListener(
+            "abort",
+            () => reject(new Error("private url and authorization")),
+            { once: true },
+          );
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      }
     }),
   );
   return signals;
@@ -151,8 +157,12 @@ describe("webhook owner public boundary", () => {
 
   it("rejects endpoint count overflow and unsafe persisted documents", async () => {
     const { webhooks } = await service();
-    for (let i = 0; i < 32; i++)
-      await webhooks.create({ kind: "global" }, '{"url":"https://example.test"}');
+    await Array.fromAsync(
+      Array.from({ length: 32 }, (_, index) => index),
+      async () => {
+        await webhooks.create({ kind: "global" }, '{"url":"https://example.test"}');
+      },
+    );
     await expect(
       webhooks.create({ kind: "global" }, '{"url":"https://example.test"}'),
     ).rejects.toThrow("Webhook configuration limit exceeded");
@@ -209,7 +219,7 @@ describe("webhook owner public boundary", () => {
       .spyOn(settings, "experimental_set")
       .mockRejectedValueOnce(new Error("private settings error"));
     await expect(webhooks.delete(first.id)).rejects.toThrow("Webhook configuration unavailable");
-    vi.stubGlobal("fetch", async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", () => Promise.try(() => new Response(null, { status: 204 })));
     await expect(webhooks.test(first.id)).resolves.toEqual({
       endpoint: first,
       outcome: { code: "delivered", attempts: 1, status: 204 },
@@ -225,7 +235,12 @@ describe("webhook owner public boundary", () => {
       url: "https://example.test/" + "x".repeat(1800),
       authorization: "x".repeat(4000),
     });
-    for (let i = 0; i < 11; i++) await webhooks.create({ kind: "global" }, json);
+    await Array.fromAsync(
+      Array.from({ length: 11 }, (_, index) => index),
+      async () => {
+        await webhooks.create({ kind: "global" }, json);
+      },
+    );
     await expect(webhooks.create({ kind: "global" }, json)).rejects.toThrow(
       "Webhook configuration limit exceeded",
     );

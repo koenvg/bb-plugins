@@ -341,20 +341,21 @@ interface TaskPullRequestsResult {
 
 const PULL_REQUEST_LOOKUP_CONCURRENCY = 4;
 
-async function mapWithConcurrency<T, R>(
+async function forEachWithConcurrency<T>(
   items: readonly T[],
   limit: number,
-  work: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = [];
-  const pending = items.entries();
+  work: (item: T) => Promise<void>,
+): Promise<void> {
+  const pending = items.values();
+  async function* lookups() {
+    for (const item of pending) yield work(item);
+  }
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    for (const [index, item] of pending) {
-      results[index] = await work(item);
+    for await (const _ of lookups()) {
+      continue;
     }
   });
   await Promise.all(workers);
-  return results;
 }
 
 async function recordedMergedPullRequest(
@@ -433,7 +434,7 @@ async function listTaskPullRequests(
         else unavailable.add(threadId);
       }),
     );
-  await mapWithConcurrency(
+  await forEachWithConcurrency(
     [...threadIdsByEnvironment.entries()],
     PULL_REQUEST_LOOKUP_CONCURRENCY,
     async ([environmentId, threadIds]) => {
@@ -594,35 +595,37 @@ export function registerHandlers(
     listProjects(input) {
       return { projects: store.tasks.listProjects(input.folderId) };
     },
-    async createTask(input) {
-      try {
-        validateTaskParent(store, input.projectId, input.parentTaskId);
-        validateTaskLabels(store, input.projectId, input.labelIds);
-        const task = store.transaction(() => {
-          const created = store.tasks.createTask({
-            projectId: input.projectId,
-            title: input.title,
-            description: input.description,
-            status: input.status,
-            priority: input.priority,
-            dueDate: input.dueDate,
-            parentTaskId: input.parentTaskId,
-            createdByThreadId: input.createdByThreadId,
+    createTask(input) {
+      return Promise.try(() => {
+        try {
+          validateTaskParent(store, input.projectId, input.parentTaskId);
+          validateTaskLabels(store, input.projectId, input.labelIds);
+          const task = store.transaction(() => {
+            const created = store.tasks.createTask({
+              projectId: input.projectId,
+              title: input.title,
+              description: input.description,
+              status: input.status,
+              priority: input.priority,
+              dueDate: input.dueDate,
+              parentTaskId: input.parentTaskId,
+              createdByThreadId: input.createdByThreadId,
+            });
+            replaceTaskLabels(store, created.id, input.labelIds);
+            return apiTask(store, created);
           });
-          replaceTaskLabels(store, created.id, input.labelIds);
-          return apiTask(store, created);
-        });
-        if (webhooks) {
-          const project = store.tasks.getProject(task.projectId);
-          if (!project) throw new Error(`Missing project ${task.projectId}`);
-          webhooks.taskCreated(task, project.prefix);
+          if (webhooks) {
+            const project = store.tasks.getProject(task.projectId);
+            if (!project) throw new Error(`Missing project ${task.projectId}`);
+            webhooks.taskCreated(task, project.prefix);
+          }
+          publishTasksChanged(bb, task.id, task.projectId);
+          return { ok: true, task };
+        } catch (error) {
+          if (error instanceof TasksDomainFailure) return taskFailure(error);
+          throw error;
         }
-        publishTasksChanged(bb, task.id, task.projectId);
-        return { ok: true, task };
-      } catch (error) {
-        if (error instanceof TasksDomainFailure) return taskFailure(error);
-        throw error;
-      }
+      });
     },
     getTask(input) {
       const task = store.tasks.getTask(input.taskId);
@@ -834,8 +837,10 @@ export function registerHandlers(
     listTaskThreads(input) {
       return { taskThreads: store.tasks.listTaskThreads(input.taskId) };
     },
-    async listTaskPullRequests(input) {
-      return listTaskPullRequests(bb, store, input.taskId);
+    listTaskPullRequests(input) {
+      return Promise.try(() => {
+        return listTaskPullRequests(bb, store, input.taskId);
+      });
     },
     createPreset(input) {
       const preset = store.tasks.createPreset({ ...input, builtin: false });

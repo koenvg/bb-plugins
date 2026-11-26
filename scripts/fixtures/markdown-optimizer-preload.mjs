@@ -115,6 +115,7 @@ mock.module(vitePath, () => ({
                       },
                     });
                   }
+                  return;
                 });
               },
             });

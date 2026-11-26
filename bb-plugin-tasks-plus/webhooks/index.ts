@@ -248,7 +248,7 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
       return run(configured());
     });
     settingsOperations = next.then(
-      () => {},
+      () => undefined,
       () => {},
     );
     return next;
@@ -375,23 +375,35 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
       report(endpoint, outcome);
       return Promise.resolve(outcome);
     }
-    return new Promise((resolve) => {
-      const job: DeliveryJob = {
-        endpoint,
-        body,
-        bytes,
-        attempts: 0,
-        resolve,
-        deadline: setTimeout(
-          () => finish(job, { code: "expired", attempts: job.attempts }),
-          RESIDENCE_MS,
-        ),
-      };
-      jobs.add(job);
-      pendingBytes += bytes;
-      ready.push(job);
-      pump();
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<
+        | { code: "delivered" | "http_error"; attempts: number; status: number }
+        | {
+            code: "timeout" | "network_error" | "queue_full" | "expired" | "disposed";
+            attempts: number;
+          }
+      >();
+      try {
+        const job: DeliveryJob = {
+          endpoint,
+          body,
+          bytes,
+          attempts: 0,
+          resolve,
+          deadline: setTimeout(
+            () => finish(job, { code: "expired", attempts: job.attempts }),
+            RESIDENCE_MS,
+          ),
+        };
+        jobs.add(job);
+        pendingBytes += bytes;
+        ready.push(job);
+        pump();
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }
   return {
     create(scope, json) {

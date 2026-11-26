@@ -102,9 +102,9 @@ export function installQualificationObservers(win, expectedRevisions) {
   const cleanup = [];
   let disposed = false;
   let sockets = 0;
-  function listen(target, name, callback) {
-    target.addEventListener(name, callback, true);
-    cleanup.push(() => target.removeEventListener?.(name, callback, true));
+  function listen(target, name, listener) {
+    target.addEventListener(name, listener, true);
+    cleanup.push(() => target.removeEventListener?.(name, listener, true));
   }
   class ObservedSocket extends OriginalSocket {
     constructor(...args) {
@@ -152,6 +152,7 @@ export function installQualificationObservers(win, expectedRevisions) {
           if (response.ok && body.ok === true && body.result?.task?.key === token.key)
             ledger.confirm(token, body.result.task.updatedAt);
           else ledger.failedRead(token, "Lookup did not confirm this task.");
+          return;
         })
         .catch(() => {
           if (!disposed) ledger.coverageError("Unparsed lookup response.");

@@ -54,12 +54,15 @@ for (const width of [1280, 390]) {
       "aria-pressed",
       "true",
     );
-    for (let index = 0; index < 12; index++) {
-      await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(
-        true,
-      );
-    }
+    await Array.fromAsync(
+      Array.from({ length: 12 }, (_, index) => index),
+      async () => {
+        await page.keyboard.press("Tab");
+        expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(
+          true,
+        );
+      },
+    );
     await page.keyboard.press("]");
     await page.keyboard.press("s");
     await dialog.getByRole("button", { name: "Raw", exact: true }).click();
@@ -195,14 +198,17 @@ for (const width of [1280, 390]) {
     await dialog.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(dialog.getByRole("heading", { name: "Investigation", exact: true })).toBeVisible();
     expect(await page.locator("html").getAttribute("data-reads")).toBe("2");
-    for (let index = 0; index < 2; index++) {
-      await dialog.getByRole("button", { name: "Raw", exact: true }).click();
-      expect(await dialog.getByLabel("Raw Markdown").textContent()).toBe(source);
-      await dialog.getByRole("button", { name: "Preview", exact: true }).click();
-      await expect(
-        dialog.getByRole("heading", { name: "Investigation", exact: true }),
-      ).toBeVisible();
-    }
+    await Array.fromAsync(
+      Array.from({ length: 2 }, (_, index) => index),
+      async () => {
+        await dialog.getByRole("button", { name: "Raw", exact: true }).click();
+        expect(await dialog.getByLabel("Raw Markdown").textContent()).toBe(source);
+        await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+        await expect(
+          dialog.getByRole("heading", { name: "Investigation", exact: true }),
+        ).toBeVisible();
+      },
+    );
     expect(await page.locator("html").getAttribute("data-reads")).toBe("2");
     const link = dialog.getByRole("link", { name: "Download", exact: true });
     await expect(link).toHaveAttribute("download", filename);
@@ -236,8 +242,9 @@ for (const width of [1280, 390]) {
         .locator(".attachment-preview")
         .evaluate((element) => element.getBoundingClientRect().height);
       expect(height).toBe(width === 390 ? 741 : 852);
-      for (const name of ["Preview", "Raw", "Close"])
-        await expect(dialog.getByRole("button", { name, exact: true })).toBeInViewport();
+      await Array.fromAsync(["Preview", "Raw", "Close"], (name) =>
+        expect(dialog.getByRole("button", { name, exact: true })).toBeInViewport(),
+      );
       await expect(dialog.getByRole("link", { name: "Download" })).toBeInViewport();
       if (mode === "error")
         await expect(dialog.getByRole("button", { name: "Retry" })).toBeVisible();
@@ -255,15 +262,14 @@ test("local HTTP download rejects missing, unknown, and duplicate attachment ide
   expect(saved.headers()["content-type"]).toBe("application/octet-stream");
   expect(saved.headers()["content-disposition"]).toBe(`attachment; filename="${filename}"`);
   expect(await saved.body()).toEqual(Buffer.from(source, "utf8"));
-  for (const query of [
-    "",
-    "?attachmentId=unknown",
-    "?attachmentId=fixture-a&attachmentId=unknown",
-  ]) {
-    const response = await request.get(
-      `/api/v1/plugins/tasks-plus/http/attachments/download${query}`,
-    );
-    expect(response.status()).toBe(404);
-    expect(await response.text()).toBe("");
-  }
+  await Array.fromAsync(
+    ["", "?attachmentId=unknown", "?attachmentId=fixture-a&attachmentId=unknown"],
+    async (query) => {
+      const response = await request.get(
+        `/api/v1/plugins/tasks-plus/http/attachments/download${query}`,
+      );
+      expect(response.status()).toBe(404);
+      expect(await response.text()).toBe("");
+    },
+  );
 });

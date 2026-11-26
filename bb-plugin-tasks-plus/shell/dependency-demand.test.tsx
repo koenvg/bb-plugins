@@ -23,13 +23,13 @@ it("keeps catalog reads out of native Ticket navigation and shares picker demand
     },
   });
   await slot.findByRole("textbox", { name: "Task title" });
-  for (const number of [2, 3, 1]) {
+  await Array.fromAsync([2, 3, 1], async (number) => {
     fireEvent.click(row(slot, number));
     await acceptNavigation(slot);
     await waitFor(() =>
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(`Title ${number}`),
     );
-  }
+  });
   expect(catalogReads).toBe(0);
   fireEvent.click(slot.getByRole("button", { name: "Add blocker" }));
   await slot.findByRole("option", { name: /TSK-2/ });

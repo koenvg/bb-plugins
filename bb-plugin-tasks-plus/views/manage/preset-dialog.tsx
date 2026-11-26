@@ -304,7 +304,7 @@ export const PresetDialog = ({
             onClick={() => {
               setSubmitting(true);
               setError(null);
-              onSave(draft)
+              return onSave(draft)
                 .then(() => onOpenChange(false))
                 .catch((saveError: unknown) => setError(errorMessage(saveError)))
                 .finally(() => setSubmitting(false));

@@ -114,10 +114,9 @@ describe("Tasks navigation badge data", () => {
 
   it("coalesces a burst of task changes into one trailing count refresh", async () => {
     let calls = 0;
-    let resolveFirstRequest: ((result: { openTaskCount: number }) => void) | undefined;
-    const firstRequest = new Promise<{ openTaskCount: number }>((resolve) => {
-      resolveFirstRequest = resolve;
-    });
+    const { promise: firstRequest, resolve: resolveFirstRequest } = Promise.withResolvers<{
+      openTaskCount: number;
+    }>();
     const Accessory = Badge;
 
     const slot = renderSlot(
@@ -225,9 +224,11 @@ it("renames only the selected duplicate, preserving the draft on error and resto
       rpc: {
         listWebhooks: () => ({ state: "healthy", endpoints, trackers: [] }),
         renameWebhook: () =>
-          new Promise((resolve) => {
+          (() => {
+            const { promise, resolve } = Promise.withResolvers<unknown>();
             save = resolve;
-          }),
+            return promise;
+          })(),
       },
     },
   );
@@ -260,12 +261,12 @@ it("renames only the selected duplicate, preserving the draft on error and resto
       input: { id: (second ?? missingValue("Expected second")).id, name: "Release digest" },
     }),
   ]);
-  await act(async () => save({ ok: false, code: "storage_error" }));
+  await act(() => Promise.try(() => save({ ok: false, code: "storage_error" })));
   expect(reopened.getByRole("alert").textContent).toMatch(/Try again/);
   expect(name.value).toBe("Release digest");
   fireEvent.click(reopened.getByRole("button", { name: "Save name" }));
   (second ?? missingValue("Expected second")).name = "Release digest";
-  await act(async () => save({ ok: true, endpoint: second }));
+  await act(() => Promise.try(() => save({ ok: true, endpoint: second })));
   await waitFor(() => expect(document.activeElement).toBe(trigger));
   expect(slot.getByText("Release alerts")).toBeDefined();
   expect(slot.getByText("Release digest")).toBeDefined();

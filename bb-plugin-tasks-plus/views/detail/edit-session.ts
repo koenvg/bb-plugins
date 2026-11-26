@@ -59,8 +59,14 @@ export function createTaskEditSession(
     if (running) return running;
     if (!snapshot.pending) return Promise.resolve({ ok: true });
     publish({ saving: true, error: null });
-    running = (async (): Promise<SaveOutcome> => {
-      while (Object.keys(pending).length > 0) {
+    const { promise, resolve, reject } = Promise.withResolvers<SaveOutcome>();
+    const saveNext = async () => {
+      try {
+        if (Object.keys(pending).length === 0) {
+          publish({ pending: false });
+          resolve({ ok: true });
+          return;
+        }
         const attempt = pending;
         pending = {};
         let outcome: SaveOutcome;
@@ -74,17 +80,21 @@ export function createTaskEditSession(
           pending = { ...attempt, ...pending };
           publish({ error: outcome.errorMessage });
           options.onError?.(outcome.errorMessage);
-          return outcome;
+          resolve(outcome);
+          return;
         }
         const draft = { ...snapshot.draft };
         for (const key of Object.keys(attempt) as (keyof TaskEditPatch)[]) {
           if (!(key in pending)) Reflect.deleteProperty(draft, key);
         }
         publish({ draft });
+        void saveNext();
+      } catch (error) {
+        reject(error);
       }
-      publish({ pending: false });
-      return { ok: true };
-    })().finally(() => {
+    };
+    void saveNext();
+    running = promise.finally(() => {
       running = undefined;
       publish({ saving: false });
     });

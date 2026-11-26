@@ -187,12 +187,7 @@ function catalogReads(slot: ReturnType<typeof renderDetail>) {
 }
 
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: Error) => void;
-  const promise = new Promise<T>((done, fail) => {
-    resolve = done;
-    reject = fail;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<T>();
   return { promise, resolve, reject };
 }
 
@@ -285,8 +280,10 @@ describe("task detail dependency sections", () => {
     );
     await slot.behavior.emitRealtime("threads:changed", {});
     await attribution.findByText("Second title");
-    await act(async () =>
-      pending.resolve({ id: "thr_second", title: "Late title", archivedAt: 1, deletedAt: null }),
+    await act(() =>
+      Promise.try(() =>
+        pending.resolve({ id: "thr_second", title: "Late title", archivedAt: 1, deletedAt: null }),
+      ),
     );
     expect(attribution.queryByText("Late title")).toBeNull();
     expect(attribution.getByText("Not archived").textContent).toBe("Not archived");
@@ -342,7 +339,7 @@ describe("task detail dependency sections", () => {
     );
     const result = await section(slot, "Blocked by");
     expect(result.getByText("No open blockers.")).toBeTruthy();
-    await act(async () => response.reject(new Error("Denied")));
+    await act(() => Promise.try(() => response.reject(new Error("Denied"))));
     const byText = await attribution.findByText("Unavailable. Archive state unknown.");
     expect(byText.textContent).toBe("Unavailable. Archive state unknown.");
     fireEvent.click(
@@ -405,7 +402,7 @@ describe("task detail dependency sections", () => {
     expect(result.getByText("ABC-3")).toBeTruthy();
     const result2 = await section(slot, "Blocks");
     expect(result2.getByText("ABC-4")).toBeTruthy();
-    for (const number of [4, 3, 5]) await selectTask(slot, number);
+    await Array.fromAsync([4, 3, 5], (number) => selectTask(slot, number));
     expect(catalogReads(slot)).toHaveLength(0);
     await slot.behavior.emitRealtime("tasks:changed", {});
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
@@ -425,7 +422,9 @@ describe("task detail dependency sections", () => {
     const input = slot.getByRole("combobox");
     await waitFor(() => expect(document.activeElement).toBe(input));
     fireEvent.change(input, { target: { value: "ABC-4" } });
-    await act(async () => page.resolve({ tasks: [baseTask(3), baseTask(4)], nextCursor: null }));
+    await act(() =>
+      Promise.try(() => page.resolve({ tasks: [baseTask(3), baseTask(4)], nextCursor: null })),
+    );
     await slot.findByRole("option", { name: /ABC-4/ });
     expect(slot.queryByRole("option", { name: /ABC-3/ })).toBeNull();
     expect(document.activeElement).toBe(input);
@@ -447,7 +446,9 @@ describe("task detail dependency sections", () => {
     const result2 = await section(slot, "Blocks");
     fireEvent.click(result2.getByRole("button", { name: "Add blocked task" }));
     expect(catalogReads(slot)).toHaveLength(1);
-    await act(async () => page.resolve({ tasks: [baseTask(3)], nextCursor: "page-2" }));
+    await act(() =>
+      Promise.try(() => page.resolve({ tasks: [baseTask(3)], nextCursor: "page-2" })),
+    );
     await slot.findByRole("option", { name: /ABC-4/ });
     expect(catalogReads(slot)).toHaveLength(2);
     await closePicker(slot);
@@ -533,7 +534,7 @@ describe("task detail dependency sections", () => {
     await pickerStatus(slot);
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("option", { name: /ABC-4/ });
-    await act(async () => old.resolve({ tasks: [baseTask(3)], nextCursor: null }));
+    await act(() => Promise.try(() => old.resolve({ tasks: [baseTask(3)], nextCursor: null })));
     expect(slot.queryByRole("option", { name: /ABC-3/ })).toBeNull();
     expect(catalogReads(slot)).toHaveLength(2);
     await closePicker(slot);
@@ -562,16 +563,20 @@ describe("task detail dependency sections", () => {
       expect(catalogReads(slot)).toHaveLength(1);
       const result3 = await section(slot, "Blocks");
       fireEvent.click(result3.getByRole("button", { name: "Add blocked task" }));
-      await act(async () => {
-        if (result === "success") old.resolve({ tasks: [baseTask(3)], nextCursor: null });
-        else old.reject(new Error("Old task failure"));
-      });
+      await act(() =>
+        Promise.try(() => {
+          if (result === "success") old.resolve({ tasks: [baseTask(3)], nextCursor: null });
+          else old.reject(new Error("Old task failure"));
+        }),
+      );
       expect(slot.queryByRole("option")).toBeNull();
       expect(slot.queryByRole("alert")).toBeNull();
       expect(within(slot.getByRole("listbox")).getByRole("status").textContent).toContain(
         "Loading tasks",
       );
-      await act(async () => current.resolve({ tasks: [baseTask(5)], nextCursor: null }));
+      await act(() =>
+        Promise.try(() => current.resolve({ tasks: [baseTask(5)], nextCursor: null })),
+      );
       await slot.findByRole("option", { name: /ABC-5/ });
       expect(catalogReads(slot)).toHaveLength(2);
     },

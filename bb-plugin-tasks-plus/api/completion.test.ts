@@ -8,16 +8,22 @@ import plugin from "../server";
 import { mockPrStatusRpc } from "../test-fixtures.js";
 
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+  {
+    const runStep = async () => {
+      await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 function pullRequest(state: "open" | "draft" | "merged" | "closed") {
@@ -46,10 +52,14 @@ async function setup(lookup: Lookup = pullRequest("open")) {
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async ({ threadId }) =>
-          makeThreadResponse({ id: threadId, environmentId: "env_work", archivedAt: 1 }),
+        get: (input) =>
+          Promise.try(
+            ({ threadId }) =>
+              makeThreadResponse({ id: threadId, environmentId: "env_work", archivedAt: 1 }),
+            input,
+          ),
       },
-      plugins: { callRpc: mockPrStatusRpc(async () => lookup) },
+      plugins: { callRpc: mockPrStatusRpc(() => Promise.try(() => lookup)) },
     },
   });
   disposers.push(() => harness.dispose());
@@ -169,9 +179,11 @@ describe("task completion PR gate", () => {
     it("completes an archived thread with a merged recorded PR when the lookup throws", async () => {
       const { harness, task } = await setup();
       recordPr(harness, { state: "merged" });
-      harness.sdk.stub("plugins.callRpc", async () => {
-        throw new Error("offline");
-      });
+      harness.sdk.stub("plugins.callRpc", () =>
+        Promise.try(() => {
+          throw new Error("offline");
+        }),
+      );
       expect(
         await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
       ).toMatchObject({ ok: true, task: { status: "done" } });
@@ -194,8 +206,12 @@ describe("task completion PR gate", () => {
     it("completes an active thread even when its recorded PR is merged", async () => {
       const { harness, store, task } = await setup(environmentGone);
       recordPr(harness, { state: "merged" });
-      harness.sdk.stub("threads.get", async ({ threadId }) =>
-        makeThreadResponse({ id: threadId, environmentId: "env_work", archivedAt: null }),
+      harness.sdk.stub("threads.get", (input) =>
+        Promise.try(
+          ({ threadId }) =>
+            makeThreadResponse({ id: threadId, environmentId: "env_work", archivedAt: null }),
+          input,
+        ),
       );
       expect(
         await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
@@ -207,12 +223,16 @@ describe("task completion PR gate", () => {
       const { harness, store, task, attach } = await setup(environmentGone);
       attach("thr_active");
       recordPr(harness, { state: "merged" });
-      harness.sdk.stub("threads.get", async ({ threadId }) =>
-        makeThreadResponse({
-          id: threadId,
-          environmentId: "env_work",
-          archivedAt: threadId === "thr_active" ? null : 1,
-        }),
+      harness.sdk.stub("threads.get", (input) =>
+        Promise.try(
+          ({ threadId }) =>
+            makeThreadResponse({
+              id: threadId,
+              environmentId: "env_work",
+              archivedAt: threadId === "thr_active" ? null : 1,
+            }),
+          input,
+        ),
       );
       expect(await harness.behavior.callRpc("listTaskPullRequests", { taskId: task.id })).toEqual({
         pullRequests: [expect.objectContaining({ state: "merged", threadIds: ["thr_work"] })],
@@ -226,9 +246,11 @@ describe("task completion PR gate", () => {
 
     it("completes an archived thread when its recorded PR cannot be read", async () => {
       const { harness, store, task } = await setup(environmentGone);
-      harness.sdk.stub("threads.getPluginMetadata", async () => {
-        throw new Error("offline");
-      });
+      harness.sdk.stub("threads.getPluginMetadata", () =>
+        Promise.try(() => {
+          throw new Error("offline");
+        }),
+      );
       expect(
         await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
       ).toMatchObject({ ok: true, task: { status: "done" } });
@@ -248,26 +270,28 @@ describe("task completion PR gate", () => {
         version = 1,
       }: { state: string; error?: string | null; version?: number },
     ) {
-      harness.sdk.stub("threads.getPluginMetadata", async () => ({
-        prSummary: {
-          version,
-          updatedAt: "2026-10-28T17:12:26.653Z",
-          pr: { number: 321, url: "https://github.com/acme/bb/pull/321", state },
-          checks: {
-            failed: 0,
-            waiting: 0,
-            running: 0,
-            cancelled: 0,
-            passed: 1,
-            skipped: 0,
-            failedNames: [],
+      harness.sdk.stub("threads.getPluginMetadata", () =>
+        Promise.try(() => ({
+          prSummary: {
+            version,
+            updatedAt: "2026-10-28T17:12:26.653Z",
+            pr: { number: 321, url: "https://github.com/acme/bb/pull/321", state },
+            checks: {
+              failed: 0,
+              waiting: 0,
+              running: 0,
+              cancelled: 0,
+              passed: 1,
+              skipped: 0,
+              failedNames: [],
+            },
+            reviewers: { pending: 0, approved: 1, changesRequested: 0, pendingNames: [] },
+            blockers: [],
+            mergeQueue: null,
+            error,
           },
-          reviewers: { pending: 0, approved: 1, changesRequested: 0, pendingNames: [] },
-          blockers: [],
-          mergeQueue: null,
-          error,
-        },
-      }));
+        })),
+      );
     }
   });
 
@@ -277,7 +301,7 @@ describe("task completion PR gate", () => {
     const blocker = store.tasks.createTask({ projectId: project.id, title: "Blocker" });
     store.tasks.addTaskDependency(blocker.id, task.id);
     const before = store.tasks.getTask(task.id);
-    for (const json of [false, true]) {
+    await Array.fromAsync([false, true], async (json) => {
       const result = await harness.behavior.runCli([
         "update",
         task.key,
@@ -297,7 +321,7 @@ describe("task completion PR gate", () => {
       expect(store.tasks.getTask(task.id)).toEqual(before);
       expect(store.tasks.listBlockers(task.id).map((t) => t.key)).toEqual([blocker.key]);
       expect(store.taskLabelIds([task.id]).get(task.id)).toEqual([]);
-    }
+    });
     expect(
       await harness.behavior.runCli(["update", task.key, "--status", "in_review", "--json"]),
     ).toMatchObject({ exitCode: 0 });
@@ -351,26 +375,32 @@ describe("task completion PR gate", () => {
     const { harness, task, attach } = await setup(pullRequest("merged"));
     attach("thr_open");
     attach("thr_failed");
-    harness.sdk.stub("threads.get", async ({ threadId }) => {
-      if (threadId === "thr_failed") throw new Error("offline");
-      return makeThreadResponse({
-        id: threadId,
-        environmentId: threadId === "thr_open" ? "env_open" : "env_work",
-      });
-    });
+    harness.sdk.stub("threads.get", (input) =>
+      Promise.try(({ threadId }) => {
+        if (threadId === "thr_failed") throw new Error("offline");
+        return makeThreadResponse({
+          id: threadId,
+          environmentId: threadId === "thr_open" ? "env_open" : "env_work",
+        });
+      }, input),
+    );
     harness.sdk.stub(
       "plugins.callRpc",
-      mockPrStatusRpc(async ({ environmentId }) =>
-        environmentId === "env_open"
-          ? {
-              ...pullRequest("open"),
-              pullRequest: {
-                ...pullRequest("open").pullRequest,
-                number: 322,
-                url: "https://github.com/acme/bb/pull/322",
-              },
-            }
-          : pullRequest("merged"),
+      mockPrStatusRpc((input) =>
+        Promise.try(
+          ({ environmentId }) =>
+            environmentId === "env_open"
+              ? {
+                  ...pullRequest("open"),
+                  pullRequest: {
+                    ...pullRequest("open").pullRequest,
+                    number: 322,
+                    url: "https://github.com/acme/bb/pull/322",
+                  },
+                }
+              : pullRequest("merged"),
+          input,
+        ),
       ),
     );
     expect(
@@ -388,7 +418,7 @@ describe("task completion PR gate", () => {
     ).toMatchObject({ ok: false });
     harness.sdk.stub(
       "plugins.callRpc",
-      mockPrStatusRpc(async () => pullRequest("merged")),
+      mockPrStatusRpc(() => Promise.try(() => pullRequest("merged"))),
     );
     expect(
       await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
@@ -403,9 +433,11 @@ describe("task completion PR gate", () => {
     "allows completion after a failed %s lookup",
     async (boundary) => {
       const { harness, store, task } = await setup();
-      harness.sdk.stub(boundary === "environment" ? "plugins.callRpc" : "threads.get", async () => {
-        throw new Error(boundary === "missing thread" ? "Thread not found: thr_work" : "offline");
-      });
+      harness.sdk.stub(boundary === "environment" ? "plugins.callRpc" : "threads.get", () =>
+        Promise.try(() => {
+          throw new Error(boundary === "missing thread" ? "Thread not found: thr_work" : "offline");
+        }),
+      );
       expect(await harness.behavior.callRpc("listTaskPullRequests", { taskId: task.id })).toEqual({
         pullRequests: [],
         unavailableThreadIds: ["thr_work"],
@@ -425,8 +457,11 @@ describe("task completion PR gate", () => {
     ["malformed PR", { env_work: { outcome: "available", pullRequest: { state: "unexpected" } } }],
   ])("allows completion for a %s in the PR status RPC", async (_name, response) => {
     const { harness, store, task } = await setup();
-    harness.sdk.stub("plugins.callRpc", async ({ outputSchema }: { outputSchema: ZodType }) =>
-      outputSchema.parse(response),
+    harness.sdk.stub("plugins.callRpc", (input: { outputSchema: ZodType }) =>
+      Promise.try(
+        ({ outputSchema }: { outputSchema: ZodType }) => outputSchema.parse(response),
+        input,
+      ),
     );
     expect(
       await harness.behavior.callRpc("updateTask", { taskId: task.id, status: "done" }),
@@ -443,8 +478,11 @@ describe("task completion PR gate", () => {
       ok: true,
       task: { status: "done" },
     });
-    harness.sdk.stub("threads.get", async ({ threadId }) =>
-      makeThreadResponse({ id: threadId, environmentId: null }),
+    harness.sdk.stub("threads.get", (input) =>
+      Promise.try(
+        ({ threadId }) => makeThreadResponse({ id: threadId, environmentId: null }),
+        input,
+      ),
     );
     expect(
       await harness.behavior.callRpc("boardMove", { taskId: task.id, status: "done" }),
@@ -480,17 +518,23 @@ describe("task completion PR gate", () => {
         const lookup = deferred<Lookup>();
         harness.sdk.stub(
           "plugins.callRpc",
-          mockPrStatusRpc(async ({ environmentId }) => {
-            if (environmentId === "env_open") return pullRequest("open");
-            lookupStarted.resolve(undefined);
-            return lookup.promise;
-          }),
+          mockPrStatusRpc((input) =>
+            Promise.try(({ environmentId }) => {
+              if (environmentId === "env_open") return pullRequest("open");
+              lookupStarted.resolve(undefined);
+              return lookup.promise;
+            }, input),
+          ),
         );
-        harness.sdk.stub("threads.get", async ({ threadId }) =>
-          makeThreadResponse({
-            id: threadId,
-            environmentId: threadId === "thr_new" ? "env_open" : "env_work",
-          }),
+        harness.sdk.stub("threads.get", (input) =>
+          Promise.try(
+            ({ threadId }) =>
+              makeThreadResponse({
+                id: threadId,
+                environmentId: threadId === "thr_new" ? "env_open" : "env_work",
+              }),
+            input,
+          ),
         );
         const before = store.tasks.getTask(task.id);
         const pending = harness.behavior.callRpc(method, { taskId: task.id, status: "done" });

@@ -123,7 +123,15 @@ for (const isCompact of [false, true]) {
       const next = document.createElement("button");
       document.body.append(next);
       next.focus();
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+        try {
+          setTimeout(resolve, 30);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       expect(document.activeElement).toBe(next);
       expect(focusRemoved).not.toHaveBeenCalled();
       next.remove();
@@ -145,7 +153,15 @@ for (const isCompact of [false, true]) {
       const next = document.createElement("button");
       document.body.append(next);
       next.focus();
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+        try {
+          setTimeout(resolve, 30);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       expect(document.activeElement).toBe(next);
       next.remove();
     });
@@ -186,7 +202,15 @@ describe("compact close before content realization", () => {
     const next = document.createElement("button");
     document.body.append(next);
     next.focus();
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+      try {
+        setTimeout(resolve, 30);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     expect(document.activeElement).toBe(next);
     expect(onClose).not.toHaveBeenCalled();
     next.remove();

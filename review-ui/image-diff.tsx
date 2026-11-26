@@ -84,6 +84,7 @@ const ImageFigure = ({
             url.current = URL.createObjectURL(result.blob);
             setState({ kind: "ready", url: url.current });
           } else setState(result);
+          return;
         })
         .catch(() => {
           if (!controller.signal.aborted)

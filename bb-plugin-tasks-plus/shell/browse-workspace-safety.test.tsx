@@ -52,7 +52,9 @@ describe("browse save and task ownership", () => {
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(row(slot, 3).getAttribute("aria-current")).toBeNull();
-    await act(async () => first.resolve({ ok: false, error: { message: "Save refused" } }));
+    await act(() =>
+      Promise.try(() => first.resolve({ ok: false, error: { message: "Save refused" } })),
+    );
     const byRole = await slot.findByRole("alert");
     expect(byRole.textContent).toContain("Save refused");
     await edit(slot, "Newer draft for A");
@@ -82,7 +84,9 @@ describe("browse save and task ownership", () => {
       kind: "project",
       projectId: project.id,
     });
-    await act(async () => saved.resolve({ ok: true, task: { ...tasks[0], title: "Unblurred A" } }));
+    await act(() =>
+      Promise.try(() => saved.resolve({ ok: true, task: { ...tasks[0], title: "Unblurred A" } })),
+    );
     await waitFor(() =>
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
     );
@@ -145,7 +149,9 @@ describe("selected detail lookup isolation", () => {
     expect(row(slot, 2).getAttribute("aria-current")).toBe("true");
     expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
     expect(slot.container.textContent).not.toContain("Description 1");
-    await act(async () => pending.resolve(Promise.reject(new Error("Lookup unavailable"))));
+    await act(() =>
+      Promise.try(() => pending.resolve(Promise.reject(new Error("Lookup unavailable")))),
+    );
     await slot.findByText("Lookup unavailable");
     expect(row(slot, 1)).toBeTruthy();
     fail = false;
@@ -162,7 +168,7 @@ describe("selected detail lookup isolation", () => {
     });
     await slot.findByRole("button", { name: "Open TSK-2: Title 2" });
     await select(slot, 2);
-    await act(async () => late.resolve({ task: tasks[0] }));
+    await act(() => Promise.try(() => late.resolve({ task: tasks[0] })));
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2");
     expect(slot.container.textContent).not.toContain("Description 1");
   });
@@ -174,7 +180,7 @@ describe("selected detail lookup isolation", () => {
     });
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.inspection.rpcCalls.some((c) => c.method === "getTaskByKey")).toBe(false);
-    await act(async () => loaded.resolve({ tasks, nextCursor: null }));
+    await act(() => Promise.try(() => loaded.resolve({ tasks, nextCursor: null })));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     expect(slot.inspection.navigateCalls[0]).toMatchObject({
       options: { subPath: `${project.id}?view=list`, replace: true },

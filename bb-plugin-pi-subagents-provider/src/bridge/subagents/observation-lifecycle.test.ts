@@ -20,9 +20,11 @@ it("cannot publish a late unavailable assessment after disposal or poison a reus
     view,
     emit() {},
     reconcile: () =>
-      new Promise((_resolve, fail) => {
+      (() => {
+        const { promise, reject: fail } = Promise.withResolvers<unknown>();
         reject = fail;
-      }),
+        return promise;
+      })(),
   });
   const pending = observation.refresh();
   observation.dispose("replacement");
@@ -49,7 +51,7 @@ it("keeps the prior owner usable after a replacement fails before receiving stat
     sessionFile,
     view,
     emit() {},
-    reconcile: async () => undefined,
+    reconcile: () => Promise.try(() => undefined),
   });
   failed.dispose("exit");
   expect(states.at(-1)).toMatchObject({

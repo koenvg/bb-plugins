@@ -231,10 +231,7 @@ describe("task detail pull request pills", () => {
 });
 
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 
@@ -357,23 +354,27 @@ describe("task status changes retain thread and pull request data", () => {
                 changeId: "status-save",
               });
               record("event, read pending");
-              if (readSettled) await act(async () => read.resolve({ task: current }));
-              await act(async () =>
-                save.resolve({ ok: true, task: current, changeId: "status-save" }),
+              if (readSettled) await act(() => Promise.try(() => read.resolve({ task: current })));
+              await act(() =>
+                Promise.try(() =>
+                  save.resolve({ ok: true, task: current, changeId: "status-save" }),
+                ),
               );
-              if (!readSettled) await act(async () => read.resolve({ task: current }));
+              if (!readSettled) await act(() => Promise.try(() => read.resolve({ task: current })));
             } else {
-              await act(async () =>
-                save.resolve({ ok: true, task: current, changeId: "status-save" }),
+              await act(() =>
+                Promise.try(() =>
+                  save.resolve({ ok: true, task: current, changeId: "status-save" }),
+                ),
               );
               record("save resolved, read pending");
-              if (readSettled) await act(async () => read.resolve({ task: current }));
+              if (readSettled) await act(() => Promise.try(() => read.resolve({ task: current })));
               await page.behavior.emitRealtime("tasks:changed", {
                 taskId: TASK_ID,
                 changeId: "status-save",
               });
               record("event, read pending");
-              if (!readSettled) await act(async () => read.resolve({ task: current }));
+              if (!readSettled) await act(() => Promise.try(() => read.resolve({ task: current })));
             }
             await act(async () => {});
             record("settled");

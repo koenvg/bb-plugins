@@ -24,12 +24,14 @@ function trackedThreadFixture(
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async () =>
-          makeThreadResponse({
-            id: "thr_worker",
-            title: "Lifecycle worker",
-            status: sdkStatus,
-          }),
+        get: () =>
+          Promise.try(() =>
+            makeThreadResponse({
+              id: "thr_worker",
+              title: "Lifecycle worker",
+              status: sdkStatus,
+            }),
+          ),
       },
     },
   });
@@ -144,13 +146,14 @@ describe("task thread lifecycle", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async () => {
-            handlersAtFirstRead = host.harness.registrations.threadEventHandlers;
-            return makeThreadResponse({
-              id: "thr_fast",
-              status: "starting",
-            });
-          },
+          get: () =>
+            Promise.try(() => {
+              handlersAtFirstRead = host.harness.registrations.threadEventHandlers;
+              return makeThreadResponse({
+                id: "thr_fast",
+                status: "starting",
+              });
+            }),
         },
       },
     });
@@ -221,13 +224,14 @@ describe("task thread lifecycle", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async () => {
-            reads += 1;
-            return makeThreadResponse({
-              id: "thr_safety_net",
-              status: reads === 1 ? "starting" : "active",
-            });
-          },
+          get: () =>
+            Promise.try(() => {
+              reads += 1;
+              return makeThreadResponse({
+                id: "thr_safety_net",
+                status: reads === 1 ? "starting" : "active",
+              });
+            }),
         },
       },
     });
@@ -273,7 +277,7 @@ describe("task thread lifecycle", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async () => makeThreadResponse({ id: "thr_later", status: "active" }),
+          get: () => Promise.try(() => makeThreadResponse({ id: "thr_later", status: "active" })),
         },
       },
     });

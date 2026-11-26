@@ -271,11 +271,13 @@ export function createLocalHost(options: LocalHostOptions) {
       experimental_panelCalls: panelCalls,
     },
     behavior: {
-      async emitRealtime(channel: string, payload: unknown) {
-        live();
-        const normalized = payload === undefined ? null : copy(payload);
-        const recipients = [...(channels.get(channel) ?? [])];
-        for (const listener of recipients) listener(normalized);
+      emitRealtime(channel: string, payload: unknown) {
+        return Promise.try(() => {
+          live();
+          const normalized = payload === undefined ? null : copy(payload);
+          const recipients = [...(channels.get(channel) ?? [])];
+          for (const listener of recipients) listener(normalized);
+        });
       },
       setRealtimeConnectionState: connection.set,
       setTicketVisible: ticket.set,

@@ -38,16 +38,28 @@ export async function controlAction({
   const cleanupAbort = new AbortController();
   let softTimer;
   let hardTimer;
-  const cutoff = new Promise((resolve) => {
-    softTimer = clock.later(() => resolve("deadline-stop"), limitMs - stopReserveMs);
-  });
-  const hardLimit = new Promise((resolve) => {
-    hardTimer = clock.later(() => {
-      dispatchAbort.abort();
-      cleanupAbort.abort();
-      resolve({ cleanup: "deadline-exceeded", timelyCleanup: false });
-    }, limitMs);
-  });
+  const cutoff = (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      softTimer = clock.later(() => resolve("deadline-stop"), limitMs - stopReserveMs);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
+  const hardLimit = (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      hardTimer = clock.later(() => {
+        dispatchAbort.abort();
+        cleanupAbort.abort();
+        resolve({ cleanup: "deadline-exceeded", timelyCleanup: false });
+      }, limitMs);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
   const finished = Promise.all([
     Promise.resolve().then(() => dispatch({ threadId, signal: dispatchAbort.signal })),
     completion,

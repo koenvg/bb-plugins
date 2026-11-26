@@ -82,26 +82,32 @@ const CHANNEL_REQUEST_TIMEOUT_MS = 30_000;
 type PiSessionConstructionOutcome = { ok: true } | { ok: false; error: Error };
 
 function waitForPiTransientAuthRetry(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, PI_TRANSIENT_AUTH_RETRY_DELAY_MS));
+  {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    try {
+      setTimeout(resolve, PI_TRANSIENT_AUTH_RETRY_DELAY_MS);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  }
 }
 
-export async function runPiTransientAuthConstruction(args: {
+export function runPiTransientAuthConstruction(args: {
   attempt: () => Promise<PiSessionConstructionOutcome>;
   discardFailedAttempt: () => void;
   isClosed: () => boolean;
   waitBeforeRetry: () => Promise<void>;
 }): Promise<void> {
-  for (let attempt = 0; ; attempt += 1) {
+  const retry = async (attempt: number): Promise<void> => {
     const outcome = await args.attempt();
-    if (outcome.ok) {
-      return;
-    }
-    if (attempt >= PI_TRANSIENT_AUTH_MAX_RETRIES || args.isClosed()) {
-      throw outcome.error;
-    }
+    if (outcome.ok) return;
+    if (attempt >= PI_TRANSIENT_AUTH_MAX_RETRIES || args.isClosed()) throw outcome.error;
     args.discardFailedAttempt();
     await args.waitBeforeRetry();
-  }
+    return retry(attempt + 1);
+  };
+  return retry(0);
 }
 
 export interface PiRpcSessionState {
@@ -383,10 +389,16 @@ export class PiRpcSession {
     this.processingGeneration += 1;
     const tracked = this.inputs.track("followUp");
     let pendingRun!: PendingRunSettlement;
-    const settlement = new Promise<PiPromptRunOutcome>((resolve) => {
-      pendingRun = { resolve };
-      this.pendingRunSettlements.push(pendingRun);
-    });
+    const settlement = (() => {
+      const { promise, resolve, reject } = Promise.withResolvers<PiPromptRunOutcome>();
+      try {
+        pendingRun = { resolve };
+        this.pendingRunSettlements.push(pendingRun);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    })();
     const settled = this.dispatchPromptAfterManualCompaction(
       child,
       {
@@ -406,13 +418,13 @@ export class PiRpcSession {
         const outcome = await settlement;
         return outcome;
       },
-      (error: unknown): PiPromptRunOutcome | null => {
+      (promptError: unknown): PiPromptRunOutcome | null => {
         this.dropRunSettlement(pendingRun);
         const queued = tracked.wasQueued;
-        tracked.acknowledge(asError(error));
+        tracked.acknowledge(asError(promptError));
         this.inputs.rejectPending("Pi prompt failed before input was consumed");
-        this.onDone(error);
-        return queued ? null : { error };
+        this.onDone(promptError);
+        return queued ? null : { error: promptError };
       },
     );
     return { consumed: tracked.consumed, settled };
@@ -438,8 +450,8 @@ export class PiRpcSession {
       tracked.acknowledge();
       return;
     }
-    void tracked.consumed.catch((error) => {
-      this.onDone(error);
+    void tracked.consumed.catch((consumptionError) => {
+      this.onDone(consumptionError);
     });
   }
 
@@ -544,42 +556,45 @@ export class PiRpcSession {
     return this.child;
   }
 
-  private async dispatchPromptAfterManualCompaction(
+  private dispatchPromptAfterManualCompaction(
     child: PiRpcChild,
     command: Record<string, unknown>,
     pending: Pick<TrackedSessionInput, "acceptLocally">,
   ): Promise<void> {
-    for (let attempt = 0; ; attempt += 1) {
+    const retry = async (attempt: number): Promise<void> => {
       if (this.piManualCompactionActive) {
         pending.acceptLocally();
         await this.waitForPiManualCompactionEnd();
       }
-      if (this.closed) {
-        throw new Error("Pi session closed before queued input was sent");
-      }
+      if (this.closed) throw new Error("Pi session closed before queued input was sent");
       try {
         await this.prepareSpeed();
         await this.dispatchWithTransientAuthRetry(child, command, NO_REQUEST_TIMEOUT);
-        return;
       } catch (error) {
         if (!isPiCompactionPromptRejection(error) || attempt >= PI_COMPACTION_PROMPT_MAX_RETRIES) {
           throw error;
         }
         pending.acceptLocally();
-        if (!this.piManualCompactionActive) {
-          await waitForPiTransientAuthRetry();
-        }
+        if (!this.piManualCompactionActive) await waitForPiTransientAuthRetry();
+        return retry(attempt + 1);
       }
-    }
+    };
+    return retry(0);
   }
 
   private waitForPiManualCompactionEnd(): Promise<void> {
     if (!this.piManualCompactionActive || this.closed) {
       return Promise.resolve();
     }
-    return new Promise((resolve) => {
-      this.piManualCompactionWaiters.push(resolve);
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        this.piManualCompactionWaiters.push(resolve);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }
 
   private releasePiManualCompactionWaiters(): void {
@@ -589,15 +604,14 @@ export class PiRpcSession {
     }
   }
 
-  private async dispatchWithTransientAuthRetry(
+  private dispatchWithTransientAuthRetry(
     child: PiRpcChild,
     command: Record<string, unknown>,
     timeoutMs?: number,
   ): Promise<void> {
-    for (let attempt = 0; ; attempt += 1) {
+    const retry = async (attempt: number): Promise<void> => {
       try {
         await child.requestOk(command, timeoutMs);
-        return;
       } catch (error) {
         if (
           !(error instanceof Error) ||
@@ -608,8 +622,10 @@ export class PiRpcSession {
           throw error;
         }
         await waitForPiTransientAuthRetry();
+        return retry(attempt + 1);
       }
-    }
+    };
+    return retry(0);
   }
 
   private handleEvent(raw: Record<string, unknown>): void {
@@ -857,6 +873,7 @@ export class PiRpcSession {
       void this.sessionModels.observe(message.evidence).then((readyRunId) => {
         if (readyRunId && !this.closed && this.child === this.modelChild && !this.child?.exited)
           this.options.onSubagentHint?.(readyRunId);
+        return;
       });
       return;
     }
@@ -870,21 +887,21 @@ export class PiRpcSession {
           : {};
       void this.forwardToolCall(toolName, toolArgs).then(
         (result) => {
-          child.sendChannel({
+          return void child.sendChannel({
             kind: "tool-result",
             id,
             content: buildBridgeToolCallContent(result),
             isError: result.isError === true,
           });
         },
-        (error: unknown) => {
+        (toolError: unknown) => {
           child.sendChannel({
             kind: "tool-result",
             id,
             content: [
               {
                 type: "text",
-                text: error instanceof Error ? error.message : String(error),
+                text: toolError instanceof Error ? toolError.message : String(toolError),
               },
             ],
             isError: true,

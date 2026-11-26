@@ -70,11 +70,13 @@ const Review = ({
   );
 };
 
-async function header(container: HTMLElement) {
-  return waitFor(() => {
-    const root = container.querySelector("diffs-container")?.shadowRoot;
-    expect(root?.querySelector("[data-title]")?.textContent).toBe("new.ts");
-    return root ?? missingValue("Expected a non-null value");
+function header(container: HTMLElement) {
+  return Promise.try(() => {
+    return waitFor(() => {
+      const root = container.querySelector("diffs-container")?.shadowRoot;
+      expect(root?.querySelector("[data-title]")?.textContent).toBe("new.ts");
+      return root ?? missingValue("Expected a non-null value");
+    });
   });
 }
 

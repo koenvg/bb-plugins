@@ -138,12 +138,7 @@ async function run(p) {
   const remaining = validatePlan(p);
   let scope;
   const pids = new Map();
-  let finish;
-  let fail;
-  const completion = new Promise((resolve, reject) => {
-    finish = resolve;
-    fail = reject;
-  });
+  const { promise: completion, resolve: finish, reject: fail } = Promise.withResolvers();
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   input.on("line", (line) => {
     try {

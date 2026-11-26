@@ -95,102 +95,140 @@ export function createCaptureQueue(options: {
   const queue = new Map<string, CaptureTarget>();
   let nextReadAt = 0;
   function pause(delay: number): Promise<void> {
-    return new Promise((resolve) => {
-      const finish = () => {
-        clearTimeout(timer);
-        waiting.delete(finish);
-        resolve();
-      };
-      const timer = setTimeout(finish, delay);
-      timer.unref?.();
-      waiting.add(finish);
-    });
+    {
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      try {
+        const finish = () => {
+          clearTimeout(timer);
+          waiting.delete(finish);
+          resolve();
+        };
+        const timer = setTimeout(finish, delay);
+        timer.unref?.();
+        waiting.add(finish);
+      } catch (setupError) {
+        reject(setupError);
+      }
+      return promise;
+    }
   }
   let disposed = false;
   let inFlight: Promise<void> | undefined;
   const waiting = new Set<() => void>();
   let activeAbort: AbortController | undefined;
   const current = (target: CaptureTarget) => !disposed && options.current?.(target) !== false;
-  async function run() {
-    while (!disposed && queue.size) {
-      const remaining = nextReadAt - now();
-      if (remaining > 0) await pause(remaining);
-      if (disposed) break;
-      nextReadAt = now() + (options.rateMs ?? 750);
-      const target = [...queue.values()].find((t) => t.terminal) ?? queue.values().next().value;
-      if (!target) break;
-      queue.delete(target.id);
-      if (!current(target)) continue;
-      const startedAt = performance.now();
-      const controller = new AbortController();
-      activeAbort = controller;
-      const requestId = randomUUID();
-      let timeout: ReturnType<typeof setTimeout> | undefined;
-      let capture: Capture;
-      try {
-        const raw = await Promise.race([
-          options.inspect(target, requestId),
-          new Promise<never>((_, reject) => {
-            timeout = setTimeout(
-              () => reject(new Error("Inspection timed out")),
-              options.timeoutMs ?? 5000,
-            );
-            timeout.unref?.();
-          }),
-        ]);
-        capture = normalizeCapture(raw, target, requestId, now());
-        if (capture.status === "captured" && options.resolveModel && current(target)) {
-          const budget = Math.min(
-            250,
-            (options.timeoutMs ?? 5000) - (performance.now() - startedAt),
-          );
-          if (budget > 0) {
-            const optionalDeadline = performance.now() + budget;
-            let optionalTimer: ReturnType<typeof setTimeout> | undefined;
-            try {
-              const model = await Promise.race([
-                options.resolveModel(target, controller.signal),
-                new Promise<undefined>((resolve) => {
-                  optionalTimer = setTimeout(() => {
-                    controller.abort();
-                    resolve(undefined);
-                  }, budget);
-                  optionalTimer.unref?.();
-                }),
-              ]);
-              if (
-                model &&
-                current(target) &&
-                !controller.signal.aborted &&
-                performance.now() <= optionalDeadline
-              )
-                capture = { ...capture, resolvedModel: model };
-            } catch {
-              /* Optional evidence cannot discard a normalized inspection. */
-            } finally {
-              clearTimeout(optionalTimer);
-            }
-          }
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Inspection unavailable";
-        capture = {
-          status: /timed out|in time/i.test(message)
-            ? "timeout"
-            : /unsupported|capability/i.test(message)
-              ? "unsupported"
-              : "unavailable",
-          capturedAt: now(),
-          reason: message.slice(0, 500),
-        };
-      } finally {
-        clearTimeout(timeout);
+
+  async function modelWithinBudget(
+    target: CaptureTarget,
+    controller: AbortController,
+    budget: number,
+  ): Promise<Capture["resolvedModel"]> {
+    const deadline = performance.now() + budget;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const lookup = options.resolveModel?.(target, controller.signal);
+      const expired = Promise.withResolvers<undefined>();
+      timer = setTimeout(() => {
         controller.abort();
-        activeAbort = undefined;
+        expired.resolve(undefined);
+      }, budget);
+      timer.unref?.();
+      const model = await Promise.race([lookup, expired.promise]);
+      if (model && current(target) && !controller.signal.aborted && performance.now() <= deadline) {
+        return model;
       }
-      if (disposed) break;
-      if (current(target)) options.accept(target.id, capture, target);
+    } catch {
+      return undefined;
+    } finally {
+      clearTimeout(timer);
     }
+    return undefined;
+  }
+  function start() {
+    const work = Promise.withResolvers<void>();
+    inFlight = work.promise;
+    const advance = async () => {
+      try {
+        if (disposed || queue.size === 0) {
+          inFlight = undefined;
+          work.resolve();
+          return;
+        }
+        const remaining = nextReadAt - now();
+        if (remaining > 0) await pause(remaining);
+        if (disposed) {
+          inFlight = undefined;
+          work.resolve();
+          return;
+        }
+        nextReadAt = now() + (options.rateMs ?? 750);
+        const target = [...queue.values()].find((t) => t.terminal) ?? queue.values().next().value;
+        if (!target) {
+          inFlight = undefined;
+          work.resolve();
+          return;
+        }
+        queue.delete(target.id);
+        if (current(target)) {
+          const startedAt = performance.now();
+          const controller = new AbortController();
+          activeAbort = controller;
+          const requestId = randomUUID();
+          let timeout: ReturnType<typeof setTimeout> | undefined;
+          let capture: Capture;
+          try {
+            const raw = await Promise.race([
+              options.inspect(target, requestId),
+              (() => {
+                const { promise, reject } = Promise.withResolvers<never>();
+                try {
+                  timeout = setTimeout(
+                    () => reject(new Error("Inspection timed out")),
+                    options.timeoutMs ?? 5000,
+                  );
+                  timeout.unref?.();
+                } catch (setupError) {
+                  reject(setupError);
+                }
+                return promise;
+              })(),
+            ]);
+            capture = normalizeCapture(raw, target, requestId, now());
+            if (capture.status === "captured" && options.resolveModel && current(target)) {
+              const budget = Math.min(
+                250,
+                (options.timeoutMs ?? 5000) - (performance.now() - startedAt),
+              );
+              if (budget > 0) {
+                const model = await modelWithinBudget(target, controller, budget);
+                if (model) capture = { ...capture, resolvedModel: model };
+              }
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Inspection unavailable";
+            capture = {
+              status: /timed out|in time/i.test(message)
+                ? "timeout"
+                : /unsupported|capability/i.test(message)
+                  ? "unsupported"
+                  : "unavailable",
+              capturedAt: now(),
+              reason: message.slice(0, 500),
+            };
+          } finally {
+            clearTimeout(timeout);
+            controller.abort();
+            activeAbort = undefined;
+          }
+          if (current(target)) options.accept(target.id, capture, target);
+        }
+        void advance();
+      } catch (error) {
+        inFlight = undefined;
+        work.reject(error);
+      }
+    };
+    void advance();
   }
   return {
     enqueue(target: CaptureTarget) {
@@ -233,13 +271,7 @@ export function createCaptureQueue(options: {
         );
       }
       queue.set(target.id, target);
-      if (!inFlight) {
-        const work = run();
-        inFlight = work;
-        void work.finally(() => {
-          if (inFlight === work) inFlight = undefined;
-        });
-      }
+      if (!inFlight) start();
     },
     async drain() {
       await inFlight;

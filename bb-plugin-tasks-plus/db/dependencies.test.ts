@@ -6,7 +6,16 @@ import { createTasksStore, TaskDependencyError, type TaskStatus } from ".";
 const disposers: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
-  while (disposers.length > 0) await disposers.pop()?.();
+  {
+    const runStep = async () => {
+      await disposers.pop()?.();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length > 0) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 function setup() {

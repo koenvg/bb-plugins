@@ -8,8 +8,8 @@ const ignoreStop = () => {};
 let resizeCallbacks: ResizeObserverCallback[] = [];
 
 class FakeResizeObserver {
-  constructor(callback: ResizeObserverCallback) {
-    resizeCallbacks.push(callback);
+  constructor(onResize: ResizeObserverCallback) {
+    resizeCallbacks.push(onResize);
   }
   observe() {}
   disconnect() {

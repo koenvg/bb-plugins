@@ -13,9 +13,9 @@ beforeEach(() => {
   vi.stubGlobal(
     "IntersectionObserver",
     class {
-      constructor(callback: IntersectionObserverCallback) {
+      constructor(onIntersection: IntersectionObserverCallback) {
         visible.push((near) =>
-          callback(
+          onIntersection(
             [{ isIntersecting: near }] as IntersectionObserverEntry[],
             this as unknown as IntersectionObserver,
           ),
@@ -43,7 +43,7 @@ function near(value: boolean) {
 }
 describe("inline image comparison", () => {
   it("waits for visibility, releases offscreen and on collapse, and never fetches absence", async () => {
-    const load = vi.fn<ReviewImageDiffProps["load"]>(async () => ready);
+    const load = vi.fn<ReviewImageDiffProps["load"]>(() => Promise.try(() => ready));
     const props: ReviewImageDiffProps = { ...labels, before: null, active: true, load };
     const screen = render(<ReviewImageDiff {...props} />);
     expect(load).not.toHaveBeenCalled();
@@ -61,14 +61,16 @@ describe("inline image comparison", () => {
     expect(revoke).toHaveBeenCalledTimes(2);
   });
   it("retains a successful side, retries only a failure and handles browser decode failure", async () => {
-    const load = vi.fn<ReviewImageDiffProps["load"]>(async (side) =>
-      side === "before" ? { kind: "error", code: "read", message: "Read failed" } : ready,
+    const load = vi.fn<ReviewImageDiffProps["load"]>((side) =>
+      Promise.try(() =>
+        side === "before" ? { kind: "error", code: "read", message: "Read failed" } : ready,
+      ),
     );
     const screen = render(<ReviewImageDiff {...labels} active load={load} />);
     near(true);
     await screen.findByText("Read failed");
     expect(screen.getByRole("img", { name: "After: new.png (head-sha)" })).toBeTruthy();
-    load.mockImplementation(async () => ready);
+    load.mockImplementation(() => Promise.try(() => ready));
     fireEvent.click(screen.getByRole("button", { name: "Retry before" }));
     await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(2));
     expect(load.mock.calls.map(([side]) => side)).toEqual(["before", "after", "before"]);
@@ -81,17 +83,27 @@ describe("inline image comparison", () => {
   });
   it("ignores delayed results after invalidation and aborts each loader signal", async () => {
     const pending: ((result: ImageResult) => void)[] = [];
-    const load = vi.fn<ReviewImageDiffProps["load"]>(
-      () => new Promise((resolve) => pending.push(resolve)),
+    const load = vi.fn<ReviewImageDiffProps["load"]>(() =>
+      (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<ImageResult>();
+        try {
+          pending.push(resolve);
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })(),
     );
     const screen = render(<ReviewImageDiff {...labels} active load={load} />);
     near(true);
     expect(pending).toHaveLength(2);
     screen.rerender(<ReviewImageDiff {...labels} active={false} load={load} />);
     expect(load.mock.calls.every(([, signal]) => signal.aborted)).toBe(true);
-    await act(async () => {
-      for (const resolve of pending) resolve(ready);
-    });
+    await act(() =>
+      Promise.try(() => {
+        for (const resolve of pending) resolve(ready);
+      }),
+    );
     expect(create).not.toHaveBeenCalled();
     expect(screen.queryByRole("img")).toBeNull();
   });

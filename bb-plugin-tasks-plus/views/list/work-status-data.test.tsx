@@ -142,7 +142,16 @@ describe("visible work status loading", () => {
         rpc: {
           listTaskWorkStatus: (raw) => {
             calls.push(rpcInput(raw).taskIds as string[]);
-            return new Promise<ReturnType<typeof result>>((resolve) => releases.push(resolve));
+            {
+              const { promise, resolve, reject } =
+                Promise.withResolvers<ReturnType<typeof result>>();
+              try {
+                releases.push(resolve);
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            }
           },
         },
       },
@@ -152,8 +161,10 @@ describe("visible work status loading", () => {
     await slot.behavior.emitRealtime("threads:changed", {});
     slot.lifecycle.rerender(<Root ids={[OTHER]} scope="two" />);
     expect(calls).toHaveLength(1);
-    await act(async () =>
-      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID])),
+    await act(() =>
+      Promise.try(() =>
+        (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID])),
+      ),
     );
     await waitFor(() => expect(calls).toHaveLength(2));
     expect(
@@ -161,8 +172,10 @@ describe("visible work status loading", () => {
         .textContent,
     ).not.toContain(ID);
     expect(calls[1]).toEqual([OTHER]);
-    await act(async () =>
-      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([OTHER], "failed")),
+    await act(() =>
+      Promise.try(() =>
+        (releases.shift() ?? missingValue("Expected releases.shift()"))(result([OTHER], "failed")),
+      ),
     );
     expect(
       (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
@@ -184,7 +197,16 @@ describe("visible work status loading", () => {
         rpc: {
           listTaskWorkStatus: () => {
             calls++;
-            return new Promise<ReturnType<typeof result>>((resolve) => releases.push(resolve));
+            {
+              const { promise, resolve, reject } =
+                Promise.withResolvers<ReturnType<typeof result>>();
+              try {
+                releases.push(resolve);
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            }
           },
         },
       },
@@ -192,16 +214,20 @@ describe("visible work status loading", () => {
     await waitFor(() => expect(calls).toBe(1));
     slot.lifecycle.rerender(<Root ids={[OTHER]} scope="two" />);
     slot.lifecycle.rerender(<Root ids={[ID]} scope="one" />);
-    await act(async () =>
-      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID], "failed")),
+    await act(() =>
+      Promise.try(() =>
+        (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID], "failed")),
+      ),
     );
     expect(
       (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
         .textContent,
     ).not.toContain("failed");
     expect(calls).toBe(2);
-    await act(async () =>
-      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID], "idle")),
+    await act(() =>
+      Promise.try(() =>
+        (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID], "idle")),
+      ),
     );
     expect(
       (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
@@ -274,10 +300,11 @@ describe("visible work status loading", () => {
             listTaskWorkStatus: (raw) => {
               const input = rpcInput(raw);
               calls.push(input);
-              if (calls.length === 1)
-                return new Promise<ReturnType<typeof result>>((resolve) => {
-                  release = resolve;
-                });
+              if (calls.length === 1) {
+                const { promise, resolve } = Promise.withResolvers<ReturnType<typeof result>>();
+                release = resolve;
+                return promise;
+              }
               return result(input.taskIds as string[], "idle");
             },
           },
@@ -293,7 +320,7 @@ describe("visible work status loading", () => {
       else if (reason === "membership change")
         slot.lifecycle.rerender(<Root ids={[OTHER]} scope="all" />);
       else slot.lifecycle.rerender(<Root ids={[OTHER]} scope="project" />);
-      await act(async () => release(result(ids.slice(0, 500), "failed")));
+      await act(() => Promise.try(() => release(result(ids.slice(0, 500), "failed"))));
       expect(calls[1]).toEqual({
         taskIds: [],
         refresh: { id: session.id, step: "finish" },

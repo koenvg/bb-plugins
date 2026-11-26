@@ -62,22 +62,25 @@ test("production board property edits, reorder and status retries persist only a
     const first = page.getByRole("button", { name: "Open HIS-1: First card" });
     const second = page.getByRole("button", { name: "Open HIS-2: Second card" });
     await expect(first).toBeVisible();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      await first.focus();
-      await page.keyboard.press("p");
-      await page
-        .getByRole("menuitem", {
-          name: attempt === 0 ? "Urgent" : "Urgent (current)",
-          exact: true,
-        })
-        .click();
-      await expect(page.getByRole("menu")).toHaveCount(0);
-      await expect
-        .poll(() => f.requests.filter((request) => request.method === "updateTask").length)
-        .toBe(1);
-      await expect.poll(() => f.store.tasks.getTask(f.first.id)?.priority).toBe("urgent");
-      expect(f.rows()).toEqual([]);
-    }
+    await Array.fromAsync(
+      Array.from({ length: 2 }, (_, index) => index),
+      async (attempt) => {
+        await first.focus();
+        await page.keyboard.press("p");
+        await page
+          .getByRole("menuitem", {
+            name: attempt === 0 ? "Urgent" : "Urgent (current)",
+            exact: true,
+          })
+          .click();
+        await expect(page.getByRole("menu")).toHaveCount(0);
+        await expect
+          .poll(() => f.requests.filter((request) => request.method === "updateTask").length)
+          .toBe(1);
+        await expect.poll(() => f.store.tasks.getTask(f.first.id)?.priority).toBe("urgent");
+        expect(f.rows()).toEqual([]);
+      },
+    );
     const start =
       (await second.boundingBox()) ?? missingValue("Expected (await second.boundingBox())");
     const target =

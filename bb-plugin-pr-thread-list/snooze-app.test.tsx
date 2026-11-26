@@ -115,10 +115,10 @@ it("registers three commands through the SDK and operates with only the headless
   });
   await waitFor(() => expect(available()).toContain("snooze-tomorrow"));
   expect(slot.container.textContent).toBe("");
-  await act(async () => command("snooze-tomorrow").run(context()));
+  await act(() => Promise.try(() => command("snooze-tomorrow").run(context())));
   await waitFor(() => expect(available()).toEqual(["wake-now"]));
   expect(calls(slot, "listSnoozes")).toHaveLength(2);
-  await act(async () => command("wake-now").run(context()));
+  await act(() => Promise.try(() => command("wake-now").run(context())));
   await waitFor(() => expect(available()).toContain("snooze-tomorrow"));
   expect(calls(slot, "wake").map(({ input }) => input)).toEqual([{ threadId: "t1" }]);
   expect(calls(slot, "listSnoozes")).toHaveLength(3);
@@ -153,7 +153,7 @@ it("excludes hidden focused threads without blocking an unrelated selected threa
   await waitFor(() => expect(available(context("t1"))).toContain("snooze-tomorrow"));
   expect(slot.queryByRole("link", { name: "Hidden" })).toBeNull();
   expect(available(context("t2"))).toEqual([]);
-  await act(async () => command("snooze-tomorrow").run(context("t2")));
+  await act(() => Promise.try(() => command("snooze-tomorrow").run(context("t2"))));
   expect(calls(slot, "snooze")).toHaveLength(0);
   expect(available(context("t1"))).toContain("snooze-tomorrow");
   expect(calls(slot, "listSnoozes")).toHaveLength(1);
@@ -180,12 +180,12 @@ it("keeps the sidebar and commands in sync after snooze, wake, and another clien
   );
   await waitFor(() => expect(available()).toContain("snooze-tomorrow"));
   expect(calls(slot, "listSnoozes")).toHaveLength(1);
-  await act(async () => command("snooze-tomorrow").run(context()));
+  await act(() => Promise.try(() => command("snooze-tomorrow").run(context())));
   await waitFor(() => expect(slot.queryByRole("link", { name: "Prepare release" })).toBeNull());
   fireEvent.click(slot.getByRole("tab", { name: "All" }));
   expect(slot.getByRole("button", { name: "Collapse Snoozed" })).toBeTruthy();
   expect(available()).toEqual(["wake-now"]);
-  await act(async () => command("wake-now").run(context()));
+  await act(() => Promise.try(() => command("wake-now").run(context())));
   await waitFor(() => expect(slot.queryByRole("button", { name: "Collapse Snoozed" })).toBeNull());
   snoozes = { t1: Date.now() + 100_000 };
   await slot.behavior.emitRealtime("snoozes.changed", {});
@@ -234,7 +234,7 @@ describe("captured subtree in the sidebar", () => {
       if (entry === "menu") {
         fireEvent.click(slot.getByRole("button", { name: "Actions for Prepare release" }));
         fireEvent.click(slot.getByRole("menuitem", { name: "Tomorrow" }));
-      } else await act(async () => command("snooze-tomorrow").run(context()));
+      } else await act(() => Promise.try(() => command("snooze-tomorrow").run(context())));
       await waitFor(() => expect(available()).toEqual(["wake-now"]));
       expect(slot.queryAllByRole("link")).toHaveLength(0);
       fireEvent.click(slot.getByRole("tab", { name: "Needs attention" }));
@@ -282,7 +282,7 @@ describe("captured subtree in the sidebar", () => {
               { t1: later, child: later, grandchild: later },
               { t1: "g", child: "g", grandchild: "g" },
             ),
-          wake: () => new Promise(() => {}),
+          wake: () => Promise.withResolvers<Record<string, never>>().promise,
         },
       },
       true,
@@ -349,9 +349,11 @@ describe("unavailable state and failures", () => {
       const initial = id === "wake-now" ? snoozed : {};
       const refreshed = id === "wake-now" ? {} : snoozed;
       let finish!: (value: ReturnType<typeof snoozeSnapshot>) => void;
-      const pending = new Promise<ReturnType<typeof snoozeSnapshot>>((resolve) => {
+      const pending = (() => {
+        const { promise, resolve } = Promise.withResolvers<ReturnType<typeof snoozeSnapshot>>();
         finish = resolve;
-      });
+        return promise;
+      })();
       let reads = 0;
       let visibleAtReconnect: string[] | undefined;
       let invocation: void | Promise<void> = undefined;
@@ -380,7 +382,7 @@ describe("unavailable state and failures", () => {
       expect(calls(slot, "snooze")).toHaveLength(0);
       expect(calls(slot, "wake")).toHaveLength(0);
       expect(reads).toBe(2);
-      await act(async () => finish(snoozeSnapshot(refreshed)));
+      await act(() => Promise.try(() => finish(snoozeSnapshot(refreshed))));
       expect(available()).not.toContain(id);
     },
   );
@@ -408,14 +410,19 @@ describe("unavailable state and failures", () => {
     await slot.behavior.emitRealtime("snoozes.changed", {});
     expect(available()).toContain("snooze-tomorrow");
     let finish!: (value: ReturnType<typeof snoozeSnapshot>) => void;
-    result = new Promise((resolve) => {
+    result = (() => {
+      const { promise, resolve } = Promise.withResolvers<{
+        snoozes: Record<string, number>;
+        groups: Record<string, string>;
+      }>();
       finish = resolve;
-    });
+      return promise;
+    })();
     await slot.behavior.setRealtimeConnectionState("reconnecting");
     expect(available()).toEqual([]);
     await slot.behavior.setRealtimeConnectionState("connected");
     expect(available()).toEqual([]);
-    await act(async () => finish(snoozeSnapshot()));
+    await act(() => Promise.try(() => finish(snoozeSnapshot())));
     expect(available()).toContain("snooze-tomorrow");
   });
   it.each([
@@ -438,7 +445,7 @@ describe("unavailable state and failures", () => {
       });
       await waitFor(() => expect(available()).toContain(id));
       const before = available();
-      await act(async () => command(id).run(context()));
+      await act(() => Promise.try(() => command(id).run(context())));
       expect(error).toHaveBeenCalledWith(message);
       expect(available()).toEqual(before);
       expect(calls(slot, "listSnoozes")).toHaveLength(1);

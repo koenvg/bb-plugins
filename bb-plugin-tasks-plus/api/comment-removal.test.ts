@@ -19,17 +19,20 @@ describe("removed comment operations", () => {
       const project = store.tasks.createProject({ name: "Removal", prefix: "REM", color: "blue" });
       const task = store.tasks.createTask({ projectId: project.id, title: "Retained task" });
       const before = store.tasks.getTask(task.id);
-      for (const method of ["createComment", "listComments", "getTaskActivity"]) {
-        expect(tasksRpcContract).not.toHaveProperty(method);
-        await expect(
-          harness.callRpc(method, { taskId: task.id, body: "Old body", notify: true }),
-        ).rejects.toThrow();
-      }
-      for (const method of ["updateTask", "boardMove"]) {
+      await Array.fromAsync(
+        ["createComment", "listComments", "getTaskActivity"],
+        async (method) => {
+          expect(tasksRpcContract).not.toHaveProperty(method);
+          await expect(
+            harness.callRpc(method, { taskId: task.id, body: "Old body", notify: true }),
+          ).rejects.toThrow();
+        },
+      );
+      await Array.fromAsync(["updateTask", "boardMove"], async (method) => {
         await expect(
           harness.callRpc(method, { taskId: task.id, status: "in_progress", authorName: "Legacy" }),
         ).rejects.toThrow();
-      }
+      });
       const old = await harness.runCli(["comment", task.key, "--body", "Old body", "--notify"]);
       expect(old.exitCode).not.toBe(0);
       const help = await harness.runCli(["--help"]);
@@ -64,13 +67,16 @@ describe("removed comment operations", () => {
       });
       harness.realtimeSignals.length = 0;
       const legacyId = "01HZZZZZZZZZZZZZZZZZZZZZC1";
-      for (const input of [{ commentId: legacyId }, { taskId: task.id, commentId: legacyId }]) {
-        await expect(harness.callRpc("listAttachments", input)).rejects.toThrow();
-      }
+      await Array.fromAsync(
+        [{ commentId: legacyId }, { taskId: task.id, commentId: legacyId }],
+        async (input) => {
+          await expect(harness.callRpc("listAttachments", input)).rejects.toThrow();
+        },
+      );
       await expect(
         harness.callRpc("deleteAttachment", { attachmentId: file.id, commentId: legacyId }),
       ).rejects.toThrow();
-      for (const selector of ["query", "header"] as const) {
+      await Array.fromAsync(["query", "header"] as const, async (selector) => {
         const query = selector === "query" ? "&commentId=" : "";
         const headers: Record<string, string> = selector === "header" ? { "x-comment-id": "" } : {};
         const upload = await harness.fetchHttp(
@@ -91,7 +97,7 @@ describe("removed comment operations", () => {
           { headers },
         );
         expect(download.status).toBe(400);
-      }
+      });
       const oldOwner = await harness.runCli([
         "attachment",
         "add",

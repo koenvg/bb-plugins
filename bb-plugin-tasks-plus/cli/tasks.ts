@@ -68,19 +68,28 @@ function openBlockerKeys(task: Task): string[] {
 async function listAllTasks(domain: TasksDomain, input: ListTasksInput): Promise<Task[]> {
   const tasks: Task[] = [];
   let cursor = input.cursor;
-  do {
-    const page = tasksRpcContract.listTasks.output.parse(
-      await domain.listTasks(
-        tasksRpcContract.listTasks.input.parse({
-          ...input,
-          limit: TASKS_PAGE_MAX_LIMIT,
-          ...(cursor === undefined ? {} : { cursor }),
-        }),
-      ),
-    );
-    tasks.push(...page.tasks);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor !== undefined);
+  {
+    const runStep = async () => {
+      const page = tasksRpcContract.listTasks.output.parse(
+        await domain.listTasks(
+          tasksRpcContract.listTasks.input.parse({
+            ...input,
+            limit: TASKS_PAGE_MAX_LIMIT,
+            ...(cursor === undefined ? {} : { cursor }),
+          }),
+        ),
+      );
+      tasks.push(...page.tasks);
+      cursor = page.nextCursor ?? undefined;
+    };
+    for await (const _ of (async function* () {
+      do {
+        yield runStep();
+      } while (cursor !== undefined);
+    })()) {
+      continue;
+    }
+  }
   return tasks;
 }
 
@@ -89,11 +98,11 @@ async function labelsForTaskList(
   projects: readonly Project[],
 ): Promise<Map<string, Label>> {
   const labels = new Map<string, Label>();
-  for (const project of projects) {
+  await Array.fromAsync(projects, async (project) => {
     for (const label of await projectLabels(domain, project.id)) {
       labels.set(label.id, label);
     }
-  }
+  });
   return labels;
 }
 
@@ -178,12 +187,12 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
             ? await resolveClientHostId(bb, domain, input.options.machine, ctx)
             : undefined;
           const attachSources: { path: string; bytes: Buffer }[] = [];
-          for (const path of attachPaths) {
+          await Array.fromAsync(attachPaths, async (path) => {
             attachSources.push({
               path,
               bytes: await readAttachmentSource(bb, clientHostId, path),
             });
-          }
+          });
           const project = await selectedProject(domain, ctx, input.options.project, true);
           if (!project) throw new CliError("project is required");
           const labels = await projectLabels(domain, project.id);
@@ -212,7 +221,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
           );
           const attachments: Attachment[] = [];
           const failedAttachments: { path: string; error: string }[] = [];
-          for (const source of attachSources) {
+          await Array.fromAsync(attachSources, async (source) => {
             try {
               const attachment = await saveAttachmentFromBytes(store.tasks, source.bytes, {
                 taskId: task.id,
@@ -226,7 +235,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
                 error: errorMessage(error),
               });
             }
-          }
+          });
           const stdout = input.options.json
             ? JSON.stringify({ task, attachments, failedAttachments })
             : [
@@ -364,8 +373,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
               }),
             ),
           );
-          const tasks = [];
-          for (const task of result.tasks) {
+          const tasks = await Array.fromAsync(result.tasks, async (task) => {
             const threadResult = tasksRpcContract.listTaskThreads.output.parse(
               await domain.listTaskThreads(
                 tasksRpcContract.listTaskThreads.input.parse({
@@ -373,14 +381,14 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
                 }),
               ),
             );
-            tasks.push({
+            return {
               ...task,
               labels: task.labelIds.map((id) => labelById.get(id)?.name ?? id),
               agentsWorking: threadResult.taskThreads.filter((thread) =>
                 ACTIVE_THREAD_STATUSES.has(thread.liveStatus),
               ).length,
-            });
-          }
+            };
+          });
           if (input.options.json) {
             return JSON.stringify({
               tasks,

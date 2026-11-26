@@ -273,15 +273,20 @@ async function readRequestBody(request: Request): Promise<Uint8Array> {
   let size = 0;
   const reader = request.body.getReader();
   try {
-    while (true) {
+    const runStep = async () => {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) return { kind: "break" } as const;
       size += value.byteLength;
       if (size > MAX_ATTACHMENT_SIZE_BYTES) {
         await reader.cancel();
         throw new AttachmentRequestError(413, "attachment exceeds the 25 MB limit");
       }
       chunks.push(value);
+    };
+    for await (const stepResult of (async function* () {
+      while (true) yield runStep();
+    })()) {
+      if (stepResult?.kind === "break") break;
     }
   } finally {
     reader.releaseLock();
@@ -333,19 +338,21 @@ async function persistAttachment(
   }
 }
 
-export async function saveAttachmentFromBytes(
+export function saveAttachmentFromBytes(
   store: TasksStore,
   bytes: Uint8Array,
   options: SaveAttachmentFromBytesOptions,
 ): Promise<Attachment> {
-  return persistAttachment(
-    store,
-    normalizeOwner(options.taskId),
-    options.fileName,
-    options.mime ?? inferMimeFromBytes(bytes, options.fileName),
-    bytes.byteLength,
-    (destinationPath) => writeFile(destinationPath, bytes),
-  );
+  return Promise.try(() => {
+    return persistAttachment(
+      store,
+      normalizeOwner(options.taskId),
+      options.fileName,
+      options.mime ?? inferMimeFromBytes(bytes, options.fileName),
+      bytes.byteLength,
+      (destinationPath) => writeFile(destinationPath, bytes),
+    );
+  });
 }
 
 export async function readAttachmentContent(
@@ -445,10 +452,17 @@ async function readPreview(root: string, attachment: Attachment) {
     if (before.size > MAX_ATTACHMENT_PREVIEW_BYTES) throw new PreviewReadError("too-large");
     const bytes = Buffer.alloc(MAX_ATTACHMENT_PREVIEW_BYTES + 1);
     let size = 0;
-    while (size < bytes.length) {
-      const { bytesRead } = await handle.read(bytes, size, bytes.length - size, size);
-      if (bytesRead === 0) break;
-      size += bytesRead;
+    {
+      const runStep = async () => {
+        const { bytesRead } = await handle.read(bytes, size, bytes.length - size, size);
+        if (bytesRead === 0) return { kind: "break" } as const;
+        size += bytesRead;
+      };
+      for await (const stepResult of (async function* () {
+        while (size < bytes.length) yield runStep();
+      })()) {
+        if (stepResult?.kind === "break") break;
+      }
     }
     const after = await handle.stat();
     if (size > MAX_ATTACHMENT_PREVIEW_BYTES || after.size > MAX_ATTACHMENT_PREVIEW_BYTES) {

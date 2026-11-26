@@ -220,7 +220,7 @@ describe("task-detail command registration and targeting", () => {
   it.each(["pending", "missing", "error", "mismatch"])("rejects a %s task", async (state) => {
     const { render, updates } = fixture({
       lookup: () => {
-        if (state === "pending") return new Promise(() => {});
+        if (state === "pending") return Promise.withResolvers<unknown>().promise;
         if (state === "error") throw new Error("Fixture lookup failed");
         return state === "mismatch" ? tasks[1] : null;
       },
@@ -365,8 +365,8 @@ describe("task navigation commands", () => {
   let frames: FrameRequestCallback[];
   beforeEach(() => {
     frames = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      frames.push(callback);
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((onFrame) => {
+      frames.push(onFrame);
       return frames.length;
     });
   });
@@ -615,16 +615,18 @@ describe("task navigation commands", () => {
 
   it("keeps retained sibling destinations usable during refresh", async () => {
     let resolveSiblings!: (value: unknown) => void;
-    const pending = new Promise((resolve) => {
+    const pending = (() => {
+      const { promise, resolve } = Promise.withResolvers<unknown>();
       resolveSiblings = resolve;
-    });
+      return promise;
+    })();
     const siblingLookup = vi.fn((): unknown => ({ tasks, nextCursor: null }));
     const f = fixture({ siblingLookup });
     const slot = f.render();
     await ready(slot);
     await waitFor(() => expect(available("task-next")).toBe(true));
     siblingLookup.mockImplementation(() => pending);
-    await act(async () => slot.behavior.emitRealtime("tasks:changed", {}));
+    await act(() => Promise.try(() => slot.behavior.emitRealtime("tasks:changed", {})));
     await ready(slot);
     expect(siblingLookup).toHaveBeenCalledTimes(2);
     expect((slot.getByRole("button", { name: "Next task" }) as HTMLButtonElement).disabled).toBe(
@@ -638,7 +640,9 @@ describe("task navigation commands", () => {
         { method: "toPluginPanel", path: "tasks", options: { subPath: "task/TSK-2" } },
       ]),
     );
-    await act(async () => resolveSiblings({ tasks: [tasks[1], tasks[0]], nextCursor: null }));
+    await act(() =>
+      Promise.try(() => resolveSiblings({ tasks: [tasks[1], tasks[0]], nextCursor: null })),
+    );
     await waitFor(() => expect(available("task-next")).toBe(false));
     expect(available("task-previous")).toBe(true);
     expectNoWrites(f);
@@ -647,12 +651,16 @@ describe("task navigation commands", () => {
   it("never queues navigation while inventory or initial siblings are pending", async () => {
     let resolveProjects!: (value: unknown) => void;
     let resolveSiblings!: (value: unknown) => void;
-    const projects = new Promise((resolve) => {
+    const projects = (() => {
+      const { promise, resolve } = Promise.withResolvers<unknown>();
       resolveProjects = resolve;
-    });
-    const siblings = new Promise((resolve) => {
+      return promise;
+    })();
+    const siblings = (() => {
+      const { promise, resolve } = Promise.withResolvers<unknown>();
       resolveSiblings = resolve;
-    });
+      return promise;
+    })();
     const f = fixture({ projectLookup: () => projects, siblingLookup: () => siblings });
     const slot = f.render();
     await ready(slot);
@@ -664,9 +672,9 @@ describe("task navigation commands", () => {
       flush();
     };
     invokeUnavailable();
-    await act(async () => resolveProjects({ projects: [project] }));
+    await act(() => Promise.try(() => resolveProjects({ projects: [project] })));
     invokeUnavailable();
-    await act(async () => resolveSiblings({ tasks, nextCursor: null }));
+    await act(() => Promise.try(() => resolveSiblings({ tasks, nextCursor: null })));
     await waitFor(() => expect(available("task-next")).toBe(true));
     flush();
     expect(slot.navigateCalls).toEqual([]);
@@ -686,7 +694,7 @@ describe("task navigation commands", () => {
       const f = fixture({
         lookup: (key) =>
           key === "TSK-2" && change === "loading"
-            ? new Promise(() => {})
+            ? Promise.withResolvers<unknown>().promise
             : tasks.find((task) => task.key === key),
       });
       const slot = f.render();
@@ -721,7 +729,7 @@ describe("linked BB project command", () => {
   it.each(["pending", "missing", "error"])("rejects a %s tracker project", async (state) => {
     const { render, projectUpdates } = fixture({
       projectLookup: () => {
-        if (state === "pending") return new Promise(() => {});
+        if (state === "pending") return Promise.withResolvers<unknown>().promise;
         if (state === "error") throw new Error("Tracker unavailable");
         return { projects: [] };
       },
@@ -737,15 +745,17 @@ describe("linked BB project command", () => {
 
   it("becomes available after the tracker loads without replaying an earlier invocation", async () => {
     let resolve!: (value: unknown) => void;
-    const pending = new Promise((done) => {
+    const pending = (() => {
+      const { promise, resolve: done } = Promise.withResolvers<unknown>();
       resolve = done;
-    });
+      return promise;
+    })();
     const { render, projectUpdates } = fixture({ projectLookup: () => pending });
     const slot = render();
     await ready(slot);
     expect(available(linkedProjectCommand)).toBe(false);
     run(linkedProjectCommand);
-    await act(async () => resolve({ projects: [project] }));
+    await act(() => Promise.try(() => resolve({ projects: [project] })));
     await waitFor(() => expect(available(linkedProjectCommand)).toBe(true));
     expect(slot.queryByLabelText("Linked bb project")).toBeNull();
     expect(projectUpdates).toEqual([]);
@@ -885,24 +895,27 @@ describe("property command keyboard workflow", () => {
       await waitFor(() => expect(slot.queryByLabelText("Due date")).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(trigger));
       expect(updates).toEqual([]);
-      for (const [name, dueDate] of [
-        ["Today", "2026-07-15"],
-        ["Tomorrow", "2026-07-16"],
-        ["Next week", "2026-07-22"],
-      ] as const) {
-        run("task-set-due-date");
-        const dateInput = await slot.findByLabelText("Due date");
-        await waitFor(() => expect(document.activeElement).toBe(dateInput));
-        const preset = slot.getByRole("button", { name: new RegExp(`^${name}`) });
-        preset.focus();
-        fireEvent.click(preset, { detail: 0 });
-        await waitFor(() =>
-          expect(updates).toEqual([
-            { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, dueDate },
-          ]),
-        );
-        updates.splice(0);
-      }
+      await Array.fromAsync(
+        [
+          ["Today", "2026-07-15"],
+          ["Tomorrow", "2026-07-16"],
+          ["Next week", "2026-07-22"],
+        ] as const,
+        async ([name, dueDate]) => {
+          run("task-set-due-date");
+          const dateInput = await slot.findByLabelText("Due date");
+          await waitFor(() => expect(document.activeElement).toBe(dateInput));
+          const preset = slot.getByRole("button", { name: new RegExp(`^${name}`) });
+          preset.focus();
+          fireEvent.click(preset, { detail: 0 });
+          await waitFor(() =>
+            expect(updates).toEqual([
+              { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, dueDate },
+            ]),
+          );
+          updates.splice(0);
+        },
+      );
       run("task-set-due-date");
       const customInput = await slot.findByLabelText("Due date");
       await waitFor(() => expect(document.activeElement).toBe(customInput));
@@ -955,7 +968,7 @@ describe("property command keyboard workflow", () => {
     const { render, updates } = fixture({ lookup: () => blocked });
     const slot = render();
     await ready(slot);
-    for (const confirm of [false, true]) {
+    await Array.fromAsync([false, true], async (confirm) => {
       run("task-change-status");
       fireEvent.keyDown(await slot.findByRole("menuitem", { name: "In Progress" }), {
         key: "Enter",
@@ -963,7 +976,7 @@ describe("property command keyboard workflow", () => {
       await slot.findByRole("dialog", { name: "TSK-1 is blocked" });
       expect(updates).toEqual([]);
       fireEvent.click(slot.getByRole("button", { name: confirm ? "Start anyway" : "Cancel" }));
-    }
+    });
     await waitFor(() =>
       expect(updates).toEqual([
         { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, status: "in_progress" },
@@ -984,8 +997,8 @@ describe("property command keyboard workflow", () => {
       const slot = render();
       await ready(slot);
       const frames: FrameRequestCallback[] = [];
-      vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-        frames.push(callback);
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation((onFrame) => {
+        frames.push(onFrame);
         return frames.length;
       });
       const cancel = vi.spyOn(window, "cancelAnimationFrame");
@@ -1024,46 +1037,49 @@ describe("property command keyboard workflow", () => {
       const properties =
         slot.container.querySelector<HTMLElement>(`[data-properties-layout="${layout}"]`) ??
         missingValue("Expected a non-null value");
-      for (const [id, triggerName, role, choice, update] of [
-        ["task-change-status", "Todo", "menuitem", "Done", { status: "done" }],
-        ["task-set-priority", "No priority", "menuitem", "High", { priority: "high" }],
-        ["task-edit-labels", "Edit labels", "option", "frontend", { labelIds: [label.id] }],
-      ] as const) {
-        const trigger = within(properties).getByRole("button", { name: triggerName });
-        fireEvent.keyDown(window, { key: "F9" });
-        run(id);
-        const option = await slot.findByRole(role, { name: choice });
-        await waitFor(() =>
-          expect(
-            option.closest('[role="menu"], [role="dialog"]')?.contains(document.activeElement),
-          ).toBe(true),
-        );
-        expect(slot.getAllByRole(role, { name: choice })).toHaveLength(1);
-        expect(updates).toEqual([]);
-        fireEvent.keyDown(
-          document.activeElement ?? missingValue("Expected document.activeElement"),
-          { key: "Escape" },
-        );
-        await waitFor(() => expect(slot.queryByRole(role, { name: choice })).toBeNull());
-        await waitFor(() => expect(document.activeElement).toBe(trigger));
-        expect(updates).toEqual([]);
-        run(id);
-        const selected = await slot.findByRole(role, { name: choice });
-        if (role === "option")
-          fireEvent.keyDown(slot.getByPlaceholderText("Add labels…"), { key: "Enter" });
-        else fireEvent.keyDown(selected, { key: "Enter" });
-        await waitFor(() =>
-          expect(updates).toEqual([
-            { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, ...update },
-          ]),
-        );
-        updates.splice(0);
-        if (role === "option")
+      await Array.fromAsync(
+        [
+          ["task-change-status", "Todo", "menuitem", "Done", { status: "done" }],
+          ["task-set-priority", "No priority", "menuitem", "High", { priority: "high" }],
+          ["task-edit-labels", "Edit labels", "option", "frontend", { labelIds: [label.id] }],
+        ] as const,
+        async ([id, triggerName, role, choice, update]) => {
+          const trigger = within(properties).getByRole("button", { name: triggerName });
+          fireEvent.keyDown(window, { key: "F9" });
+          run(id);
+          const option = await slot.findByRole(role, { name: choice });
+          await waitFor(() =>
+            expect(
+              option.closest('[role="menu"], [role="dialog"]')?.contains(document.activeElement),
+            ).toBe(true),
+          );
+          expect(slot.getAllByRole(role, { name: choice })).toHaveLength(1);
+          expect(updates).toEqual([]);
           fireEvent.keyDown(
             document.activeElement ?? missingValue("Expected document.activeElement"),
             { key: "Escape" },
           );
-      }
+          await waitFor(() => expect(slot.queryByRole(role, { name: choice })).toBeNull());
+          await waitFor(() => expect(document.activeElement).toBe(trigger));
+          expect(updates).toEqual([]);
+          run(id);
+          const selected = await slot.findByRole(role, { name: choice });
+          if (role === "option")
+            fireEvent.keyDown(slot.getByPlaceholderText("Add labels…"), { key: "Enter" });
+          else fireEvent.keyDown(selected, { key: "Enter" });
+          await waitFor(() =>
+            expect(updates).toEqual([
+              { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, ...update },
+            ]),
+          );
+          updates.splice(0);
+          if (role === "option")
+            fireEvent.keyDown(
+              document.activeElement ?? missingValue("Expected document.activeElement"),
+              { key: "Escape" },
+            );
+        },
+      );
       expect(slot.navigateCalls).toEqual([]);
     },
   );

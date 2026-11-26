@@ -29,13 +29,17 @@ export async function listSnoozeThreads(threads: {
   }) => Promise<readonly ServerThread[]>;
 }): Promise<SnoozeThread[]> {
   const rows = new Map<string, SnoozeThread>();
-  for (const archived of [false, true]) {
-    for (let offset = 0; ; offset += 100) {
-      const page = await threads.list({ archived, includeHidden: true, limit: 100, offset });
+  await Array.fromAsync([false, true], async (archived) => {
+    async function* pages() {
+      for (let offset = 0; ; offset += 100) {
+        yield threads.list({ archived, includeHidden: true, limit: 100, offset });
+      }
+    }
+    for await (const page of pages()) {
       for (const row of page) rows.set(row.id, snoozeThreadFromServer(row));
       if (page.length < 100) break;
     }
-  }
+  });
   return [...rows.values()];
 }
 

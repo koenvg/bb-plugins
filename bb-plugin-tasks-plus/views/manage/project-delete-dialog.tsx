@@ -45,9 +45,10 @@ export const ProjectDeleteDialog = ({
     void listAllTasks(rpc, { projectId: project.id }).then(
       (tasks) => {
         if (active) setCount(tasks.length);
+        return;
       },
-      (error) => {
-        if (active) setCountError(errorMessage(error));
+      (countError) => {
+        if (active) setCountError(errorMessage(countError));
       },
     );
     return () => {

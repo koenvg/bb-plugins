@@ -32,20 +32,29 @@ await runLocalHarness({
     });
     let browser, page, cdp;
     try {
-      const origin = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("No owned origin handoff: " + log)), 30000);
-        server.on("exit", (code) => {
-          clearTimeout(timer);
-          reject(new Error("Server exit " + code + " " + log));
-        });
-        server.stdout.on("data", () => {
-          const match = log.match(/BB_FIXTURE_READY (.+)/);
-          if (match) {
+      const origin = await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers();
+        try {
+          const timer = setTimeout(
+            () => reject(new Error("No owned origin handoff: " + log)),
+            30000,
+          );
+          server.on("exit", (code) => {
             clearTimeout(timer);
-            resolve(JSON.parse(match[1]).origin);
-          }
-        });
-      });
+            reject(new Error("Server exit " + code + " " + log));
+          });
+          server.stdout.on("data", () => {
+            const match = log.match(/BB_FIXTURE_READY (.+)/);
+            if (match) {
+              clearTimeout(timer);
+              resolve(JSON.parse(match[1]).origin);
+            }
+          });
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       browser = await chromium.launch({
         headless: true,
         executablePath:
@@ -180,12 +189,17 @@ await runLocalHarness({
       });
       await page.click('[data-task-key="BENCH-21"] [data-nav-item]');
       await page.waitForFunction(() => window.lab.read().rendered);
-      const idle = await page.evaluate(
-        () =>
-          new Promise((resolve) => {
+      const idle = await page.evaluate(() =>
+        (() => {
+          const { promise, resolve, reject } = Promise.withResolvers();
+          try {
             const start = window.bench.frames.length;
             setTimeout(() => resolve(window.bench.frames.slice(start)), 2500);
-          }),
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })(),
       );
       await fs.writeFile(output + "/idle.json", JSON.stringify(idle));
       if (idle.length < 100 || [...idle].sort((a, b) => a - b)[Math.floor(idle.length * 0.95)] > 20)
@@ -200,64 +214,82 @@ await runLocalHarness({
           transferMode: "ReturnAsStream",
         });
       }
-      for (let run = 0; run < (profile ? 1 : 5); run++) {
-        for (let i = 0; i < (profile ? 12 : 32); i++) {
-          const key = i % 2 === 0 ? "BENCH-26" : "BENCH-21";
-          await page.focus(
-            `[data-task-key="${i % 2 === 0 ? "BENCH-21" : "BENCH-26"}"] [data-nav-item]`,
+      await Array.fromAsync(
+        (function* () {
+          for (let run = 0; run < (profile ? 1 : 5); run++) yield run;
+        })(),
+        async (run) => {
+          await Array.fromAsync(
+            (function* () {
+              for (let i = 0; i < (profile ? 12 : 32); i++) yield i;
+            })(),
+            async (i) => {
+              const key = i % 2 === 0 ? "BENCH-26" : "BENCH-21";
+              await page.focus(
+                `[data-task-key="${i % 2 === 0 ? "BENCH-21" : "BENCH-26"}"] [data-nav-item]`,
+              );
+              await page.evaluate((spec) => window.bench.arm(spec), {
+                kind: "switch",
+                key,
+                run,
+                warmup: i < 8,
+              });
+              await page.keyboard.press(i % 2 === 0 ? "ArrowDown" : "ArrowUp");
+              await page.waitForFunction(() => !window.bench.active);
+              if (await page.evaluate(() => Boolean(window.bench.samples.at(-1)?.error)))
+                throw new Error("Interaction timeout");
+              if (
+                !(await page.evaluate((key) => {
+                  const state = window.lab.read();
+                  return state.rendered && state.detailKey === key;
+                }, key))
+              )
+                throw new Error("Full selected ticket mismatch");
+            },
           );
-          await page.evaluate((spec) => window.bench.arm(spec), {
-            kind: "switch",
-            key,
+          await Array.fromAsync(
+            (function* () {
+              for (let i = 0; i < (profile ? 12 : 32); i++) yield i;
+            })(),
+            async (i) => {
+              await page.click('[data-task-key="BENCH-11"] button[aria-label^="Change status"]');
+              const status = i % 2 === 0 ? "todo" : "backlog";
+              await page.evaluate((spec) => window.bench.arm(spec), {
+                kind: "status",
+                key: "BENCH-11",
+                status,
+                run,
+                warmup: i < 8,
+              });
+              await page
+                .getByRole("menuitem", {
+                  name: status === "todo" ? "Todo" : "Backlog",
+                  exact: true,
+                })
+                .click();
+              await page.waitForFunction(() => !window.bench.active);
+              if (await page.evaluate(() => Boolean(window.bench.samples.at(-1)?.error)))
+                throw new Error("Interaction timeout");
+            },
+          );
+          const raw = await page.evaluate(() => ({
+            samples: window.bench.samples,
+            errors: window.bench.errors,
+            failedCalls: window.bench.calls.filter((c) => !c.ok),
+            production: window.lab.production,
+            viewport: [innerWidth, innerHeight],
+            visibility: document.visibilityState,
+            browser: navigator.userAgent,
+          }));
+          await fs.writeFile(output + `/control-${run + 1}.json`, JSON.stringify(raw, null, 2));
+          console.log({
             run,
-            warmup: i < 8,
+            errors: raw.errors,
+            timeouts: raw.samples.filter((s) => s.error).length,
+            measured: raw.samples.filter((s) => !s.warmup).length,
           });
-          await page.keyboard.press(i % 2 === 0 ? "ArrowDown" : "ArrowUp");
-          await page.waitForFunction(() => !window.bench.active);
-          if (await page.evaluate(() => Boolean(window.bench.samples.at(-1)?.error)))
-            throw new Error("Interaction timeout");
-          if (
-            !(await page.evaluate((key) => {
-              const state = window.lab.read();
-              return state.rendered && state.detailKey === key;
-            }, key))
-          )
-            throw new Error("Full selected ticket mismatch");
-        }
-        for (let i = 0; i < (profile ? 12 : 32); i++) {
-          await page.click('[data-task-key="BENCH-11"] button[aria-label^="Change status"]');
-          const status = i % 2 === 0 ? "todo" : "backlog";
-          await page.evaluate((spec) => window.bench.arm(spec), {
-            kind: "status",
-            key: "BENCH-11",
-            status,
-            run,
-            warmup: i < 8,
-          });
-          await page
-            .getByRole("menuitem", { name: status === "todo" ? "Todo" : "Backlog", exact: true })
-            .click();
-          await page.waitForFunction(() => !window.bench.active);
-          if (await page.evaluate(() => Boolean(window.bench.samples.at(-1)?.error)))
-            throw new Error("Interaction timeout");
-        }
-        const raw = await page.evaluate(() => ({
-          samples: window.bench.samples,
-          errors: window.bench.errors,
-          failedCalls: window.bench.calls.filter((c) => !c.ok),
-          production: window.lab.production,
-          viewport: [innerWidth, innerHeight],
-          visibility: document.visibilityState,
-          browser: navigator.userAgent,
-        }));
-        await fs.writeFile(output + `/control-${run + 1}.json`, JSON.stringify(raw, null, 2));
-        console.log({
-          run,
-          errors: raw.errors,
-          timeouts: raw.samples.filter((s) => s.error).length,
-          measured: raw.samples.filter((s) => !s.warmup).length,
-        });
-      }
+        },
+      );
       console.log(
         await page.evaluate(() => ({
           selected: document.querySelector('[data-selected="true"]')?.getAttribute("data-task-key"),
@@ -267,14 +299,29 @@ await runLocalHarness({
       if (profile) {
         const result = await cdp.send("Profiler.stop");
         await fs.writeFile(join(output, "cpu-profile.json"), JSON.stringify(result.profile));
-        const done = new Promise((resolve) => cdp.once("Tracing.tracingComplete", resolve));
+        const done = (() => {
+          const { promise, resolve, reject } = Promise.withResolvers();
+          try {
+            cdp.once("Tracing.tracingComplete", resolve);
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
         await cdp.send("Tracing.end");
         const { stream } = await done;
         let trace = "";
-        while (true) {
-          const chunk = await cdp.send("IO.read", { handle: stream });
-          trace += chunk.data;
-          if (chunk.eof) break;
+        {
+          const runStep = async () => {
+            const chunk = await cdp.send("IO.read", { handle: stream });
+            trace += chunk.data;
+            if (chunk.eof) return { kind: "break" };
+          };
+          for await (const stepResult of (async function* () {
+            while (true) yield runStep();
+          })()) {
+            if (stepResult?.kind === "break") break;
+          }
         }
         await cdp.send("IO.close", { handle: stream });
         await fs.writeFile(join(output, "timeline.json"), trace);

@@ -20,8 +20,8 @@ export function createLocalBackend(owner: string, count = 100) {
   const { bb, harness } = createFakePluginHost({
     pluginId: "tasks-plus",
     sdk: {
-      projects: { list: async () => [] },
-      threads: { get: async () => null },
+      projects: { list: () => Promise.resolve([]) },
+      threads: { get: () => Promise.resolve(null) },
     },
   });
   const store = createStore(bb);
@@ -83,7 +83,16 @@ export function createLocalBackend(owner: string, count = 100) {
       if (method === "getTaskByKey" && (input as { taskKey: string }).taskKey === failRead)
         throw new Error("Owned failed-read case");
       if (method === "updateTask") {
-        if (saveDelay) await new Promise((resolve) => setTimeout(resolve, saveDelay));
+        if (saveDelay)
+          await (() => {
+            const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+            try {
+              setTimeout(resolve, saveDelay);
+            } catch (setupError) {
+              reject(setupError);
+            }
+            return promise;
+          })();
         if (failSave) throw new Error("Owned failed-save case");
       }
       return harness.behavior.callRpc(method, input);

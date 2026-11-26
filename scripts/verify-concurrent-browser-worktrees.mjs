@@ -71,45 +71,56 @@ try {
       path,
     ),
   );
-  for (const side of ["left", "right"]) {
+  await Array.fromAsync(["left", "right"], async (side) => {
     cancellation.signal.throwIfAborted();
     const tree = join(evidence, `${side}-worktree`);
     git(["worktree", "add", "--detach", tree, "HEAD"]);
     worktrees.push(tree);
-    for (const path of changed)
+    await Array.fromAsync(changed, async (path) => {
       await cp(join(repository, path), join(tree, path), { recursive: true });
-    for (const dependency of dependencies)
+    });
+    await Array.fromAsync(dependencies, async (dependency) => {
       await symlink(
         join(repository, dependency, "node_modules"),
         join(tree, dependency, "node_modules"),
         "dir",
       );
-  }
-  for (const plugin of plugins) {
+    });
+  });
+  await Array.fromAsync(plugins, async (plugin) => {
     const runs = [];
-    for (let index = 0; index < worktrees.length; index++) {
-      const side = index === 0 ? "left" : "right";
-      const checkout = join(worktrees[index], `bb-plugin-${plugin.name}`);
-      const output = join(evidence, plugin.name, side);
-      await mkdir(output, { recursive: true });
-      const marker = `${plugin.name}-${side}-checkout-marker`;
-      const htmlPath = join(checkout, plugin.html);
-      const html = await readFile(htmlPath, "utf8");
-      await writeFile(
-        htmlPath,
-        html.replace("</html>", `<div id="bbp-196-checkout-marker">${marker}</div></html>`),
-      );
-      const sourceHash = createHash("sha256")
-        .update(await readFile(htmlPath))
-        .digest("hex");
-      const file = await readFile(htmlPath, "utf8");
-      assert.ok(file.includes(marker), "changed HTML contains its checkout marker");
-      const facts = join(output, "browser.json");
-      const peer = join(evidence, plugin.name, side === "left" ? "right" : "left", "browser.json");
-      const spec = join(checkout, plugin.tests, "bbp-196-concurrent.spec.ts");
-      await writeFile(
-        spec,
-        `
+    await Array.fromAsync(
+      (function* () {
+        for (let index = 0; index < worktrees.length; index++) yield index;
+      })(),
+      async (index) => {
+        const side = index === 0 ? "left" : "right";
+        const checkout = join(worktrees[index], `bb-plugin-${plugin.name}`);
+        const output = join(evidence, plugin.name, side);
+        await mkdir(output, { recursive: true });
+        const marker = `${plugin.name}-${side}-checkout-marker`;
+        const htmlPath = join(checkout, plugin.html);
+        const html = await readFile(htmlPath, "utf8");
+        await writeFile(
+          htmlPath,
+          html.replace("</html>", `<div id="bbp-196-checkout-marker">${marker}</div></html>`),
+        );
+        const sourceHash = createHash("sha256")
+          .update(await readFile(htmlPath))
+          .digest("hex");
+        const file = await readFile(htmlPath, "utf8");
+        assert.ok(file.includes(marker), "changed HTML contains its checkout marker");
+        const facts = join(output, "browser.json");
+        const peer = join(
+          evidence,
+          plugin.name,
+          side === "left" ? "right" : "left",
+          "browser.json",
+        );
+        const spec = join(checkout, plugin.tests, "bbp-196-concurrent.spec.ts");
+        await writeFile(
+          spec,
+          `
 import {test,expect} from '@playwright/test';
 import {writeFile,readFile} from 'node:fs/promises';
 test('own changed checkout on simultaneous browser runs',async({page,context,baseURL},info)=>{
@@ -128,46 +139,49 @@ test('own changed checkout on simultaneous browser runs',async({page,context,bas
  await info.attach('checkout',{body:JSON.stringify(facts),contentType:'application/json'});
 });
 `,
-      );
-      const env = { ...process.env };
-      for (const key of [
-        "CODEX_QUOTA_PREVIEW_PORT",
-        "COMPOSE_CHAT_PREVIEW_PORT",
-        "MARKDOWN_READER_PREVIEW_PORT",
-        "BB_BROWSER_BASE_URL",
-        "BB_FIXTURE_RUN_DIR",
-        "BB_FIXTURE_PORT",
-      ])
-        Reflect.deleteProperty(env, key);
-      cancellation.signal.throwIfAborted();
-      const child = spawn(
-        process.execPath,
-        [
-          join(worktrees[index], "scripts/browser-fixture-runner.mjs"),
-          plugin.entry,
-          plugin.deadline,
-          "bbp-196-concurrent.spec.ts",
-          "--workers",
-          "1",
-        ],
-        { cwd: checkout, env, stdio: ["ignore", "pipe", "pipe"] },
-      );
-      const exited = once(child, "exit");
-      let log = "";
-      child.stdout.on("data", (data) => (log += data.toString()));
-      child.stderr.on("data", (data) => (log += data.toString()));
-      const run = { child, exited, checkout, output, facts, log: () => log };
-      processes.push(run);
-      runs.push(run);
-    }
+        );
+        const env = { ...process.env };
+        for (const key of [
+          "CODEX_QUOTA_PREVIEW_PORT",
+          "COMPOSE_CHAT_PREVIEW_PORT",
+          "MARKDOWN_READER_PREVIEW_PORT",
+          "BB_BROWSER_BASE_URL",
+          "BB_FIXTURE_RUN_DIR",
+          "BB_FIXTURE_PORT",
+        ])
+          Reflect.deleteProperty(env, key);
+        cancellation.signal.throwIfAborted();
+        const child = spawn(
+          process.execPath,
+          [
+            join(worktrees[index], "scripts/browser-fixture-runner.mjs"),
+            plugin.entry,
+            plugin.deadline,
+            "bbp-196-concurrent.spec.ts",
+            "--workers",
+            "1",
+          ],
+          { cwd: checkout, env, stdio: ["ignore", "pipe", "pipe"] },
+        );
+        const exited = once(child, "exit");
+        let log = "";
+        child.stdout.on("data", (data) => (log += data.toString()));
+        child.stderr.on("data", (data) => (log += data.toString()));
+        const run = { child, exited, checkout, output, facts, log: () => log };
+        processes.push(run);
+        runs.push(run);
+      },
+    );
     const outcomes = await Promise.allSettled(
       runs.map(async (run) => {
         const [code, signal] = await run.exited;
         await writeFile(join(run.output, "run.log"), run.log());
-        for (const path of plugin.name === "tasks-plus"
-          ? ["test-results"]
-          : ["test-results", "playwright-report"])
-          await cp(join(run.checkout, path), join(run.output, path), { recursive: true });
+        await Array.fromAsync(
+          plugin.name === "tasks-plus" ? ["test-results"] : ["test-results", "playwright-report"],
+          async (path) => {
+            await cp(join(run.checkout, path), join(run.output, path), { recursive: true });
+          },
+        );
         assert.equal(code, 0, `${plugin.name}: ${signal}\n${run.log()}`);
         const facts = JSON.parse(await readFile(run.facts, "utf8"));
         const ready = run.log().match(/Synthetic preview ready at (http:\/\/127\.0\.0\.1:\d+)/);
@@ -187,14 +201,14 @@ test('own changed checkout on simultaneous browser runs',async({page,context,bas
       JSON.stringify(results, null, 2),
     );
     console.log(`PASS ${plugin.name} ${results[0].origin} ${results[1].origin}`);
-  }
+  });
 } finally {
-  for (const run of processes) {
+  await Array.fromAsync(processes, async (run) => {
     if (run.child.exitCode === null && run.child.signalCode === null) {
       run.child.kill("SIGTERM");
       await run.exited;
     }
-  }
+  });
   for (const tree of worktrees.reverse()) git(["worktree", "remove", "--force", tree]);
   console.log(`Evidence retained at ${evidence}; removed ${worktrees.length} owned worktrees`);
   process.off("SIGINT", cancel);

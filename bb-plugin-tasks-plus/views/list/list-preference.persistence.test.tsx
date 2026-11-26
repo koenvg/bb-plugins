@@ -573,7 +573,7 @@ it("restores complete section, filter and sort preferences for all four scopes f
       sortName: "Priority",
     },
   ];
-  for (const scope of scopes) {
+  await Array.fromAsync(scopes, async (scope) => {
     const slot = renderSlot(
       app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: scope.path },
@@ -588,12 +588,12 @@ it("restores complete section, filter and sort preferences for all four scopes f
     fireEvent.click(await slot.findByRole("button", { name: scope.name }));
     await waitFor(() => expect(slot.queryByText(scope.row)).toBeNull());
     slot.lifecycle.unmount();
-  }
+  });
   const saved = window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY);
   expect(Object.keys(JSON.parse(saved ?? missingValue("Expected saved")).scopes).sort()).toEqual(
     scopes.map((scope) => scope.key).sort(),
   );
-  for (const scope of scopes) {
+  await Array.fromAsync(scopes, async (scope) => {
     const restored = renderSlot(
       app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: scope.path },
@@ -618,5 +618,5 @@ it("restores complete section, filter and sort preferences for all four scopes f
     fireEvent.click(header);
     await restored.findByText(scope.row);
     restored.lifecycle.unmount();
-  }
+  });
 });

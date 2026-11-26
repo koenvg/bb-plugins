@@ -21,9 +21,11 @@ const reply = (t: CaptureTarget, requestId: string) => ({
 });
 it("serializes, coalesces and correlates bounded capture without owning execution", async () => {
   let release!: () => void;
-  const first = new Promise<void>((r) => {
+  const first = (() => {
+    const { promise, resolve: r } = Promise.withResolvers<void>();
     release = r;
-  });
+    return promise;
+  })();
   const captures: unknown[] = [];
   const inspect = vi.fn(async (t, id) => {
     if (inspect.mock.calls.length === 1) await first;
@@ -45,14 +47,41 @@ it("serializes, coalesces and correlates bounded capture without owning executio
   expect(captures).toHaveLength(2);
   q.dispose();
 });
+it("drains a terminal capture enqueued as the previous inspection finishes", async () => {
+  const queued = Promise.withResolvers<void>();
+  const accepted: string[] = [];
+  const q = createCaptureQueue({
+    inspect: (entry, requestId) => Promise.resolve(reply(entry, requestId)),
+    accept: (id) => {
+      accepted.push(id);
+      if (id !== "first") return;
+      queueMicrotask(() => {
+        queueMicrotask(() => {
+          queueMicrotask(() => {
+            q.enqueue({ ...target("terminal"), terminal: true });
+            queued.resolve();
+          });
+        });
+      });
+    },
+    rateMs: 0,
+  });
+  q.enqueue(target("first"));
+  await queued.promise;
+  await q.drain();
+  expect(accepted).toEqual(["first", "terminal"]);
+  q.dispose();
+});
 it("rejects foreign and malformed captures and invalidates callbacks on disposal", async () => {
   const accepted = vi.fn();
   let release!: (v: unknown) => void;
   const q = createCaptureQueue({
     inspect: () =>
-      new Promise((r) => {
+      (() => {
+        const { promise, resolve: r } = Promise.withResolvers<unknown>();
         release = r;
-      }),
+        return promise;
+      })(),
     accept: accepted,
     rateMs: 0,
   });
@@ -67,7 +96,7 @@ it("times out unavailable captures without accepting a late replacement payload"
   try {
     const accepted = vi.fn();
     const q = createCaptureQueue({
-      inspect: () => new Promise(() => {}),
+      inspect: () => Promise.withResolvers<unknown>().promise,
       accept: accepted,
       timeoutMs: 20,
       rateMs: 0,
@@ -137,15 +166,20 @@ it.each(["throw", "timeout", "absent"])(
   async (mode) => {
     const accepted: unknown[] = [];
     const q = createCaptureQueue({
-      inspect: async (t, id) => ({
-        ...reply(t, id),
-        resolvedModel: { provider: "untrusted", model: "untrusted", capturedAt: 0 },
-      }),
-      resolveModel: async () => {
-        if (mode === "throw") throw new Error("Owned optional read failed");
-        if (mode === "timeout") return new Promise(() => {});
-        return undefined;
-      },
+      inspect: (t, id) =>
+        Promise.try(() => ({
+          ...reply(t, id),
+          resolvedModel: { provider: "untrusted", model: "untrusted", capturedAt: 0 },
+        })),
+      resolveModel: () =>
+        Promise.try(() => {
+          if (mode === "throw") throw new Error("Owned optional read failed");
+          if (mode === "timeout")
+            return Promise.withResolvers<
+              { provider: string; model: string; capturedAt: number } | undefined
+            >().promise;
+          return undefined;
+        }),
       accept: (_id, capture) => accepted.push(capture),
       now: () => 10,
       rateMs: 0,
@@ -161,8 +195,8 @@ it("enriches only after normalization and retains inspection fields and capture 
   const accepted: unknown[] = [];
   const model = { provider: "actual", model: "child", capturedAt: 12 };
   const q = createCaptureQueue({
-    inspect: async (t, id) => reply(t, id),
-    resolveModel: async () => model,
+    inspect: (t, id) => Promise.try(() => reply(t, id)),
+    resolveModel: () => Promise.try(() => model),
     accept: (_id, capture) => accepted.push(capture),
     now: () => 10,
     rateMs: 0,
@@ -175,7 +209,7 @@ it("enriches only after normalization and retains inspection fields and capture 
   q.dispose();
   const resolveModel = vi.fn();
   const malformed = createCaptureQueue({
-    inspect: async () => ({}),
+    inspect: () => Promise.resolve({}),
     resolveModel,
     accept() {},
     rateMs: 0,
@@ -189,13 +223,15 @@ it.each(["dispose", "replace"])(
   "suppresses an entire late enriched capture after %s",
   async (mode) => {
     let release!: () => void;
-    const waiting = new Promise<void>((r) => {
+    const waiting = (() => {
+      const { promise, resolve: r } = Promise.withResolvers<void>();
       release = r;
-    });
+      return promise;
+    })();
     let current = true;
     const accepted = vi.fn();
     const q = createCaptureQueue({
-      inspect: async (t, id) => reply(t, id),
+      inspect: (t, id) => Promise.try(() => reply(t, id)),
       resolveModel: async () => {
         await waiting;
         return { provider: "old", model: "old", capturedAt: 1 };
@@ -222,13 +258,24 @@ it("keeps optional work inside the remaining outer deadline", async () => {
     let signal: AbortSignal | undefined;
     const q = createCaptureQueue({
       inspect: async (t, id) => {
-        await new Promise((r) => setTimeout(r, 40));
+        await (() => {
+          const { promise, resolve: r, reject } = Promise.withResolvers<unknown>();
+          try {
+            setTimeout(r, 40);
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
         return reply(t, id);
       },
-      resolveModel: async (_t, s) => {
-        signal = s;
-        return new Promise(() => {});
-      },
+      resolveModel: (_t, s) =>
+        Promise.try(() => {
+          signal = s;
+          return Promise.withResolvers<
+            { provider: string; model: string; capturedAt: number } | undefined
+          >().promise;
+        }),
       accept: accepted,
       timeoutMs: 50,
       rateMs: 0,
@@ -262,11 +309,13 @@ it("preserves the eight-entry cap, terminal priority, coalescing and 750 ms spac
     const reads: { id: string; at: number }[] = [];
     const accepted: { id: string; status: string }[] = [];
     const q = createCaptureQueue({
-      inspect: async (t, id) => {
-        reads.push({ id: t.id, at: Date.now() });
-        return reply(t, id);
-      },
-      resolveModel: async () => ({ provider: "actual", model: "actual", capturedAt: Date.now() }),
+      inspect: (t, id) =>
+        Promise.try(() => {
+          reads.push({ id: t.id, at: Date.now() });
+          return reply(t, id);
+        }),
+      resolveModel: () =>
+        Promise.try(() => ({ provider: "actual", model: "actual", capturedAt: Date.now() })),
       accept: (id, capture) => accepted.push({ id, status: capture.status }),
     });
     q.enqueue(target("first"));

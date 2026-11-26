@@ -23,22 +23,28 @@ export class RemoteImages {
     let size = 0;
     let acquired = false;
     try {
-      await new Promise<void>((resolve, reject) => {
-        const ready = () => {
-          if (controller.signal.aborted) {
-            this.queue.delete(ready);
-            reject(new Error("Image cancelled"));
-          } else if (this.active < 4) {
-            this.queue.delete(ready);
-            this.active++;
-            acquired = true;
-            resolve();
-          }
-        };
-        this.queue.add(ready);
-        controller.signal.addEventListener("abort", ready, { once: true });
-        ready();
-      });
+      await (() => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>();
+        try {
+          const ready = () => {
+            if (controller.signal.aborted) {
+              this.queue.delete(ready);
+              reject(new Error("Image cancelled"));
+            } else if (this.active < 4) {
+              this.queue.delete(ready);
+              this.active++;
+              acquired = true;
+              resolve();
+            }
+          };
+          this.queue.add(ready);
+          controller.signal.addEventListener("abort", ready, { once: true });
+          ready();
+        } catch (setupError) {
+          reject(setupError);
+        }
+        return promise;
+      })();
       const response = await fetch(url, {
         mode: "cors",
         credentials: "omit",
@@ -59,9 +65,9 @@ export class RemoteImages {
       const reader = response.body.getReader();
       const chunks: Uint8Array<ArrayBuffer>[] = [];
       try {
-        while (true) {
+        const runStep = async () => {
           const { value, done } = await reader.read();
-          if (done) break;
+          if (done) return { kind: "break" } as const;
           if (
             controller.signal.aborted ||
             size + value.byteLength > imageLimit ||
@@ -73,6 +79,11 @@ export class RemoteImages {
           size += value.byteLength;
           this.bytes += value.byteLength;
           chunks.push(new Uint8Array(value));
+        };
+        for await (const stepResult of (async function* () {
+          while (true) yield runStep();
+        })()) {
+          if (stepResult?.kind === "break") break;
         }
       } finally {
         reader.releaseLock();
@@ -125,6 +136,7 @@ export const RemoteImage = ({
           current = loaded;
           setAsset(loaded);
         }
+        return;
       })
       .catch(() => {
         if (!controller.signal.aborted) setBroken(true);

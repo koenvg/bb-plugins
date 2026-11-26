@@ -55,27 +55,33 @@ describe("Tasks without Orchestrator", () => {
       await plugin(bb);
       const store = createStore(bb);
       const before = harness.inspection.sdk.calls.length;
-      for (const method of [
-        "orchestrateStatus",
-        "orchestrateBegin",
-        "orchestrateDispatch",
-        "reportWorker",
-        "readWorkerReport",
-      ]) {
-        await expect(harness.behavior.callRpc(method, null)).rejects.toThrow();
-      }
-      for (const tool of ["tasks_report", "tasks_report_context"]) {
+      await Array.fromAsync(
+        [
+          "orchestrateStatus",
+          "orchestrateBegin",
+          "orchestrateDispatch",
+          "reportWorker",
+          "readWorkerReport",
+        ],
+        async (method) => {
+          await expect(harness.behavior.callRpc(method, null)).rejects.toThrow();
+        },
+      );
+      await Array.fromAsync(["tasks_report", "tasks_report_context"], async (tool) => {
         await expect(harness.behavior.callAgentTool(tool, {})).rejects.toThrow();
-      }
-      for (const args of [
-        ["orchestrate", "status", "DEMO-1"],
-        ["report", "--help"],
-        ["report-context", "--help"],
-        ["report-show", "--help"],
-      ]) {
-        const result = await harness.behavior.runCli(args);
-        expect(result.exitCode).not.toBe(0);
-      }
+      });
+      await Array.fromAsync(
+        [
+          ["orchestrate", "status", "DEMO-1"],
+          ["report", "--help"],
+          ["report-context", "--help"],
+          ["report-show", "--help"],
+        ],
+        async (args) => {
+          const result = await harness.behavior.runCli(args);
+          expect(result.exitCode).not.toBe(0);
+        },
+      );
       expect(store.tasks.listTasks()).toEqual([]);
       expect(harness.inspection.sdk.calls).toHaveLength(before);
       for (const table of [
@@ -100,12 +106,14 @@ describe("Tasks without Orchestrator", () => {
       pluginId: "tasks",
       sdk: {
         threads: {
-          get: async () =>
-            makeThreadResponse({
-              id: "thr_history",
-              projectId: "proj_history",
-              status: "active",
-            }),
+          get: () =>
+            Promise.try(() =>
+              makeThreadResponse({
+                id: "thr_history",
+                projectId: "proj_history",
+                status: "active",
+              }),
+            ),
         },
       },
     });
@@ -113,22 +121,25 @@ describe("Tasks without Orchestrator", () => {
       const fixture = seedHistory(current.bb.storage.database());
       const before = readHistory(current.bb.storage.database());
       await plugin(current.bb);
-      for (let generation = 0; generation < 2; generation += 1) {
-        const store = createStore(current.bb);
-        expect(readHistory(current.bb.storage.database())).toEqual(before);
-        expect(store.tasks.getTask(fixture.task.id)).toEqual(fixture.task);
-        expect(store.tasks.listTaskThreads(fixture.task.id)).toEqual([fixture.association]);
-        expect(current.harness.inspection.sdk.calls.map(({ path }) => path)).toEqual([
-          "threads.get",
-        ]);
-        expect(current.harness.inspection.experimental_hostRpcCalls).toEqual([]);
-        expect(
-          current.harness.inspection.registrations.rpcMethods.filter((method) =>
-            method.startsWith("orchestrate"),
-          ),
-        ).toEqual([]);
-        if (generation === 0) current = await current.harness.lifecycle.reload(plugin);
-      }
+      await Array.fromAsync(
+        Array.from({ length: 2 }, (_, index) => index),
+        async (generation) => {
+          const store = createStore(current.bb);
+          expect(readHistory(current.bb.storage.database())).toEqual(before);
+          expect(store.tasks.getTask(fixture.task.id)).toEqual(fixture.task);
+          expect(store.tasks.listTaskThreads(fixture.task.id)).toEqual([fixture.association]);
+          expect(current.harness.inspection.sdk.calls.map(({ path }) => path)).toEqual([
+            "threads.get",
+          ]);
+          expect(current.harness.inspection.experimental_hostRpcCalls).toEqual([]);
+          expect(
+            current.harness.inspection.registrations.rpcMethods.filter((method) =>
+              method.startsWith("orchestrate"),
+            ),
+          ).toEqual([]);
+          if (generation === 0) current = await current.harness.lifecycle.reload(plugin);
+        },
+      );
     } finally {
       await current.harness.lifecycle.dispose();
     }

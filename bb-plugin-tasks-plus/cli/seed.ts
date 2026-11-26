@@ -57,36 +57,36 @@ export async function seedDemo(
     await domain.createFolder(tasksRpcContract.createFolder.input.parse({ name: "Life" })),
   ).folder;
 
-  const projects = [];
-  for (const input of [
-    {
-      name: "Tasks Plugin",
-      prefix: nextPrefix("TASKS", prefixes),
-      color: "blue",
-      folderId: productFolder.id,
-      linkedBbProjectId: linkedBbProjectId ?? null,
-    },
-    {
-      name: "Operations",
-      prefix: nextPrefix("OPS", prefixes),
-      color: "orange",
-      folderId: productFolder.id,
-      linkedBbProjectId: null,
-    },
-    {
-      name: "Personal",
-      prefix: nextPrefix("HOME", prefixes),
-      color: "violet",
-      folderId: lifeFolder.id,
-      linkedBbProjectId: null,
-    },
-  ]) {
-    projects.push(
-      tasksRpcContract.createProject.output.parse(
+  const projects = await Array.fromAsync(
+    [
+      {
+        name: "Tasks Plugin",
+        prefix: nextPrefix("TASKS", prefixes),
+        color: "blue",
+        folderId: productFolder.id,
+        linkedBbProjectId: linkedBbProjectId ?? null,
+      },
+      {
+        name: "Operations",
+        prefix: nextPrefix("OPS", prefixes),
+        color: "orange",
+        folderId: productFolder.id,
+        linkedBbProjectId: null,
+      },
+      {
+        name: "Personal",
+        prefix: nextPrefix("HOME", prefixes),
+        color: "violet",
+        folderId: lifeFolder.id,
+        linkedBbProjectId: null,
+      },
+    ],
+    async (input) => {
+      return tasksRpcContract.createProject.output.parse(
         await domain.createProject(tasksRpcContract.createProject.input.parse(input)),
-      ).project,
-    );
-  }
+      ).project;
+    },
+  );
 
   const [tasksProject, operationsProject, personalProject] = projects;
   if (!tasksProject || !operationsProject || !personalProject)
@@ -99,20 +99,13 @@ export async function seedDemo(
     [personalProject, "Home", "green"],
     [personalProject, "Errand", "yellow"],
   ] as const;
-  const labels = [];
-  for (const [project, name, color] of labelSpecs) {
-    labels.push(
-      tasksRpcContract.createLabel.output.parse(
-        await domain.createLabel(
-          tasksRpcContract.createLabel.input.parse({
-            projectId: project.id,
-            name,
-            color,
-          }),
-        ),
-      ).label,
-    );
-  }
+  const labels = await Array.fromAsync(labelSpecs, async ([project, name, color]) => {
+    return tasksRpcContract.createLabel.output.parse(
+      await domain.createLabel(
+        tasksRpcContract.createLabel.input.parse({ projectId: project.id, name, color }),
+      ),
+    ).label;
+  });
 
   const [backend, ux, automation, blocked, home, errand] = labels;
   if (!backend || !ux || !automation || !blocked || !home || !errand)

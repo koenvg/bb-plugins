@@ -13,7 +13,7 @@ const source = {
 };
 function ports() {
   const scheduler = {
-    list: vi.fn(async () => ({ complete: true, records: [] as ScheduleRecord[] })),
+    list: vi.fn(() => Promise.resolve({ complete: true, records: [] as ScheduleRecord[] })),
     create: vi.fn(),
     update: vi.fn(),
     resume: vi.fn(),
@@ -22,13 +22,15 @@ function ports() {
     delete: vi.fn(),
   };
   const p: SetupPorts = {
-    sources: vi.fn(async () => ({ complete: true, records: [source] })),
-    inspect: vi.fn(async (root: string) => ({
-      ready: true as const,
-      root,
-      packageDir: `${root}/bb-plugin-pi-subagents-provider`,
-      sourceRevision: "a".repeat(40),
-    })),
+    sources: vi.fn(() => Promise.try(() => ({ complete: true, records: [source] }))),
+    inspect: vi.fn((root: string) =>
+      Promise.try(() => ({
+        ready: true as const,
+        root,
+        packageDir: `${root}/bb-plugin-pi-subagents-provider`,
+        sourceRevision: "a".repeat(40),
+      })),
+    ),
     schedules: scheduler.list,
   };
   return { p, scheduler };
@@ -36,10 +38,11 @@ function ports() {
 
 it("never returns a wrapper plan for a thread path even if it is a normal clone", async () => {
   const { p, scheduler } = ports();
-  p.sources = async () => ({
-    complete: true,
-    records: [{ ...source, path: "/srv/thr_owned/source" }],
-  });
+  p.sources = () =>
+    Promise.try(() => ({
+      complete: true,
+      records: [{ ...source, path: "/srv/thr_owned/source" }],
+    }));
   const plan = await planWeeklyCheck({ projectId, serverHostId }, p);
   expect(plan).toMatchObject({ action: "blocked" });
   expect(p.inspect).not.toHaveBeenCalled();
@@ -93,11 +96,13 @@ describe("inert project-owned weekly setup planning", () => {
     { records: [{ ...source, path: "/srv/worktrees/worker" }] },
   ])("blocks missing, expiring, or ambiguous source %j", async (patch) => {
     const { p, scheduler } = ports();
-    p.sources = vi.fn(
-      async () =>
-        ({ complete: true, records: [source], ...patch }) as Awaited<
-          ReturnType<SetupPorts["sources"]>
-        >,
+    p.sources = vi.fn(() =>
+      Promise.try(
+        () =>
+          ({ complete: true, records: [source], ...patch }) as Awaited<
+            ReturnType<SetupPorts["sources"]>
+          >,
+      ),
     );
     expect(await planWeeklyCheck({ projectId, serverHostId }, p)).toMatchObject({
       action: "blocked",
@@ -108,7 +113,8 @@ describe("inert project-owned weekly setup planning", () => {
 
   it("blocks failed prerequisite lookup before consulting schedules", async () => {
     const { p, scheduler } = ports();
-    p.inspect = async () => ({ ready: false, reason: "Missing committed checker or baseline" });
+    p.inspect = () =>
+      Promise.resolve({ ready: false, reason: "Missing committed checker or baseline" });
     expect(await planWeeklyCheck({ projectId, serverHostId }, p)).toEqual({
       action: "blocked",
       reason: "Missing committed checker or baseline",
@@ -138,18 +144,21 @@ describe("inert project-owned weekly setup planning", () => {
       action: "reuse",
       enabled: false,
     });
-    for (const records of [
-      [record, record],
-      [{ ...record, problem: "invalid-stored-data" }],
-      [{ ...record, cron: "0 8 * * 1" }],
-      [{ ...record, script: `${record.script}\nchanged` }],
-      [{ ...record, projectId: "proj_other" }],
-    ]) {
-      scheduler.list.mockResolvedValue({ complete: true, records });
-      expect(await planWeeklyCheck({ projectId, serverHostId }, p)).toMatchObject({
-        action: "blocked",
-      });
-    }
+    await Array.fromAsync(
+      [
+        [record, record],
+        [{ ...record, problem: "invalid-stored-data" }],
+        [{ ...record, cron: "0 8 * * 1" }],
+        [{ ...record, script: `${record.script}\nchanged` }],
+        [{ ...record, projectId: "proj_other" }],
+      ],
+      async (records) => {
+        scheduler.list.mockResolvedValue({ complete: true, records });
+        expect(await planWeeklyCheck({ projectId, serverHostId }, p)).toMatchObject({
+          action: "blocked",
+        });
+      },
+    );
     scheduler.list.mockResolvedValue({ complete: false, records: [] });
     expect(await planWeeklyCheck({ projectId, serverHostId }, p)).toMatchObject({
       action: "blocked",

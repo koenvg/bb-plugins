@@ -44,11 +44,13 @@ const TaskPager = ({
   onNavigate: (route: TasksRoute) => void;
 }) => {
   const siblings = useTasksQuery(
-    async (rpc) =>
-      listAllTasks(rpc, {
-        ...(projectId === null ? {} : { projectId }),
-        parentTaskId: null,
-      }),
+    (rpc) =>
+      Promise.try(() =>
+        listAllTasks(rpc, {
+          ...(projectId === null ? {} : { projectId }),
+          parentTaskId: null,
+        }),
+      ),
     ["tasks:changed"],
     [projectId],
   );

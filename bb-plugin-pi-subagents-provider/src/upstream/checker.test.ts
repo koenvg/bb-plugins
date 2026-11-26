@@ -19,44 +19,45 @@ const baseline = {
 function fixture(paths: string[], before: string[] = []): Transport {
   const oldTree = gitTree(before, "before");
   const newTree = gitTree(paths, "after");
-  return async (path) => {
-    if (path.includes("/branches/"))
-      return { status: 200, data: { commit: { sha: head } }, next: false };
-    if (path.includes("/compare/"))
+  return (path) =>
+    Promise.try(() => {
+      if (path.includes("/branches/"))
+        return { status: 200, data: { commit: { sha: head } }, next: false };
+      if (path.includes("/compare/"))
+        return {
+          status: 200,
+          next: false,
+          data: {
+            status: "ahead",
+            base_commit: { sha: base },
+            merge_base_commit: { sha: base },
+            total_commits: 1,
+            ahead_by: 1,
+            commits: [{ sha: head }],
+          },
+        };
+      if (path.includes("/git/trees/")) {
+        const tree = path.includes(oldTree.sha) ? oldTree : newTree;
+        return { status: 200, next: false, data: tree };
+      }
+      const old = path.includes(base);
+      const page = Number(new URL(path, "https://example.test").searchParams.get("page"));
+      const files = old
+        ? []
+        : paths
+            .slice((page - 1) * 100, page * 100)
+            .map((filename) => ({ filename, status: "modified" }));
       return {
         status: 200,
-        next: false,
+        next: !old && paths.length > page * 100,
         data: {
-          status: "ahead",
-          base_commit: { sha: base },
-          merge_base_commit: { sha: base },
-          total_commits: 1,
-          ahead_by: 1,
-          commits: [{ sha: head }],
+          sha: old ? base : head,
+          parents: [{ sha: base }],
+          commit: { tree: { sha: old ? oldTree.sha : newTree.sha } },
+          files,
         },
       };
-    if (path.includes("/git/trees/")) {
-      const tree = path.includes(oldTree.sha) ? oldTree : newTree;
-      return { status: 200, next: false, data: tree };
-    }
-    const old = path.includes(base);
-    const page = Number(new URL(path, "https://example.test").searchParams.get("page"));
-    const files = old
-      ? []
-      : paths
-          .slice((page - 1) * 100, page * 100)
-          .map((filename) => ({ filename, status: "modified" }));
-    return {
-      status: 200,
-      next: !old && paths.length > page * 100,
-      data: {
-        sha: old ? base : head,
-        parents: [{ sha: base }],
-        commit: { tree: { sha: old ? oldTree.sha : newTree.sha } },
-        files,
-      },
-    };
-  };
+    });
 }
 const treeFixtures = new Map<
   string,
@@ -154,7 +155,7 @@ describe("read-only upstream comparison", () => {
 
   it.each([403, 404, 429, 500])("fails visibly for upstream HTTP %s", async (status) => {
     const result = await checkUpstream(baseline, {
-      transport: async () => ({ status, data: { token: "secret" }, next: false }),
+      transport: () => Promise.try(() => ({ status, data: { token: "secret" }, next: false })),
       now: () => 0,
     });
     expect(runOutput(result).exitCode).toBe(1);
@@ -163,9 +164,10 @@ describe("read-only upstream comparison", () => {
 
   it("does not print transport errors or credentials", async () => {
     const result = await checkUpstream(baseline, {
-      transport: async () => {
-        throw new Error("token=secret");
-      },
+      transport: () =>
+        Promise.try(() => {
+          throw new Error("token=secret");
+        }),
       now: () => 0,
     });
     expect(runOutput(result).stderr).toContain("inconclusive");
@@ -248,31 +250,32 @@ describe("read-only upstream comparison", () => {
   });
 
   it("fails on missing file pages, duplicate files, and exhausted bounds", async () => {
-    for (const mode of ["missing", "duplicate", "bound"]) {
+    await Array.fromAsync(["missing", "duplicate", "bound"], async (mode) => {
       const normal = fixture([]);
       const result = await checkUpstream(baseline, {
         now: () => 0,
         bounds: mode === "bound" ? { pages: 1 } : {},
-        transport: async (p, s) => {
-          if (!p.includes("/commits/")) return normal(p, s);
-          const last = p.endsWith("page=2");
-          return {
-            status: 200,
-            next: mode !== "missing" && !last,
-            data: {
-              sha: head,
-              files: last
-                ? [{ filename: "other/0", status: "modified" }]
-                : Array.from({ length: 100 }, (_, i) => ({
-                    filename: `other/${i}`,
-                    status: "modified",
-                  })),
-            },
-          };
-        },
+        transport: (p, s) =>
+          Promise.try(() => {
+            if (!p.includes("/commits/")) return normal(p, s);
+            const last = p.endsWith("page=2");
+            return {
+              status: 200,
+              next: mode !== "missing" && !last,
+              data: {
+                sha: head,
+                files: last
+                  ? [{ filename: "other/0", status: "modified" }]
+                  : Array.from({ length: 100 }, (_, i) => ({
+                      filename: `other/${i}`,
+                      status: "modified",
+                    })),
+              },
+            };
+          }),
       });
       expect(result.status).toBe("inconclusive");
-    }
+    });
   });
 
   it("bounds requests, elapsed time, and stalled requests", async () => {
@@ -289,7 +292,8 @@ describe("read-only upstream comparison", () => {
     });
     expect(result2.status).toBe("inconclusive");
     const result3 = await checkUpstream(baseline, {
-      transport: () => new Promise(() => {}),
+      transport: () =>
+        Promise.withResolvers<{ status: number; data: unknown; next: boolean }>().promise,
       now: () => 0,
       bounds: { requestMs: 1 },
     });
@@ -316,42 +320,43 @@ describe("read-only upstream comparison", () => {
       ...Array.from({ length: 100 }, (_, i) => (i + 1).toString(16).padStart(40, "0")),
       head,
     ];
-    const transport: Transport = async (p) => {
-      if (p.includes("branches"))
-        return { status: 200, next: false, data: { commit: { sha: head } } };
-      if (p.includes("compare")) {
-        const last = p.endsWith("page=2");
-        return {
-          status: 200,
-          next: !last,
-          data: {
-            status: "ahead",
-            base_commit: { sha: base },
-            merge_base_commit: { sha: base },
-            total_commits: 101,
-            ahead_by: 101,
-            commits: (last ? ids.slice(100) : ids.slice(0, 100)).map((sha) => ({ sha })),
-          },
-        };
-      }
-      if (p.includes("git/trees"))
+    const transport: Transport = (p) =>
+      Promise.try(() => {
+        if (p.includes("branches"))
+          return { status: 200, next: false, data: { commit: { sha: head } } };
+        if (p.includes("compare")) {
+          const last = p.endsWith("page=2");
+          return {
+            status: 200,
+            next: !last,
+            data: {
+              status: "ahead",
+              base_commit: { sha: base },
+              merge_base_commit: { sha: base },
+              total_commits: 101,
+              ahead_by: 101,
+              commits: (last ? ids.slice(100) : ids.slice(0, 100)).map((sha) => ({ sha })),
+            },
+          };
+        }
+        if (p.includes("git/trees"))
+          return {
+            status: 200,
+            next: false,
+            data: { sha: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", truncated: false, tree: [] },
+          };
+        const commit = p.split("/commits/")[1].split("?")[0];
         return {
           status: 200,
           next: false,
-          data: { sha: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", truncated: false, tree: [] },
+          data: {
+            sha: commit,
+            parents: [{ sha: base }],
+            commit: { tree: { sha: "4b825dc642cb6eb9a060e54bf8d69288fbee4904" } },
+            files: [],
+          },
         };
-      const commit = p.split("/commits/")[1].split("?")[0];
-      return {
-        status: 200,
-        next: false,
-        data: {
-          sha: commit,
-          parents: [{ sha: base }],
-          commit: { tree: { sha: "4b825dc642cb6eb9a060e54bf8d69288fbee4904" } },
-          files: [],
-        },
-      };
-    };
+      });
     const result = await checkUpstream(baseline, { transport, now: () => 0 });
     expect(result.status).toBe("no-relevant-change");
     const result2 = await checkUpstream(baseline, {
@@ -364,16 +369,21 @@ describe("read-only upstream comparison", () => {
 
   it("rejects truncated or unavailable complete trees", async () => {
     const normal = fixture(["other/file.ts"]);
-    for (const patch of [{ truncated: true }, { tree: undefined }, { sha: "bad" }]) {
-      const result = await checkUpstream(baseline, {
-        now: () => 0,
-        transport: async (p, s) => {
-          const r = await normal(p, s);
-          return p.includes("git/trees") ? { ...r, data: { ...(r.data as object), ...patch } } : r;
-        },
-      });
-      expect(result.status).toBe("inconclusive");
-    }
+    await Array.fromAsync(
+      [{ truncated: true }, { tree: undefined }, { sha: "bad" }],
+      async (patch) => {
+        const result = await checkUpstream(baseline, {
+          now: () => 0,
+          transport: async (p, s) => {
+            const r = await normal(p, s);
+            return p.includes("git/trees")
+              ? { ...r, data: { ...(r.data as object), ...patch } }
+              : r;
+          },
+        });
+        expect(result.status).toBe("inconclusive");
+      },
+    );
   });
   it("rejects missing paths even when file and tree omissions agree", async () => {
     const normal = fixture(["plugins/provider-pi/a.ts"]);
@@ -402,39 +412,40 @@ describe("read-only upstream comparison", () => {
     const file = "plugins/provider-pi/changed.ts";
     const empty = gitTree([], "empty");
     const changed = gitTree([file], "changed");
-    const transport: Transport = async (p) => {
-      if (p.includes("branches"))
-        return { status: 200, next: false, data: { commit: { sha: final } } };
-      if (p.includes("compare"))
+    const transport: Transport = (p) =>
+      Promise.try(() => {
+        if (p.includes("branches"))
+          return { status: 200, next: false, data: { commit: { sha: final } } };
+        if (p.includes("compare"))
+          return {
+            status: 200,
+            next: false,
+            data: {
+              status: "ahead",
+              base_commit: { sha: base },
+              merge_base_commit: { sha: base },
+              total_commits: 2,
+              ahead_by: 2,
+              commits: [{ sha: head }, { sha: final }],
+            },
+          };
+        if (p.includes("git/trees"))
+          return { status: 200, next: false, data: p.includes(changed.sha) ? changed : empty };
+        const revision = p.includes(head) ? head : p.includes(final) ? final : base;
         return {
           status: 200,
           next: false,
           data: {
-            status: "ahead",
-            base_commit: { sha: base },
-            merge_base_commit: { sha: base },
-            total_commits: 2,
-            ahead_by: 2,
-            commits: [{ sha: head }, { sha: final }],
+            sha: revision,
+            parents: [{ sha: revision === final ? head : base }],
+            commit: { tree: { sha: revision === head ? changed.sha : empty.sha } },
+            files:
+              revision === base
+                ? []
+                : [{ filename: file, status: revision === head ? "added" : "removed" }],
           },
         };
-      if (p.includes("git/trees"))
-        return { status: 200, next: false, data: p.includes(changed.sha) ? changed : empty };
-      const revision = p.includes(head) ? head : p.includes(final) ? final : base;
-      return {
-        status: 200,
-        next: false,
-        data: {
-          sha: revision,
-          parents: [{ sha: revision === final ? head : base }],
-          commit: { tree: { sha: revision === head ? changed.sha : empty.sha } },
-          files:
-            revision === base
-              ? []
-              : [{ filename: file, status: revision === head ? "added" : "removed" }],
-        },
-      };
-    };
+      });
     expect(await checkUpstream(baseline, { now: () => 0, transport })).toMatchObject({
       status: "review-required",
       baseline: base,

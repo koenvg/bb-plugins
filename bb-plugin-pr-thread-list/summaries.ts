@@ -25,9 +25,18 @@ async function eachLimited<T>(
 ): Promise<void> {
   let next = 0;
   const worker = async () => {
-    while (next < items.length) {
-      const item = items[next++];
-      if (item !== undefined) await run(item);
+    {
+      const runStep = async () => {
+        {
+          const item = items[next++];
+          if (item !== undefined) await run(item);
+        }
+      };
+      for await (const _ of (async function* () {
+        while (next < items.length) yield runStep();
+      })()) {
+        continue;
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));

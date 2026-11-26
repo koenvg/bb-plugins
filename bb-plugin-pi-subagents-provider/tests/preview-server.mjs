@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { reportPreviewReady } from "../../scripts/browser-fixture-runner.mjs";
 
 const tests = dirname(fileURLToPath(import.meta.url));
@@ -86,25 +87,35 @@ html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; backgr
       response.writeHead(500).end();
     }
   });
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, "127.0.0.1", resolve);
-  });
+  await (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      server.once("error", reject);
+      server.listen(port, "127.0.0.1", resolve);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
   cancellation.signal.throwIfAborted();
   const origin = `http://127.0.0.1:${server.address().port}`;
   console.log(`Synthetic preview ready at ${origin} (${root})`);
   reportPreviewReady(origin);
-  await new Promise((resolve) =>
-    cancellation.signal.addEventListener("abort", resolve, { once: true }),
-  );
+  await (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      cancellation.signal.addEventListener("abort", resolve, { once: true });
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
 } catch (error) {
   if (!cancellation.signal.aborted) throw error;
 } finally {
   try {
     if (server?.listening) {
-      const closed = new Promise((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve())),
-      );
+      const closed = promisify(server.close).call(server);
       server.closeAllConnections();
       await closed;
     }

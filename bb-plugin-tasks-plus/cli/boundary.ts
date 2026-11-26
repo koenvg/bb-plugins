@@ -78,13 +78,15 @@ async function defaultProject(
   return matches[0];
 }
 
-async function selectedProject(
+function selectedProject(
   domain: TasksDomain,
   ctx: PluginCliContext,
   address: string | undefined,
   required: boolean,
 ): Promise<Project | undefined> {
-  return address ? resolveProject(domain, address) : defaultProject(domain, ctx, required);
+  return Promise.try(() => {
+    return address ? resolveProject(domain, address) : defaultProject(domain, ctx, required);
+  });
 }
 
 async function requiredProject(
@@ -145,16 +147,11 @@ async function resolveTask(domain: TasksDomain, address: string): Promise<Task> 
   return result.task;
 }
 
-async function resolveTaskIds(
-  domain: TasksDomain,
-  addresses: readonly string[],
-): Promise<string[]> {
-  const ids: string[] = [];
-  for (const address of addresses) {
+function resolveTaskIds(domain: TasksDomain, addresses: readonly string[]): Promise<string[]> {
+  return Array.fromAsync(addresses, async (address) => {
     const task = await resolveTask(domain, address);
-    ids.push(task.id);
-  }
-  return ids;
+    return task.id;
+  });
 }
 
 function taskNotFound(address: string): CliError {

@@ -50,7 +50,16 @@ let failAfterDelete = false;
 let postDeleteFailure = false;
 let overlapNextDelete = false;
 let overlapSnapshot: Project[] | null = null;
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number) =>
+  (() => {
+    const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+    try {
+      setTimeout(resolve, ms);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
 const panel = requireFixture(document.getElementById("panel"), 'document.getElementById("panel")');
 const evidence = requireFixture(
   document.getElementById("evidence"),

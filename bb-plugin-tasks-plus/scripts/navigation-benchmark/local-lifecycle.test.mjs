@@ -20,19 +20,20 @@ const json = async (output, name) => JSON.parse(await readFile(join(output, name
 
 function owned(state, failures = []) {
   const calls = [];
-  const close = (name) => async () => {
-    calls.push(name);
-    if (failures.includes(name)) throw new Error(`${name} rejected`);
-  };
+  const close = (name) => () =>
+    Promise.try(() => {
+      calls.push(name);
+      if (failures.includes(name)) throw new Error(`${name} rejected`);
+    });
   Object.assign(state.resources, {
     cdp: { detach: close("cdp") },
     context: { close: close("context") },
     browser: { close: close("browser") },
     browserServer: { close: close("browserServer") },
     server: {
-      close(callback) {
+      close(closed) {
         calls.push("endpoint");
-        callback();
+        closed();
       },
     },
     backend: { calls: [{ method: "getTaskByKey" }], dispose: close("database") },
@@ -50,9 +51,10 @@ test("rejected detach and context close do not skip owned closures or the durabl
       runLocalHarness({
         output,
         phase: "preview",
-        execute: async (state) => {
-          calls = owned(state, ["cdp", "context"]);
-        },
+        execute: (state) =>
+          Promise.try(() => {
+            calls = owned(state, ["cdp", "context"]);
+          }),
       }),
       /cleanup or evidence failed/,
     );
@@ -84,12 +86,14 @@ test("capture/write failures retain the original error and still close every han
           calls = owned(state, ["cdp", "browserServer", "database"]);
           state.resources.page = {
             isClosed: () => false,
-            evaluate: async () => {
-              throw new Error("page unavailable");
-            },
-            screenshot: async () => {
-              throw new Error("screenshot unavailable");
-            },
+            evaluate: () =>
+              Promise.try(() => {
+                throw new Error("page unavailable");
+              }),
+            screenshot: () =>
+              Promise.try(() => {
+                throw new Error("screenshot unavailable");
+              }),
           };
           // The exclusive evidence write must fail rather than replace an existing file.
           await writeFile(join(output, "browser-evidence.json"), "retained");
@@ -126,9 +130,9 @@ function navigationPage({ failAt = 4, failure = "identity", closed = false } = {
     innerWidth: 1440,
     innerHeight: 900,
     performance: { now: () => time },
-    requestAnimationFrame: (cb) => frames.push(cb),
-    addEventListener: (_, cb) => {
-      listener = cb;
+    requestAnimationFrame: (onFrame) => frames.push(onFrame),
+    addEventListener: (_, onEvent) => {
+      listener = onEvent;
     },
     removeEventListener() {},
     PerformanceObserver: class {
@@ -183,23 +187,25 @@ function navigationPage({ failAt = 4, failure = "identity", closed = false } = {
     screenshot: async () => {},
     locator: () => ({ focus: async () => {} }),
     keyboard: {
-      async press(key) {
-        movement++;
-        listener({ key, target: {} });
-        identity = {
-          rowKey: armed.key,
-          detailKey: armed.key,
-          heading: armed.title,
-          marker: armed.marker,
-          rendered: true,
-          visible: true,
-        };
-        if (movement === failAt && failure === "timeout") return;
-        time += 16;
-        frames.shift()();
-        if (movement === failAt) identity.detailKey = "wrong";
-        time += 16;
-        frames.shift()();
+      press(key) {
+        return Promise.try(() => {
+          movement++;
+          listener({ key, target: {} });
+          identity = {
+            rowKey: armed.key,
+            detailKey: armed.key,
+            heading: armed.title,
+            marker: armed.marker,
+            rendered: true,
+            visible: true,
+          };
+          if (movement === failAt && failure === "timeout") return;
+          time += 16;
+          frames.shift()();
+          if (movement === failAt) identity.detailKey = "wrong";
+          time += 16;
+          frames.shift()();
+        });
       },
     },
     async waitForFunction(fn, arg) {
@@ -222,14 +228,16 @@ for (const failure of ["identity", "timeout"]) {
             state.resources.page = page;
             const cdp = (state.resources.cdp = Object.assign(new EventEmitter(), {
               detach: async () => {},
-              async send(method) {
-                if (method === "Tracing.start")
-                  this.emit("Tracing.dataCollected", { value: [{ name: "retained-event" }] });
-                if (method === "Tracing.end") this.emit("Tracing.tracingComplete");
-                if (method === "Profiler.stop") {
-                  if (failure === "identity") return { profile: { nodes: [{ id: 1 }] } };
-                  throw new Error("Profile unavailable");
-                }
+              send(method) {
+                return Promise.try(() => {
+                  if (method === "Tracing.start")
+                    this.emit("Tracing.dataCollected", { value: [{ name: "retained-event" }] });
+                  if (method === "Tracing.end") this.emit("Tracing.tracingComplete");
+                  if (method === "Profiler.stop") {
+                    if (failure === "identity") return { profile: { nodes: [{ id: 1 }] } };
+                    throw new Error("Profile unavailable");
+                  }
+                });
               },
             }));
             await measureLocalNavigation({ page, cdp, fixture, phase: "profile", ...state });
@@ -373,10 +381,11 @@ test("an endpoint close error does not skip database closure or ledger persisten
       runLocalHarness({
         output,
         phase: "preview",
-        execute: async (state) => {
-          owned(state);
-          state.resources.server.close = (callback) => callback(new Error("endpoint rejected"));
-        },
+        execute: (state) =>
+          Promise.try(() => {
+            owned(state);
+            state.resources.server.close = (closed) => closed(new Error("endpoint rejected"));
+          }),
       }),
       /cleanup or evidence failed/,
     );
@@ -475,10 +484,11 @@ test("successful terminal ledger commits ranking and the actual prepared result 
     const returned = await runLocalHarness({
       output,
       phase: "latency",
-      execute: async (state) => {
-        owned(state);
-        latencyEvidence(state);
-      },
+      execute: (state) =>
+        Promise.try(() => {
+          owned(state);
+          latencyEvidence(state);
+        }),
     });
     const ledger = await json(output, "ownership-ledger.json");
     const result = await json(output, "result.json");
@@ -525,9 +535,10 @@ test("a successful run writes completion only after exact cleanup and refuses ou
     await runLocalHarness({
       output,
       phase: "preview",
-      execute: async (state) => {
-        owned(state);
-      },
+      execute: (state) =>
+        Promise.try(() => {
+          owned(state);
+        }),
     });
     const result2 = await json(output, "result.json");
     assert.equal(result2.status, "prepared");

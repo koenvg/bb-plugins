@@ -42,11 +42,25 @@ function spawnOwned(args, env, executable = process.execPath) {
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  const done = new Promise((resolve) => {
-    child.once("error", (error) => resolve({ error }));
-    child.once("exit", (code, signal) => resolve({ code, signal }));
-  });
-  const closed = new Promise((resolve) => child.once("close", resolve));
+  const done = (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      child.once("error", (error) => resolve({ error }));
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
+  const closed = (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      child.once("close", resolve);
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
   const groupExists = () => {
     if (!child.pid) return false;
     try {
@@ -74,11 +88,29 @@ function spawnOwned(args, env, executable = process.execPath) {
         if (groupExists()) {
           signalGroup("SIGTERM");
           const grace = Date.now() + 5000;
-          while (groupExists() && Date.now() < grace) await delay(20);
+          {
+            const runStep = async () => {
+              await delay(20);
+            };
+            for await (const _ of (async function* () {
+              while (groupExists() && Date.now() < grace) yield runStep();
+            })()) {
+              continue;
+            }
+          }
           if (groupExists()) {
             signalGroup("SIGKILL");
             const deadline = Date.now() + 2000;
-            while (groupExists() && Date.now() < deadline) await delay(20);
+            {
+              const runStep = async () => {
+                await delay(20);
+              };
+              for await (const _ of (async function* () {
+                while (groupExists() && Date.now() < deadline) yield runStep();
+              })()) {
+                continue;
+              }
+            }
             if (groupExists())
               throw new Error(
                 `Infrastructure failure: owned process group ${child.pid} did not stop`,
@@ -106,12 +138,18 @@ async function run() {
   let cancellation;
   let failure;
   let fail;
-  const failed = new Promise((resolve) => {
-    fail = (error) => {
-      failure ??= error;
-      resolve({ error: failure });
-    };
-  });
+  const failed = (() => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    try {
+      fail = (error) => {
+        failure ??= error;
+        resolve({ error: failure });
+      };
+    } catch (setupError) {
+      reject(setupError);
+    }
+    return promise;
+  })();
   const cancel = (signal) => {
     cancellation ??= signal;
     fail(new Error(`Cancelled by ${signal}`));
@@ -131,10 +169,7 @@ async function run() {
     Reflect.deleteProperty(env, originKey);
     const preview = spawnOwned([resolve(entry)], env);
     owners.push(preview);
-    let ready;
-    const readiness = new Promise((resolve) => {
-      ready = resolve;
-    });
+    const { promise: readiness, resolve: ready } = Promise.withResolvers();
     let origin;
     let buffer = "";
     preview.child.stdout.setEncoding("utf8");
@@ -170,13 +205,14 @@ async function run() {
       if (buffer.startsWith(readyPrefix)) fail(new Error("Incomplete preview readiness record"));
     });
     preview.child.stderr.pipe(process.stderr, { end: false });
-    preview.done.then((outcome) => {
+    void (async () => {
+      const outcome = await preview.done;
       if (!shuttingDown)
         fail(
           outcome.error ??
             new Error(`Preview exited unexpectedly (${outcome.code ?? outcome.signal})`),
         );
-    });
+    })();
     deadline = setTimeout(() => fail(new Error("Preview startup timed out")), Number(deadlineText));
     const startup = await Promise.race([readiness, failed]);
     clearTimeout(deadline);

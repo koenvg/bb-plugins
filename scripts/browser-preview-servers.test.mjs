@@ -65,10 +65,7 @@ function start(preview, parent, port, args = [], preload, runtime) {
   );
   const exited = once(child, "exit");
   let output = "";
-  let ready;
-  const readiness = new Promise((resolve) => {
-    ready = resolve;
-  });
+  const { promise: readiness, resolve: ready } = Promise.withResolvers();
   child.stdout.on("data", (data) => {
     output += data.toString();
     const match = output.match(/Synthetic preview ready at (http:\/\/127\.0\.0\.1:\d+)/);
@@ -79,16 +76,18 @@ function start(preview, parent, port, args = [], preload, runtime) {
     child,
     exited,
     output: () => output,
-    async ready() {
-      return Promise.race([
-        readiness,
-        exited.then(() => {
-          throw new Error(output);
-        }),
-        delay(15000).then(() => {
-          throw new Error(`Readiness timed out: ${output}`);
-        }),
-      ]);
+    ready() {
+      return Promise.try(() => {
+        return Promise.race([
+          readiness,
+          exited.then(() => {
+            throw new Error(output);
+          }),
+          delay(15000).then(() => {
+            throw new Error(`Readiness timed out: ${output}`);
+          }),
+        ]);
+      });
     },
     async stop() {
       if (child.exitCode === null && child.signalCode === null) {
@@ -170,23 +169,29 @@ for (const preview of previews) {
         assert.ok(result7.includes('marker = "before"'));
         const ws = new WebSocket(origin.replace("http:", "ws:") + "/", "vite-hmr");
         const message = (type) =>
-          new Promise((resolve, reject) => {
-            const timer = setTimeout(
-              () => reject(new Error(`Missing HMR ${type} on owned listener`)),
-              5000,
-            );
-            ws.onmessage = (event) => {
-              const value = JSON.parse(event.data);
-              if (value.type === type) {
+          (() => {
+            const { promise, resolve, reject } = Promise.withResolvers();
+            try {
+              const timer = setTimeout(
+                () => reject(new Error(`Missing HMR ${type} on owned listener`)),
+                5000,
+              );
+              ws.onmessage = (event) => {
+                const value = JSON.parse(event.data);
+                if (value.type === type) {
+                  clearTimeout(timer);
+                  resolve(value);
+                }
+              };
+              ws.onerror = (error) => {
                 clearTimeout(timer);
-                resolve(value);
-              }
-            };
-            ws.onerror = (error) => {
-              clearTimeout(timer);
-              reject(error);
-            };
-          });
+                reject(error);
+              };
+            } catch (setupError) {
+              reject(setupError);
+            }
+            return promise;
+          })();
         try {
           await message("connected");
           const update = message("update");
@@ -254,11 +259,18 @@ for (const preview of previews) {
       const parent = await mkdtemp(join(tmpdir(), "preview-startup-contract-"));
       const owner = start(preview, parent);
       try {
-        for (let n = 0; n < 1000; n++) {
-          const result = await readdir(parent);
-          if (result.length) break;
-          if (owner.child.exitCode !== null) throw new Error(owner.output());
-          await delay(1);
+        {
+          const runStep = async () => {
+            const result = await readdir(parent);
+            if (result.length) return { kind: "break" };
+            if (owner.child.exitCode !== null) throw new Error(owner.output());
+            await delay(1);
+          };
+          for await (const stepResult of (async function* () {
+            for (let n = 0; n < 1000; n++) yield runStep();
+          })()) {
+            if (stepResult?.kind === "break") break;
+          }
         }
         owner.child.kill("SIGTERM");
         const result2 = await owner.exited;
@@ -310,8 +322,17 @@ for (const [runtime, mode] of [
       assert.notEqual(origin, peerOrigin);
       if (mode === "cancellation") {
         const deadline = Date.now() + 10000;
-        while (!owner.output().includes("TASKS_PLAYWRIGHT_HELD") && Date.now() < deadline)
-          await delay(20);
+        {
+          const runStep = async () => {
+            await delay(20);
+          };
+          for await (const _ of (async function* () {
+            while (!owner.output().includes("TASKS_PLAYWRIGHT_HELD") && Date.now() < deadline)
+              yield runStep();
+          })()) {
+            continue;
+          }
+        }
         assert.ok(owner.output().includes("TASKS_PLAYWRIGHT_HELD"), owner.output());
         owner.child.kill("SIGTERM");
       }
@@ -343,9 +364,9 @@ for (const [previewName, crawlEnded] of [
     );
     const dist = join(repository, `bb-plugin-${previewName}/dist`);
     const readDist = () =>
-      readdir(dist).catch((error) => {
-        if (error.code === "ENOENT") return null;
-        throw error;
+      readdir(dist).catch((readError) => {
+        if (readError.code === "ENOENT") return null;
+        throw readError;
       });
     const before = await readDist();
     const owner = start(preview, parent, "0", [], preload);
@@ -379,7 +400,15 @@ for (const [previewName, crawlEnded] of [
       Promise.race([
         events.includes(event)
           ? Promise.resolve()
-          : new Promise((resolve) => waiters.set(event, resolve)),
+          : (() => {
+              const { promise, resolve, reject } = Promise.withResolvers();
+              try {
+                waiters.set(event, resolve);
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            })(),
         owner.exited.then(() => {
           throw new Error(`Exited before ${event}: ${owner.output()}`);
         }),
@@ -451,9 +480,9 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
     );
     const dist = join(repository, "bb-plugin-markdown-reader/dist");
     const readDist = () =>
-      readdir(dist).catch((error) => {
-        if (error.code === "ENOENT") return null;
-        throw error;
+      readdir(dist).catch((readError) => {
+        if (readError.code === "ENOENT") return null;
+        throw readError;
       });
     const before = await readDist();
     const owner = start(preview, parent, "0", [], preload);
@@ -483,7 +512,15 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
       Promise.race([
         events.includes(event)
           ? Promise.resolve()
-          : new Promise((resolve) => waiters.set(event, resolve)),
+          : (() => {
+              const { promise, resolve, reject } = Promise.withResolvers();
+              try {
+                waiters.set(event, resolve);
+              } catch (setupError) {
+                reject(setupError);
+              }
+              return promise;
+            })(),
         owner.exited.then(() => {
           throw new Error(`Exited before ${event}: ${owner.output()}`);
         }),
@@ -563,7 +600,16 @@ test("tasks-plus drains a pending transform before closing its watcher", async (
   const wait = async (event) => {
     const marker = JSON.stringify({ event });
     const deadline = Date.now() + 10000;
-    while (!owner.output().includes(marker) && Date.now() < deadline) await delay(10);
+    {
+      const runStep = async () => {
+        await delay(10);
+      };
+      for await (const _ of (async function* () {
+        while (!owner.output().includes(marker) && Date.now() < deadline) yield runStep();
+      })()) {
+        continue;
+      }
+    }
     assert.ok(owner.output().includes(marker), owner.output());
   };
   try {

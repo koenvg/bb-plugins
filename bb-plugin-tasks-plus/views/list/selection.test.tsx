@@ -60,10 +60,11 @@ it("reports the rendered sorted tree with dimmed parents and expanded children, 
       listLabels: () => ({ labels: [] }),
       listTaskThreads: () => ({ taskThreads: [] }),
       listTasks: (raw) => {
-        if (refreshPending && rpcInput(raw).statuses)
-          return new Promise((resolve) => {
-            finishRefresh = resolve;
-          });
+        if (refreshPending && rpcInput(raw).statuses) {
+          const { promise, resolve } = Promise.withResolvers<unknown>();
+          finishRefresh = resolve;
+          return promise;
+        }
         return {
           tasks: rpcInput(raw).statuses ? [child, other] : [parent, child, other],
           nextCursor: null,
@@ -102,7 +103,7 @@ it("reports the rendered sorted tree with dimmed parents and expanded children, 
   refreshPending = true;
   await slot.behavior.emitRealtime("tasks:changed", {});
   expect(report.mock.calls.at(-1)?.[0].settled).toBe(false);
-  await act(async () => finishRefresh?.({ tasks: [child, other], nextCursor: null }));
+  await act(() => Promise.try(() => finishRefresh?.({ tasks: [child, other], nextCursor: null })));
   await waitFor(() => expect(report.mock.calls.at(-1)?.[0].settled).toBe(true));
 });
 

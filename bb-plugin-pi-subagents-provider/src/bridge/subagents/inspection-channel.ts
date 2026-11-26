@@ -45,11 +45,17 @@ export function createInspectionChannel(options: {
         if (!contextMatches(await options.context(), target))
           throw new Error("Inspection command capability unavailable or foreign session");
         if (closed || !current()) throw new Error("Inspection session replaced");
-        const reply = new Promise<unknown>((resolve, reject) => {
-          pending = { requestId, resolve, reject };
-          timer = setTimeout(() => reject(new Error("Inspection widget timed out")), 2500);
-          timer.unref?.();
-        });
+        const reply = (() => {
+          const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+          try {
+            pending = { requestId, resolve, reject };
+            timer = setTimeout(() => reject(new Error("Inspection widget timed out")), 2500);
+            timer.unref?.();
+          } catch (setupError) {
+            reject(setupError);
+          }
+          return promise;
+        })();
         void reply.catch(() => {});
         const response = await options.command(
           `/subagents-inspect-rpc ${requestId} ${target.asyncId}${target.childId ? " " + target.childId : ""} --lines 20`,

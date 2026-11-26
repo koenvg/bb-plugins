@@ -110,40 +110,41 @@ const slot = renderSlot(
   {
     sdk: {
       threads: {
-        get: async ({ threadId }) => {
-          if (threadId !== creatorId || params.has("unavailable"))
-            throw new Error("Creator unavailable");
-          return {
-            id: creatorId,
-            activeBackgroundAgentCount: 0,
-            canEditMessages: true,
-            canRestoreEnvironment: false,
-            canSpawnChild: false,
-            createdAt: 1,
-            environmentId: null,
-            lastReadAt: null,
-            latestAttentionAt: 1,
-            lifecycleOwnerThreadId: null,
-            originKind: null,
-            originPluginId: null,
-            parentNotifications: "auto",
-            parentThreadId: null,
-            pinnedAt: null,
-            projectId: "proj_creator_fixture",
-            providerId: "fixture",
-            queuedMessageCount: 0,
-            runtime: { displayStatus: "idle" },
-            sectionId: null,
-            sourceThreadId: null,
-            status: "idle",
-            updatedAt: 1,
-            visibility: "visible",
-            title: params.has("fallback") ? " " : creatorTitle,
-            titleFallback: params.has("fallback") ? "Creator fallback title" : null,
-            archivedAt: creatorArchived ? 1 : null,
-            deletedAt: null,
-          };
-        },
+        get: (input) =>
+          Promise.try(({ threadId }) => {
+            if (threadId !== creatorId || params.has("unavailable"))
+              throw new Error("Creator unavailable");
+            return {
+              id: creatorId,
+              activeBackgroundAgentCount: 0,
+              canEditMessages: true,
+              canRestoreEnvironment: false,
+              canSpawnChild: false,
+              createdAt: 1,
+              environmentId: null,
+              lastReadAt: null,
+              latestAttentionAt: 1,
+              lifecycleOwnerThreadId: null,
+              originKind: null,
+              originPluginId: null,
+              parentNotifications: "auto",
+              parentThreadId: null,
+              pinnedAt: null,
+              projectId: "proj_creator_fixture",
+              providerId: "fixture",
+              queuedMessageCount: 0,
+              runtime: { displayStatus: "idle" },
+              sectionId: null,
+              sourceThreadId: null,
+              status: "idle",
+              updatedAt: 1,
+              visibility: "visible",
+              title: params.has("fallback") ? " " : creatorTitle,
+              titleFallback: params.has("fallback") ? "Creator fallback title" : null,
+              archivedAt: creatorArchived ? 1 : null,
+              deletedAt: null,
+            };
+          }, input),
       },
     },
     rpc: {

@@ -222,9 +222,9 @@ export function preloadExtendedIcons(): Promise<void> {
   if (getExtendedIcons() !== null) return Promise.resolve();
   extendedIconsLoad ??= import("./icon-extended").then(
     () => undefined,
-    (error: unknown) => {
+    (iconLoadError: unknown) => {
       extendedIconsLoad = null;
-      throw error;
+      throw iconLoadError;
     },
   );
   return extendedIconsLoad;

@@ -130,7 +130,7 @@ describe("native Ticket tab", () => {
     document.body.append(outside);
     outside.focus();
     const opens = page.inspection.experimental_panelCalls.length;
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     await acceptNavigation(page);
     expect(page.inspection.experimental_panelCalls).toHaveLength(opens);
     expect(page.queryByRole("textbox", { name: "Task title" })).toBeNull();
@@ -152,10 +152,12 @@ describe("native Ticket tab", () => {
     const title = await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
-    await act(async () => {
-      title.textContent = "Old page draft";
-      fireEvent.input(title);
-    });
+    await act(() =>
+      Promise.try(() => {
+        title.textContent = "Old page draft";
+        fireEvent.input(title);
+      }),
+    );
     page.lifecycle.unmount();
     expect(ticket.queryByRole("textbox", { name: "Task title" })).toBeNull();
     expect(within(ticket.container).getByText(/Choose a ticket/)).toBeTruthy();
@@ -236,7 +238,7 @@ describe("native Ticket tab", () => {
     fireEvent.click(within(ticket.container).getByRole("button", { name: "Retry save" }));
     ticket.lifecycle.unmount();
     const opens = page.inspection.experimental_panelCalls.length;
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     await acceptNavigation(page);
     expect(page.inspection.experimental_panelCalls).toHaveLength(opens);
   });

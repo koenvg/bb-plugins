@@ -129,10 +129,7 @@ export async function select(slot: ReturnType<typeof setup>, n: number) {
   await slot.findByRole("textbox", { name: "Task title" });
 }
 export function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
+  const { promise, resolve } = Promise.withResolvers<T>();
   return { promise, resolve };
 }
 export async function readyDescription(slot: ReturnType<typeof setup>) {
@@ -142,11 +139,13 @@ export async function readyDescription(slot: ReturnType<typeof setup>) {
 }
 export async function edit(slot: ReturnType<typeof setup>, text: string, index = 0) {
   await readyDescription(slot);
-  await act(async () => {
-    const editor =
-      slot.container.querySelectorAll<HTMLElement>(' .tiptap[contenteditable="true"]')[index] ??
-      missingValue("Missing fixture value");
-    editor.innerHTML = `<p>${text}</p>`;
-    fireEvent.input(editor);
-  });
+  await act(() =>
+    Promise.try(() => {
+      const editor =
+        slot.container.querySelectorAll<HTMLElement>(' .tiptap[contenteditable="true"]')[index] ??
+        missingValue("Missing fixture value");
+      editor.innerHTML = `<p>${text}</p>`;
+      fireEvent.input(editor);
+    }),
+  );
 }

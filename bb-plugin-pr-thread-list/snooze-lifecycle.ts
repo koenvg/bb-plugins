@@ -12,7 +12,7 @@ export function createSnoozeLifecycle() {
   function exclusive<T>(run: () => Promise<T>): Promise<T> {
     const result = tail.then(run);
     tail = result.then(
-      () => {},
+      () => undefined,
       () => {},
     );
     return result;

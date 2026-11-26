@@ -27,12 +27,12 @@ function observePanel() {
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      private callback: ResizeObserverCallback;
-      constructor(callback: ResizeObserverCallback) {
-        this.callback = callback;
+      private onResize: ResizeObserverCallback;
+      constructor(onResize: ResizeObserverCallback) {
+        this.onResize = onResize;
       }
       observe(element: Element) {
-        callbacks.set(element, this.callback);
+        callbacks.set(element, this.onResize);
       }
       unobserve(element: Element) {
         callbacks.delete(element);
@@ -42,11 +42,13 @@ function observePanel() {
   );
   return async (width: number) => {
     panelSize.width = width;
-    await act(async () => {
-      for (const [element, onResize] of callbacks) {
-        if (element.tagName === "MAIN") onResize([], {} as ResizeObserver);
-      }
-    });
+    await act(() =>
+      Promise.try(() => {
+        for (const [element, onResize] of callbacks) {
+          if (element.tagName === "MAIN") onResize([], {} as ResizeObserver);
+        }
+      }),
+    );
   };
 }
 
@@ -155,11 +157,13 @@ describe("host-controlled Ticket presentation", () => {
       slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
     expect(fetch).not.toHaveBeenCalled();
-    await act(async () =>
-      saved.resolve({
-        ok: true,
-        task: { ...tasks[0], title: "Unblurred A", description: "Description draft" },
-      }),
+    await act(() =>
+      Promise.try(() =>
+        saved.resolve({
+          ok: true,
+          task: { ...tasks[0], title: "Unblurred A", description: "Description draft" },
+        }),
+      ),
     );
   });
 
@@ -172,7 +176,7 @@ describe("host-controlled Ticket presentation", () => {
     await hostTab(slot, "all?task=TSK-1", false);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(slot.inspection.navigateCalls).toEqual([]);
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     await acceptNavigation(slot);
     const byRole = await slot.findByRole("textbox", { name: "Task title" });
@@ -234,14 +238,14 @@ describe("host-controlled Ticket presentation", () => {
     const title = await slot.findByRole("textbox", { name: "Task title" });
     const list = slot.getByRole("region", { name: "Ticket list" });
     title.focus();
-    for (const width of [880, 600, 320, 1000]) {
+    await Array.fromAsync([880, 600, 320, 1000], async (width) => {
       await resize(width);
       expect(list.hidden).toBe(false);
       expect(list.style.width).toBe("");
       expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
       expect(document.activeElement).toBe(title);
       expect(slot.queryByRole("button", { name: "Back to list" })).toBeNull();
-    }
+    });
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
   });

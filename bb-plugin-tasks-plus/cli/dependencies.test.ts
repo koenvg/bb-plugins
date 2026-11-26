@@ -8,7 +8,16 @@ import plugin from "../server";
 const disposers: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
-  while (disposers.length > 0) await disposers.pop()?.();
+  {
+    const runStep = async () => {
+      await disposers.pop()?.();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length > 0) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 async function setup() {
@@ -16,8 +25,12 @@ async function setup() {
     pluginId: "tasks",
     sdk: {
       threads: {
-        spawn: async () => ({ id: "thr_worker" }),
-        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "starting" }),
+        spawn: () => Promise.resolve({ id: "thr_worker" }),
+        get: (input) =>
+          Promise.try(
+            ({ threadId }) => makeThreadResponse({ id: threadId, status: "starting" }),
+            input,
+          ),
       },
     },
   });

@@ -8,7 +8,16 @@ import { createStore, registerTasksApi } from ".";
 const disposers: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
-  while (disposers.length > 0) await disposers.pop()?.();
+  {
+    const runStep = async () => {
+      await disposers.pop()?.();
+    };
+    for await (const _ of (async function* () {
+      while (disposers.length > 0) yield runStep();
+    })()) {
+      continue;
+    }
+  }
 });
 
 function setup() {
@@ -16,7 +25,11 @@ function setup() {
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
+        get: (input) =>
+          Promise.try(
+            ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
+            input,
+          ),
       },
     },
   });

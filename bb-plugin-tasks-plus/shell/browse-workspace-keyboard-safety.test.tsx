@@ -33,7 +33,7 @@ describe("browse delayed focus and save safety", () => {
     byRole.focus();
     press("o");
     await acceptNavigation(slot);
-    await act(async () => loaded.resolve(null));
+    await act(() => Promise.try(() => loaded.resolve(null)));
     await slot.findByRole("button", { name: "Retry" });
     expect(document.activeElement).toBe(detail(slot));
     press("j");
@@ -61,7 +61,7 @@ describe("browse delayed focus and save safety", () => {
         (call) => call.method === "getTaskByKey" && rpcInput(call.input).taskKey === "TSK-1",
       ),
     ).toHaveLength(1);
-    await act(async () => loaded.resolve({ task: tasks[1] }));
+    await act(() => Promise.try(() => loaded.resolve({ task: tasks[1] })));
     expect(document.activeElement).toBe(detail(slot));
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
   });
@@ -79,7 +79,7 @@ describe("browse delayed focus and save safety", () => {
       if (target === "overlay") other.setAttribute("role", "dialog");
       (target === "outside" ? document.body : detail(slot)).append(other);
       other.focus();
-      await act(async () => loaded.resolve({ task: tasks[0] }));
+      await act(() => Promise.try(() => loaded.resolve({ task: tasks[0] })));
       expect(document.activeElement).toBe(other);
       other.remove();
       detail(slot).focus(); // Re-render must not resurrect deferred focus after dismissal.
@@ -102,7 +102,7 @@ describe("browse delayed focus and save safety", () => {
       (owner === "outside" ? document.body : detail(slot)).append(other);
       const target = owner === "editor" ? title : other;
       target.focus();
-      await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+      await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
       const active = document.activeElement;
       other.remove();
       expect(active).toBe(target);
@@ -129,7 +129,7 @@ describe("browse delayed focus and save safety", () => {
       if (owner === "overlay") other.setAttribute("role", "dialog");
       document.body.append(other);
       other.focus();
-      await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+      await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
       const active = document.activeElement;
       other.remove();
       expect(active).toBe(other);
@@ -147,7 +147,7 @@ describe("browse delayed focus and save safety", () => {
     detail(slot).focus();
     press("Escape");
     title.focus();
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     expect(document.activeElement).toBe(title);
     expect(document.activeElement?.closest("[hidden], [inert]")).toBeNull();
     expect(slot.container.contains(title)).toBe(true);
@@ -163,7 +163,7 @@ describe("browse delayed focus and save safety", () => {
     row(slot, 3).focus();
     press("o");
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
-    await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
+    await act(() => Promise.try(() => saved.resolve({ ok: true, task: tasks[0] })));
     expect(slot.inspection.navigateCalls).toHaveLength(1);
     await acceptNavigation(slot);
     await waitFor(() => expect(document.activeElement).toBe(detail(slot)));
@@ -196,7 +196,9 @@ describe("browse delayed focus and save safety", () => {
     expect((slot.getByRole("button", { name: "Next task" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
-    await act(async () => refresh.resolve({ tasks: tasks.slice(1), nextCursor: null }));
+    await act(() =>
+      Promise.try(() => refresh.resolve({ tasks: tasks.slice(1), nextCursor: null })),
+    );
     await slot.findByRole("alert");
     const writes = slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").length;
     press("j");

@@ -43,7 +43,11 @@ function fixture(taskCount: number, mappingCount: number) {
     pluginId: "tasks",
     sdk: {
       threads: {
-        get: async ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
+        get: (input) =>
+          Promise.try(
+            ({ threadId }) => makeThreadResponse({ id: threadId, status: "active" }),
+            input,
+          ),
       },
     },
   });
@@ -267,24 +271,28 @@ describe("lifecycle SQL scope", () => {
     const f = fixture(1, 1);
     try {
       await registerLifecycle(f.bb, f.store);
-      for (const status of ["todo", "in_progress", "in_review", "done", "canceled"] as const) {
-        f.store.tasks.updateTask((f.tasks[0] ?? missingValue("Expected f.tasks[0]")).id, {
-          status,
-        });
-        f.queries.length = 0;
-        await f.harness.emitThreadEvent("thread.idle", {
-          thread: makeThreadResponse({ id: "thr_worker_0", status: "idle" }),
-          lastAssistantText: null,
-        });
-        expect(f.queries).toHaveLength(status === "todo" ? 4 : 1);
-        expect(
-          f.store.tasks.getTaskThread((f.mappings[0] ?? missingValue("Expected f.mappings[0]")).id)
-            ?.liveStatus,
-        ).toBe("idle");
-        expect(
-          f.store.tasks.getTask((f.tasks[0] ?? missingValue("Expected f.tasks[0]")).id)?.status,
-        ).toBe(status);
-      }
+      await Array.fromAsync(
+        ["todo", "in_progress", "in_review", "done", "canceled"] as const,
+        async (status) => {
+          f.store.tasks.updateTask((f.tasks[0] ?? missingValue("Expected f.tasks[0]")).id, {
+            status,
+          });
+          f.queries.length = 0;
+          await f.harness.emitThreadEvent("thread.idle", {
+            thread: makeThreadResponse({ id: "thr_worker_0", status: "idle" }),
+            lastAssistantText: null,
+          });
+          expect(f.queries).toHaveLength(status === "todo" ? 4 : 1);
+          expect(
+            f.store.tasks.getTaskThread(
+              (f.mappings[0] ?? missingValue("Expected f.mappings[0]")).id,
+            )?.liveStatus,
+          ).toBe("idle");
+          expect(
+            f.store.tasks.getTask((f.tasks[0] ?? missingValue("Expected f.tasks[0]")).id)?.status,
+          ).toBe(status);
+        },
+      );
     } finally {
       await f.dispose();
     }
