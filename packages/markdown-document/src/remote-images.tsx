@@ -163,7 +163,7 @@ export const RemoteImage = ({
       }}
     />
   ) : (
-    <span>
+    <span className="mr-image-placeholder">
       {label}
       {broken ? " (image unavailable)" : ""}
     </span>

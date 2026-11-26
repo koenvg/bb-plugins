@@ -305,7 +305,7 @@ export const DestinationImage = ({
     return eligible && resources && issued && parsed?.kind === "external" ? (
       <RemoteImage key={parsed.url} url={parsed.url} alt={alt} resources={resources} />
     ) : (
-      <span>
+      <span className="mr-image-placeholder">
         {alt || "Image"}
         {eligible && !issued ? " (image unavailable)" : ""}
       </span>

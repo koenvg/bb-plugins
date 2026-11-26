@@ -117,7 +117,7 @@ export const CalendarValues = ({
   });
   return (
     <fieldset
-      className="mt-4 min-w-0 text-muted-foreground"
+      className="mt-4 mx-0 mb-0 min-w-0 border-0 p-0 text-muted-foreground"
       aria-label="Daily recorded values"
       ref={group}
       tabIndex={-1}
@@ -134,7 +134,7 @@ export const CalendarValues = ({
           <fieldset
             aria-label="Models"
             aria-describedby={helpId}
-            className="flex flex-wrap gap-x-4 gap-y-1 text-xs [overflow-wrap:anywhere]"
+            className="m-0 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-0 p-0 text-xs [overflow-wrap:anywhere]"
           >
             {entries.map(({ id, series, hidden }) => (
               <button
