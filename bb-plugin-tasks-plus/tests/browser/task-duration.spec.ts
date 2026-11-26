@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { expect, test, type Page } from "@playwright/test";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { createStore, registerTasksApi } from "../../api";
@@ -45,11 +46,12 @@ async function setup(page: Page) {
     ["done", "2026-10-19T17:00:00.000Z"],
   ] as const)
     await transition(second.id, status, at);
-  const requests: Array<{ method: string; input: unknown }> = [];
+  const requests: { method: string; input: unknown }[] = [];
   let beforeUpdate: (() => Promise<boolean>) | undefined;
   let failLookup = false;
   await page.route("**/__task_duration_rpc/*", async (route) => {
-    const method = route.request().url().split("/").at(-1)! as keyof typeof tasksRpcContract;
+    const method = (route.request().url().split("/").at(-1) ??
+      missingValue("Expected a non-null value")) as keyof typeof tasksRpcContract;
     const input: unknown = route.request().postDataJSON();
     requests.push({ method, input });
     if (method === "getTaskByKey" && failLookup) {
@@ -145,7 +147,9 @@ for (const width of [1200, 650, 390]) {
       await f.transition(f.first.id, "done", "2026-10-22T18:00:00.000Z");
       await changed(page, f.first.id);
       await expect(strip.getByText("3d 9h")).toBeVisible();
-      expect(await editor!.evaluate((node) => node.isConnected)).toBe(true);
+      expect(
+        await (editor ?? missingValue("Expected editor")).evaluate((node) => node.isConnected),
+      ).toBe(true);
       f.failLookup(true);
       await changed(page, f.first.id);
       await expect(page.getByRole("alert")).toContainText("Could not refresh TSK-1");
@@ -188,7 +192,9 @@ for (const width of [1200, 650, 390]) {
       const strip = page.getByRole("region", { name: "Task duration" });
       const title = page.getByRole("textbox", { name: "Task title" });
       await expect(strip.getByText("2d 8h")).toBeVisible();
-      const initialHeight = (await strip.boundingBox())!.height;
+      const initialHeight = (
+        (await strip.boundingBox()) ?? missingValue("Expected (await strip.boundingBox())")
+      ).height;
       const layout = page.locator(
         `[data-properties-layout="${width === 1200 ? "rail" : "inline"}"]`,
       );
@@ -207,7 +213,10 @@ for (const width of [1200, 650, 390]) {
       await page.getByRole("menuitem", { name: "In Progress", exact: true }).click();
       await expect(strip.getByText("Awaiting status save")).toBeVisible();
       await expect(strip.getByText("2d 8h")).toHaveCount(0);
-      expect((await strip.boundingBox())!.height).toBe(initialHeight);
+      expect(
+        ((await strip.boundingBox()) ?? missingValue("Expected (await strip.boundingBox())"))
+          .height,
+      ).toBe(initialHeight);
       await page.getByRole("button", { name: "Next task", exact: true }).click();
       await acceptNavigation(page);
       await expect(title).toHaveText("Reopened task");
@@ -216,7 +225,10 @@ for (const width of [1200, 650, 390]) {
       expect(f.store.tasks.getTask(f.first.id)?.status).toBe("done");
       await expect(strip.getByText("Awaiting status save")).toBeVisible();
       await expect(strip.getByText("2d 8h")).toHaveCount(0);
-      expect((await strip.boundingBox())!.height).toBe(initialHeight);
+      expect(
+        ((await strip.boundingBox()) ?? missingValue("Expected (await strip.boundingBox())"))
+          .height,
+      ).toBe(initialHeight);
       await page.screenshot({ path: testInfo.outputPath("failed-status-save.png") });
       f.resumeUpdates();
       await page.getByRole("button", { name: "Retry save", exact: true }).click();

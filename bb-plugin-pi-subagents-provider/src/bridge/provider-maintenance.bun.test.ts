@@ -1,3 +1,4 @@
+import type * as ProviderBridgeRuntime from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -13,8 +14,7 @@ const probeState = vi.hoisted(() => ({
 }));
 
 vi.mock("@get-bb/plugin-sdk-runtime/provider-bridge", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("@get-bb/plugin-sdk-runtime/provider-bridge")>();
+  const original = await importOriginal<typeof ProviderBridgeRuntime>();
   return {
     ...original,
     experimental_commandOutput: vi.fn(async () => probeState.bunBin),

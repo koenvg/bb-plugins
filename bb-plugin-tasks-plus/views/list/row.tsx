@@ -1,3 +1,4 @@
+import type { ListTreeEntry } from "./lib.js";
 import { memo, useCallback, useMemo, useRef, type RefObject } from "react";
 import type { Label, Project, Task } from "../../shared/contract.js";
 import { Icon } from "@/components/ui/icon";
@@ -270,9 +271,9 @@ export const BoundTaskRow = memo(function BoundTaskRow({
 > & {
   onOpenTask: (key: string) => void;
   setOpenRowMenu: (menu: { taskKey: string; menu: RowMenu } | null) => void;
-  toggleExpanded: (entry: import("./lib.js").ListTreeEntry) => void;
+  toggleExpanded: (entry: ListTreeEntry) => void;
   onRequestContextChange: (commit: () => void) => void;
-  entry?: import("./lib.js").ListTreeEntry;
+  entry?: ListTreeEntry;
 }) {
   const { key } = props.task;
   const onOpen = useCallback(() => onOpenTask(key), [onOpenTask, key]);

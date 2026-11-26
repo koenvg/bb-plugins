@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -41,7 +42,7 @@ it("keeps task edits, labels and live thread/PR observations visible after selec
     makeTask({ id: `t${number}`, key: `TSK-${number}`, title: `Task ${number}` }),
   );
   const project = {
-    id: tasks[0]!.projectId,
+    id: (tasks[0] ?? missingValue("Expected tasks[0]")).projectId,
     name: "Test",
     prefix: "TSK",
     nextTaskNumber: 3,
@@ -93,23 +94,39 @@ it("keeps task edits, labels and live thread/PR observations visible after selec
   });
   await slot.findByRole("button", { name: /Threads for TSK-1: 1 Running/ });
   expect(
-    slot.container.querySelector('[data-task-key="TSK-1"]')!.getAttribute("data-agent-state"),
+    (
+      slot.container.querySelector('[data-task-key="TSK-1"]') ??
+      missingValue("Expected a non-null value")
+    ).getAttribute("data-agent-state"),
   ).toBe("running");
   slot.lifecycle.rerender(<List {...props} selectedTaskKey="TSK-2" />);
   execution = "failed";
   prState = "merged";
-  tasks = [{ ...tasks[0]!, title: "Edited", dueDate: "2026-11-04", labelIds: ["bug"] }, tasks[1]!];
+  tasks = [
+    {
+      ...(tasks[0] ?? missingValue("Expected tasks[0]")),
+      title: "Edited",
+      dueDate: "2026-11-04",
+      labelIds: ["bug"],
+    },
+    tasks[1] ?? missingValue("Expected tasks[1]"),
+  ];
   await slot.behavior.emitRealtime("tasks:changed", {});
   await slot.behavior.emitRealtime("threads:changed", { taskId: "t1" });
   await slot.findByRole("button", { name: "Open TSK-1: Edited" });
   await slot.findByRole("button", { name: /Threads for TSK-1: 1 Failed/ });
   expect(
-    slot.container.querySelector('[data-task-key="TSK-1"]')!.getAttribute("data-agent-state"),
+    (
+      slot.container.querySelector('[data-task-key="TSK-1"]') ??
+      missingValue("Expected a non-null value")
+    ).getAttribute("data-agent-state"),
   ).toBeNull();
   expect(slot.getByRole("button", { name: /PR details for TSK-1:.*Merged/ })).toBeTruthy();
-  labels = [{ ...labels[0]!, name: "Regression" }];
+  labels = [{ ...(labels[0] ?? missingValue("Expected labels[0]")), name: "Regression" }];
   await slot.behavior.emitRealtime("projects:changed", {});
-  const row = slot.container.querySelector<HTMLElement>('[data-task-key="TSK-1"]')!;
+  const row =
+    slot.container.querySelector<HTMLElement>('[data-task-key="TSK-1"]') ??
+    missingValue("Expected a non-null value");
   fireEvent.contextMenu(row);
   fireEvent.keyDown(await slot.findByRole("menuitem", { name: "Labels" }), { key: "ArrowRight" });
   const byRole = await slot.findByRole("menuitemcheckbox", { name: "Regression" });
@@ -140,7 +157,9 @@ it("uses the current context action for edits and reports pending writes as unse
   });
   await slot.findByRole("button", { name: "Open TSK-1: Original" });
   slot.lifecycle.rerender(<List {...props} onRequestContextChange={currentContext} />);
-  const row = slot.container.querySelector<HTMLElement>('[data-task-key="TSK-1"]')!;
+  const row =
+    slot.container.querySelector<HTMLElement>('[data-task-key="TSK-1"]') ??
+    missingValue("Expected a non-null value");
   fireEvent.click(within(row).getByRole("button", { name: "Change status, currently Todo" }));
   fireEvent.click(await slot.findByRole("menuitem", { name: /Done/ }));
   await waitFor(() =>
@@ -159,9 +178,9 @@ it("uses the current context action for edits and reports pending writes as unse
   );
   expect(report.mock.calls.at(-1)?.[0]).toEqual({ keys: ["TSK-1"], settled: true });
   expect(
-    within(slot.container.querySelector<HTMLElement>('[data-task-key="TSK-1"]')!).getByRole(
-      "button",
-      { name: "Change status, currently Done" },
-    ),
+    within(
+      slot.container.querySelector<HTMLElement>('[data-task-key="TSK-1"]') ??
+        missingValue("Expected a non-null value"),
+    ).getByRole("button", { name: "Change status, currently Done" }),
   ).toBeTruthy();
 });

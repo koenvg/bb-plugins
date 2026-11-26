@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Attachment } from "../../shared/contract.js";
@@ -41,7 +42,8 @@ describe("AttachmentsGrid layout", () => {
       />,
     );
     const fileCard = screen.getByText("notes.md");
-    const image = screen.getAllByAltText("diagram.png")[0]!;
+    const image =
+      screen.getAllByAltText("diagram.png")[0] ?? missingValue("Expected a non-null value");
     expect(fileCard.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

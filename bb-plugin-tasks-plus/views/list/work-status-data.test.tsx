@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -61,7 +62,7 @@ describe("visible work status loading", () => {
     const calls: string[][] = [];
     const slot = renderSlot(
       { component: Root },
-      { ids: [...ids, ids[0]!], scope: "all" },
+      { ids: [...ids, ids[0] ?? missingValue("Expected ids[0]")], scope: "all" },
       {
         rpc: {
           listTaskWorkStatus: (raw) => {
@@ -73,7 +74,10 @@ describe("visible work status loading", () => {
       },
     );
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain(ids[1000]),
+      expect(
+        (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+          .textContent,
+      ).toContain(ids[1000]),
     );
     expect(calls.map((c) => c.length)).toEqual([500, 500, 1]);
     expect(new Set(calls.flat()).size).toBe(1001);
@@ -100,12 +104,18 @@ describe("visible work status loading", () => {
       },
     );
     await act(async () => {});
-    expect(slot.container.querySelector("output")!.textContent).toContain("working");
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).toContain("working");
     await act(() => vi.advanceTimersByTimeAsync(59_999));
     expect(calls).toBe(1);
     await act(() => vi.advanceTimersByTimeAsync(1));
     expect(calls).toBe(2);
-    expect(slot.container.querySelector("output")!.textContent).toContain("idle");
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).toContain("idle");
     await slot.behavior.emitRealtime("threads:changed", { taskId: ID });
     expect(calls).toBe(3);
     await slot.behavior.emitRealtime("tasks:changed", { taskId: ID });
@@ -142,13 +152,26 @@ describe("visible work status loading", () => {
     await slot.behavior.emitRealtime("threads:changed", {});
     slot.lifecycle.rerender(<Root ids={[OTHER]} scope="two" />);
     expect(calls).toHaveLength(1);
-    await act(async () => releases.shift()!(result([ID])));
+    await act(async () =>
+      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID])),
+    );
     await waitFor(() => expect(calls).toHaveLength(2));
-    expect(slot.container.querySelector("output")!.textContent).not.toContain(ID);
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).not.toContain(ID);
     expect(calls[1]).toEqual([OTHER]);
-    await act(async () => releases.shift()!(result([OTHER], "failed")));
-    expect(slot.container.querySelector("output")!.textContent).toContain("failed");
-    expect(slot.container.querySelector("output")!.textContent).not.toContain(ID);
+    await act(async () =>
+      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([OTHER], "failed")),
+    );
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).toContain("failed");
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).not.toContain(ID);
   });
 
   it("rejects an old response even after returning to the same list scope", async () => {
@@ -169,11 +192,21 @@ describe("visible work status loading", () => {
     await waitFor(() => expect(calls).toBe(1));
     slot.lifecycle.rerender(<Root ids={[OTHER]} scope="two" />);
     slot.lifecycle.rerender(<Root ids={[ID]} scope="one" />);
-    await act(async () => releases.shift()!(result([ID], "failed")));
-    expect(slot.container.querySelector("output")!.textContent).not.toContain("failed");
+    await act(async () =>
+      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID], "failed")),
+    );
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).not.toContain("failed");
     expect(calls).toBe(2);
-    await act(async () => releases.shift()!(result([ID], "idle")));
-    expect(slot.container.querySelector("output")!.textContent).toContain("idle");
+    await act(async () =>
+      (releases.shift() ?? missingValue("Expected releases.shift()"))(result([ID], "idle")),
+    );
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).toContain("idle");
   });
 
   it("does not retain a current claim after a failed refresh and preserves identities as unavailable", async () => {
@@ -186,28 +219,45 @@ describe("visible work status loading", () => {
           listTaskWorkStatus: () => {
             if (fail) throw new Error("offline");
             const value = result([ID]);
-            value.byTaskId[ID]!.threads[0]!.archive = "archived";
+            (
+              (value.byTaskId[ID] ?? missingValue("Expected value.byTaskId[ID]")).threads[0] ??
+              missingValue("Expected a non-null value")
+            ).archive = "archived";
             return value;
           },
         },
       },
     );
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain("working"),
+      expect(
+        (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+          .textContent,
+      ).toContain("working"),
     );
     fail = true;
     await slot.behavior.emitRealtime("threads:changed", {});
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain("unavailable"),
+      expect(
+        (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+          .textContent,
+      ).toContain("unavailable"),
     );
-    expect(slot.container.querySelector("output")!.textContent).toContain("thr_worker");
-    expect(slot.container.querySelector("output")!.textContent).not.toContain(
-      '"execution":"working"',
-    );
-    expect(slot.container.querySelector("output")!.textContent).toContain('"archive":"unknown"');
-    expect(slot.container.querySelector("output")!.textContent).not.toContain(
-      '"archive":"archived"',
-    );
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).toContain("thr_worker");
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).not.toContain('"execution":"working"');
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).toContain('"archive":"unknown"');
+    expect(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).not.toContain('"archive":"archived"');
   });
 
   it.each(["scope change", "membership change", "unmount"])(
@@ -234,7 +284,10 @@ describe("visible work status loading", () => {
         },
       );
       await waitFor(() => expect(calls).toHaveLength(1));
-      const session = calls[0]!.refresh as { id: string; step: string };
+      const session = (calls[0] ?? missingValue("Expected calls[0]")).refresh as {
+        id: string;
+        step: string;
+      };
       expect(session.step).toBe("start");
       if (reason === "unmount") slot.lifecycle.unmount();
       else if (reason === "membership change")
@@ -248,8 +301,14 @@ describe("visible work status loading", () => {
       if (reason === "unmount") expect(calls).toHaveLength(2);
       else {
         expect(calls[2]).toEqual({ taskIds: [OTHER] });
-        expect(slot.container.querySelector("output")!.textContent).toContain("idle");
-        expect(slot.container.querySelector("output")!.textContent).not.toContain("failed");
+        expect(
+          (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+            .textContent,
+        ).toContain("idle");
+        expect(
+          (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+            .textContent,
+        ).not.toContain("failed");
       }
     },
   );
@@ -285,14 +344,21 @@ describe("visible work status loading", () => {
       },
     );
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain('"state":"merged"'),
+      expect(
+        (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+          .textContent,
+      ).toContain('"state":"merged"'),
     );
     fireEvent.click(slot.getByText("Refresh"));
     await waitFor(() =>
-      expect(slot.container.querySelector("output")!.textContent).toContain('"state":"unknown"'),
+      expect(
+        (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+          .textContent,
+      ).toContain('"state":"unknown"'),
     );
     const row = JSON.parse(
-      slot.container.querySelector("output")!.textContent!,
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent ?? missingValue("Expected a non-null value"),
     )[0][1] as TaskWorkStatus;
     expect(row.pullRequests).toMatchObject({
       availability: "unavailable",

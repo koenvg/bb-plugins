@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -95,7 +96,7 @@ it("retains survivors immediately on shrink, reads only additions, and refetches
   let pending: ReturnType<typeof deferred> | undefined;
   const f = fixture([A, B], (input) => pending?.promise ?? result(input.taskIds as string[]));
   await waitFor(() => expect(f.latest.data?.size).toBe(2));
-  const survivor = f.latest.data!.get(B);
+  const survivor = (f.latest.data ?? missingValue("Expected f.latest.data")).get(B);
   const start = f.history.length;
   f.rerender([B]);
   expect(f.calls).toEqual([{ taskIds: [A, B] }]);
@@ -106,7 +107,7 @@ it("retains survivors immediately on shrink, reads only additions, and refetches
   expect(f.calls).toEqual([{ taskIds: [A, B] }, { taskIds: [C] }]);
   expect(f.latest.data?.get(B)).toBe(survivor);
   expect(f.latest.isLoading).toBe(true);
-  await act(async () => pending!.resolve(result([C], "idle")));
+  await act(async () => (pending ?? missingValue("Expected pending")).resolve(result([C], "idle")));
   expect(f.latest.data?.get(C)?.threads[0]?.execution).toBe("idle");
   f.rerender([B]);
   pending = undefined;
@@ -213,7 +214,7 @@ it("keeps an owning row's error across successful additions until that row is re
   f.rerender([C]);
   await waitFor(() => expect(f.latest.data?.get(C)?.availability).toBe("available"));
   expect(f.latest.error).toBeNull();
-  expect([...f.latest.data!.keys()]).toEqual([C]);
+  expect([...(f.latest.data ?? missingValue("Expected f.latest.data")).keys()]).toEqual([C]);
 });
 
 it("sizes chunk sessions by missing IDs rather than total retained membership", async () => {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -98,7 +99,8 @@ it("starts with one Agents tab and a truthful observed count, without duplicate 
     "4 observed entries in available history. Not an active-worker count.",
   );
   expect(agents.getAttribute("title")).toBe("Agents · 4 observed entries in available history");
-  const count = agents.querySelector(".pi-subagents-tab-count")!;
+  const count =
+    agents.querySelector(".pi-subagents-tab-count") ?? missingValue("Expected a non-null value");
   expect(count.textContent).toBe("4");
   expect(count.getAttribute("aria-hidden")).toBe("true");
   expect(view.getAllByRole("tab")).toHaveLength(1);
@@ -130,7 +132,10 @@ it("keeps raw task attribution in Task and separates execution from capture gaps
   const first = nav.getByRole("button", {
     name: "delegate Read and follow /workspace/project/AGENTS.md. Task: Inspect the retained tab layout without changing navigation. Entry 3 complete",
   });
-  expect(first.querySelector(".pi-subagents-purpose")!.textContent).toBe(
+  expect(
+    (first.querySelector(".pi-subagents-purpose") ?? missingValue("Expected a non-null value"))
+      .textContent,
+  ).toBe(
     "Read and follow /workspace/project/AGENTS.md. Task: Inspect the retained tab layout without changing navigation.",
   );
   fireEvent.click(first);
@@ -142,7 +147,8 @@ it("keeps raw task attribution in Task and separates execution from capture gaps
   expect(within(task).getByTestId("bb-markdown").textContent).toBe(
     "Read and follow /workspace/project/AGENTS.md.\n\nTask: Inspect the retained tab layout without changing navigation.",
   );
-  const identity = detail.querySelector(".pi-subagents-identity")!;
+  const identity =
+    detail.querySelector(".pi-subagents-identity") ?? missingValue("Expected a non-null value");
   expect(identity.querySelector(".pi-subagents-purpose")).toBeNull();
   expect(identity.textContent).not.toContain("Read and follow");
   expect(within(detail).getByRole("region", { name: "Final output" }).textContent).toBe(
@@ -157,14 +163,18 @@ it("keeps raw task attribution in Task and separates execution from capture gaps
   const gap = within(second).getByText("Capture unavailable");
   expect(execution.textContent).toBe("complete");
   expect(execution.getAttribute("data-state")).toBe("complete");
-  expect(execution.querySelector(".pi-subagents-state-dot")!.getAttribute("aria-hidden")).toBe(
-    "true",
-  );
+  expect(
+    (
+      execution.querySelector(".pi-subagents-state-dot") ??
+      missingValue("Expected a non-null value")
+    ).getAttribute("aria-hidden"),
+  ).toBe("true");
   expect(gap.getAttribute("title")).toBe("Artifact missing");
   expect(execution.contains(gap)).toBe(false);
-  expect(second.querySelector(".pi-subagents-row-meta")!.textContent).toBe(
-    "background · subagentCapture unavailable",
-  );
+  expect(
+    (second.querySelector(".pi-subagents-row-meta") ?? missingValue("Expected a non-null value"))
+      .textContent,
+  ).toBe("background · subagentCapture unavailable");
   fireEvent.click(second);
   detail = view.getByRole("article", { name: "Child detail" });
   expect(within(detail).getByLabelText("Execution state: complete").textContent).toBe("complete");
@@ -189,12 +199,24 @@ it("retains repeated-label readers and disclosures across row and tab actions, a
   });
   fireEvent.click(first);
   const reader = view.getByRole("region", { name: "Captured conversation" });
-  const task = reader.querySelector<HTMLDetailsElement>(".pi-subagents-task")!;
-  const conversation = reader.querySelector<HTMLDetailsElement>(".pi-subagents-conversation")!;
-  const tool = reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
-  fireEvent.click(task.querySelector("summary")!);
-  fireEvent.click(conversation.querySelector("summary")!);
-  fireEvent.click(tool.querySelector("summary")!);
+  const task =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-task") ??
+    missingValue("Expected a non-null value");
+  const conversation =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-conversation") ??
+    missingValue("Expected a non-null value");
+  const tool =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool") ??
+    missingValue("Expected a non-null value");
+  fireEvent.click(
+    task.querySelector("summary") ?? missingValue('Expected task.querySelector("summary")'),
+  );
+  fireEvent.click(
+    conversation.querySelector("summary") ?? missingValue("Expected a non-null value"),
+  );
+  fireEvent.click(
+    tool.querySelector("summary") ?? missingValue('Expected tool.querySelector("summary")'),
+  );
   expect([task.open, conversation.open, tool.open]).toEqual([true, true, true]);
   reader.scrollTop = 211;
   fireEvent.click(view.getByRole("tab", { name: "Agents" }));
@@ -215,9 +237,12 @@ it("retains repeated-label readers and disclosures across row and tab actions, a
   expect(view.getByRole("button", { name: "Close delegate Entry 3 tab" }).textContent).toBe("");
   expect(view.getByRole("button", { name: "Close delegate Entry 4 tab" }).textContent).toBe("");
   fireEvent.click(view.getByRole("tab", { name: "delegate Entry 4" }));
-  expect(view.getByRole("article").querySelector(".pi-subagents-reference")!.textContent).toBe(
-    "Entry 4",
-  );
+  expect(
+    (
+      view.getByRole("article").querySelector(".pi-subagents-reference") ??
+      missingValue("Expected a non-null value")
+    ).textContent,
+  ).toBe("Entry 4");
   fireEvent.click(view.getByRole("tab", { name: "delegate Entry 3" }));
   expect(view.getByRole("region", { name: "Captured conversation" })).toBe(reader);
   expect(reader.querySelector(".pi-subagents-task")).toBe(task);
@@ -225,7 +250,9 @@ it("retains repeated-label readers and disclosures across row and tab actions, a
   expect(reader.querySelector(".pi-subagents-tool")).toBe(tool);
   expect(reader.scrollTop).toBe(211);
   expect([task.open, conversation.open, tool.open]).toEqual([true, true, true]);
-  expect(tool.querySelector("pre")!.textContent).toBe("src/ui/subagents-view.tsx");
+  expect(
+    (tool.querySelector("pre") ?? missingValue('Expected tool.querySelector("pre")')).textContent,
+  ).toBe("src/ui/subagents-view.tsx");
   const active = view.getByRole("tab", { name: "delegate Entry 3" });
   expect(document.activeElement).toBe(active);
   fireEvent.click(view.getByRole("button", { name: "Close delegate Entry 3 tab" }));
@@ -233,13 +260,21 @@ it("retains repeated-label readers and disclosures across row and tab actions, a
   expect(agents.getAttribute("aria-selected")).toBe("true");
   expect(document.activeElement).toBe(agents);
   expect(view.getAllByRole("tab")).toHaveLength(2);
-  expect(agents.querySelector(".pi-subagents-tab-count")!.textContent).toBe("4");
+  expect(
+    (agents.querySelector(".pi-subagents-tab-count") ?? missingValue("Expected a non-null value"))
+      .textContent,
+  ).toBe("4");
   expect(within(view.getByRole("navigation")).getAllByRole("button")).toHaveLength(3);
   expect(within(first).getByLabelText("Execution state: complete").textContent).toBe("complete");
   fireEvent.click(first);
   const reopened = view.getByRole("region", { name: "Captured conversation" });
   expect(reopened).not.toBe(reader);
-  expect(reopened.querySelector<HTMLDetailsElement>(".pi-subagents-task")!.open).toBe(false);
+  expect(
+    (
+      reopened.querySelector<HTMLDetailsElement>(".pi-subagents-task") ??
+      missingValue("Expected a non-null value")
+    ).open,
+  ).toBe(false);
   expect(within(reopened).getByRole("region", { name: "Final output" }).textContent).toBe(
     "Final outputLayout inspection complete.",
   );
@@ -254,13 +289,18 @@ it("promotes the empty workflow's child while preserving its capture gap and exe
   });
   expect(nav.queryByRole("button", { name: /review workflow/ })).toBeNull();
   expect(nav.getAllByRole("button")[0]).toBe(child);
-  expect(child.closest("li")!.style.paddingInlineStart).toBe("0px");
+  expect(
+    (child.closest("li") ?? missingValue('Expected child.closest("li")')).style.paddingInlineStart,
+  ).toBe("0px");
   expect(within(child).getByText("Incomplete coverage").textContent).toBe("Incomplete coverage");
   expect(within(child).getByLabelText("Execution state: running").textContent).toBe("running");
   fireEvent.click(child);
   const detail = view.getByRole("article", { name: "Child detail" });
   expect(within(detail).getByRole("heading", { level: 3 }).textContent).toBe("delegate");
-  expect(detail.querySelector(".pi-subagents-reference")!.textContent).toBe("Entry 2");
+  expect(
+    (detail.querySelector(".pi-subagents-reference") ?? missingValue("Expected a non-null value"))
+      .textContent,
+  ).toBe("Entry 2");
   expect(within(detail).getByRole("status").textContent).toBe(
     "Capture timeout: No inspection reply",
   );
@@ -268,5 +308,8 @@ it("promotes the empty workflow's child while preserving its capture gap and exe
   expect(view.getAllByRole("tab")).toHaveLength(2);
   fireEvent.click(view.getByRole("tab", { name: "Agents" }));
   expect(nav.getAllByRole("button")).toHaveLength(3);
-  expect(child.querySelector(".pi-subagents-label")!.textContent).toBe("delegate");
+  expect(
+    (child.querySelector(".pi-subagents-label") ?? missingValue("Expected a non-null value"))
+      .textContent,
+  ).toBe("delegate");
 });

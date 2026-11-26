@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { experimental_createDeltaAssembler as createAssembler } from "@get-bb/plugin-sdk/provider-bridge/testing";
 import { threadDeltaSchema } from "@get-bb/plugin-sdk/provider-bridge";
@@ -144,7 +145,9 @@ it("assembles background activity after parent idle and settles once with the sa
     taskType: "local_subagent",
     skipTranscript: false,
   });
-  expect(active.items.at(-1)!.summary).toContain("read");
+  expect((active.items.at(-1) ?? missingValue("Expected active.items.at(-1)")).summary).toContain(
+    "read",
+  );
   await h.waitForDelta("thr_owned", (d) => nativeStatus(d) === "completed");
   const final = assembled(h);
   expect(new Set(final.items.map((item) => item.id)).size).toBe(1);
@@ -180,7 +183,10 @@ it.each(["release", "exit", "replacement"])(
     const { harness: h, providerThreadId } = await start(true);
     await h.waitForDelta("thr_owned", (d) => nativeStatus(d) === "pending");
     if (reason === "exit") {
-      process.kill(h.readProcessLog().spawned[0]!, "SIGTERM");
+      process.kill(
+        h.readProcessLog().spawned[0] ?? missingValue("Expected h.readProcessLog().spawned[0]"),
+        "SIGTERM",
+      );
       await h.waitForDelta("thr_owned", (d) => nativeStatus(d) === "interrupted");
     } else if (reason === "replacement") {
       await h.startThread("thr_owned");
@@ -194,7 +200,9 @@ it.each(["release", "exit", "replacement"])(
     }
     const terminal = h.deltasOf("thr_owned").filter((d) => nativeStatus(d) === "interrupted");
     expect(terminal).toHaveLength(1);
-    expect((terminal[0]!.item as { summary: string }).summary).toContain("unknown");
+    expect(
+      ((terminal[0] ?? missingValue("Expected terminal[0]")).item as { summary: string }).summary,
+    ).toContain("unknown");
     expect(h.readProcessLog().spawned).toHaveLength(reason === "replacement" ? 2 : 1);
   },
   15000,
@@ -214,15 +222,17 @@ it("captures final detail as persistent public extension state without another p
   const { harness: h, providerThreadId } = await start();
   // Each owned process has a new Pi session, while this thread retains older rows.
   const sessionId = JSON.parse(
-    readFileSync(join(h.sessionDir, `${providerThreadId}.jsonl`), "utf8").split("\n")[0]!,
+    readFileSync(join(h.sessionDir, `${providerThreadId}.jsonl`), "utf8").split("\n")[0] ??
+      missingValue("Expected a non-null value"),
   ).id as string;
   await h.waitForDelta("thr_owned", (d) => nativeStatus(d) === "completed");
   const terminalAt = h.deltasOf("thr_owned").findIndex((d) => nativeStatus(d) === "completed");
   await h.waitForDelta("thr_owned", (d) => hasOwnedFinalCapture(d, sessionId), terminalAt + 1);
-  const final = h
-    .deltasOf("thr_owned")
-    .filter((d) => d.kind === "extension.state")
-    .at(-1)!;
+  const final =
+    h
+      .deltasOf("thr_owned")
+      .filter((d) => d.kind === "extension.state")
+      .at(-1) ?? missingValue("Expected a non-null value");
   const row = parseViewState(JSON.parse(JSON.stringify(final.payload)))?.rows.find(
     (r) => r.sessionId === sessionId && r.runId === "owned-run-1" && r.source === "background",
   );
@@ -231,7 +241,10 @@ it("captures final detail as persistent public extension state without another p
     state: "complete",
     capture: { status: "captured", finalOutput: "Owned final answer" },
   });
-  expect(row!.capture!.finalOutput).toBe("Owned final answer");
+  expect(
+    ((row ?? missingValue("Expected row")).capture ?? missingValue("Expected a non-null value"))
+      .finalOutput,
+  ).toBe("Owned final answer");
   expect(
     h.deltasOf("thr_owned").findIndex((d) => hasOwnedFinalCapture(d, sessionId)),
   ).toBeGreaterThan(terminalAt);
@@ -245,9 +258,10 @@ it("captures final detail as persistent public extension state without another p
   const persisted = restoreViewHistory(
     [...published].reverse().map((d) => JSON.parse(JSON.stringify(d.payload))),
   );
-  expect(persisted?.rows.find((r) => r.id === row!.id)?.capture?.finalOutput).toBe(
-    "Owned final answer",
-  );
+  expect(
+    persisted?.rows.find((r) => r.id === (row ?? missingValue("Expected row")).id)?.capture
+      ?.finalOutput,
+  ).toBe("Owned final answer");
   expect(assembled(h).events.filter((e) => e.type === "turn/started")).toHaveLength(1);
   expect(assembled(h).items.filter((i) => i.status === "completed")).toHaveLength(1);
   expect(
@@ -271,7 +285,9 @@ it.each(["FAKE_PI_INSPECTION_MISSING", "FAKE_PI_INSPECTION_UNSUPPORTED"])(
         ),
     );
     expect(assembled(h).events.filter((e) => e.type === "turn/started")).toHaveLength(1);
-    expect(assembled(h).items.at(-1)!.status).toBe("completed");
+    expect(
+      (assembled(h).items.at(-1) ?? missingValue("Expected assembled(h).items.at(-1)")).status,
+    ).toBe("completed");
   },
   15000,
 );
@@ -296,11 +312,12 @@ it("enriches an already-captured terminal child through the scripted Pi channel 
     "thr_owned",
     (d) => rowFrom(d)?.capture?.resolvedModel?.model === "scripted-child-actual",
   );
-  const captured = h
-    .deltasOf("thr_owned")
-    .map(rowFrom)
-    .filter((r) => r?.capture?.resolvedModel)
-    .at(-1)!;
+  const captured =
+    h
+      .deltasOf("thr_owned")
+      .map(rowFrom)
+      .filter((r) => r?.capture?.resolvedModel)
+      .at(-1) ?? missingValue("Expected a non-null value");
   expect(captured.capture).toMatchObject({
     status: "captured",
     finalOutput: "Owned final answer",

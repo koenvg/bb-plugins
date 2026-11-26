@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -18,7 +19,7 @@ import {
 } from "./browse-preference.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const panel = app.navPanels[0]!;
+const panel = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
 const Panel = panel.component;
 const { parseTasksRoute, tasksRouteToSubPath } = await import("./routes.js");
 const { formatStatsDuration } = await import("../views/stats/index.js");
@@ -70,12 +71,19 @@ describe("Stats in the production shell", () => {
   it("round-trips the explicit Stats route and project scope", () => {
     for (const route of [
       { kind: "stats" },
-      { kind: "stats", projectId: statsProjects[0]!.id },
+      {
+        kind: "stats",
+        projectId: (statsProjects[0] ?? missingValue("Expected statsProjects[0]")).id,
+      },
     ] as const)
       expect(parseTasksRoute(tasksRouteToSubPath(route))).toEqual(route);
-    expect(parseTasksRoute(`stats%3Fproject%3D${statsProjects[0]!.id}`)).toEqual({
+    expect(
+      parseTasksRoute(
+        `stats%3Fproject%3D${(statsProjects[0] ?? missingValue("Expected statsProjects[0]")).id}`,
+      ),
+    ).toEqual({
       kind: "stats",
-      projectId: statsProjects[0]!.id,
+      projectId: (statsProjects[0] ?? missingValue("Expected statsProjects[0]")).id,
     });
     expect(parseTasksRoute("stats?project=")).toEqual({ kind: "stats" });
   });
@@ -104,7 +112,7 @@ describe("Stats in the production shell", () => {
   });
 
   it("navigates project filters and restores the filtered route on detail Back", async () => {
-    const project = statsProjects[2]!;
+    const project = statsProjects[2] ?? missingValue("Expected statsProjects[2]");
     const subPath = `stats?project=${project.id}`;
     const slot = open();
     await slot.findByText("Slowest completed tasks");
@@ -178,13 +186,17 @@ describe("Stats in the production shell", () => {
         rpcInput(raw).projectId ? new Promise(() => {}) : rpc.getTaskStats(raw),
     });
     await slot.findByText("Slowest completed tasks");
-    slot.lifecycle.rerender(<Panel subPath={`stats?project=${statsProjects[2]!.id}`} />);
+    slot.lifecycle.rerender(
+      <Panel
+        subPath={`stats?project=${(statsProjects[2] ?? missingValue("Expected statsProjects[2]")).id}`}
+      />,
+    );
     expect(slot.getByRole("status").textContent).toBe("Loading stats…");
     expect(measures(slot.container)).toEqual(["", "", ""]);
   });
 
   it("keeps browse preference and board preference when using the Stats tab and menu", async () => {
-    const project = statsProjects[0]!;
+    const project = statsProjects[0] ?? missingValue("Expected statsProjects[0]");
     browsePreference().store({ kind: "project", projectId: project.id });
     const before = localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY);
     const slot = open(`${project.id}?view=list`);
@@ -211,7 +223,8 @@ describe("Stats in the production shell", () => {
   });
 
   it("holds detail Back to Stats until the pending description save succeeds", async () => {
-    const task = tasks.find((task) => task.key === "LAB-9")!;
+    const task =
+      tasks.find((task) => task.key === "LAB-9") ?? missingValue("Expected a non-null value");
     const subPath = `stats?project=${task.projectId}`;
     let resolve!: (value: unknown) => void;
     const save = new Promise((done) => {
@@ -224,7 +237,9 @@ describe("Stats in the production shell", () => {
     slot.lifecycle.rerender(<Panel subPath={`task/${task.key}`} />);
     await slot.findByRole("textbox", { name: "Task title" });
     await act(async () => {
-      const editor = slot.container.querySelector<HTMLElement>(".tiptap")!;
+      const editor =
+        slot.container.querySelector<HTMLElement>(".tiptap") ??
+        missingValue("Expected a non-null value");
       editor.innerHTML = "<p>Unsaved Stats draft</p>";
       fireEvent.input(editor);
     });

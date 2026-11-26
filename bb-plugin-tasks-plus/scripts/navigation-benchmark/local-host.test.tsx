@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import type { ExperimentalOpenTabOptions } from "@get-bb/plugin-sdk/app";
+import { fail as missingValue } from "node:assert/strict";
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,20 +18,22 @@ import { createLocalHost, type LocalHostOptions } from "./local-host.js";
 import { createSafeTaskTransition } from "../../views/detail/safe-transition.js";
 import { createTaskEditSession } from "../../views/detail/edit-session.js";
 const app = collectPluginAppRegistrations(tasksApp);
-const panel = app.navPanels[0]!;
-const ticketRegistration = app.tabs.find(
-  (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
-    tab.id === "ticket" &&
-    tab.availability === "fixed" &&
-    tab.context.kind === "nav-panel" &&
-    tab.context.panelId === "tasks",
-)!;
+const panel = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
+const ticketRegistration =
+  app.tabs.find(
+    (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
+      tab.id === "ticket" &&
+      tab.availability === "fixed" &&
+      tab.context.kind === "nav-panel" &&
+      tab.context.panelId === "tasks",
+  ) ?? missingValue("Expected a non-null value");
 const hosts: ReturnType<typeof createLocalHost>[] = [];
 const containers: HTMLElement[] = [];
 afterEach(() => {
   vi.useRealTimers();
-  while (hosts.length) hosts.pop()!.dispose();
-  while (containers.length) containers.pop()!.remove();
+  while (hosts.length) (hosts.pop() ?? missingValue("Expected hosts.pop()")).dispose();
+  while (containers.length)
+    (containers.pop() ?? missingValue("Expected containers.pop()")).remove();
 });
 function setup(
   rpc: LocalHostOptions["rpc"] = async (_method: string, input: unknown) => ({ input }),
@@ -53,7 +57,17 @@ describe("production-mounting host boundary without test renderer", () => {
     const { host, container } = setup();
     let created = 0;
     let destroyed = 0;
-    let snapshot: any;
+    type Snapshot = {
+      rpc: ReturnType<typeof useRpc>;
+      context: ReturnType<typeof useBbContext>;
+      navigate: ReturnType<typeof useBbNavigate>;
+      controller: ReturnType<typeof experimental_useAppPanel>;
+      mount: number;
+      subPath: string;
+      ticketVisible: boolean;
+    };
+    const latest: { snapshot?: Snapshot } = {};
+    const read = () => latest.snapshot ?? missingValue("Expected navigation snapshot");
     const Consumer = ({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) => {
       const [mount] = useState(() => ++created);
       const rpc = useRpc();
@@ -65,56 +79,56 @@ describe("production-mounting host boundary without test renderer", () => {
           destroyed++;
         };
       }, []);
-      snapshot = { rpc, context, navigate, controller, mount, subPath, ticketVisible };
+      latest.snapshot = { rpc, context, navigate, controller, mount, subPath, ticketVisible };
       return <output>{subPath}</output>;
     };
     host.lifecycle.mount(container, Consumer);
-    await waitFor(() => expect(snapshot?.subPath).toBe("all"));
-    const initial = snapshot;
-    snapshot.navigate.toPluginPanel("tasks", { subPath: "all?task=BENCH-1", replace: true });
-    await waitFor(() => expect(snapshot.subPath).toBe("all?task=BENCH-1"));
+    await waitFor(() => expect(latest.snapshot?.subPath).toBe("all"));
+    const initial = read();
+    read().navigate.toPluginPanel("tasks", { subPath: "all?task=BENCH-1", replace: true });
+    await waitFor(() => expect(read().subPath).toBe("all?task=BENCH-1"));
     host.lifecycle.rerender("all?task=BENCH-2");
     host.behavior.setTicketVisible(false);
-    await waitFor(() => expect(snapshot.ticketVisible).toBe(false));
-    expect(snapshot.controller.openTab({ tab: ticketRegistration })).toBe(true);
-    await waitFor(() => expect(snapshot.ticketVisible).toBe(true));
-    for (const key of ["rpc", "context", "navigate", "controller", "mount"])
-      expect(snapshot[key]).toBe(initial[key]);
-    expect(snapshot.context).toEqual({ projectId: null, threadId: null });
+    await waitFor(() => expect(read().ticketVisible).toBe(false));
+    expect(read().controller.openTab({ tab: ticketRegistration })).toBe(true);
+    await waitFor(() => expect(read().ticketVisible).toBe(true));
+    for (const key of ["rpc", "context", "navigate", "controller", "mount"] as const)
+      expect(read()[key]).toBe(initial[key]);
+    expect(read().context).toEqual({ projectId: null, threadId: null });
     expect(created).toBe(1);
     expect(destroyed).toBe(0);
     expect(host.inspection.experimental_panelCalls).toEqual([
       { method: "openTab", options: { tab: ticketRegistration } },
     ]);
     expect(() => host.lifecycle.mount(container, Consumer)).toThrow("already mounted");
-    expect(() => snapshot.navigate.toPluginPanel("other")).toThrow("blocks");
-    expect(() => snapshot.navigate.toThread("thr_foreign")).toThrow("blocks");
-    const unsupported: import("@get-bb/plugin-sdk/app").ExperimentalOpenTabOptions[] = [
+    expect(() => read().navigate.toPluginPanel("other")).toThrow("blocks");
+    expect(() => read().navigate.toThread("thr_foreign")).toThrow("blocks");
+    const unsupported: ExperimentalOpenTabOptions[] = [
       { tab: { ...ticketRegistration, id: "foreign" } },
       { tab: { ...ticketRegistration, context: { kind: "nav-panel", panelId: "other" } } },
       { tab: ticketRegistration, target: { taskKey: "BENCH-1" } },
       { tab: { ...ticketRegistration, availability: "action" } },
     ];
     for (const options of unsupported) {
-      expect(snapshot.controller.openTab(options)).toBe(false);
-      expect(snapshot.controller.toggleTab(options)).toBe(false);
+      expect(read().controller.openTab(options)).toBe(false);
+      expect(read().controller.toggleTab(options)).toBe(false);
     }
-    expect(snapshot.ticketVisible).toBe(true);
+    expect(read().ticketVisible).toBe(true);
     expect(host.inspection.experimental_panelCalls.slice(1)).toEqual(
       unsupported.flatMap((options) => [
         { method: "openTab", options },
         { method: "toggleTab", options },
       ]),
     );
-    expect(snapshot.controller.toggleTab({ tab: ticketRegistration })).toBe(true);
-    await waitFor(() => expect(snapshot.ticketVisible).toBe(false));
-    expect(snapshot.controller.toggleTab({ tab: ticketRegistration })).toBe(true);
-    await waitFor(() => expect(snapshot.ticketVisible).toBe(true));
-    expect(snapshot.controller.close()).toBe(true);
-    await waitFor(() => expect(snapshot.ticketVisible).toBe(false));
-    expect(snapshot.controller.close()).toBe(true);
-    expect(snapshot.controller.openTab({ tab: ticketRegistration })).toBe(true);
-    await waitFor(() => expect(snapshot.ticketVisible).toBe(true));
+    expect(read().controller.toggleTab({ tab: ticketRegistration })).toBe(true);
+    await waitFor(() => expect(read().ticketVisible).toBe(false));
+    expect(read().controller.toggleTab({ tab: ticketRegistration })).toBe(true);
+    await waitFor(() => expect(read().ticketVisible).toBe(true));
+    expect(read().controller.close()).toBe(true);
+    await waitFor(() => expect(read().ticketVisible).toBe(false));
+    expect(read().controller.close()).toBe(true);
+    expect(read().controller.openTab({ tab: ticketRegistration })).toBe(true);
+    await waitFor(() => expect(read().ticketVisible).toBe(true));
     expect(host.inspection.experimental_panelCalls.slice(-5)).toEqual([
       { method: "toggleTab", options: { tab: ticketRegistration } },
       { method: "toggleTab", options: { tab: ticketRegistration } },
@@ -124,9 +138,9 @@ describe("production-mounting host boundary without test renderer", () => {
     ]);
     host.dispose();
     expect(destroyed).toBe(1);
-    expect(() => snapshot.controller.openTab({ tab: ticketRegistration })).toThrow("disposed");
-    expect(() => snapshot.controller.toggleTab({ tab: ticketRegistration })).toThrow("disposed");
-    expect(() => snapshot.controller.close()).toThrow("disposed");
+    expect(() => read().controller.openTab({ tab: ticketRegistration })).toThrow("disposed");
+    expect(() => read().controller.toggleTab({ tab: ticketRegistration })).toThrow("disposed");
+    expect(() => read().controller.close()).toThrow("disposed");
     expect(container.textContent).toBe("");
     expect(() => host.lifecycle.rerender("all")).toThrow("disposed");
   });
@@ -139,8 +153,12 @@ describe("production-mounting host boundary without test renderer", () => {
     };
     host.lifecycle.mount(container, Consumer);
     await waitFor(() => expect(controller).toBeDefined());
-    expect(controller!.openTab({ tab: ticketRegistration })).toBe(false);
-    expect(controller!.toggleTab({ tab: ticketRegistration })).toBe(false);
+    expect(
+      (controller ?? missingValue("Expected controller")).openTab({ tab: ticketRegistration }),
+    ).toBe(false);
+    expect(
+      (controller ?? missingValue("Expected controller")).toggleTab({ tab: ticketRegistration }),
+    ).toBe(false);
     expect(host.inspection.experimental_panelCalls).toEqual([
       { method: "openTab", options: { tab: ticketRegistration } },
       { method: "toggleTab", options: { tab: ticketRegistration } },
@@ -157,22 +175,31 @@ describe("production-mounting host boundary without test renderer", () => {
     );
     const { host, container } = setup(rpcBackend);
     const received: unknown[] = [];
-    let snapshot: any;
+    type Snapshot = {
+      rpc: ReturnType<typeof useRpc>;
+      connection: ReturnType<typeof useRealtimeConnectionState>;
+    };
+    const latest: { snapshot?: Snapshot } = {};
+    const read = () => latest.snapshot ?? missingValue("Expected realtime snapshot");
     const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
       const rpc = useRpc();
       const connection = useRealtimeConnectionState();
       useRealtime("tasks:changed", (payload) => received.push({ subPath, payload }));
-      snapshot = { rpc, connection };
+      latest.snapshot = { rpc, connection };
       return <output>{connection}</output>;
     };
     host.lifecycle.mount(container, Consumer);
-    await waitFor(() => expect(snapshot?.connection).toBe("connected"));
+    await waitFor(() => expect(latest.snapshot?.connection).toBe("connected"));
     const input = { nested: { title: "Original" } };
-    const result = await snapshot.rpc.call("echo", input);
+    const result = await read().rpc.call("echo", input);
     expect(result).toEqual({ input });
+    if (typeof result !== "object" || result === null || !("input" in result))
+      throw new Error("Missing echo payload");
     expect(result.input).not.toBe(input);
     input.nested.title = "Changed";
-    expect(host.inspection.rpcCalls[0]!.input).toEqual({ nested: { title: "Original" } });
+    expect(
+      (host.inspection.rpcCalls[0] ?? missingValue("Expected host.inspection.rpcCalls[0]")).input,
+    ).toEqual({ nested: { title: "Original" } });
     host.lifecycle.rerender("all?task=BENCH-2");
     await waitFor(() => expect(container.textContent).toBe("connected"));
     // Wait for normal React effects, not a host-injected act/flush.
@@ -182,8 +209,8 @@ describe("production-mounting host boundary without test renderer", () => {
       expect(received).toEqual([{ subPath: "all?task=BENCH-2", payload: { taskId: "owned" } }]);
     });
     host.behavior.setRealtimeConnectionState("reconnecting");
-    await waitFor(() => expect(snapshot.connection).toBe("reconnecting"));
-    const pending = snapshot.rpc.call("pending", null);
+    await waitFor(() => expect(read().connection).toBe("reconnecting"));
+    const pending = read().rpc.call("pending", null);
     const rejected = expect(pending).rejects.toThrow("disposed");
     const previousCount = received.length;
     host.dispose();
@@ -223,7 +250,9 @@ describe("production-mounting host boundary without test renderer", () => {
     editor.stage({ title: "Owned draft" });
     expect(
       await transition.request(() =>
-        navigate!.toPluginPanel("tasks", { subPath: "all?task=BENCH-2" }),
+        (navigate ?? missingValue("Expected navigate")).toPluginPanel("tasks", {
+          subPath: "all?task=BENCH-2",
+        }),
       ),
     ).toBe(true);
     await waitFor(() => expect(container.textContent).toBe("all?task=BENCH-2"));
@@ -283,7 +312,11 @@ describe("production-mounting host boundary without test renderer", () => {
     await waitFor(() => expect(container.textContent).toBe("all"));
     editor.stage({ title: "Origin draft" });
     expect(
-      await transition.request(() => navigate!.toPluginPanel("tasks", { subPath: "destination" })),
+      await transition.request(() =>
+        (navigate ?? missingValue("Expected navigate")).toPluginPanel("tasks", {
+          subPath: "destination",
+        }),
+      ),
     ).toBe(false);
     expect(container.textContent).toBe("all");
     expect(origins).toEqual(["origin-task"]);

@@ -22,7 +22,7 @@ type RuntimeGlobal = typeof globalThis & {
 export interface LocalHostOptions {
   panel: PluginNavPanelRegistration;
   tabs: readonly ExperimentalTabRegistration[];
-  rpc(method: string, input: unknown): Promise<unknown>;
+  rpc: (method: string, input: unknown) => Promise<unknown>;
   context?: BbContext;
 }
 export function createLocalHost(options: LocalHostOptions) {
@@ -32,15 +32,16 @@ export function createLocalHost(options: LocalHostOptions) {
   let root: Root | null = null;
   const identity = {};
   const channels = new Map<string, Set<(payload: unknown) => void>>();
-  const rpcCalls: Array<{ method: string; input: unknown }> = [];
-  const navigateCalls: Array<{
+  const rpcCalls: { method: string; input: unknown }[] = [];
+  const navigateCalls: {
     method: "toPluginPanel";
     path: string;
     options: { subPath: string; replace: boolean };
-  }> = [];
-  const panelCalls: Array<
-    { method: "openTab" | "toggleTab"; options: ExperimentalOpenTabOptions } | { method: "close" }
-  > = [];
+  }[] = [];
+  const panelCalls: (
+    | { method: "openTab" | "toggleTab"; options: ExperimentalOpenTabOptions }
+    | { method: "close" }
+  )[] = [];
   const context = Object.freeze({ projectId: null, threadId: null, ...options.context });
   const settings = Object.freeze({ values: undefined, isLoading: false });
   const live = () => {
@@ -82,7 +83,8 @@ export function createLocalHost(options: LocalHostOptions) {
     routeTask = setTimeout(() => {
       routeTask = undefined;
       if (disposed) return;
-      const next = acceptedRoutes.shift()!;
+      const next = acceptedRoutes.shift();
+      if (next === undefined) return;
       routePublications.push(next);
       route.set(next);
       scheduleRoute();

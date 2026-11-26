@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeAttachment, rpcInput } from "../test-fixtures.js";
@@ -22,8 +23,11 @@ const lookups = (slot: ReturnType<typeof setup>, key: string) =>
 
 describe("retained browse detail", () => {
   it("returns A-to-B-to-A without an empty matching detail commit or duplicate lookup", async () => {
-    const fileA = makeAttachment(tasks[0]!.id);
-    const fileB = { ...makeAttachment(tasks[1]!.id, "b.txt"), id: "01HZZZZZZZZZZZZZZZZZZZZZA2" };
+    const fileA = makeAttachment((tasks[0] ?? missingValue("Expected tasks[0]")).id);
+    const fileB = {
+      ...makeAttachment((tasks[1] ?? missingValue("Expected tasks[1]")).id, "b.txt"),
+      id: "01HZZZZZZZZZZZZZZZZZZZZZA2",
+    };
     const slot = setup("all", {
       listAttachments: (raw) => ({
         attachments: [rpcInput(raw).taskId === fileA.taskId ? fileA : fileB],
@@ -105,7 +109,7 @@ describe("retained browse detail", () => {
     await select(slot, 1);
     expect(
       slot.inspection.rpcCalls.filter((c) => c.method === "listLabels").map((c) => c.input),
-    ).toEqual([{ projectId: tasks[0]!.projectId }]);
+    ).toEqual([{ projectId: (tasks[0] ?? missingValue("Expected tasks[0]")).projectId }]);
     for (const method of ["listProjects", "listPresets", "listLabels"]) {
       expect(
         slot.inspection.rpcCalls.filter((c) => c.method === method).map((c) => c.input),

@@ -142,7 +142,11 @@ function numbered(reason: Reason, text: string, pr: PrSummary): string {
   return REASONS[reason].numbered && pr.mergeQueue ? `${text} #${pr.mergeQueue.position}` : text;
 }
 
-type Counted = { count: number; text: string; details: string[] };
+interface Counted {
+  count: number;
+  text: string;
+  details: string[];
+}
 
 const COUNTS: Partial<Record<Reason, (pr: PrSummary) => Counted>> = {
   checks_failed: (pr) => ({
@@ -190,7 +194,7 @@ function checksState(pr: PrSummary): ChecksState {
 
 export function presentPullRequest(pr: PrSummary): PrView {
   const reasons = reasonsFor(pr);
-  const firstReason = reasons[0]!;
+  const [firstReason = "ready"] = reasons;
   const first = REASONS[firstReason];
   const parts = reasons.map((reason) => {
     const { status, tone, mark, spin = false } = REASONS[reason];

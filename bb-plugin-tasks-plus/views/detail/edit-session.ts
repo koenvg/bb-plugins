@@ -13,10 +13,10 @@ export interface EditSnapshot {
 }
 export interface TaskEditSession {
   readonly taskId: string;
-  stage(patch: TaskEditPatch, delayMs?: number): void;
-  flush(): Promise<SaveOutcome>;
-  getSnapshot(): EditSnapshot;
-  subscribe(listener: () => void): () => void;
+  stage: (patch: TaskEditPatch, delayMs?: number) => void;
+  flush: () => Promise<SaveOutcome>;
+  getSnapshot: () => EditSnapshot;
+  subscribe: (listener: () => void) => () => void;
 }
 
 /** One mounted ticket's autosaves. flush confirms every edit, including edits
@@ -25,9 +25,9 @@ export interface TaskEditSession {
 export function createTaskEditSession(
   taskId: string,
   options: {
-    save(taskId: string, patch: TaskEditPatch): Promise<SaveOutcome>;
-    onError?(message: string): void;
-    schedule?(run: () => void, delayMs: number): () => void;
+    save: (taskId: string, patch: TaskEditPatch) => Promise<SaveOutcome>;
+    onError?: (message: string) => void;
+    schedule?: (run: () => void, delayMs: number) => () => void;
   },
 ): TaskEditSession {
   let snapshot: EditSnapshot = {
@@ -78,7 +78,7 @@ export function createTaskEditSession(
         }
         const draft = { ...snapshot.draft };
         for (const key of Object.keys(attempt) as (keyof TaskEditPatch)[]) {
-          if (!(key in pending)) delete draft[key];
+          if (!(key in pending)) Reflect.deleteProperty(draft, key);
         }
         publish({ draft });
       }

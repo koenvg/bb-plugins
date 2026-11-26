@@ -40,7 +40,8 @@ const TicketTab = () => {
   const populated = useSyncExternalStore(subscribe, hasContent);
   const active = useSyncExternalStore(subscribe, currentOutlet);
   useLayoutEffect(() => {
-    const element = root.current!;
+    const element = root.current;
+    if (!element) return;
     outlets.add(element);
     // First outlet keeps the editor until the user explicitly moves it.
     outletPanels.set(element, panel);
@@ -58,7 +59,13 @@ const TicketTab = () => {
       {populated && active !== root.current && (
         <div className="p-6 text-sm text-muted-foreground">
           <p>The ticket is open in another pane.</p>
-          <Button variant="outline" className="mt-3" onClick={() => claimOutlet(root.current!)}>
+          <Button
+            variant="outline"
+            className="mt-3"
+            onClick={() => {
+              if (root.current) claimOutlet(root.current);
+            }}
+          >
             Show ticket here
           </Button>
         </div>
@@ -147,7 +154,8 @@ export const TicketPanelContent = ({
     };
   }, [container]);
   useLayoutEffect(() => {
-    const target = outlet ?? parking.current!;
+    const target = outlet ?? parking.current;
+    if (!target) return;
     target.appendChild(container);
     onOutletChange(outlet || recovery ? { element: target, recovery: !outlet } : null);
   }, [outlet, recovery, container, onOutletChange]);

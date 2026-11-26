@@ -51,12 +51,20 @@ let postDeleteFailure = false;
 let overlapNextDelete = false;
 let overlapSnapshot: Project[] | null = null;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const panel = document.getElementById("panel")!;
-const evidence = document.getElementById("evidence")!;
+const panel = requireFixture(document.getElementById("panel"), 'document.getElementById("panel")');
+const evidence = requireFixture(
+  document.getElementById("evidence"),
+  'document.getElementById("evidence")',
+);
 if (isTablePreview) {
-  document.querySelector(".preview-header h1")!.textContent =
-    "Production project table. Fixture data only.";
-  document.querySelector(".preview-header p")!.textContent =
+  requireFixture(
+    document.querySelector(".preview-header h1"),
+    'document.querySelector(".preview-header h1")',
+  ).textContent = "Production project table. Fixture data only.";
+  requireFixture(
+    document.querySelector(".preview-header p"),
+    'document.querySelector(".preview-header p")',
+  ).textContent =
     "Actual production name and colour editor and fixture RPCs. Nothing here changes live BB data or the installed plugin.";
   document.title = "Production project table";
 }
@@ -81,7 +89,9 @@ function showEvidence() {
   );
 }
 const slot = renderSlot(
-  isTablePreview ? { component: ProductionTablePreview } : app.navPanels[0]!,
+  isTablePreview
+    ? { component: ProductionTablePreview }
+    : requireFixture(app.navPanels[0], "app.navPanels[0]"),
   { subPath: "manage" },
   {
     pluginId: "bbp97-isolated-preview",
@@ -178,7 +188,10 @@ const slot = renderSlot(
 );
 panel.replaceChildren(slot.container);
 function control(id: string, action: () => void) {
-  document.getElementById(id)!.addEventListener("click", action);
+  requireFixture(document.getElementById(id), "document.getElementById(id)").addEventListener(
+    "click",
+    action,
+  );
 }
 control("fail-post-delete", () => {
   failAfterDelete = true;
@@ -236,3 +249,8 @@ control("reset", () => {
   location.reload();
 });
 showEvidence();
+
+function requireFixture<T>(value: T | null | undefined, label: string): T {
+  if (value == null) throw new Error(`Missing fixture value: ${label}`);
+  return value;
+}

@@ -11,7 +11,7 @@ const GAP = 4;
 
 export interface MenuItem {
   label: string;
-  run: () => void | Promise<unknown>;
+  run: (() => void) | (() => Promise<unknown>);
   disabled?: boolean;
   checked?: boolean;
   section?: string;

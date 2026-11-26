@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -127,7 +128,8 @@ describe("tasks storage", () => {
       const before = db.prepare("SELECT * FROM presets ORDER BY id").all();
       const store = createTasksStore(db);
       expect(db.prepare("SELECT * FROM presets ORDER BY id").all()).toEqual(before);
-      const preset = store.getPreset("01J00000000000000000000000")!;
+      const preset =
+        store.getPreset("01J00000000000000000000000") ?? missingValue("Expected a non-null value");
       expect(store.updatePreset(preset.id, { serviceTier: "priority" })?.serviceTier).toBe(
         "priority",
       );
@@ -450,9 +452,18 @@ describe("tasks storage", () => {
         return keys;
       };
 
-      expect(collect("manual")).toEqual([fixtures[0]!.key, fixtures[3]!.key]);
-      expect(collect("priority")).toEqual([fixtures[3]!.key, fixtures[0]!.key]);
-      expect(collect("due")).toEqual([fixtures[3]!.key, fixtures[0]!.key]);
+      expect(collect("manual")).toEqual([
+        (fixtures[0] ?? missingValue("Expected fixtures[0]")).key,
+        (fixtures[3] ?? missingValue("Expected fixtures[3]")).key,
+      ]);
+      expect(collect("priority")).toEqual([
+        (fixtures[3] ?? missingValue("Expected fixtures[3]")).key,
+        (fixtures[0] ?? missingValue("Expected fixtures[0]")).key,
+      ]);
+      expect(collect("due")).toEqual([
+        (fixtures[3] ?? missingValue("Expected fixtures[3]")).key,
+        (fixtures[0] ?? missingValue("Expected fixtures[0]")).key,
+      ]);
     } finally {
       await harness.dispose();
     }
@@ -497,11 +508,11 @@ describe("tasks storage", () => {
       expectStale(cursor);
 
       cursor = firstCursor();
-      store.deleteTask(tasks[4]!.id);
+      store.deleteTask((tasks[4] ?? missingValue("Expected tasks[4]")).id);
       expectStale(cursor);
 
       cursor = firstCursor();
-      store.updatePosition(tasks[3]!.id, {
+      store.updatePosition((tasks[3] ?? missingValue("Expected tasks[3]")).id, {
         status: "in_progress",
         beforeTaskId: null,
         afterTaskId: null,
@@ -509,7 +520,7 @@ describe("tasks storage", () => {
       expectStale(cursor);
 
       cursor = firstCursor();
-      store.updateTask(tasks[2]!.id, { title: "Updated" });
+      store.updateTask((tasks[2] ?? missingValue("Expected tasks[2]")).id, { title: "Updated" });
       expectStale(cursor);
     } finally {
       await harness.dispose();
@@ -707,7 +718,7 @@ describe("tasks storage", () => {
       ]);
 
       const detached = store.getTaskThreadByThreadId(task.id, "thr_dead_first");
-      expect(store.deleteTaskThread(detached!.id)).toBe(true);
+      expect(store.deleteTaskThread((detached ?? missingValue("Expected detached")).id)).toBe(true);
       expect(store.listTaskThreads(task.id).map((thread) => thread.threadId)).toEqual([
         "thr_live_new",
         "thr_live_old",

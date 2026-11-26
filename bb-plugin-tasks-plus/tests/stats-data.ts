@@ -47,9 +47,9 @@ export const statsInputs: StatsTaskInput[] = (
     [1, "Check the empty state with no tasks", 4, "medium"],
     [2, "Show a useful message when no sample tasks exist", 36, "medium"],
     [2, "Document the startup prompt for the local development environment", 12, "low"],
-  ] satisfies Array<[number, string, number, StatsTaskInput["priority"]]>
+  ] satisfies [number, string, number, StatsTaskInput["priority"]][]
 ).map(([projectIndex, title, hours, priority], index) => {
-  const project = statsProjects[projectIndex]!;
+  const project = requireFixture(statsProjects[projectIndex], "statsProjects[projectIndex]");
   return {
     id: `01HZZZZZZZZZZZZZZZZZZZ${String(index).padStart(4, "0")}`,
     key: `${project.prefix}-${index + 1}`,
@@ -71,7 +71,7 @@ export const statsInputs: StatsTaskInput[] = (
 
 export const interruptedInputs: StatsTaskInput[] = [
   {
-    ...statsInputs[0]!,
+    ...requireFixture(statsInputs[0], "statsInputs[0]"),
     id: "01HZZZZZZZZZZZZZZZZZZZ0100",
     key: "DEV-11",
     title: "Move task attachments into the detail panel",
@@ -89,7 +89,7 @@ export const interruptedInputs: StatsTaskInput[] = [
 ];
 
 export const canceledInput: StatsTaskInput = {
-  ...statsInputs[0]!,
+  ...requireFixture(statsInputs[0], "statsInputs[0]"),
   id: "01HZZZZZZZZZZZZZZZZZZZ0101",
   key: "DEV-12",
   title: "Canceled task",
@@ -109,4 +109,9 @@ export function statsDetailTasks(inputs = statsInputs) {
       status: input.status,
     }),
   );
+}
+
+function requireFixture<T>(value: T | null | undefined, label: string): T {
+  if (value == null) throw new Error(`Missing fixture value: ${label}`);
+  return value;
 }

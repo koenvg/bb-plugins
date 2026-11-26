@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -43,14 +44,22 @@ it("shows projected attention and tool in overview and the visible detail header
   );
   fireEvent.click(row);
   const detail = view.getByRole("article", { name: "Child detail" });
-  expect(within(detail.querySelector("header")!).getByText(activity).textContent).toBe(activity);
+  expect(
+    within(detail.querySelector("header") ?? missingValue("Expected a non-null value")).getByText(
+      activity,
+    ).textContent,
+  ).toBe(activity);
   expect(within(detail).getAllByText(activity)).toHaveLength(1);
   expect(within(detail).getByLabelText("Execution state: running").textContent).toBe("running");
   const active = 'Last observed activity: "active" · Reported tool: read';
   view.rerender(
     <SubagentsView state={observe("running", { state: "active", currentTool: "read" })} />,
   );
-  expect(within(detail.querySelector("header")!).getByText(active).textContent).toBe(active);
+  expect(
+    within(detail.querySelector("header") ?? missingValue("Expected a non-null value")).getByText(
+      active,
+    ).textContent,
+  ).toBe(active);
   expect(within(detail).queryByText(activity)).toBeNull();
   view.rerender(
     <SubagentsView
@@ -58,7 +67,11 @@ it("shows projected attention and tool in overview and the visible detail header
     />,
   );
   expect(within(detail).getByLabelText("Execution state: complete").textContent).toBe("complete");
-  expect(within(detail.querySelector("header")!).getByText(activity).textContent).toBe(activity);
+  expect(
+    within(detail.querySelector("header") ?? missingValue("Expected a non-null value")).getByText(
+      activity,
+    ).textContent,
+  ).toBe(activity);
   fireEvent.click(view.getByRole("tab", { name: "Agents" }));
   expect(within(overview).getByRole("button").getAttribute("aria-label")).toBe(
     "Review Background subagent · task unavailable Entry 1 complete " + activity,
@@ -96,7 +109,9 @@ it("renders legacy activity verbatim beside package pause without claiming confi
   expect(within(row).getByText("waiting", { exact: true }).textContent).toBe("waiting");
   expect(within(row).getByLabelText("Execution state: paused").textContent).toBe("paused");
   fireEvent.click(row);
-  const header = view.getByRole("article", { name: "Child detail" }).querySelector("header")!;
+  const header =
+    view.getByRole("article", { name: "Child detail" }).querySelector("header") ??
+    missingValue("Expected a non-null value");
   expect(within(header).getByText("waiting", { exact: true }).getAttribute("title")).toBe(
     "Activity is a reported observation. It does not confirm waiting or completion.",
   );

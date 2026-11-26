@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it } from "vitest";
 import { generateKeyPair, SignJWT } from "jose";
 import { request as httpRequest } from "node:http";
@@ -316,7 +317,7 @@ describe("authenticated HTTP boundary", () => {
         },
         (response) => {
           response.resume();
-          resolve(response.statusCode!);
+          resolve(response.statusCode ?? missingValue("Expected response.statusCode"));
         },
       );
       request.on("error", reject);

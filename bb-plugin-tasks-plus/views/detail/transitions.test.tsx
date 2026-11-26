@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { makeAttachment } from "../../test-fixtures.js";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +8,7 @@ import { makeTask, rpcInput } from "../../test-fixtures.js";
 import type { Task } from "../../shared/contract.js";
 
 const app = await loadPluginApp(() => import("../../app"));
-const Panel = app.navPanels[0]!.component;
+const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;
 afterEach(cleanup);
 const tasks = [1, 2, 3].map((n) =>
   makeTask({
@@ -27,7 +28,7 @@ function deferred<T>() {
 }
 function setup(overrides: Record<string, (raw: unknown) => unknown> = {}) {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: "task/TSK-1" },
     {
       rpc: {
@@ -56,7 +57,9 @@ function setup(overrides: Record<string, (raw: unknown) => unknown> = {}) {
 }
 async function changeDescription(slot: ReturnType<typeof setup>, text: string) {
   await act(async () => {
-    const editor = slot.container.querySelector<HTMLElement>(".tiptap")!;
+    const editor =
+      slot.container.querySelector<HTMLElement>(".tiptap") ??
+      missingValue("Expected a non-null value");
     editor.innerHTML = `<p>${text}</p>`;
     fireEvent.input(editor);
   });
@@ -88,7 +91,7 @@ describe("safe standalone detail navigation", () => {
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     expect(writes[1]).toMatchObject({
-      taskId: tasks[0]!.id,
+      taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
       description: "Latest A",
     });
   });
@@ -96,11 +99,11 @@ describe("safe standalone detail navigation", () => {
   it("keeps a newer realtime snapshot when an older save response arrives later", async () => {
     const reply = deferred<unknown>();
     const saved = {
-      ...tasks[0]!,
+      ...(tasks[0] ?? missingValue("Expected tasks[0]")),
       title: "My title",
       updatedAt: "2026-10-02T12:00:00.000Z",
     };
-    let current = tasks[0]!;
+    let current = tasks[0] ?? missingValue("Expected tasks[0]");
     const slot = setup({
       getTaskByKey: () => ({ task: current }),
       updateTask: () => reply.promise,
@@ -123,7 +126,7 @@ describe("safe standalone detail navigation", () => {
   });
   it("waits for a property write, then accepts later server edits rather than freezing the local value", async () => {
     const reply = deferred<unknown>();
-    let current = tasks[0]!;
+    let current = tasks[0] ?? missingValue("Expected tasks[0]");
     const slot = setup({
       getTaskByKey: () => ({ task: current }),
       updateTask: () => reply.promise,
@@ -153,7 +156,7 @@ describe("safe standalone detail navigation", () => {
   });
   it("preserves saved descriptions and task files through A-B-A navigation", async () => {
     const records = tasks.map((task) => ({ ...task }));
-    const file = makeAttachment(records[0]!.id);
+    const file = makeAttachment((records[0] ?? missingValue("Expected records[0]")).id);
     const writes: Record<string, unknown>[] = [];
     const slot = setup({
       getTaskByKey: (raw) => ({ task: records.find((t) => t.key === rpcInput(raw).taskKey) }),
@@ -163,7 +166,8 @@ describe("safe standalone detail navigation", () => {
       updateTask: (raw) => {
         const input = rpcInput(raw);
         writes.push(input);
-        const task = records.find((t) => t.id === input.taskId)!;
+        const task =
+          records.find((t) => t.id === input.taskId) ?? missingValue("Expected a non-null value");
         Object.assign(task, input);
         return { ok: true, task };
       },
@@ -184,7 +188,9 @@ describe("safe standalone detail navigation", () => {
     expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved A");
     expect(slot.getByText("a.txt")).toBeTruthy();
-    expect(writes).toMatchObject([{ taskId: records[0]!.id, description: "Saved A" }]);
+    expect(writes).toMatchObject([
+      { taskId: (records[0] ?? missingValue("Expected records[0]")).id, description: "Saved A" },
+    ]);
     expect(
       slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
@@ -208,7 +214,7 @@ describe("safe standalone detail navigation", () => {
       "Unblurred title",
     );
     expect(writes[0]).toMatchObject({
-      taskId: tasks[0]!.id,
+      taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
       title: "Unblurred title",
     });
     await act(async () => reply.resolve({ ok: true, task: tasks[0] }));
@@ -268,7 +274,7 @@ describe("safe standalone detail navigation", () => {
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2"),
     );
     expect(slot.queryByDisplayValue("Only A")).toBeNull();
-    await act(async () => late.resolve({ task: tasks[0]! }));
+    await act(async () => late.resolve({ task: tasks[0] ?? missingValue("Expected tasks[0]") }));
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2");
   });
 });

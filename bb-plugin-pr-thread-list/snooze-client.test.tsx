@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -31,7 +32,8 @@ it("owns one snooze reader, clears controls on cleanup, and ignores old generati
   await waitFor(() => expect(client.getSnapshot().snoozesReady).toBe(true));
   await act(async () => finish(snoozeSnapshot({ t1: Date.now() + 100_000 })));
   expect(client.getSnapshot().snoozes).toEqual({});
-  const retained = client.getSnapshot().controls!;
+  const retained =
+    client.getSnapshot().controls ?? missingValue("Expected client.getSnapshot().controls");
   second.lifecycle.unmount();
   await act(async () => {
     await retained.snooze("t1", Date.now() + 100_000);
@@ -89,7 +91,10 @@ it("keeps the full group's effective state awake with one request while multiple
     },
   );
   await waitFor(() => expect(wake).toHaveBeenCalledOnce());
-  expect(client.getSnapshot().controls!.snoozed.size).toBe(0);
+  expect(
+    (client.getSnapshot().controls ?? missingValue("Expected client.getSnapshot().controls"))
+      .snoozed.size,
+  ).toBe(0);
   await slot.behavior.emitRealtime("snoozes.changed", {});
   expect(wake).toHaveBeenCalledOnce();
 });
@@ -107,9 +112,15 @@ it("fails closed when a server snapshot is missing group membership", async () =
   );
   await act(async () => {});
   expect(client.getSnapshot().snoozesReady).toBe(false);
-  expect(client.getSnapshot().controls!.canSnooze("t1")).toBe(false);
+  expect(
+    (
+      client.getSnapshot().controls ?? missingValue("Expected client.getSnapshot().controls")
+    ).canSnooze("t1"),
+  ).toBe(false);
   await act(async () => {
-    await client.getSnapshot().controls!.snooze("t1", Date.now() + 100_000);
+    await (
+      client.getSnapshot().controls ?? missingValue("Expected client.getSnapshot().controls")
+    ).snooze("t1", Date.now() + 100_000);
   });
   expect(snooze).not.toHaveBeenCalled();
   slot.lifecycle.unmount();
@@ -153,7 +164,9 @@ it.each([
   );
   await waitFor(() => expect(client.getSnapshot().snoozesReady).toBe(true));
   expect(client.getSnapshot().threadsReady).toBe(false);
-  await client.getSnapshot().controls!.snooze("t1", Date.now() + 100_000);
+  await (
+    client.getSnapshot().controls ?? missingValue("Expected client.getSnapshot().controls")
+  ).snooze("t1", Date.now() + 100_000);
   expect(snooze).not.toHaveBeenCalled();
 });
 

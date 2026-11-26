@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect } from "@playwright/test";
 
 test("a completion lookup error retains the status draft and permits manual retry", async ({
@@ -162,8 +163,10 @@ test("board drag and keyboard moves succeed with an open creator", async ({ page
   await page.goto("/tests/creator-thread.html?board");
   const card = page.getByRole("button", { name: "Open CRT-1: Creator-thread follow-up" });
   await expect(card).toBeVisible();
-  const from = (await card.boundingBox())!;
-  const to = (await page.locator('[data-board-column="todo"]').boundingBox())!;
+  const from = (await card.boundingBox()) ?? missingValue("Expected (await card.boundingBox())");
+  const to =
+    (await page.locator('[data-board-column="todo"]').boundingBox()) ??
+    missingValue("Expected a non-null value");
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
   await page.mouse.move(to.x + to.width / 2, to.y + 20, { steps: 10 });
@@ -203,7 +206,9 @@ for (const relations of ["task-only", "mixed"]) {
         const badge = card.getByText("Blocked by 1 task", { exact: true });
         const geometry = await badge.evaluate((element) => {
           const rect = element.getBoundingClientRect();
-          const cardRect = element.closest("[data-task-key]")!.getBoundingClientRect();
+          const card = element.closest("[data-task-key]");
+          if (!card) throw new Error("Blocker badge is outside the task card");
+          const cardRect = card.getBoundingClientRect();
           return {
             badgeWidth: element.clientWidth,
             badgeScrollWidth: element.scrollWidth,
@@ -333,7 +338,8 @@ for (const width of [320, 390, 1280]) {
     const geometry = await row.evaluate((element) => {
       const title = [...element.querySelectorAll("span")].find(
         (entry) => entry.textContent === "Verify workspace permissions before release",
-      )!;
+      );
+      if (!title) throw new Error("Missing subtask title inside the row");
       const rect = element.getBoundingClientRect();
       const titleRect = title.getBoundingClientRect();
       return {

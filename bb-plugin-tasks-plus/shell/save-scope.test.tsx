@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -12,7 +13,7 @@ import {
 import { storeViewMode } from "./view-preference.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const panel = app.navPanels[0]!;
+const panel = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
 const Panel = panel.component;
 const rememberedProject: Project = {
   id: "01HZZZZZZZZZZZZZZZZZZZZZP1",
@@ -53,7 +54,8 @@ function deferred<T>() {
 
 async function editDescription(container: HTMLElement, value: string) {
   await act(async () => {
-    const editor = container.querySelector<HTMLElement>(".tiptap")!;
+    const editor =
+      container.querySelector<HTMLElement>(".tiptap") ?? missingValue("Expected a non-null value");
     editor.innerHTML = `<p>${value}</p>`;
     fireEvent.input(editor);
   });
@@ -187,7 +189,12 @@ describe("save-before-switch with remembered browse scope", () => {
       const expectedScope =
         destination === "all" ? { kind: "all" } : { kind: "project", projectId: taskProject.id };
       expect(browsePreference().load()).toEqual(expectedScope);
-      expect(JSON.parse(window.localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!)).toEqual({
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY) ??
+            missingValue("Expected a non-null value"),
+        ),
+      ).toEqual({
         version: 1,
         scope: expectedScope,
       });

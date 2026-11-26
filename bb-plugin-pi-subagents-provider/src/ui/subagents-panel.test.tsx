@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => {
@@ -55,13 +56,14 @@ it("uses the public event list, filters its qualified kind and restores accepted
   const first = render(<SubagentsPanel {...panelContext} threadId="owned-thread" params={{}} />);
   fireEvent.click(await first.findByRole("button", { name: /reviewer.*Entry/ }));
   await waitFor(() => expect(first.getByText("accepted answer")).toBeDefined());
-  expect(h.list.mock.calls[0]![0]).toMatchObject({
+  expect((h.list.mock.calls[0] ?? missingValue("Expected h.list.mock.calls[0]"))[0]).toMatchObject({
     threadId: "owned-thread",
     types: ["thread/extensionState/updated"],
     order: "desc",
     limit: "64",
   });
-  const signal = h.list.mock.calls[0]![0].signal as AbortSignal;
+  const signal = (h.list.mock.calls[0] ?? missingValue("Expected h.list.mock.calls[0]"))[0]
+    .signal as AbortSignal;
   first.unmount();
   expect(signal.aborted).toBe(true);
   const next = {
@@ -104,7 +106,7 @@ it("shows unsupported stored state rather than accepting it as an empty success"
 });
 
 const background = {
-  ...state.rows[0]!,
+  ...(state.rows[0] ?? missingValue("Expected state.rows[0]")),
   id: "background-owned",
   runId: "bg",
   source: "background",
@@ -203,8 +205,10 @@ it("opens an unselected overview and preserves a manual choice on refresh", asyn
     expect(view.queryByRole("article", { name: "Child detail" })).toBeNull();
     expect(view.getByRole("tabpanel", { name: "Agents" }).hidden).toBe(false);
     expect(
-      view.getByRole("tab", { name: "Agents" }).querySelector(".pi-subagents-tab-count")!
-        .textContent,
+      (
+        view.getByRole("tab", { name: "Agents" }).querySelector(".pi-subagents-tab-count") ??
+        missingValue("Expected a non-null value")
+      ).textContent,
     ).toBe("2");
     expect(view.queryByText("Select a captured run to view its detail.")).toBeNull();
     expect(view.queryByRole("alert")).toBeNull();
@@ -266,14 +270,24 @@ it("retains task attribution when its event leaves the window without replacing 
     const selected = view.getByRole("button", { name: /Original task attribution/ });
     fireEvent.click(selected);
     const reader = view.getByRole("region", { name: "Captured conversation" });
-    const task = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-task")!;
-    const conversation = view.container.querySelector<HTMLDetailsElement>(
-      ".pi-subagents-conversation",
-    )!;
-    const tool = view.container.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
-    fireEvent.click(task.querySelector("summary")!);
-    fireEvent.click(tool.querySelector("summary")!);
-    tool.querySelector("summary")!.focus();
+    const task =
+      view.container.querySelector<HTMLDetailsElement>(".pi-subagents-task") ??
+      missingValue("Expected a non-null value");
+    const conversation =
+      view.container.querySelector<HTMLDetailsElement>(".pi-subagents-conversation") ??
+      missingValue("Expected a non-null value");
+    const tool =
+      view.container.querySelector<HTMLDetailsElement>(".pi-subagents-tool") ??
+      missingValue("Expected a non-null value");
+    fireEvent.click(
+      task.querySelector("summary") ?? missingValue('Expected task.querySelector("summary")'),
+    );
+    fireEvent.click(
+      tool.querySelector("summary") ?? missingValue('Expected tool.querySelector("summary")'),
+    );
+    (
+      tool.querySelector("summary") ?? missingValue('Expected tool.querySelector("summary")')
+    ).focus();
     expect(task.open).toBe(true);
     expect(tool.open).toBe(true);
     const focused = document.activeElement;
@@ -282,9 +296,12 @@ it("retains task attribution when its event leaves the window without replacing 
     });
     expect(h.list).toHaveBeenCalledTimes(2);
     expect(view.getByRole("heading", { level: 3, name: "Builder" }).textContent).toBe("Builder");
-    expect(task.querySelector('[data-testid="bb-markdown"]')!.textContent).toBe(
-      "Original task attribution",
-    );
+    expect(
+      (
+        task.querySelector('[data-testid="bb-markdown"]') ??
+        missingValue("Expected a non-null value")
+      ).textContent,
+    ).toBe("Original task attribution");
     expect(view.getByRole("button", { name: /Original task attribution/, hidden: true })).toBe(
       selected,
     );
@@ -340,13 +357,17 @@ it("clears retained attribution on thread changes and ignores a late reply from 
       await Promise.resolve();
     });
     fireEvent.click(view.getByRole("button", { name: /Builder.*Entry/ }));
-    expect(view.container.querySelector(".pi-subagents-task")!.textContent).toContain(
-      "Thread A task",
-    );
+    expect(
+      (
+        view.container.querySelector(".pi-subagents-task") ??
+        missingValue("Expected a non-null value")
+      ).textContent,
+    ).toContain("Thread A task");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4000);
     });
-    const oldSignal = h.list.mock.calls[1]![0].signal as AbortSignal;
+    const oldSignal = (h.list.mock.calls[1] ?? missingValue("Expected h.list.mock.calls[1]"))[0]
+      .signal as AbortSignal;
     view.rerender(<SubagentsPanel {...panelContext} threadId="thread-b" params={{}} />);
     await act(async () => {
       await Promise.resolve();
@@ -355,7 +376,13 @@ it("clears retained attribution on thread changes and ignores a late reply from 
     expect(
       view
         .getAllByRole("tab")
-        .map((tab) => tab.querySelector(".pi-subagents-tab-label")!.textContent),
+        .map(
+          (tab) =>
+            (
+              tab.querySelector(".pi-subagents-tab-label") ??
+              missingValue("Expected a non-null value")
+            ).textContent,
+        ),
     ).toEqual(["Agents"]);
     expect(view.queryByText("Thread A task")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: /Builder.*Entry/ }));
@@ -369,7 +396,9 @@ it("clears retained attribution on thread changes and ignores a late reply from 
       await vi.advanceTimersByTimeAsync(4000);
     });
     expect(h.list).toHaveBeenCalledTimes(4);
-    expect(h.list.mock.calls[3]![0].threadId).toBe("thread-b");
+    expect(
+      (h.list.mock.calls[3] ?? missingValue("Expected h.list.mock.calls[3]"))[0].threadId,
+    ).toBe("thread-b");
   } finally {
     vi.useRealTimers();
   }

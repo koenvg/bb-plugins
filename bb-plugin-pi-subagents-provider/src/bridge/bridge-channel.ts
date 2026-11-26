@@ -33,7 +33,9 @@ export class PiBridgeChannel {
   private ended = false;
   private closed = false;
 
-  constructor(private readonly handlers: PiBridgeChannelHandlers) {
+  private readonly handlers: PiBridgeChannelHandlers;
+  constructor(handlers: PiBridgeChannelHandlers) {
+    this.handlers = handlers;
     const { address, directory } = listenAddress();
     this.directory = directory;
     this.env = {

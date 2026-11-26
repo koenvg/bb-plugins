@@ -118,7 +118,7 @@ describe("createDescriptionSaver", () => {
   });
 
   it("only flushes drafts belonging to the flushed task", async () => {
-    const calls: Array<[string, string]> = [];
+    const calls: [string, string][] = [];
     const { saver } = setup(async (taskId, markdown) => {
       calls.push([taskId, markdown]);
       return { ok: true };

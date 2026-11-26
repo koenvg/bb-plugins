@@ -46,28 +46,31 @@ export interface FakePiBridgeHarness {
   workspaceDir: string;
   sessionDir: string;
   messages: BridgeJsonRpcOutputMessage[];
-  takeMessages(): BridgeJsonRpcOutputMessage[];
-  request(
+  takeMessages: () => BridgeJsonRpcOutputMessage[];
+  request: (
     id: BridgeJsonRpcId,
     method: string,
     params: BridgeJsonRpcObject,
-  ): Promise<BridgeJsonRpcOutputMessage>;
-  startThread(threadId: string, extra?: BridgeJsonRpcObject): Promise<BridgeJsonRpcOutputMessage>;
-  deltasOf(threadId: string): Record<string, unknown>[];
-  waitFor(predicate: () => boolean, what: string): Promise<void>;
-  waitForDelta(
+  ) => Promise<BridgeJsonRpcOutputMessage>;
+  startThread: (
+    threadId: string,
+    extra?: BridgeJsonRpcObject,
+  ) => Promise<BridgeJsonRpcOutputMessage>;
+  deltasOf: (threadId: string) => Record<string, unknown>[];
+  waitFor: (predicate: () => boolean, what: string) => Promise<void>;
+  waitForDelta: (
     threadId: string,
     predicate: (delta: Record<string, unknown>) => boolean,
     since?: number,
-  ): Promise<void>;
-  waitForTurnBoundary(threadId: string, since?: number): Promise<number>;
-  waitForMessage(
+  ) => Promise<void>;
+  waitForTurnBoundary: (threadId: string, since?: number) => Promise<number>;
+  waitForMessage: (
     predicate: (message: BridgeJsonRpcOutputMessage) => boolean,
     what: string,
-  ): Promise<BridgeJsonRpcOutputMessage>;
-  readProcessLog(): { spawned: number[]; exited: number[] };
-  runningChildPids(): number[];
-  teardown(): Promise<void>;
+  ) => Promise<BridgeJsonRpcOutputMessage>;
+  readProcessLog: () => { spawned: number[]; exited: number[] };
+  runningChildPids: () => number[];
+  teardown: () => Promise<void>;
 }
 
 export async function startFakePiBridge(

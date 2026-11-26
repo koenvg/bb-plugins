@@ -120,7 +120,9 @@ export class PiRpcChild {
   private readonly stdoutLines: string[] = [];
   private stdoutDraining = false;
 
-  constructor(private readonly args: SpawnPiRpcChildArgs) {
+  private readonly args: SpawnPiRpcChildArgs;
+  constructor(args: SpawnPiRpcChildArgs) {
+    this.args = args;
     const launch = resolvePiLaunch(process.env);
     let resolveSettledExit: (info: PiRpcChildExitInfo) => void = () => undefined;
     this.settledExit = new Promise((resolve) => {
@@ -378,8 +380,8 @@ export class PiRpcChild {
 }
 
 interface ChannelRecorder {
-  fromChild(message: unknown): void;
-  toChild(message: unknown): void;
+  fromChild: (message: unknown) => void;
+  toChild: (message: unknown) => void;
 }
 
 function createChannelRecorder(threadId: string | null): ChannelRecorder | null {

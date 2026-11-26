@@ -50,8 +50,8 @@ export function useSnoozes(
     for (const group of ending.current) if (!storedGroups.has(group)) ending.current.delete(group);
     if (!threadsReady || status !== "ready") return;
     for (const id of snoozesToEnd(threads, snoozes, groups)) {
-      const group = groups[id]!;
-      if (ending.current.has(group)) continue;
+      const group = groups[id];
+      if (group === undefined || ending.current.has(group)) continue;
       ending.current.add(group);
       void wake(id).catch(() => ending.current.delete(group));
     }

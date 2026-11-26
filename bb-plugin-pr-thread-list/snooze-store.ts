@@ -15,7 +15,11 @@ export interface DueSnoozeGroup {
   wakeAt: number;
   threadIds: string[];
 }
-type Row = { thread_id: string; wake_at: number; group_id: string };
+interface Row {
+  thread_id: string;
+  wake_at: number;
+  group_id: string;
+}
 
 export function createSnoozeStore(db: Database.Database) {
   // Older versions leave group IDs intact when updating an existing row.

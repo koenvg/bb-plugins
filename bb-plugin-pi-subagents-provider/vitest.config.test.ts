@@ -1,8 +1,9 @@
+import type * as Os from "node:os";
 import { availableParallelism } from "node:os";
 import { expect, it, vi } from "vitest";
 
 vi.mock("node:os", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("node:os")>()),
+  ...(await importOriginal<typeof Os>()),
   availableParallelism: vi.fn(),
 }));
 

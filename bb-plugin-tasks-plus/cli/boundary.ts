@@ -114,7 +114,8 @@ async function resolveFolder(domain: TasksDomain, address: string): Promise<Fold
   const byName = folders.filter(
     (folder) => folder.name.toLowerCase() === address.trim().toLowerCase(),
   );
-  if (byName.length === 0) {
+  const [folder] = byName;
+  if (!folder) {
     throw new CliError(`folder not found: ${address}`, {
       code: "folder_not_found",
     });
@@ -124,7 +125,7 @@ async function resolveFolder(domain: TasksDomain, address: string): Promise<Fold
       code: "folder_ambiguous",
     });
   }
-  return byName[0]!;
+  return folder;
 }
 
 async function resolveTask(domain: TasksDomain, address: string): Promise<Task> {
@@ -165,7 +166,8 @@ function resolvePreset(presets: readonly Preset[], address: string): Preset {
   const matches = presets.filter(
     (preset) => preset.id.toLowerCase() === normalized || preset.name.toLowerCase() === normalized,
   );
-  if (matches.length === 0) {
+  const [preset] = matches;
+  if (!preset) {
     throw new CliError(`preset not found: ${address}`, {
       code: "preset_not_found",
     });
@@ -175,7 +177,7 @@ function resolvePreset(presets: readonly Preset[], address: string): Preset {
       code: "preset_ambiguous",
     });
   }
-  return matches[0]!;
+  return preset;
 }
 
 async function listPresets(domain: TasksDomain): Promise<Preset[]> {
@@ -192,7 +194,8 @@ async function resolveMachineId(domain: TasksDomain, address: string): Promise<s
   const matches = machines.filter(
     (machine) => machine.id === address.trim() || machine.name.toLocaleLowerCase() === normalized,
   );
-  if (matches.length === 0) {
+  const [machine] = matches;
+  if (!machine) {
     throw new CliError(`machine not found: ${address}`, {
       code: "machine_not_found",
     });
@@ -202,7 +205,7 @@ async function resolveMachineId(domain: TasksDomain, address: string): Promise<s
       code: "machine_ambiguous",
     });
   }
-  return matches[0]!.id;
+  return machine.id;
 }
 
 async function projectLabels(domain: TasksDomain, projectId: string): Promise<Label[]> {

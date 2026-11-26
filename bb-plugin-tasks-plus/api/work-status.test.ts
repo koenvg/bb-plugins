@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
@@ -98,7 +99,8 @@ describe("read-only task work status", () => {
         { threads: { threadId: string; execution: string; title: string }[] }
       >;
     };
-    const threads = result.byTaskId[task.id]!.threads;
+    const threads = (result.byTaskId[task.id] ?? missingValue("Expected result.byTaskId[task.id]"))
+      .threads;
     for (const [status, execution] of Object.entries(statuses))
       expect(threads.find((t) => t.threadId === `thr_${status}`)).toMatchObject({
         execution,
@@ -109,7 +111,10 @@ describe("read-only task work status", () => {
       title: "thr_unreadable",
     });
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
-    expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
+    expect(
+      (store.tasks.getTask(task.id) ?? missingValue("Expected store.tasks.getTask(task.id)"))
+        .status,
+    ).toBe("in_review");
     expect(
       harness.inspection.sdk.calls.every((c) => ["threads.get", "plugins.list"].includes(c.path)),
     ).toBe(true);
@@ -178,8 +183,14 @@ describe("read-only task work status", () => {
     const [first, second] = await Promise.all([a, b]);
     expect(peak).toBe(8);
     expect(get).toHaveBeenCalledTimes(18);
-    expect(first.byTaskId[task.id]!.threads).toEqual(second.byTaskId[other.id]!.threads);
-    expect(first.byTaskId[task.id]!.observedAt).toBe("2026-10-02T00:00:00.000Z");
+    expect(
+      (first.byTaskId[task.id] ?? missingValue("Expected first.byTaskId[task.id]")).threads,
+    ).toEqual(
+      (second.byTaskId[other.id] ?? missingValue("Expected second.byTaskId[other.id]")).threads,
+    );
+    expect(
+      (first.byTaskId[task.id] ?? missingValue("Expected first.byTaskId[task.id]")).observedAt,
+    ).toBe("2026-10-02T00:00:00.000Z");
     await harness.lifecycle.dispose();
   });
 
@@ -228,7 +239,10 @@ describe("read-only task work status", () => {
       },
     });
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
-    expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
+    expect(
+      (store.tasks.getTask(task.id) ?? missingValue("Expected store.tasks.getTask(task.id)"))
+        .status,
+    ).toBe("in_review");
     expect(harness.realtimeSignals).toEqual([]);
     await harness.lifecycle.dispose();
   });
@@ -304,7 +318,10 @@ describe("read-only task work status", () => {
       },
     });
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
-    expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
+    expect(
+      (store.tasks.getTask(task.id) ?? missingValue("Expected store.tasks.getTask(task.id)"))
+        .status,
+    ).toBe("in_review");
     expect(
       harness.inspection.sdk.calls.every((c) => ["threads.get", "plugins.list"].includes(c.path)),
     ).toBe(true);
@@ -376,7 +393,8 @@ describe("read-only task work status", () => {
   it("bounds retained thread observations without losing associations or rereading overflow, then recovers on a new refresh", async () => {
     const { bb, store, task, attach, get, harness } = setup();
     attach("thr_template");
-    const template = store.tasks.listTaskThreads(task.id)[0]!;
+    const template =
+      store.tasks.listTaskThreads(task.id)[0] ?? missingValue("Expected a non-null value");
     let attached = Array.from({ length: WORK_STATUS_REFRESH_THREAD_LIMIT + 1 }, (_, i) => ({
       ...template,
       threadId: `thr_${i}`,
@@ -389,15 +407,28 @@ describe("read-only task work status", () => {
     try {
       const first = await read([task.id], { id: refreshId(0), step: "start" });
       expect(get).toHaveBeenCalledTimes(WORK_STATUS_REFRESH_THREAD_LIMIT);
-      expect(first.byTaskId[task.id]!.threads).toHaveLength(WORK_STATUS_REFRESH_THREAD_LIMIT + 1);
-      expect(first.byTaskId[task.id]!.threads.at(-1)!.execution).toBe("unavailable");
-      attached = [attached[0]!, attached.at(-1)!];
+      expect(
+        (first.byTaskId[task.id] ?? missingValue("Expected first.byTaskId[task.id]")).threads,
+      ).toHaveLength(WORK_STATUS_REFRESH_THREAD_LIMIT + 1);
+      expect(
+        (
+          (first.byTaskId[task.id] ?? missingValue("Expected first.byTaskId[task.id]")).threads.at(
+            -1,
+          ) ?? missingValue("Expected a non-null value")
+        ).execution,
+      ).toBe("unavailable");
+      attached = [
+        attached[0] ?? missingValue("Expected attached[0]"),
+        attached.at(-1) ?? missingValue("Expected attached.at(-1)"),
+      ];
       const second = await read([task.id], {
         id: refreshId(0),
         step: "finish",
       });
       expect(get).toHaveBeenCalledTimes(WORK_STATUS_REFRESH_THREAD_LIMIT);
-      expect(second.byTaskId[task.id]!.threads).toEqual([
+      expect(
+        (second.byTaskId[task.id] ?? missingValue("Expected second.byTaskId[task.id]")).threads,
+      ).toEqual([
         expect.objectContaining({ threadId: "thr_0", execution: "idle" }),
         expect.objectContaining({
           threadId: `thr_${WORK_STATUS_REFRESH_THREAD_LIMIT}`,
@@ -407,9 +438,11 @@ describe("read-only task work status", () => {
       await read([task.id], { id: refreshId(1), step: "start" });
       const fresh = await read([task.id], { id: refreshId(1), step: "finish" });
       expect(get).toHaveBeenCalledTimes(WORK_STATUS_REFRESH_THREAD_LIMIT + 2);
-      expect(fresh.byTaskId[task.id]!.threads.every((thread) => thread.execution === "idle")).toBe(
-        true,
-      );
+      expect(
+        (fresh.byTaskId[task.id] ?? missingValue("Expected fresh.byTaskId[task.id]")).threads.every(
+          (thread) => thread.execution === "idle",
+        ),
+      ).toBe(true);
     } finally {
       read.dispose();
       await harness.lifecycle.dispose();

@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { PLUGIN_INTERACTION_MAX_TITLE_LENGTH } from "@get-bb/plugin-sdk/provider-bridge";
 import { expect, it } from "vitest";
 import type {
@@ -35,7 +36,7 @@ it.each([160, 161, 200, 201, 4096])(
 
     expect(responses).toEqual([]);
     expect(sent).toHaveLength(1);
-    const payload = sent[0]!.params.payload;
+    const payload = (sent[0] ?? missingValue("Expected sent[0]")).params.payload;
     expect(payload.title.length).toBeLessThanOrEqual(PLUGIN_INTERACTION_MAX_TITLE_LENGTH);
     if (length <= PLUGIN_INTERACTION_MAX_TITLE_LENGTH) {
       expect(payload.title).toBe(title);

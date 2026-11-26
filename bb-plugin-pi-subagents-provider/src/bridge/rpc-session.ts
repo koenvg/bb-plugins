@@ -1,17 +1,13 @@
 import { experimental_buildBridgeToolCallContent as buildBridgeToolCallContent } from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import type { ImageContent } from "@earendil-works/pi-ai";
-import {
-  NO_REQUEST_TIMEOUT,
-  PiRpcChild,
-  PiRpcChildExitedError,
-  type PiRpcChildExitInfo,
-} from "./rpc-child.js";
+import type { PiRpcChild } from "./rpc-child.js";
+import { NO_REQUEST_TIMEOUT, PiRpcChildExitedError, type PiRpcChildExitInfo } from "./rpc-child.js";
 import { PiSessionChannel, type SettlementReport } from "./session-channel.js";
 import { runSettlementError } from "./run-settlement.js";
 import { PiSessionInputs, type TrackedSessionInput } from "./session-inputs.js";
 import { spawnPiSessionChild } from "./session-launch.js";
 import { createInspectionChannel } from "./subagents/inspection-channel.js";
-import { type CaptureTarget } from "./subagents/capture.js";
+import type { CaptureTarget } from "./subagents/capture.js";
 import { createSessionModelReader } from "./subagents/session-model.js";
 
 export interface PiRpcSessionOptions {
@@ -179,12 +175,20 @@ export class PiRpcSession {
     epoch: () => this.child,
   });
 
+  private readonly options: PiRpcSessionOptions;
+  private readonly forwardToolCall: ToolCallForwarder;
+  private readonly onEvent: PiSessionEventHandler;
+  private readonly onDone: PiSessionDoneHandler;
   constructor(
-    private readonly options: PiRpcSessionOptions,
-    private readonly forwardToolCall: ToolCallForwarder,
-    private readonly onEvent: PiSessionEventHandler,
-    private readonly onDone: PiSessionDoneHandler,
+    options: PiRpcSessionOptions,
+    forwardToolCall: ToolCallForwarder,
+    onEvent: PiSessionEventHandler,
+    onDone: PiSessionDoneHandler,
   ) {
+    this.options = options;
+    this.forwardToolCall = forwardToolCall;
+    this.onEvent = onEvent;
+    this.onDone = onDone;
     this.serviceTier = options.serviceTier ?? "default";
     this.sessionModels = createSessionModelReader({
       parentFile: options.sessionFilePath,

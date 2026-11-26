@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, waitFor } from "@testing-library/react";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -8,7 +9,7 @@ import { TasksRefreshProvider } from "./refresh.js";
 import { TaskDataProvider, useTaskPreview } from "./task-data.js";
 
 const app = await loadPluginApp(() => import("../app.js"));
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   cleanup();
   while (disposers.length) await disposers.pop()?.();
@@ -55,13 +56,14 @@ function setup() {
     </TasksRefreshProvider>
   );
   const slot = renderSlot(
-    { ...app.navPanels[0]!, component },
+    { ...(app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")), component },
     { subPath: "" },
     {
       rpc: { getTaskByKey: (input) => harness.behavior.callRpc("getTaskByKey", input) },
     },
   );
-  const read = (key: string) => JSON.parse(slot.getByLabelText(key).textContent!);
+  const read = (key: string) =>
+    JSON.parse(slot.getByLabelText(key).textContent ?? missingValue("Expected a non-null value"));
   const calls = (key: string) =>
     slot.inspection.rpcCalls.filter(
       (call) =>

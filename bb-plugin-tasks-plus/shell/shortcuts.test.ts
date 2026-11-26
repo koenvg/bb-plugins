@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   hasOpenOverlay,
@@ -49,7 +50,8 @@ describe("shortcut table", () => {
 });
 
 describe("shortcutMatches", () => {
-  const byId = (id: string) => SHORTCUTS.find((entry) => entry.id === id)!;
+  const byId = (id: string) =>
+    SHORTCUTS.find((entry) => entry.id === id) ?? missingValue("Expected a non-null value");
   const press = (key: string, extra: { shiftKey?: boolean; repeat?: boolean } = {}) => ({
     key,
     shiftKey: false,

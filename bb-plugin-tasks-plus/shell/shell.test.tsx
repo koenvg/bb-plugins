@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -25,7 +26,7 @@ const { loadViewMode } = await import("./view-preference.js");
 const { querySnapshotStorageKey, resetQuerySnapshotStateForTest } =
   await import("./query-snapshot.js");
 
-const tasksRegistration = app.navPanels[0]!;
+const tasksRegistration = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
 
 beforeEach(() => window.localStorage.clear());
 afterEach(() => {
@@ -107,7 +108,7 @@ describe("tasks route grammar", () => {
 describe("project view preference", () => {
   const openProject = (subPath: string) =>
     renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath },
       { rpc: seededRpc({ listLabels: () => ({ labels: [] }) }) },
     );
@@ -137,7 +138,7 @@ describe("project view preference", () => {
     expect(loadViewMode(OTHER_PROJECT_ID)).toBe("board");
 
     const other = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: `${OTHER_PROJECT_ID}?view=list` },
       { rpc: seededRpc() },
     );
@@ -204,7 +205,7 @@ describe("task pager", () => {
 
   it("renders n / m on the task route and steps to the next sibling", async () => {
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "task/TSK-4" },
       {
         rpc: seededRpc({
@@ -241,7 +242,7 @@ describe("tasks app shell", () => {
       labelIds: [],
     };
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "all" },
       {
         realtimeConnectionState: "connecting",
@@ -279,7 +280,7 @@ describe("tasks app shell", () => {
       labelIds: [],
     };
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "all" },
       {
         realtimeConnectionState: "reconnecting",
@@ -313,7 +314,7 @@ describe("tasks app shell", () => {
       labelIds: [],
     };
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "all" },
       {
         rpc: seededRpc({
@@ -376,7 +377,7 @@ describe("tasks app shell", () => {
 
   it("exposes a subtle icon-only refresh control left of New task", async () => {
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "all" },
       {
         rpc: seededRpc({
@@ -411,7 +412,9 @@ describe("tasks app shell", () => {
     const tabbables = [refresh, newTask];
     for (let i = 0; i < tabbables.length - 1; i++) {
       expect(
-        tabbables[i]!.compareDocumentPosition(tabbables[i + 1]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        (tabbables[i] ?? missingValue("Expected tabbables[i]")).compareDocumentPosition(
+          tabbables[i + 1] ?? missingValue("Expected tabbables[i + 1]"),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     }
 
@@ -423,7 +426,7 @@ describe("tasks app shell", () => {
     let listTasksCalls = 0;
     let title = "Flight title A";
     let holdListTasks = false;
-    const pendingResolvers: Array<() => void> = [];
+    const pendingResolvers: (() => void)[] = [];
     const releaseAllPending = () => {
       const resolvers = pendingResolvers.splice(0, pendingResolvers.length);
       for (const resolve of resolvers) resolve();
@@ -435,7 +438,7 @@ describe("tasks app shell", () => {
       labelIds: [],
     };
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "all" },
       {
         rpc: seededRpc({
@@ -530,7 +533,7 @@ describe("tasks app shell", () => {
       labelIds: [],
     };
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "all" },
       {
         rpc: seededRpc({
@@ -575,7 +578,7 @@ describe("tasks app shell", () => {
       labelIds: [],
     };
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "task/TSK-4" },
       {
         rpc: seededRpc({
@@ -664,8 +667,16 @@ describe("tasks app shell", () => {
       });
       await slot.findByRole("menuitemradio", { name: project.name });
       expect(window.localStorage.getItem("bb-tasks:query-snapshot:v0:projects")).toBeNull();
-      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([project]);
-      expect(JSON.parse(window.localStorage.getItem(foldersKey)!)).toEqual([folder]);
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(projectsKey) ?? missingValue("Expected a non-null value"),
+        ),
+      ).toEqual([project]);
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(foldersKey) ?? missingValue("Expected a non-null value"),
+        ),
+      ).toEqual([folder]);
     });
 
     it("keeps the newer project snapshot when an older request resolves later", async () => {
@@ -682,13 +693,21 @@ describe("tasks app shell", () => {
       // A real invalidation must start a new read before the older one settles.
       await slot.behavior.emitRealtime("projects:changed", {});
       await waitFor(() =>
-        expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([newerProject]),
+        expect(
+          JSON.parse(
+            window.localStorage.getItem(projectsKey) ?? missingValue("Expected a non-null value"),
+          ),
+        ).toEqual([newerProject]),
       );
       await act(async () => {
         older.resolve({ projects: [olderProject] });
         await older.promise;
       });
-      expect(JSON.parse(window.localStorage.getItem(projectsKey)!)).toEqual([newerProject]);
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(projectsKey) ?? missingValue("Expected a non-null value"),
+        ),
+      ).toEqual([newerProject]);
     });
   });
 
@@ -706,8 +725,12 @@ describe("tasks app shell", () => {
       listTasks: (input: { activeOnly?: boolean }) =>
         input.activeOnly === true ? Promise.reject(new Error("active fetch failed")) : { tasks },
     });
-    const Panel = app.navPanels[0]!.component;
-    const slot = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc });
+    const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: "all" },
+      { rpc },
+    );
     await slot.findByText("Scope truth");
 
     slot.lifecycle.rerender(<Panel subPath="active" />);
@@ -718,14 +741,17 @@ describe("tasks app shell", () => {
 
   it("shows the empty state and opens the New project dialog", async () => {
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "" },
       {
         rpc: emptyRpc,
       },
     );
     await slot.findByText("No projects yet");
-    fireEvent.click(slot.getAllByRole("button", { name: /New project/ })[0]!);
+    fireEvent.click(
+      slot.getAllByRole("button", { name: /New project/ })[0] ??
+        missingValue("Expected a non-null value"),
+    );
     await slot.findByText("Projects group tasks under a shared key prefix.");
   });
 
@@ -750,8 +776,12 @@ describe("tasks app shell", () => {
         });
       },
     });
-    const Panel = app.navPanels[0]!.component;
-    const slot = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc });
+    const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: "all" },
+      { rpc },
+    );
     await slot.findByText("Scope truth");
 
     slot.lifecycle.rerender(<Panel subPath="active" />);
@@ -762,13 +792,13 @@ describe("tasks app shell", () => {
     await waitFor(() => expect(releaseAll).not.toBeNull());
     expect(slot.queryByText("No tasks yet")).toBeNull();
     expect(slot.queryByText("Scope truth")).toBeNull();
-    act(() => releaseAll!());
+    act(() => (releaseAll ?? missingValue("Expected releaseAll"))());
     await slot.findByText("Scope truth");
   });
 
   it("renders board and task subPaths without plugin-owned sidebar chrome", async () => {
     const boardSlot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: `${PROJECT_ID}?view=board` },
       { rpc: seededRpc() },
     );
@@ -778,7 +808,11 @@ describe("tasks app shell", () => {
     expect(boardSlot.queryByRole("button", { name: /sidebar/i })).toBeNull();
     cleanup();
 
-    const taskSlot = renderSlot(app.navPanels[0]!, { subPath: "task/TSK-4" }, { rpc: seededRpc() });
+    const taskSlot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: "task/TSK-4" },
+      { rpc: seededRpc() },
+    );
     await taskSlot.findByText(/Task TSK-4 was not found/);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(taskSlot.navigateCalls).toContainEqual({

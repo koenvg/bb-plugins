@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
@@ -43,10 +44,15 @@ it("fills the overview and stretches equal-height tabs without a scrollbar gutte
   expect(css).not.toMatch(/\.pi-subagents nav button/);
   expect(css).toMatch(/\.pi-subagents-row-meta\s*\{[^}]*flex-wrap:\s*wrap/);
   expect(css).toMatch(/\.pi-subagents-tab-label\s*\{[^}]*white-space:\s*nowrap/);
-  const coarse = css.split("@media (pointer: coarse)")[1]!.split("@media")[0]!;
+  const coarse =
+    (css.split("@media (pointer: coarse)")[1] ?? missingValue("Expected a non-null value")).split(
+      "@media",
+    )[0] ?? missingValue("Expected a non-null value");
   expect(coarse).toMatch(/\.pi-subagents \[role="tab"\][^{]*\{[^}]*min-height:\s*44px/);
   expect(coarse).toContain("min-width: 44px");
-  const reduced = css.split("@media (prefers-reduced-motion: reduce)")[1]!;
+  const reduced =
+    css.split("@media (prefers-reduced-motion: reduce)")[1] ??
+    missingValue("Expected a non-null value");
   expect(reduced).toContain(".pi-subagents button,");
   expect(reduced).toContain(".pi-subagents summary::before,");
   expect(reduced).toContain(".pi-subagents *::before");

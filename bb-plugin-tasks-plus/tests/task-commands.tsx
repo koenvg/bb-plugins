@@ -172,7 +172,7 @@ const Fixture = () => {
           <button
             onClick={() => {
               tasks[0] = {
-                ...tasks[0]!,
+                ...requireFixture(tasks[0], "tasks[0]"),
                 title: "External edit",
                 updatedAt: "2026-10-20T00:00:00Z",
               };
@@ -279,7 +279,10 @@ const slot = renderSlot(
       updateTask: async (raw) => {
         const input = rpcInput(raw);
         updates.push(input);
-        const task = tasks.find((entry) => entry.id === input.taskId)!;
+        const task = requireFixture(
+          tasks.find((entry) => entry.id === input.taskId),
+          "tasks.find((entry) => entry.id === input.taskId)",
+        );
         Object.assign(task, input);
         window.dispatchEvent(new Event("fixture-update"));
         if (refreshOrder) {
@@ -306,3 +309,8 @@ const slot = renderSlot(
   },
 );
 if (durationTransport) Object.assign(window, { taskDurationFixture: slot.behavior });
+
+function requireFixture<T>(value: T | null | undefined, label: string): T {
+  if (value == null) throw new Error(`Missing fixture value: ${label}`);
+  return value;
+}

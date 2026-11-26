@@ -9,7 +9,7 @@ import {
 } from "react";
 import { SHORTCUTS, shortcutMatches, shouldIgnoreKey, type ShortcutId } from "./shortcuts.js";
 
-export type ShortcutHandler = () => boolean | void;
+export type ShortcutHandler = (() => boolean) | (() => void);
 
 export type ShortcutHandlers = Partial<Record<ShortcutId, ShortcutHandler | null>>;
 
@@ -26,8 +26,8 @@ type HandlersRef = RefObject<{
 }>;
 
 const ShortcutRegistryContext = createContext<{
-  register(handlers: HandlersRef): () => void;
-  registerScope(root: RefObject<HTMLElement | null>): () => void;
+  register: (handlers: HandlersRef) => () => void;
+  registerScope: (root: RefObject<HTMLElement | null>) => () => void;
 } | null>(null);
 
 export const ShortcutProvider = ({

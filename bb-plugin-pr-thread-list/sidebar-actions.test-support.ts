@@ -2,7 +2,11 @@ import type { ComponentType } from "react";
 import type { PluginBrowserBbSdk } from "@get-bb/plugin-sdk/app";
 import { renderSlot, type RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
 
-type ActionCall = { method: string; threadId?: string; [key: string]: unknown };
+interface ActionCall {
+  method: string;
+  threadId?: string;
+  [key: string]: unknown;
+}
 
 /** Native registry and navigation fixtures. No host confirmation or mutation is emulated. */
 export function renderSidebarSlot<Props extends object>(

@@ -35,7 +35,9 @@ function pluginToken(): Promise<string> {
   return tokenPromise;
 }
 
-export type AttachmentOwnerRef = { taskId: string };
+export interface AttachmentOwnerRef {
+  taskId: string;
+}
 
 export async function uploadAttachment(
   file: File,

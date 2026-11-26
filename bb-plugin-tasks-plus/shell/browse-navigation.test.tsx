@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -10,7 +11,7 @@ import { BROWSE_PREFERENCE_STORAGE_KEY } from "./browse-preference.js";
 import { CompactViewportOverrideProvider } from "../components/ui/hooks/use-compact-viewport.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const panel = app.navPanels[0]!;
+const panel = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
 const project: Project = {
   id: "01HZZZZZZZZZZZZZZZZZZZZZP1",
   name: "Tenet",
@@ -248,7 +249,12 @@ describe("inline Tasks navigation", () => {
     openMenu(slot.getByRole("button", { name: "Project: Tenet" }));
     fireEvent.click(await slot.findByRole("menuitemradio", { name: "ClassSpotter" }));
     // A requested destination must not change memory before the host commits it.
-    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+    expect(
+      JSON.parse(
+        localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      ).scope,
+    ).toEqual({
       kind: "project",
       projectId: project.id,
     });
@@ -270,7 +276,12 @@ describe("inline Tasks navigation", () => {
     expect(within(dialog).getByRole("combobox", { name: "Project" }).textContent).toContain(
       "ClassSpotter",
     );
-    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+    expect(
+      JSON.parse(
+        localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      ).scope,
+    ).toEqual({
       kind: "project",
       projectId: other.id,
     });
@@ -286,7 +297,12 @@ describe("inline Tasks navigation", () => {
     fireEvent.click(await slot.findByRole("menuitemradio", { name: "All projects" }));
     slot.lifecycle.rerender(<Panel subPath="all" />);
     await slot.findByRole("button", { name: "Project: All projects" });
-    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+    expect(
+      JSON.parse(
+        localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      ).scope,
+    ).toEqual({
       kind: "all",
     });
   });
@@ -367,7 +383,12 @@ describe("inline Tasks navigation", () => {
     await slot.findByRole("dialog");
     fireEvent.keyDown(slot.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
-    expect(JSON.parse(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)!).scope).toEqual({
+    expect(
+      JSON.parse(
+        localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      ).scope,
+    ).toEqual({
       kind: "project",
       projectId: project.id,
     });

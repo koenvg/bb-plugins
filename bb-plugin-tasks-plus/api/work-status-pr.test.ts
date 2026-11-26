@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
@@ -56,7 +57,7 @@ function setup(
       await harness.behavior.callRpc("listTaskWorkStatus", {
         taskIds: [task.id],
       }),
-    ).byTaskId[task.id]!;
+    ).byTaskId[task.id] ?? missingValue("Expected a non-null value");
   return { bb, harness, store, task, attach, read };
 }
 
@@ -111,7 +112,10 @@ describe("basic list PR lifecycle without optional plugins", () => {
     expect(result.threads.every((t) => t.execution === "failed" && t.archive === "archived")).toBe(
       true,
     );
-    expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
+    expect(
+      (store.tasks.getTask(task.id) ?? missingValue("Expected store.tasks.getTask(task.id)"))
+        .status,
+    ).toBe("in_review");
     expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
     expect(
       harness.inspection.sdk.calls.every((call) =>
@@ -271,8 +275,12 @@ describe("basic list PR lifecycle without optional plugins", () => {
         unavailableThreadIds: [],
       });
       const result2 = await read();
-      expect(result2.pullRequests.items[0]!.threadIds).toHaveLength(3);
-      expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
+      expect(
+        (result2.pullRequests.items[0] ?? missingValue("Expected task or pull request")).threadIds,
+      ).toHaveLength(3);
+      expect(
+        (store.tasks.getTask(task.id) ?? missingValue("Expected task or pull request")).status,
+      ).toBe("in_review");
     },
   );
 
@@ -333,7 +341,8 @@ describe("basic list PR lifecycle without optional plugins", () => {
     const pullRequest = vi.fn(async () => pr());
     const { bb, store, task, attach } = setup(get, pullRequest);
     attach("thr_template");
-    const template = store.tasks.listTaskThreads(task.id)[0]!;
+    const template =
+      store.tasks.listTaskThreads(task.id)[0] ?? missingValue("Expected a non-null value");
     let attached = Array.from({ length: 2050 }, (_, i) => ({
       ...template,
       threadId: `thr_${i}`,
@@ -347,20 +356,32 @@ describe("basic list PR lifecycle without optional plugins", () => {
     const first = await reader([task.id], refresh(1, "start"));
     expect(get).toHaveBeenCalledTimes(2050);
     expect(pullRequest).toHaveBeenCalledTimes(2046);
-    expect(first.byTaskId[task.id]!.pullRequests.unavailableThreadIds).toHaveLength(4);
+    expect(
+      (first.byTaskId[task.id] ?? missingValue("Expected first.byTaskId[task.id]")).pullRequests
+        .unavailableThreadIds,
+    ).toHaveLength(4);
     await reader([task.id], refresh(1, "continue"));
     expect(pullRequest).toHaveBeenCalledTimes(2046);
     await vi.advanceTimersByTimeAsync(60_000);
     const result = await reader([task.id], refresh(1, "continue"));
-    expect(result.byTaskId[task.id]!.pullRequests.availability).toBe("unavailable");
+    expect(
+      (result.byTaskId[task.id] ?? missingValue("Expected task or pull request")).pullRequests
+        .availability,
+    ).toBe("unavailable");
     expect(pullRequest).toHaveBeenCalledTimes(2046);
     attached = attached.slice(-4);
     const result2 = await reader([task.id], refresh(2, "start"));
-    expect(result2.byTaskId[task.id]!.pullRequests.availability).toBe("available");
+    expect(
+      (result2.byTaskId[task.id] ?? missingValue("Expected task or pull request")).pullRequests
+        .availability,
+    ).toBe("available");
     expect(pullRequest).toHaveBeenCalledTimes(2050);
     await reader([], refresh(2, "finish"));
     const result3 = await reader([task.id], refresh(2, "continue"));
-    expect(result3.byTaskId[task.id]!.pullRequests.availability).toBe("unavailable");
+    expect(
+      (result3.byTaskId[task.id] ?? missingValue("Expected task or pull request")).pullRequests
+        .availability,
+    ).toBe("unavailable");
     reader.dispose();
     expect(vi.getTimerCount()).toBe(0);
   });

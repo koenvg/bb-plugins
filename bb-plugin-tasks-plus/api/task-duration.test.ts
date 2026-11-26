@@ -1,12 +1,13 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore, registerTasksApi } from "./index.js";
 import { taskDurationSchema, tasksRpcContract, type TaskStatus } from "../shared/contract.js";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
-  while (disposers.length) await disposers.pop()!();
+  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
 });
 
 function setup() {
@@ -28,7 +29,7 @@ function setup() {
   };
   const lookup = async () =>
     tasksRpcContract.getTaskByKey.output.parse(await call("getTaskByKey", { taskKey: task.key }))
-      .task!;
+      .task ?? missingValue("Expected a non-null value");
   return { store, db, project, task, call, transition, lookup };
 }
 

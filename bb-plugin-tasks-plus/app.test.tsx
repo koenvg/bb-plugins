@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -9,7 +10,9 @@ const app = await loadPluginApp(() => import("./app"));
 afterEach(cleanup);
 
 const Badge = () => {
-  const badge = app.navPanels[0]!.experimental_useBadge!();
+  const badge = (
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")
+  ).experimental_useBadge?.();
   return badge ? <output aria-label={badge.label}>{badge.count}</output> : null;
 };
 
@@ -44,7 +47,7 @@ describe("Tasks navigation badge data", () => {
     expect(Accessory).toBeTypeOf("function");
 
     const slot = renderSlot(
-      { component: Accessory! },
+      { component: Accessory ?? missingValue("Expected Accessory") },
       {},
       {
         rpc: {
@@ -77,7 +80,7 @@ describe("Tasks navigation badge data", () => {
     const Accessory = Badge;
 
     const slot = renderSlot(
-      { component: Accessory! },
+      { component: Accessory ?? missingValue("Expected Accessory") },
       {},
       {
         rpc: {
@@ -118,7 +121,7 @@ describe("Tasks navigation badge data", () => {
     const Accessory = Badge;
 
     const slot = renderSlot(
-      { component: Accessory! },
+      { component: Accessory ?? missingValue("Expected Accessory") },
       {},
       {
         rpc: {
@@ -157,7 +160,9 @@ describe("Tasks navigation badge data", () => {
 });
 
 it("blocks webhook actions until repaired and confirms only the selected deletion", async () => {
-  const section = app.settingsSections.find(({ id }) => id === "webhooks")!;
+  const section =
+    app.settingsSections.find(({ id }) => id === "webhooks") ??
+    missingValue("Expected a non-null value");
   expect(section).toBeDefined();
   const first = { id: `wh_${"a".repeat(32)}`, scope: { kind: "global" }, hasAuthorization: true };
   const second = { id: `wh_${"b".repeat(32)}`, scope: { kind: "global" }, hasAuthorization: false };
@@ -202,7 +207,9 @@ it("blocks webhook actions until repaired and confirms only the selected deletio
 });
 
 it("renames only the selected duplicate, preserving the draft on error and restoring focus", async () => {
-  const section = app.settingsSections.find(({ id }) => id === "webhooks")!;
+  const section =
+    app.settingsSections.find(({ id }) => id === "webhooks") ??
+    missingValue("Expected a non-null value");
   const endpoints = ["a", "b"].map((letter) => ({
     id: `wh_${letter.repeat(32)}`,
     name: "Release alerts",
@@ -224,13 +231,15 @@ it("renames only the selected duplicate, preserving the draft on error and resto
       },
     },
   );
-  await slot.findByText(second!.id);
+  await slot.findByText((second ?? missingValue("Expected second")).id);
   expect(slot.getAllByText("Release alerts")).toHaveLength(2);
-  const trigger = slot.getByRole("button", { name: `Rename All trackers webhook ${second!.id}` });
+  const trigger = slot.getByRole("button", {
+    name: `Rename All trackers webhook ${(second ?? missingValue("Expected second")).id}`,
+  });
   act(() => trigger.click());
   const dialog = within(slot.getByRole("dialog", { name: "Rename webhook" }));
-  expect(dialog.getByText(second!.id)).toBeDefined();
-  expect(dialog.queryByText(first!.id)).toBeNull();
+  expect(dialog.getByText((second ?? missingValue("Expected second")).id)).toBeDefined();
+  expect(dialog.queryByText((first ?? missingValue("Expected first")).id)).toBeNull();
   const field = dialog.getByRole<HTMLInputElement>("textbox", { name: /Name/ });
   expect(field.value).toBe("Release alerts");
   expect(dialog.getAllByRole("textbox")).toHaveLength(1);
@@ -247,13 +256,15 @@ it("renames only the selected duplicate, preserving the draft on error and resto
   fireEvent.click(reopened.getByRole("button", { name: "Save name" }));
   expect(reopened.getByRole("button", { name: "Saving…" })).toBeDefined();
   expect(slot.inspection.rpcCalls.filter(({ method }) => method === "renameWebhook")).toEqual([
-    expect.objectContaining({ input: { id: second!.id, name: "Release digest" } }),
+    expect.objectContaining({
+      input: { id: (second ?? missingValue("Expected second")).id, name: "Release digest" },
+    }),
   ]);
   await act(async () => save({ ok: false, code: "storage_error" }));
   expect(reopened.getByRole("alert").textContent).toMatch(/Try again/);
   expect(name.value).toBe("Release digest");
   fireEvent.click(reopened.getByRole("button", { name: "Save name" }));
-  second!.name = "Release digest";
+  (second ?? missingValue("Expected second")).name = "Release digest";
   await act(async () => save({ ok: true, endpoint: second }));
   await waitFor(() => expect(document.activeElement).toBe(trigger));
   expect(slot.getByText("Release alerts")).toBeDefined();

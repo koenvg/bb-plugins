@@ -6,7 +6,7 @@ import { normalizeConditions } from "./work-status-conditions.js";
 
 type WorkPr = TaskWorkStatus["pullRequests"]["items"][number];
 export type RichReason = NonNullable<WorkPr["detailsReason"]>;
-export type RichObservation = {
+export interface RichObservation {
   reason?: RichReason;
   identity?: {
     url: string;
@@ -17,7 +17,7 @@ export type RichObservation = {
   rich?: NonNullable<WorkPr["rich"]>;
   // Queue interpretation belongs to BBP-7. Evidence stays local, not arbitrary RPC data.
   queueEvidence?: unknown;
-};
+}
 const identitySchema = z
   .object({
     number: z.number().int().positive(),
@@ -95,12 +95,10 @@ export function richDetails(
   if (pr.state === "unknown") return unavailable("conflict");
   const matching = observations.filter((o) => o.identity?.url === pr.url);
   if (!matching.length) return unavailable(observations[0]?.reason ?? "metadata_absent");
-  const undated = matching.filter((o) => o.time === undefined);
-  if (undated.length)
-    return unavailable(
-      matching.length > 1 ? "conflict" : (undated[0]!.reason ?? "invalid_metadata"),
-    );
-  const newest = Math.max(...matching.map((o) => o.time!));
+  const undated = matching.find((o) => o.time === undefined);
+  if (undated)
+    return unavailable(matching.length > 1 ? "conflict" : (undated.reason ?? "invalid_metadata"));
+  const newest = Math.max(...matching.map((o) => o.time ?? -Infinity));
   const current = matching.filter((o) => o.time === newest);
   const fingerprints = new Set(
     current.map((o) =>
@@ -113,7 +111,8 @@ export function richDetails(
     ),
   );
   if (fingerprints.size !== 1) return unavailable("conflict");
-  const candidate = current[0]!;
+  const [candidate] = current;
+  if (!candidate) return unavailable("conflict");
   if (!candidate.rich) return unavailable(candidate.reason ?? "invalid_metadata");
   if (candidate.identity?.state !== pr.state) return unavailable("lifecycle_mismatch");
   const partialRead = observations.find(

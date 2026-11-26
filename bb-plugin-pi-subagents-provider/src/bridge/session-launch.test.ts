@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -70,8 +71,12 @@ it.each([false, true])(
     const result = (await child.requestOk({ type: "get_state" })) as { args: string[] };
     const files = readdirSync(options.scratchDir);
     expect(files).toHaveLength(3);
-    const systemFile = files.find((file) => file.startsWith("pi-system-"))!;
-    const appendFile = files.find((file) => file.startsWith("pi-append-"))!;
+    const systemFile =
+      files.find((file) => file.startsWith("pi-system-")) ??
+      missingValue("Expected a non-null value");
+    const appendFile =
+      files.find((file) => file.startsWith("pi-append-")) ??
+      missingValue("Expected a non-null value");
     expect(result).toEqual({
       args: [
         "--mode",
@@ -86,7 +91,7 @@ it.each([false, true])(
         "--append-system-prompt",
         join(options.scratchDir, appendFile),
         "--skill",
-        options.additionalSkillPaths![0],
+        (options.additionalSkillPaths ?? missingValue("Expected options.additionalSkillPaths"))[0],
         "--provider",
         "test",
         "--model",

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -82,7 +83,7 @@ function serverFilter(tasks: Task[], input: Record<string, unknown>) {
 
 function render(tasks: Task[], subPath = PROJECT_ID, rich = false) {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath },
     {
       rpc: {
@@ -179,7 +180,8 @@ function render(tasks: Task[], subPath = PROJECT_ID, rich = false) {
         listAttachments: () => ({ attachments: [] }),
         updateTask: (raw) => {
           const input = rpcInput(raw);
-          const current = tasks.find((t) => t.id === input.taskId)!;
+          const current =
+            tasks.find((t) => t.id === input.taskId) ?? missingValue("Expected a non-null value");
           return { ok: true, task: { ...current, ...input } };
         },
       },
@@ -327,7 +329,10 @@ describe("subtasks in the list", () => {
 
     await waitFor(() =>
       expect(
-        within(slot.container.querySelector('[data-task-key="ABC-1"]')!).getByText("2/2"),
+        within(
+          slot.container.querySelector('[data-task-key="ABC-1"]') ??
+            missingValue("Expected a non-null value"),
+        ).getByText("2/2"),
       ).toBeTruthy(),
     );
   });
@@ -377,7 +382,9 @@ describe("subtasks with a filter", () => {
         name: /Threads for ABC-1: 1 Failed, 1 Running/,
       }),
     ).toBeTruthy();
-    const childRow = slot.container.querySelector('[data-task-key="ABC-3"]')!;
+    const childRow =
+      slot.container.querySelector('[data-task-key="ABC-3"]') ??
+      missingValue("Expected a non-null value");
     expect(
       await within(childRow as HTMLElement).findByRole("button", {
         name: /Threads for ABC-3: 1 Failed, 1 Running/,
@@ -507,9 +514,9 @@ describe("thread summary list parity", () => {
       fireEvent.keyDown(prDialog, { key: "o" });
       expect(slot.inspection.navigateCalls).toEqual([]);
       fireEvent.keyDown(prDialog, { key: "Escape" });
-      const after = slot.inspection.rpcCalls
-        .filter((c) => c.method === "listTaskWorkStatus")
-        .at(-1)!;
+      const after =
+        slot.inspection.rpcCalls.filter((c) => c.method === "listTaskWorkStatus").at(-1) ??
+        missingValue("Expected a non-null value");
       expect(new Set(rpcInput(after.input).taskIds as string[])).toEqual(
         new Set([doneChild.id, urgentChild.id]),
       );
@@ -533,7 +540,10 @@ it.each(["all", PROJECT_ID, "active"])(
   "keeps rich check/review parity on dimmed parents and matching children in %s",
   async (subPath) => {
     preset({ statuses: ["todo"] });
-    const preference = JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!);
+    const preference = JSON.parse(
+      window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY) ??
+        missingValue("Expected a non-null value"),
+    );
     preference.scopes.all = preference.scopes[`project:${PROJECT_ID}`];
     preference.scopes.active = preference.scopes[`project:${PROJECT_ID}`];
     window.localStorage.setItem(LIST_PREFERENCE_STORAGE_KEY, JSON.stringify(preference));

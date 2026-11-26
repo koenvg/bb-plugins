@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import { parseCreatorSource } from "./schema";
@@ -48,12 +49,12 @@ describe("creator source parsing", () => {
       expect(report).toEqual({
         backfilled: 1,
         skipped: expect.arrayContaining([
-          { taskId: tasks[1]!.id, reason: "missing" },
-          { taskId: tasks[2]!.id, reason: "ambiguous" },
-          { taskId: tasks[3]!.id, reason: "malformed" },
+          { taskId: (tasks[1] ?? missingValue("Expected tasks[1]")).id, reason: "missing" },
+          { taskId: (tasks[2] ?? missingValue("Expected tasks[2]")).id, reason: "ambiguous" },
+          { taskId: (tasks[3] ?? missingValue("Expected tasks[3]")).id, reason: "malformed" },
         ]),
       });
-      expect(report!.skipped).toHaveLength(3);
+      expect((report ?? missingValue("Expected report")).skipped).toHaveLength(3);
       const migrated = createTasksStore(db);
       expect(tasks.map((task) => migrated.getTask(task.id)?.createdByThreadId)).toEqual([
         "thr_one",
@@ -61,12 +62,21 @@ describe("creator source parsing", () => {
         null,
         null,
       ]);
-      expect(tasks.map((task) => Buffer.from(migrated.getTask(task.id)!.description))).toEqual(
-        descriptions.map((text) => Buffer.from(text)),
-      );
-      migrated.updateTask(tasks[1]!.id, { description: "Source bbthread://thr_later" });
+      expect(
+        tasks.map((task) =>
+          Buffer.from(
+            (migrated.getTask(task.id) ?? missingValue("Expected migrated.getTask(task.id)"))
+              .description,
+          ),
+        ),
+      ).toEqual(descriptions.map((text) => Buffer.from(text)));
+      migrated.updateTask((tasks[1] ?? missingValue("Expected tasks[1]")).id, {
+        description: "Source bbthread://thr_later",
+      });
       expect(initializeTasksSchema(db)).toBeUndefined();
-      expect(migrated.getTask(tasks[1]!.id)?.createdByThreadId).toBeNull();
+      expect(
+        migrated.getTask((tasks[1] ?? missingValue("Expected tasks[1]")).id)?.createdByThreadId,
+      ).toBeNull();
     } finally {
       await harness.dispose();
     }

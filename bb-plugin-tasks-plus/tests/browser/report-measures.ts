@@ -1,8 +1,11 @@
 export function reportMeasures() {
-  const root = document.querySelector<HTMLElement>(".md-document")!;
-  const prose = root.querySelector<HTMLElement>(".mr-prose")!;
-  const panel = root.closest(".attachment-preview")!;
-  const body = panel.querySelector<HTMLElement>(".attachment-preview-body")!;
+  const root = document.querySelector<HTMLElement>(".md-document");
+  const prose = root?.querySelector<HTMLElement>(".mr-prose");
+  const panel = root?.closest(".attachment-preview");
+  const body = panel?.querySelector<HTMLElement>(".attachment-preview-body");
+  const code = prose?.querySelector("pre");
+  if (!root || !prose || !panel || !body || !code) throw new Error("Missing report preview markup");
+  const codeStyle = getComputedStyle(code);
   const styles = getComputedStyle(prose);
   const local = (element: Element) => ({
     width: element.clientWidth,
@@ -11,7 +14,8 @@ export function reportMeasures() {
   });
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1;
-  const context = canvas.getContext("2d", { willReadFrequently: true })!;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Missing report canvas context");
   const background = (element: Element) => {
     const ancestors: Element[] = [];
     for (let current: Element | null = element; current; current = current.parentElement)
@@ -30,7 +34,8 @@ export function reportMeasures() {
       const v = value / 255;
       return (
         sum +
-        (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4) * [0.2126, 0.7152, 0.0722][index]!
+        (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4) *
+          ([0.2126, 0.7152, 0.0722][index] ?? 0)
       );
     }, 0);
   const contrast = (element: Element) => {
@@ -76,10 +81,10 @@ export function reportMeasures() {
     }),
     code: Array.from(prose.querySelectorAll("pre")).map(local),
     tables: Array.from(prose.querySelectorAll(".mr-table-scroll")).map(local),
-    codeFont: getComputedStyle(prose.querySelector("pre")!).fontFamily,
-    codeSize: getComputedStyle(prose.querySelector("pre")!).fontSize,
-    codeLineHeight: getComputedStyle(prose.querySelector("pre")!).lineHeight,
-    radius: getComputedStyle(prose.querySelector("pre")!).borderRadius,
+    codeFont: codeStyle.fontFamily,
+    codeSize: codeStyle.fontSize,
+    codeLineHeight: codeStyle.lineHeight,
+    radius: codeStyle.borderRadius,
     bodyContrast: contrast(prose),
     tokens: Array.from(prose.querySelectorAll("pre .token")).map((token) => ({
       class: token.className,

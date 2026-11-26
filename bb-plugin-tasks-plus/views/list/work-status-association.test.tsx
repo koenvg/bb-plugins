@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
@@ -179,12 +180,14 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     const control = await slot.findByRole("button", {
       name: /^(PR details|PRs) for/,
     });
-    const prs = latest!.pullRequests;
+    const prs = (latest ?? missingValue("Expected latest")).pullRequests;
     expect(prs.availability).toBe("partial");
     expect(new Set(prs.unavailableThreadIds)).toEqual(
       new Set(["shared", "distinct"].includes(failure) ? ["thr_b"] : ["thr_a", "thr_b"]),
     );
-    const uncertain = prs.items.find((pr) => pr.number === (failure === "distinct" ? 43 : 42))!;
+    const uncertain =
+      prs.items.find((pr) => pr.number === (failure === "distinct" ? 43 : 42)) ??
+      missingValue("Expected a non-null value");
     expect(uncertain).toMatchObject({
       state: "open",
       details: "incomplete",
@@ -223,9 +226,15 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
       failure === "distinct" ? 2 : 1,
     );
     if (failure === "removed")
-      expect(latest!.threads.map((t) => t.execution)).toEqual(["removed", "removed"]);
+      expect((latest ?? missingValue("Expected latest")).threads.map((t) => t.execution)).toEqual([
+        "removed",
+        "removed",
+      ]);
     if (failure === "thread")
-      expect(latest!.threads.map((t) => t.execution)).toEqual(["unavailable", "unavailable"]);
+      expect((latest ?? missingValue("Expected latest")).threads.map((t) => t.execution)).toEqual([
+        "unavailable",
+        "unavailable",
+      ]);
     expect(reads).toEqual({
       threads: 2,
       environments: ["thread", "removed"].includes(failure) ? 0 : 2,
@@ -240,9 +249,11 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
     });
     await waitFor(() => {
       expect(reads.metadata).toBe(4);
-      expect(latest!.pullRequests.availability).toBe("available");
+      expect((latest ?? missingValue("Expected latest")).pullRequests.availability).toBe(
+        "available",
+      );
       expect(
-        latest!.pullRequests.items.every(
+        (latest ?? missingValue("Expected latest")).pullRequests.items.every(
           (pr) => pr.details === "available" && pr.rich?.readiness === "ready",
         ),
       ).toBe(true);

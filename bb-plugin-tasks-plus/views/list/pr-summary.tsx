@@ -86,7 +86,7 @@ export const PrSummary = ({
     : prs?.availability !== "available"
       ? "Lookup unavailable"
       : null;
-  const single = items.length === 1 ? items[0]! : null;
+  const single = items.length === 1 ? (items[0] ?? null) : null;
   const qualityLabels = [
     ...new Set(items.filter((pr) => pr.details !== "available").map(qualityLabel)),
   ];

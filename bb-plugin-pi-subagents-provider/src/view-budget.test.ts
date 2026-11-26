@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { expect, it } from "vitest";
 import { fitViewState } from "./view-budget.js";
 import { parseViewState, type ViewRow, type ViewState } from "./subagents-contract.js";
@@ -66,7 +67,13 @@ it("fits nonmutating and idempotently with task prefixes, output tails and error
       truncated: { task: true, finalOutput: true },
     });
     expect(item.capture?.messages?.[0]).toMatchObject({ isError: true, textTruncated: true });
-    expect(item.capture?.truncated?.messages).toBe(25 - item.capture!.messages!.length);
+    expect(item.capture?.truncated?.messages).toBe(
+      25 -
+        (
+          (item.capture ?? missingValue("Expected item.capture")).messages ??
+          missingValue("Expected a non-null value")
+        ).length,
+    );
   }
 });
 
@@ -81,8 +88,10 @@ it("enforces the row count without destroying detail that already fits the byte 
     ),
   );
   expect(fitted.rows).toHaveLength(128);
-  expect(fitted.rows[0]!.capture?.finalOutput).toBe("useful answer");
-  expect(fitted.rows[127]!.id).toBe("run-127");
+  expect((fitted.rows[0] ?? missingValue("Expected fitted.rows[0]")).capture?.finalOutput).toBe(
+    "useful answer",
+  );
+  expect((fitted.rows[127] ?? missingValue("Expected fitted.rows[127]")).id).toBe("run-127");
   expect(fitted.omitted).toBe(4);
   expect(fitViewState(fitted)).toEqual(fitted);
 });
@@ -104,10 +113,14 @@ it("evicts metadata deterministically without clipping identities or dangling pa
     })),
   );
   const fitted = fitViewState(candidate);
-  expect(fitted.rows[0]!.id).toBe(candidate.rows[0]!.id);
-  expect(fitted.rows[0]!.sessionId).toBe("s".repeat(4096));
-  expect(fitted.rows[0]!.parentId).toBeUndefined();
-  expect(fitted.rows[0]!.capture).toMatchObject({
+  expect((fitted.rows[0] ?? missingValue("Expected fitted.rows[0]")).id).toBe(
+    (candidate.rows[0] ?? missingValue("Expected candidate.rows[0]")).id,
+  );
+  expect((fitted.rows[0] ?? missingValue("Expected fitted.rows[0]")).sessionId).toBe(
+    "s".repeat(4096),
+  );
+  expect((fitted.rows[0] ?? missingValue("Expected fitted.rows[0]")).parentId).toBeUndefined();
+  expect((fitted.rows[0] ?? missingValue("Expected fitted.rows[0]")).capture).toMatchObject({
     task: "task",
     finalOutput: "answer",
     messages: [],

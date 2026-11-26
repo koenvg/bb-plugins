@@ -52,12 +52,12 @@ const MAX_THREAD_SEARCH_RESULTS = 10;
 
 export interface TasksApiStore {
   readonly tasks: TasksStore;
-  transaction<T>(operation: () => T): T;
-  taskLabelIds(taskIds: readonly string[]): Map<string, string[]>;
-  projectTaskCount(projectId: string): number;
-  projectPrefixExists(prefix: string, excludingProjectId: string): boolean;
-  openTaskCount(): number;
-  sidebarSummary(): SidebarProjectSummary[];
+  transaction: <T>(operation: () => T) => T;
+  taskLabelIds: (taskIds: readonly string[]) => Map<string, string[]>;
+  projectTaskCount: (projectId: string) => number;
+  projectPrefixExists: (prefix: string, excludingProjectId: string) => boolean;
+  openTaskCount: () => number;
+  sidebarSummary: () => SidebarProjectSummary[];
 }
 
 export function createStore(bb: BbPluginApi): TasksApiStore {
@@ -169,8 +169,10 @@ export function createStore(bb: BbPluginApi): TasksApiStore {
 }
 
 class TasksDomainFailure extends Error {
-  constructor(readonly detail: TasksDomainError) {
+  readonly detail: TasksDomainError;
+  constructor(detail: TasksDomainError) {
     super(detail.message);
+    this.detail = detail;
     this.name = "TasksDomainFailure";
   }
 }
@@ -199,8 +201,10 @@ export function publishProjectsChanged(bb: BbPluginApi, projectId: string | null
 }
 
 function apiTask(store: TasksApiStore, task: StoredTask): SingleTask {
+  const [result] = apiTasks(store, [task]);
+  if (!result) throw new Error(`Missing API task ${task.id}`);
   return {
-    ...apiTasks(store, [task])[0]!,
+    ...result,
     duration: calculateTaskDuration({
       status: task.status,
       transitions: store.tasks.listTaskStatusTransitions(task.id),
@@ -342,13 +346,11 @@ async function mapWithConcurrency<T, R>(
   limit: number,
   work: (item: T) => Promise<R>,
 ): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
+  const results: R[] = [];
+  const pending = items.entries();
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await work(items[index]!);
+    for (const [index, item] of pending) {
+      results[index] = await work(item);
     }
   });
   await Promise.all(workers);
@@ -610,7 +612,11 @@ export function registerHandlers(
           replaceTaskLabels(store, created.id, input.labelIds);
           return apiTask(store, created);
         });
-        webhooks?.taskCreated(task, store.tasks.getProject(task.projectId)!.prefix);
+        if (webhooks) {
+          const project = store.tasks.getProject(task.projectId);
+          if (!project) throw new Error(`Missing project ${task.projectId}`);
+          webhooks.taskCreated(task, project.prefix);
+        }
         publishTasksChanged(bb, task.id, task.projectId);
         return { ok: true, task };
       } catch (error) {
@@ -659,8 +665,10 @@ export function registerHandlers(
           }
           const linkedTaskIds = changeTaskBlockers(store, current.id, input);
 
+          const updated = store.tasks.getTask(current.id);
+          if (!updated) throw new Error(`Missing updated task ${current.id}`);
           return {
-            task: apiTask(store, store.tasks.getTask(current.id)!),
+            task: apiTask(store, updated),
             linkedTaskIds,
           };
         });
@@ -717,7 +725,11 @@ export function registerHandlers(
         const added = store.tasks.addTaskDependency(input.blockerTaskId, input.blockedTaskId);
         const [blocker, blocked] = apiTasks(
           store,
-          [input.blockerTaskId, input.blockedTaskId].map((taskId) => store.tasks.getTask(taskId)!),
+          [input.blockerTaskId, input.blockedTaskId].map((taskId) => {
+            const task = store.tasks.getTask(taskId);
+            if (!task) throw new Error(`Missing dependency task ${taskId}`);
+            return task;
+          }),
         );
         if (added) {
           publishTasksChanged(bb, blocker.id, blocker.projectId);

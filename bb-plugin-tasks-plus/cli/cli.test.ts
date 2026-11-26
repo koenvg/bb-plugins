@@ -1,3 +1,5 @@
+import { fail as missingValue } from "node:assert/strict";
+import type * as Attachments from "../attachments";
 import { isUtf8 } from "node:buffer";
 import { mkdir, mkdtemp, readFile, rm, stat, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,7 +13,7 @@ import { registerTasksCli } from "./index";
 import { mockPrStatusRpc } from "../test-fixtures.js";
 
 vi.mock("../attachments", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../attachments")>();
+  const actual = await importOriginal<typeof Attachments>();
   const saveAttachmentFromBytes: typeof actual.saveAttachmentFromBytes = async (
     store,
     bytes,
@@ -266,11 +268,11 @@ describe("bb tasks CLI", () => {
         ]),
       );
     }
-    const taskInputs: Array<{
+    const taskInputs: {
       project: string;
       title: string;
       parent?: string;
-    }> = [
+    }[] = [
       { project: "REL", title: "Root" },
       { project: "REL", title: "Nested child", parent: "REL-1" },
       { project: "REL", title: "Movable root" },
@@ -466,7 +468,7 @@ describe("bb tasks CLI", () => {
         "--json",
       ]);
       const page = JSON.parse(stdout(result)) as {
-        tasks: Array<{ id: string }>;
+        tasks: { id: string }[];
         nextCursor: string | null;
         limit: number;
       };
@@ -1671,7 +1673,8 @@ describe("bb tasks CLI", () => {
         "Remote Laptop",
       ]),
     );
-    const lastRead = harness.sdk.callsTo("files.read").at(-1)!;
+    const lastRead =
+      harness.sdk.callsTo("files.read").at(-1) ?? missingValue("Missing fixture value");
     expect(lastRead[0]).toMatchObject({
       hostId: "machine-remote",
       path: "/remote/notes.md",

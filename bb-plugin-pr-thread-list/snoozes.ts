@@ -70,9 +70,11 @@ export function registerSnoozes(bb: BbPluginApi, now: () => number = Date.now) {
         async (action) => {
           for (const memberId of action.members)
             await bb.sdk.threads.markRead({ threadId: memberId });
-          if (action.members.size) {
-            store.replaceGroup([...action.members], wakeAt, at);
-            if (action.signalled) store.endGroup([...action.members][0]!);
+          const members = [...action.members];
+          const [first] = members;
+          if (first !== undefined) {
+            store.replaceGroup(members, wakeAt, at);
+            if (action.signalled) store.endGroup(first);
           }
           changed();
         },

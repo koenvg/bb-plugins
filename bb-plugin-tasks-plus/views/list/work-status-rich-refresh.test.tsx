@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
@@ -274,7 +275,9 @@ it("shares optional detection and settled metadata successes, absence and failur
   phase = 1;
   fireEvent.click(slot.getByText("Refresh"));
   await waitFor(() =>
-    expect(latest?.get(tasks[500]!.id)?.pullRequests.items[0]).toMatchObject({
+    expect(
+      latest?.get((tasks[500] ?? missingValue("Expected tasks[500]")).id)?.pullRequests.items[0],
+    ).toMatchObject({
       state: "merged",
       details: "available",
     }),
@@ -284,5 +287,7 @@ it("shares optional detection and settled metadata successes, absence and failur
   expect(pullRequest).toHaveBeenCalledTimes(2);
   expect(getPluginMetadata).toHaveBeenCalledTimes(6);
   expect(harness.realtimeSignals).toEqual([]);
-  expect(store.tasks.getTask(tasks[500]!.id)?.status).toBe("in_review");
+  expect(store.tasks.getTask((tasks[500] ?? missingValue("Expected tasks[500]")).id)?.status).toBe(
+    "in_review",
+  );
 });

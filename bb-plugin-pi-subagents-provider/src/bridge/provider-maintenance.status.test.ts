@@ -1,3 +1,4 @@
+import type * as ProviderBridgeRuntime from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   experimental_npmLatestVersion,
@@ -7,7 +8,7 @@ import { fakePiPath } from "./test-support.js";
 import { getPiProviderInstallationStatus, PI_NPM_PACKAGE } from "./provider-maintenance.js";
 
 vi.mock("@get-bb/plugin-sdk-runtime/provider-bridge", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@get-bb/plugin-sdk-runtime/provider-bridge")>()),
+  ...(await importOriginal<typeof ProviderBridgeRuntime>()),
   experimental_npmLatestVersion: vi.fn(async () => "0.84.0"),
   experimental_probeNpmGlobalPackage: vi.fn(async () => ({
     npmBin: null,

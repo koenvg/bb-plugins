@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useLayoutEffect, useRef, type ComponentType } from "react";
@@ -34,16 +35,19 @@ const app = await loadPluginApp(
     }),
   ),
 );
-const Owner = app.appOverlays[0]!.component;
-const List = app.threadLists[0]!.component;
+const Owner = (app.appOverlays[0] ?? missingValue("Expected app.appOverlays[0]")).component;
+const List = (app.threadLists[0] ?? missingValue("Expected app.threadLists[0]")).component;
 const context = (threadId: string | null = "t1"): PluginCommandContext => ({
   threadId,
   projectId: "p1",
   experimental_panel: experimental_makePanelController(),
 });
 const available = (ctx = context()) =>
-  commands.filter((command) => command.isAvailable!(ctx)).map(({ id }) => id);
-const command = (id: string) => commands.find((entry) => entry.id === id)!;
+  commands
+    .filter((command) => (command.isAvailable ?? missingValue("Expected command.isAvailable"))(ctx))
+    .map(({ id }) => id);
+const command = (id: string) =>
+  commands.find((entry) => entry.id === id) ?? missingValue("Expected a non-null value");
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -52,7 +56,7 @@ afterEach(() => {
 
 function mount(options: Options = {}, list = false, Observer?: ComponentType) {
   const { rpc, ...extras } = options;
-  return renderSlot<{}, typeof rpcContract>(
+  return renderSlot<Record<string, never>, typeof rpcContract>(
     {
       component: () => (
         <>
@@ -350,7 +354,7 @@ describe("unavailable state and failures", () => {
       });
       let reads = 0;
       let visibleAtReconnect: string[] | undefined;
-      let invocation: void | Promise<void>;
+      let invocation: void | Promise<void> = undefined;
       const ObserveConnectedCommit = () => {
         const connection = useRealtimeConnectionState();
         const previous = useRef(connection);
@@ -371,7 +375,7 @@ describe("unavailable state and failures", () => {
       await waitFor(() => expect(available()).toContain(id));
       await slot.behavior.setRealtimeConnectionState("reconnecting");
       await slot.behavior.setRealtimeConnectionState("connected");
-      await invocation!;
+      await (invocation ?? missingValue("Expected invocation"));
       expect(visibleAtReconnect).toEqual([]);
       expect(calls(slot, "snooze")).toHaveLength(0);
       expect(calls(slot, "wake")).toHaveLength(0);

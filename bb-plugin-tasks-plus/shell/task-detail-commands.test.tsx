@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -10,7 +11,7 @@ import { TASKS_COMMANDS } from "./commands.js";
 import { TasksRefreshProvider } from "./refresh.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const Panel = app.navPanels[0]!.component;
+const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;
 const context: PluginCommandContext = {
   threadId: null,
   projectId: null,
@@ -119,12 +120,15 @@ function fixture({
     updateTask: (raw: unknown) => {
       const input = rpcInput(raw);
       updates.push(input);
-      const task = records.find((task) => task.id === input.taskId)!;
+      const task =
+        records.find((task) => task.id === input.taskId) ??
+        missingValue("Expected a non-null value");
       Object.assign(task, input);
       return { ok: true, task: { ...task } };
     },
   };
-  const render = (subPath = "task/TSK-1") => renderSlot(app.navPanels[0]!, { subPath }, { rpc });
+  const render = (subPath = "task/TSK-1") =>
+    renderSlot(app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"), { subPath }, { rpc });
   return { render, rpc, updates, projectUpdates, tracker };
 }
 
@@ -311,7 +315,11 @@ describe("task-detail command registration and targeting", () => {
     const input = await slot.findByLabelText("Due date");
     await waitFor(() => expect(document.activeElement).toBe(input));
     fireEvent.change(input, { target: { value: "2026-08-09" } });
-    await waitFor(() => expect(updates).toEqual([{ taskId: tasks[1]!.id, dueDate: "2026-08-09" }]));
+    await waitFor(() =>
+      expect(updates).toEqual([
+        { taskId: (tasks[1] ?? missingValue("Expected tasks[1]")).id, dueDate: "2026-08-09" },
+      ]),
+    );
     slot.rerender(<Panel subPath="all" />);
     expect(available("task-set-due-date")).toBe(false);
     run("task-set-due-date");
@@ -321,7 +329,9 @@ describe("task-detail command registration and targeting", () => {
     run("task-set-due-date");
     const persisted = await reloaded.findByLabelText("Due date");
     expect((persisted as HTMLInputElement).value).toBe("2026-08-09");
-    expect(updates).toEqual([{ taskId: tasks[1]!.id, dueDate: "2026-08-09" }]);
+    expect(updates).toEqual([
+      { taskId: (tasks[1] ?? missingValue("Expected tasks[1]")).id, dueDate: "2026-08-09" },
+    ]);
     expect(slot.navigateCalls).toEqual([]);
   });
   it("retargets listed commands and cleans up route changes and remounts", async () => {
@@ -334,7 +344,11 @@ describe("task-detail command registration and targeting", () => {
     act(() => void listed.run(context));
     const high = await slot.findByRole("menuitem", { name: "High" });
     fireEvent.keyDown(high, { key: "Enter" });
-    await waitFor(() => expect(updates).toEqual([{ taskId: tasks[1]!.id, priority: "high" }]));
+    await waitFor(() =>
+      expect(updates).toEqual([
+        { taskId: (tasks[1] ?? missingValue("Expected tasks[1]")).id, priority: "high" },
+      ]),
+    );
     slot.rerender(<Panel subPath="all" />);
     expect(available("task-set-priority")).toBe(false);
     run("task-set-priority");
@@ -358,7 +372,7 @@ describe("task navigation commands", () => {
   });
   const flush = () =>
     act(() => {
-      while (frames.length) frames.shift()!(0);
+      while (frames.length) (frames.shift() ?? missingValue("Expected frames.shift()"))(0);
     });
   const expectNoWrites = ({ updates, projectUpdates, rpc }: ReturnType<typeof fixture>) => {
     expect(updates).toEqual([]);
@@ -368,10 +382,22 @@ describe("task navigation commands", () => {
 
   it("shares status-grouped pager order and retargets after the panel actually changes task", async () => {
     const taskRecords = [
-      makeTask({ ...tasks[0]!, id: "task-4", key: "TSK-4", number: 4, status: "done" }),
-      { ...tasks[1]!, dueDate: "2026-08-02" },
-      makeTask({ ...tasks[0]!, id: "task-3", key: "TSK-3", number: 3, status: "backlog" }),
-      { ...tasks[0]!, dueDate: "2026-08-01" },
+      makeTask({
+        ...(tasks[0] ?? missingValue("Expected tasks[0]")),
+        id: "task-4",
+        key: "TSK-4",
+        number: 4,
+        status: "done",
+      }),
+      { ...(tasks[1] ?? missingValue("Expected tasks[1]")), dueDate: "2026-08-02" },
+      makeTask({
+        ...(tasks[0] ?? missingValue("Expected tasks[0]")),
+        id: "task-3",
+        key: "TSK-3",
+        number: 3,
+        status: "backlog",
+      }),
+      { ...(tasks[0] ?? missingValue("Expected tasks[0]")), dueDate: "2026-08-01" },
     ];
     const f = fixture({ taskRecords });
     const slot = f.render("task/TSK-2");
@@ -492,7 +518,9 @@ describe("task navigation commands", () => {
     const slot = f.render();
     await ready(slot);
     await waitFor(() => expect(available("task-next")).toBe(true));
-    const pager = slot.getByRole("button", { name: "Next task" }).parentElement!;
+    const pager =
+      slot.getByRole("button", { name: "Next task" }).parentElement ??
+      missingValue("Expected a non-null value");
     pager.style.display = "none";
     vi.mocked(HTMLElement.prototype.getClientRects).mockImplementation(function (
       this: HTMLElement,
@@ -666,7 +694,7 @@ describe("task navigation commands", () => {
       await waitFor(() => expect(available("task-next")).toBe(true));
       run(change === "unmount" ? "task-back" : "task-next");
       expect(frames).toHaveLength(1);
-      act(() => frames.shift()!(0));
+      act(() => (frames.shift() ?? missingValue("Expected frames.shift()"))(0));
       let second: ReturnType<typeof f.render> | undefined;
       if (change === "route") slot.rerender(<Panel subPath="all" />);
       if (change === "unmount") slot.unmount();
@@ -767,9 +795,9 @@ describe("linked BB project command", () => {
     const slot = render();
     await ready(slot);
     await waitFor(() => expect(available(linkedProjectCommand)).toBe(true));
-    const properties = slot.container.querySelector<HTMLElement>(
-      `[data-properties-layout="${layout}"]`,
-    )!;
+    const properties =
+      slot.container.querySelector<HTMLElement>(`[data-properties-layout="${layout}"]`) ??
+      missingValue("Expected a non-null value");
     const trigger = within(properties).getByRole("button", { name: "Edit dispatch target" });
     fireEvent.keyDown(document, { key: "F9" });
     run(linkedProjectCommand);
@@ -843,9 +871,9 @@ describe("property command keyboard workflow", () => {
       const { render, updates } = fixture();
       const slot = render();
       await ready(slot);
-      const properties = slot.container.querySelector<HTMLElement>(
-        `[data-properties-layout="${layout}"]`,
-      )!;
+      const properties =
+        slot.container.querySelector<HTMLElement>(`[data-properties-layout="${layout}"]`) ??
+        missingValue("Expected a non-null value");
       const trigger = within(properties).getByRole("button", { name: "Set due date" });
       fireEvent.keyDown(document, { key: "F9" });
       run("task-set-due-date");
@@ -868,7 +896,11 @@ describe("property command keyboard workflow", () => {
         const preset = slot.getByRole("button", { name: new RegExp(`^${name}`) });
         preset.focus();
         fireEvent.click(preset, { detail: 0 });
-        await waitFor(() => expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate }]));
+        await waitFor(() =>
+          expect(updates).toEqual([
+            { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, dueDate },
+          ]),
+        );
         updates.splice(0);
       }
       run("task-set-due-date");
@@ -878,7 +910,9 @@ describe("property command keyboard workflow", () => {
       expect(updates).toEqual([]);
       fireEvent.change(customInput, { target: { value: "2026-08-09" } });
       await waitFor(() =>
-        expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate: "2026-08-09" }]),
+        expect(updates).toEqual([
+          { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, dueDate: "2026-08-09" },
+        ]),
       );
       updates.splice(0);
       run("task-set-due-date");
@@ -886,22 +920,38 @@ describe("property command keyboard workflow", () => {
       const remove = slot.getByRole("button", { name: "Remove due date" });
       remove.focus();
       fireEvent.click(remove, { detail: 0 });
-      await waitFor(() => expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate: null }]));
+      await waitFor(() =>
+        expect(updates).toEqual([
+          { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, dueDate: null },
+        ]),
+      );
       updates.splice(0);
       fireEvent.pointerDown(trigger);
       fireEvent.click(trigger);
       await slot.findByLabelText("Due date");
       fireEvent.click(slot.getByRole("button", { name: /^Tomorrow/ }));
       await waitFor(() =>
-        expect(updates).toEqual([{ taskId: tasks[0]!.id, dueDate: "2026-07-16" }]),
+        expect(updates).toEqual([
+          { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, dueDate: "2026-07-16" },
+        ]),
       );
       expect(slot.navigateCalls).toEqual([]);
     },
   );
 
   it("keeps the blocked-work confirmation before entering In progress", async () => {
-    const blocker = { id: tasks[1]!.id, key: "TSK-2", title: "Task 2", status: "todo" as const };
-    const blocked = { ...tasks[0]!, blockedBy: [blocker], openBlockerCount: 1, blocked: true };
+    const blocker = {
+      id: (tasks[1] ?? missingValue("Expected tasks[1]")).id,
+      key: "TSK-2",
+      title: "Task 2",
+      status: "todo" as const,
+    };
+    const blocked = {
+      ...(tasks[0] ?? missingValue("Expected tasks[0]")),
+      blockedBy: [blocker],
+      openBlockerCount: 1,
+      blocked: true,
+    };
     const { render, updates } = fixture({ lookup: () => blocked });
     const slot = render();
     await ready(slot);
@@ -914,7 +964,11 @@ describe("property command keyboard workflow", () => {
       expect(updates).toEqual([]);
       fireEvent.click(slot.getByRole("button", { name: confirm ? "Start anyway" : "Cancel" }));
     }
-    await waitFor(() => expect(updates).toEqual([{ taskId: tasks[0]!.id, status: "in_progress" }]));
+    await waitFor(() =>
+      expect(updates).toEqual([
+        { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, status: "in_progress" },
+      ]),
+    );
   });
 
   it.each(
@@ -937,14 +991,14 @@ describe("property command keyboard workflow", () => {
       const cancel = vi.spyOn(window, "cancelAnimationFrame");
       run(id);
       expect(frames).toHaveLength(1);
-      if (afterFirstFrame) act(() => frames[0]!(0));
+      if (afterFirstFrame) act(() => (frames[0] ?? missingValue("Expected frames[0]"))(0));
       if (change === "route") slot.rerender(<Panel subPath="task/TSK-2" />);
       else if (change === "unmount") slot.unmount();
       else slot.container.hidden = true;
       if (change !== "hidden") expect(cancel).toHaveBeenCalled();
       act(() => {
-        if (!afterFirstFrame) frames[0]!(0);
-        frames[1]!(16);
+        if (!afterFirstFrame) (frames[0] ?? missingValue("Expected frames[0]"))(0);
+        (frames[1] ?? missingValue("Expected frames[1]"))(16);
       });
       expect(document.querySelector('[role="menu"]')).toBeNull();
       expect(document.querySelector('input[aria-label="Due date"]')).toBeNull();
@@ -967,9 +1021,9 @@ describe("property command keyboard workflow", () => {
       const { render, updates } = fixture();
       const slot = render();
       await ready(slot);
-      const properties = slot.container.querySelector<HTMLElement>(
-        `[data-properties-layout="${layout}"]`,
-      )!;
+      const properties =
+        slot.container.querySelector<HTMLElement>(`[data-properties-layout="${layout}"]`) ??
+        missingValue("Expected a non-null value");
       for (const [id, triggerName, role, choice, update] of [
         ["task-change-status", "Todo", "menuitem", "Done", { status: "done" }],
         ["task-set-priority", "No priority", "menuitem", "High", { priority: "high" }],
@@ -986,7 +1040,10 @@ describe("property command keyboard workflow", () => {
         );
         expect(slot.getAllByRole(role, { name: choice })).toHaveLength(1);
         expect(updates).toEqual([]);
-        fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+        fireEvent.keyDown(
+          document.activeElement ?? missingValue("Expected document.activeElement"),
+          { key: "Escape" },
+        );
         await waitFor(() => expect(slot.queryByRole(role, { name: choice })).toBeNull());
         await waitFor(() => expect(document.activeElement).toBe(trigger));
         expect(updates).toEqual([]);
@@ -995,9 +1052,17 @@ describe("property command keyboard workflow", () => {
         if (role === "option")
           fireEvent.keyDown(slot.getByPlaceholderText("Add labels…"), { key: "Enter" });
         else fireEvent.keyDown(selected, { key: "Enter" });
-        await waitFor(() => expect(updates).toEqual([{ taskId: tasks[0]!.id, ...update }]));
+        await waitFor(() =>
+          expect(updates).toEqual([
+            { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, ...update },
+          ]),
+        );
         updates.splice(0);
-        if (role === "option") fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+        if (role === "option")
+          fireEvent.keyDown(
+            document.activeElement ?? missingValue("Expected document.activeElement"),
+            { key: "Escape" },
+          );
       }
       expect(slot.navigateCalls).toEqual([]);
     },

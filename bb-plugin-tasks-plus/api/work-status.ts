@@ -15,7 +15,7 @@ export const WORK_STATUS_REFRESH_TTL = 60_000;
 export const WORK_STATUS_REFRESH_LIMIT = 8;
 export const WORK_STATUS_REFRESH_THREAD_LIMIT = 4096;
 
-type RefreshSession = {
+interface RefreshSession {
   id: string;
   expiresAt: number;
   reads: Map<string, Promise<ThreadObservation>>;
@@ -23,7 +23,7 @@ type RefreshSession = {
   metadataReads: Map<string, Promise<RichObservation>>;
   integration?: Promise<RichReason | null>;
   timer: ReturnType<typeof setTimeout>;
-};
+}
 type ThreadObservation = {
   title: string | null;
   execution: ThreadExecution;
@@ -308,8 +308,9 @@ export function createWorkStatusReader({
           prReads.set(threadId, Promise.resolve({ outcome: "absent" }));
         else if (observation?.environmentId) {
           const id = observation.environmentId;
-          if (!environmentReads.has(id)) environmentReads.set(id, readEnvironment(id, session));
-          prReads.set(threadId, environmentReads.get(id)!);
+          const read = environmentReads.get(id) ?? readEnvironment(id, session);
+          environmentReads.set(id, read);
+          prReads.set(threadId, read);
         }
       }
       const prObservations = new Map(

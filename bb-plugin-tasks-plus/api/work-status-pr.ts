@@ -39,7 +39,10 @@ export function normalizeHostPr(result: PullRequestResult): PrObservation {
   }
 }
 
-type LifecycleEvidence = { state: WorkPr["state"]; time: number };
+interface LifecycleEvidence {
+  state: WorkPr["state"];
+  time: number;
+}
 function lifecycle(evidence: readonly LifecycleEvidence[]): WorkPr["state"] {
   const newest = evidence.reduce(
     (max, e) => (Number.isFinite(e.time) ? Math.max(max, e.time) : max),
@@ -49,7 +52,7 @@ function lifecycle(evidence: readonly LifecycleEvidence[]): WorkPr["state"] {
   // Dated evidence supersedes only older dated evidence, never unorderable evidence.
   const current = evidence.filter((e) => !Number.isFinite(e.time) || e.time === newest);
   const states = new Set(current.map((e) => e.state));
-  return states.size === 1 ? current[0]!.state : "unknown";
+  return states.size === 1 ? (current[0]?.state ?? "unknown") : "unknown";
 }
 
 /** Reconcile all evidence before choosing labels; an attachment order never chooses a winner. */

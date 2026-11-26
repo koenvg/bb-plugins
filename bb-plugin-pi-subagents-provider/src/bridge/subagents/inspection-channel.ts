@@ -1,16 +1,16 @@
 import { boundedValue } from "../../subagents-contract.js";
-import { type CaptureTarget } from "./capture.js";
+import type { CaptureTarget } from "./capture.js";
 export const INSPECTION_PREFIX = "PI_SUBAGENT_INSPECT_JSON:";
 export function createInspectionChannel(options: {
-  context(): Promise<unknown>;
-  command(message: string): Promise<unknown>;
-  current(): boolean;
-  epoch?(): unknown;
+  context: () => Promise<unknown>;
+  command: (message: string) => Promise<unknown>;
+  current: () => boolean;
+  epoch?: () => unknown;
 }) {
   let closed = false;
   let active = false;
   let pending:
-    | { requestId: string; resolve(value: unknown): void; reject(error: Error): void }
+    | { requestId: string; resolve: (value: unknown) => void; reject: (error: Error) => void }
     | undefined;
   function contextMatches(raw: unknown, target: CaptureTarget) {
     if (!boundedValue(raw, 16 * 1024)) return false;

@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { createTaskEditSession, type SaveOutcome, type TaskEditPatch } from "./edit-session.js";
 import { createSafeTaskTransition } from "./safe-transition.js";
@@ -33,7 +34,7 @@ describe("task edits and safe transitions", () => {
     const latest = transition.request(() => committed.push("C"));
     expect(attempts).toHaveLength(1);
     expect(committed).toEqual([]);
-    attempts[0]!.reply.resolve({ ok: true });
+    (attempts[0] ?? missingValue("Expected attempts[0]")).reply.resolve({ ok: true });
     await vi.waitFor(() => expect(attempts).toHaveLength(2));
     expect(attempts[1]).toMatchObject({
       taskId: "A",
@@ -44,7 +45,7 @@ describe("task edits and safe transitions", () => {
       },
     });
     expect(committed).toEqual([]);
-    attempts[1]!.reply.resolve({ ok: true });
+    (attempts[1] ?? missingValue("Expected attempts[1]")).reply.resolve({ ok: true });
     expect(await switching).toBe(true);
     expect(await latest).toBe(true);
     expect(committed).toEqual(["C"]);

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -67,7 +68,7 @@ function fixture(
   card.setAttribute("aria-label", "Background agents");
   const wrapper = document.createElement("div");
   const header = document.createElement(shape === "singleton" ? "div" : "button");
-  const description = `${rows[0]!.label} [${rows[0]!.runId}]`;
+  const description = `${(rows[0] ?? missingValue("Expected rows[0]")).label} [${(rows[0] ?? missingValue("Expected rows[0]")).runId}]`;
   header.setAttribute(
     "aria-label",
     `${shape === "singleton" ? "Background agent" : "Background agents"}: ${description} · Model test-model`,
@@ -126,10 +127,10 @@ function fixture(
   document.body.append(card);
   return { card, header };
 }
-type HostTabRequest = {
+interface HostTabRequest {
   tab: ExperimentalTabReference;
   params?: JsonValue;
-};
+}
 function panelHandlers(open: (request: HostTabRequest) => boolean) {
   return {
     experimental_panel: {
@@ -153,8 +154,13 @@ async function mount(
     (item) => item.id === "native-subagents-navigation",
   );
   expect(customization, "the SDK navigation receiver must be registered").toBeDefined();
-  expect(customization!.scopes).toEqual(["thread"]);
-  expect(customization!.banners![0]!.chrome).toBe("bare");
+  expect((customization ?? missingValue("Expected customization")).scopes).toEqual(["thread"]);
+  expect(
+    (
+      ((customization ?? missingValue("Expected customization")).banners ??
+        missingValue("Expected a non-null value"))[0] ?? missingValue("Expected a non-null value")
+    ).chrome,
+  ).toBe("bare");
   scripts = await mountPluginContentScripts(app, { pluginId: "pi-subagents-provider" });
   expect(scripts.inspection.mountedIds).toContain("native-subagents-navigation");
   const handlers = panelHandlers(openTab);
@@ -167,13 +173,19 @@ async function mount(
     sdk: { threads: { events: { list } } },
     ...handlers,
   } satisfies Parameters<typeof renderSlot>[2];
-  const view = renderSlot(customization!.banners![0]!, {}, options);
+  const view = renderSlot(
+    ((customization ?? missingValue("Expected customization")).banners ??
+      missingValue("Expected a non-null value"))[0] ?? missingValue("Expected a non-null value"),
+    {},
+    options,
+  );
   if (providerId === "pi-subagents") await waitFor(() => expect(list).toHaveBeenCalled());
   return { view, openTab, list, handlers };
 }
 it("opens the overview for a current BB total-count aggregate badge", async () => {
   const { header } = fixture("aggregate");
-  header.lastElementChild!.textContent = String(roots.length);
+  (header.lastElementChild ?? missingValue("Expected header.lastElementChild")).textContent =
+    String(roots.length);
   const { openTab } = await mount();
   await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(true));
   fireEvent.click(header);
@@ -200,7 +212,11 @@ it.each(["singleton", "aggregate", "narrow"] as const)(
   async (shape) => {
     const { header } = fixture(shape);
     const list = vi.fn(
-      async (_args?: unknown) => Array.from({ length: 64 }, () => events()[0]!) as never,
+      async (_args?: unknown) =>
+        Array.from(
+          { length: 64 },
+          () => events()[0] ?? missingValue("Expected events()[0]"),
+        ) as never,
     );
     const { openTab } = await mount(
       roots,
@@ -211,9 +227,14 @@ it.each(["singleton", "aggregate", "narrow"] as const)(
     fireEvent.click(header);
     expect(openTab).toHaveBeenCalledExactlyOnceWith({
       tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-      params: shape === "singleton" ? { rowId: roots[0]!.id } : { overview: true },
+      params:
+        shape === "singleton"
+          ? { rowId: (roots[0] ?? missingValue("Expected roots[0]")).id }
+          : { overview: true },
     });
-    expect(list.mock.calls[0]![0]).toMatchObject({ limit: "64" });
+    expect((list.mock.calls[0] ?? missingValue("Expected list.mock.calls[0]"))[0]).toMatchObject({
+      limit: "64",
+    });
   },
 );
 
@@ -223,10 +244,10 @@ it("still rejects malformed latest state when older valid data fills the window"
     async () =>
       [
         {
-          ...events()[0]!,
+          ...(events()[0] ?? missingValue("Expected events()[0]")),
           data: { kind: VIEW_EXTENSION_KIND, payload: { ...state(), version: 2 } },
         },
-        ...Array.from({ length: 63 }, () => events()[0]!),
+        ...Array.from({ length: 63 }, () => events()[0] ?? missingValue("Expected events()[0]")),
       ] as never,
   );
   const { openTab } = await mount(
@@ -251,7 +272,7 @@ describe("native composer navigation", () => {
     fireEvent.click(header);
     expect(openTab).toHaveBeenCalledWith({
       tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-      params: { rowId: roots[0]!.id },
+      params: { rowId: (roots[0] ?? missingValue("Expected roots[0]")).id },
     });
     expect(view.container.childNodes.length).toBe(0);
     expect(card.textContent).toBe(originalText);
@@ -303,7 +324,14 @@ describe("native composer navigation", () => {
         header.setAttribute("aria-label", "Background agent: Other [foreign-run]");
       if (kind === "changed") header.setAttribute("aria-label", "New BB shape");
       if (kind === "ambiguous")
-        rows = [...roots, { ...roots[0]!, id: "other-session/run-1", sessionId: "other-session" }];
+        rows = [
+          ...roots,
+          {
+            ...(roots[0] ?? missingValue("Expected roots[0]")),
+            id: "other-session/run-1",
+            sessionId: "other-session",
+          },
+        ];
       const original = card.outerHTML;
       const { view, openTab } = await mount(rows);
       await waitFor(() => expect(view.inspection.sdkCalls.length).toBe(1));
@@ -348,7 +376,9 @@ describe("native composer navigation", () => {
     expect(first.header.hasAttribute("role")).toBe(false);
     fireEvent.click(first.header);
     expect(openTab).not.toHaveBeenCalled();
-    next.header.querySelector("span:last-child")!.textContent = "2s";
+    (
+      next.header.querySelector("span:last-child") ?? missingValue("Expected a non-null value")
+    ).textContent = "2s";
     await act(async () => {
       await Promise.resolve();
     });
@@ -372,7 +402,7 @@ describe("native composer navigation", () => {
     const original = card.outerHTML;
     const { view, openTab } = await mount();
     await waitFor(() => expect(header.tabIndex).toBe(0));
-    await scripts!.lifecycle.dispose();
+    await (scripts ?? missingValue("Expected scripts")).lifecycle.dispose();
     expect(card.outerHTML).toBe(original);
     expect(document.head.querySelector("style")?.textContent ?? "").not.toContain(
       "data-pi-subagents-navigation",
@@ -427,7 +457,7 @@ describe("native composer navigation", () => {
     fireEvent.click(next.header);
     expect(openTab).toHaveBeenCalledWith({
       tab: { id: "subagents", context: { kind: "thread" }, availability: "action" },
-      params: { rowId: nextRoots[0]!.id },
+      params: { rowId: (nextRoots[0] ?? missingValue("Expected nextRoots[0]")).id },
     });
   });
 
@@ -436,9 +466,9 @@ describe("native composer navigation", () => {
     const first = await mount();
     await waitFor(() => expect(header.tabIndex).toBe(0));
     const open = vi.fn(() => true);
-    const customization = app.composerCustomizations.find(
-      (item) => item.id === "native-subagents-navigation",
-    )!;
+    const customization =
+      app.composerCustomizations.find((item) => item.id === "native-subagents-navigation") ??
+      missingValue("Expected a non-null value");
     const options = {
       composer: {
         scope: { kind: "thread", threadId: "thread-2" },
@@ -447,7 +477,12 @@ describe("native composer navigation", () => {
       sdk: { threads: { events: { list: async () => events() as never } } },
       ...panelHandlers(open),
     } satisfies Parameters<typeof renderSlot>[2];
-    const second = renderSlot(customization.banners![0]!, {}, options);
+    const second = renderSlot(
+      (customization.banners ?? missingValue("Expected customization.banners"))[0] ??
+        missingValue("Expected a non-null value"),
+      {},
+      options,
+    );
     await waitFor(() => expect(header.hasAttribute("role")).toBe(false));
     fireEvent.click(header);
     expect(first.openTab).not.toHaveBeenCalled();
@@ -505,15 +540,18 @@ describe("native composer navigation", () => {
     ["narrow", "ambiguous"],
   ] as const)("leaves a %s card with %s exposed body identities untouched", async (shape, kind) => {
     const { card, header } = fixture(shape);
-    const span = card.querySelector<HTMLSpanElement>(
-      "#thread-background-commands-card-body span[title]",
-    )!;
+    const span =
+      card.querySelector<HTMLSpanElement>("#thread-background-commands-card-body span[title]") ??
+      missingValue("Expected a non-null value");
     let observations = roots;
     if (kind === "foreign") {
       span.title = "Foreign [foreign-run]";
       span.textContent = span.title;
     } else {
-      const bodyRoot = shape === "aggregate" ? roots[1]! : roots[0]!;
+      const bodyRoot =
+        shape === "aggregate"
+          ? (roots[1] ?? missingValue("Expected roots[1]"))
+          : (roots[0] ?? missingValue("Expected roots[0]"));
       observations = [
         ...roots,
         { ...bodyRoot, id: "other-session/" + bodyRoot.runId, sessionId: "other-session" },
@@ -542,7 +580,8 @@ describe("native composer navigation", () => {
       await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(true));
       const element =
         target === "body"
-          ? card.querySelector<HTMLElement>("#thread-background-commands-card-body")!
+          ? (card.querySelector<HTMLElement>("#thread-background-commands-card-body") ??
+            missingValue("Expected a non-null value"))
           : header;
       element.setAttribute(name, value);
       await waitFor(() => expect(header.hasAttribute("data-pi-subagents-navigation")).toBe(false));

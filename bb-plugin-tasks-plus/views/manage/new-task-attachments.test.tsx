@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -73,12 +74,18 @@ describe("NewTaskDialog attachments", () => {
     fireEvent.paste(target, { clipboardData: { files: [file], types: [] } });
 
   it("uploads staged files to the created task and navigates on success", async () => {
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_ID },
+      { rpc: dialogRpc() },
+    );
     const titleInput = await openDialogWithTitle(slot, "With files");
     pasteFile(titleInput, new File(["png"], "shot.png", { type: "image/png" }));
     await slot.findByText("shot.png");
 
-    const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const picker =
+      document.querySelector<HTMLInputElement>('input[type="file"]') ??
+      missingValue("Expected a non-null value");
     fireEvent.change(picker, {
       target: {
         files: [new File(["doc"], "notes.txt", { type: "text/plain" })],
@@ -97,13 +104,18 @@ describe("NewTaskDialog attachments", () => {
       }),
     );
     expect(fetchCalls).toHaveLength(1);
-    const query = new URL(fetchCalls[0]!, "http://bb.test").searchParams;
+    const query = new URL(fetchCalls[0] ?? missingValue("Expected fetchCalls[0]"), "http://bb.test")
+      .searchParams;
     expect(query.get("taskId")).toBe(TASK_ID);
     expect(query.get("fileName")).toBe("shot.png");
   });
 
   it("keeps generic-MIME Markdown staged without a saved-ID preview until task creation", async () => {
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_ID },
+      { rpc: dialogRpc() },
+    );
     const titleInput = await openDialogWithTitle(slot, "Staged Markdown");
     pasteFile(
       titleInput,
@@ -129,7 +141,10 @@ describe("NewTaskDialog attachments", () => {
       }),
     );
     expect(fetchCalls).toHaveLength(1);
-    const upload = new URL(fetchCalls[0]!, "http://bb.test");
+    const upload = new URL(
+      fetchCalls[0] ?? missingValue("Expected fetchCalls[0]"),
+      "http://bb.test",
+    );
     expect(upload.pathname).toBe("/api/v1/plugins/tasks-plus/http/attachments/upload");
     expect(Object.fromEntries(upload.searchParams)).toEqual({
       taskId: TASK_ID,
@@ -140,7 +155,11 @@ describe("NewTaskDialog attachments", () => {
 
   it("recovers from a failed upload with a retryable chip bound to the created task", async () => {
     failFileNames.add("bad.bin");
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_ID },
+      { rpc: dialogRpc() },
+    );
     const titleInput = await openDialogWithTitle(slot, "Partial failure");
     pasteFile(titleInput, new File(["ok"], "good.png", { type: "image/png" }));
     pasteFile(titleInput, new File(["nope"], "bad.bin", { type: "application/zip" }));
@@ -161,13 +180,20 @@ describe("NewTaskDialog attachments", () => {
         options: { subPath: "task/TSK-5" },
       }),
     );
-    const retryQuery = new URL(fetchCalls.at(-1)!, "http://bb.test").searchParams;
+    const retryQuery = new URL(
+      fetchCalls.at(-1) ?? missingValue("Expected fetchCalls.at(-1)"),
+      "http://bb.test",
+    ).searchParams;
     expect(retryQuery.get("taskId")).toBe(TASK_ID);
     expect(retryQuery.get("fileName")).toBe("bad.bin");
   });
 
   it("blocks creation while an oversized file is staged, until it is removed", async () => {
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_ID },
+      { rpc: dialogRpc() },
+    );
     const titleInput = await openDialogWithTitle(slot, "Too big");
     const big = new File(["x"], "big.bin", { type: "application/zip" });
     Object.defineProperty(big, "size", { value: 25 * 1024 * 1024 + 1 });
@@ -203,7 +229,11 @@ describe("NewTaskDialog attachments", () => {
       fileName: "slow.png",
       promise: new Promise((resolve) => (release = resolve)),
     };
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_ID },
+      { rpc: dialogRpc() },
+    );
     const titleInput = await openDialogWithTitle(slot, "In flight");
     pasteFile(titleInput, new File(["x"], "slow.png", { type: "image/png" }));
     await slot.findByText("slow.png");
@@ -233,7 +263,11 @@ describe("NewTaskDialog attachments", () => {
 
   it("blocks accidental dismissal during recovery until skipped explicitly", async () => {
     failFileNames.add("bad.bin");
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_ID },
+      { rpc: dialogRpc() },
+    );
     const titleInput = await openDialogWithTitle(slot, "Sticky recovery");
     pasteFile(titleInput, new File(["nope"], "bad.bin", { type: "application/zip" }));
     await slot.findByText("bad.bin");
@@ -256,7 +290,11 @@ describe("NewTaskDialog attachments", () => {
 
   it("runs retry single-flight so double activation uploads exactly once", async () => {
     failFileNames.add("bad.bin");
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_ID }, { rpc: dialogRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_ID },
+      { rpc: dialogRpc() },
+    );
     const titleInput = await openDialogWithTitle(slot, "Retry once");
     pasteFile(titleInput, new File(["nope"], "bad.bin", { type: "application/zip" }));
     await slot.findByText("bad.bin");

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -55,7 +56,7 @@ function render(
   overrides: Record<string, (input: unknown) => unknown> = {},
 ) {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: `${PROJECT_ID}?view=board` },
     {
       rpc: {
@@ -170,13 +171,13 @@ describe("board card menus from the keyboard", () => {
     fireEvent.click(
       [...menu.querySelectorAll('[role="menuitem"]')].find((item) =>
         item.textContent?.includes("In Review"),
-      )!,
+      ) ?? missingValue("Expected a non-null value"),
     );
     await waitFor(() =>
       expect(calls).toContainEqual({
         method: "boardMove",
         input: expect.objectContaining({
-          taskId: TASKS[0]!.id,
+          taskId: (TASKS[0] ?? missingValue("Expected TASKS[0]")).id,
           status: "in_review",
         }),
       }),
@@ -220,12 +221,12 @@ describe("board card menus from the keyboard", () => {
     fireEvent.click(
       [...menu.querySelectorAll('[role="menuitem"]')].find((item) =>
         item.textContent?.includes("Urgent"),
-      )!,
+      ) ?? missingValue("Expected a non-null value"),
     );
     await waitFor(() =>
       expect(calls).toContainEqual({
         method: "updateTask",
-        input: { taskId: TASKS[0]!.id, priority: "urgent" },
+        input: { taskId: (TASKS[0] ?? missingValue("Expected TASKS[0]")).id, priority: "urgent" },
       }),
     );
     await waitFor(() => expect(slot.queryByRole("menu")).toBeNull());

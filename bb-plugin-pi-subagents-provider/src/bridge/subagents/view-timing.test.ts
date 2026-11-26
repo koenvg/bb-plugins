@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { createViewStore } from "./view-store.js";
 import type { ViewState } from "../../subagents-contract.js";
@@ -22,9 +23,19 @@ it("ignores timestamp-only receipt floods without postponing changed progress", 
       vi.advanceTimersByTime(10);
     }
     expect(states).toHaveLength(wave + 2);
-    expect(states.at(-1)!.rows[0]!.label).toBe(`wave-${wave}-24`);
+    expect(
+      (
+        (states.at(-1) ?? missingValue("Expected states.at(-1)")).rows[0] ??
+        missingValue("Expected a non-null value")
+      ).label,
+    ).toBe(`wave-${wave}-24`);
   }
-  expect(states[0]!.rows[0]!.label).toBe("reader");
+  expect(
+    (
+      (states[0] ?? missingValue("Expected states[0]")).rows[0] ??
+      missingValue("Expected a non-null value")
+    ).label,
+  ).toBe("reader");
   view.dispose(owner, "exit");
 });
 
@@ -45,7 +56,7 @@ it("flushes foreground final receipts and changed unavailable assessments immedi
   expect(states).toHaveLength(1);
   view.foreground(owner, details("final answer"), true);
   expect(states).toHaveLength(2);
-  expect(states.at(-1)!.rows[0]).toMatchObject({
+  expect((states.at(-1) ?? missingValue("Expected states.at(-1)")).rows[0]).toMatchObject({
     state: "complete",
     capture: { finalOutput: "final answer" },
   });
@@ -55,7 +66,9 @@ it("flushes foreground final receipts and changed unavailable assessments immedi
     availability: "unavailable",
     reason: "Current read failed",
   });
-  expect(states.at(-1)!.rows.map((row) => row.runId)).toEqual(["fg", "r"]);
+  expect(
+    (states.at(-1) ?? missingValue("Expected states.at(-1)")).rows.map((row) => row.runId),
+  ).toEqual(["fg", "r"]);
   const count = states.length;
   view.availability("unavailable", "Current read failed", owner);
   vi.advanceTimersByTime(1000);
@@ -68,7 +81,9 @@ it("retains capture, attempt and model timestamps in meaningful-change deduplica
     (state) => states.push(state),
     () => 1,
   );
-  const target = view.background(owner, [{ ...node, state: "complete" }], false)[0]!;
+  const target =
+    view.background(owner, [{ ...node, state: "complete" }], false)[0] ??
+    missingValue("Expected a non-null value");
   const capture = {
     status: "captured" as const,
     capturedAt: 2,
@@ -86,7 +101,12 @@ it("retains capture, attempt and model timestamps in meaningful-change deduplica
   view.captureIfCurrent(target, { status: "timeout", capturedAt: 4 });
   view.captureIfCurrent(target, { status: "timeout", capturedAt: 5 });
   expect(states).toHaveLength(5);
-  expect(states.at(-1)!.rows[0]!.capture).toMatchObject({
+  expect(
+    (
+      (states.at(-1) ?? missingValue("Expected states.at(-1)")).rows[0] ??
+      missingValue("Expected a non-null value")
+    ).capture,
+  ).toMatchObject({
     status: "timeout",
     capturedAt: 2,
     attemptedAt: 5,
@@ -102,7 +122,8 @@ it("retires an evicted store and blocks its timer, late captures, disposal and o
     (state) => states.push(state),
     () => 1,
   );
-  const target = old.background(owner, [node], false)[0]!;
+  const target =
+    old.background(owner, [node], false)[0] ?? missingValue("Expected a non-null value");
   old.background(owner, [{ ...node, label: "pending old" }], false);
   old.retire();
   const replacement = createViewStore(
@@ -117,7 +138,7 @@ it("retires an evicted store and blocks its timer, late captures, disposal and o
   old.background(owner, [{ ...node, state: "complete" }], false);
   vi.advanceTimersByTime(1000);
   expect(states).toHaveLength(2);
-  expect(states[1]!).toMatchObject({
+  expect(states[1] ?? missingValue("Expected states[1]")).toMatchObject({
     availability: "available",
     rows: [{ generation: 2, label: "replacement" }],
   });
@@ -132,7 +153,8 @@ it("scopes disposal and late availability to the exact owner, including session 
     () => 1,
   );
   const other = { ...owner, sessionId: "other" };
-  const target = view.background(owner, [node], false)[0]!;
+  const target =
+    view.background(owner, [node], false)[0] ?? missingValue("Expected a non-null value");
   view.background(other, [node], false);
   view.dispose(owner, "replacement");
   view.availability("unavailable", "late old failure", owner);

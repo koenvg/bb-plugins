@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import type * as AppSdk from "@get-bb/plugin-sdk/app";
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
@@ -25,7 +27,7 @@ const lifecycleViews = vi.hoisted(() => ({
   splitStarts: [] as string[],
 }));
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
-  const sdk = await importOriginal<typeof import("@get-bb/plugin-sdk/app")>();
+  const sdk = await importOriginal<typeof AppSdk>();
   return {
     ...sdk,
     experimental_useSidebarThreadSplit(threadId: string) {
@@ -117,8 +119,8 @@ function mount(
   extras: Partial<RenderSlotOptions> = {},
   props: Partial<PluginThreadListProps> = {},
 ) {
-  const List = app.threadLists[0]!.component;
-  const Owner = app.appOverlays[0]!.component;
+  const List = (app.threadLists[0] ?? missingValue("Expected app.threadLists[0]")).component;
+  const Owner = (app.appOverlays[0] ?? missingValue("Expected app.appOverlays[0]")).component;
   let observed: PluginSidebarThreadsState;
   let currentProps: PluginThreadListProps = {
     activeThreadId: null,
@@ -153,8 +155,11 @@ function mount(
   return Object.assign(result, {
     update(changes: { threads?: PluginSidebarThread[]; activeThreadId?: string | null }) {
       if (changes.threads) observed.threads = changes.threads;
-      if ("activeThreadId" in changes)
-        currentProps = { ...currentProps, activeThreadId: changes.activeThreadId! };
+      if (changes.activeThreadId !== undefined)
+        currentProps = {
+          ...currentProps,
+          activeThreadId: changes.activeThreadId,
+        };
       result.lifecycle.rerender(<slot.component {...currentProps} />);
     },
   });
@@ -205,7 +210,9 @@ describe.each(heldTabs)("selected tree in %s", (tab, heldTab, naturalTab) => {
             .getByRole("link", { name: selected === "parent" ? "Parent" : "Child" })
             .getAttribute("aria-current"),
         ).toBe("page");
-        const child = slot.getByRole("link", { name: "Child" }).closest(".group\\/row")!;
+        const child =
+          slot.getByRole("link", { name: "Child" }).closest(".group\\/row") ??
+          missingValue("Expected a non-null value");
         expect(child.querySelector(".bg-primary")).toBeNull();
         expect(Boolean(slot.container.querySelector("[data-running-glyph]"))).toBe(
           tab === "attention",
@@ -225,8 +232,10 @@ describe.each(heldTabs)("selected tree in %s", (tab, heldTab, naturalTab) => {
       expectFamily(slot, true);
     }
     expect(
-      slot.getByRole("link", { name: "Grandchild" }).closest<HTMLElement>(".group\\/row")!.style
-        .paddingLeft,
+      (
+        slot.getByRole("link", { name: "Grandchild" }).closest<HTMLElement>(".group\\/row") ??
+        missingValue("Expected a non-null value")
+      ).style.paddingLeft,
     ).toBe("48px");
     fireEvent.click(slot.getByRole("button", { name: "Collapse Child" }));
     expect(slot.queryByRole("link", { name: "Grandchild" })).toBeNull();
@@ -329,7 +338,9 @@ describe.each(heldTabs)("selected tree in %s", (tab, heldTab, naturalTab) => {
       showTab(slot, naturalTab);
       expect(slot.getByRole("link", { name: "Parent" })).toBeTruthy();
       if (excluded === "archived") {
-        const context = slot.getByRole("link", { name: "Child" }).closest(".group\\/row")!;
+        const context =
+          slot.getByRole("link", { name: "Child" }).closest(".group\\/row") ??
+          missingValue("Expected a non-null value");
         expect(context.classList.contains("opacity-60")).toBe(true);
       } else expect(slot.queryByRole("link", { name: "Child" })).toBeNull();
     },
@@ -384,7 +395,9 @@ describe("new attention in a selected In flight tree", () => {
       );
       slot.update({ threads });
       expectFamily(slot, true);
-      const row = slot.getByRole("link", { name: "Grandchild" }).closest(".group\\/row")!;
+      const row =
+        slot.getByRole("link", { name: "Grandchild" }).closest(".group\\/row") ??
+        missingValue("Expected a non-null value");
       if (label === "unread") expect(row.querySelector(".bg-primary")).toBeTruthy();
       else expect(row.textContent).toContain(label);
       showTab(slot, "Needs attention");
@@ -436,7 +449,8 @@ describe("thread list slot", () => {
       thread({ id: "sibling", displayTitle: "Sibling" }),
     ]);
     const row = (title: string) =>
-      slot.getByRole("link", { name: title }).closest<HTMLElement>(".group\\/row")!;
+      slot.getByRole("link", { name: title }).closest<HTMLElement>(".group\\/row") ??
+      missingValue("Expected a non-null value");
     expect(row("Parent").style.paddingLeft).toBe(row("Sibling").style.paddingLeft);
     expect(row("Child").style.paddingLeft).toBe("24px");
     expect(
@@ -459,7 +473,8 @@ describe("thread list slot", () => {
     ]);
     showLifecycle(slot, "Archived");
     const row = (title: string) =>
-      slot.getByRole("link", { name: title }).closest<HTMLElement>(".group\\/row")!;
+      slot.getByRole("link", { name: title }).closest<HTMLElement>(".group\\/row") ??
+      missingValue("Expected a non-null value");
     expect(row("Live parent").className).toContain("opacity-60");
     expect(row("Done child").className).not.toContain("opacity-60");
     expect(slot.getByRole("button", { name: "Collapse Live parent" })).toBeTruthy();
@@ -900,11 +915,13 @@ describe("thread list slot", () => {
     });
     const tips = Array.from(badge.querySelectorAll("[data-tip]"));
     expect(tips).toHaveLength(4);
-    const count = tips.find((node) => node.textContent?.includes("2"))!;
+    const count =
+      tips.find((node) => node.textContent?.includes("2")) ??
+      missingValue("Expected a non-null value");
     expect(count).toBeTruthy();
-    const label = Array.from(badge.querySelectorAll("span")).find(
-      (node) => node.textContent === "Conflicts",
-    )!;
+    const label =
+      Array.from(badge.querySelectorAll("span")).find((node) => node.textContent === "Conflicts") ??
+      missingValue("Expected a non-null value");
     expect(label).toBeTruthy();
     const targets = [badge, ...tips, count, label];
     for (const target of targets) fireEvent.click(target);
@@ -945,7 +962,10 @@ describe("thread list slot", () => {
     await vi.waitFor(() =>
       expect(slot.getAllByRole("button", { name: /^Open PR tab/ })).toHaveLength(2),
     );
-    fireEvent.click(slot.getAllByRole("button", { name: /^Open PR tab/ })[1]!);
+    fireEvent.click(
+      slot.getAllByRole("button", { name: /^Open PR tab/ })[1] ??
+        missingValue("Expected a non-null value"),
+    );
     expect(slot.inspection.threadActionCalls).toEqual([{ method: "open", threadId: "t2" }]);
     expect(second).toHaveBeenCalledOnce();
     expect(first).not.toHaveBeenCalled();
@@ -1154,7 +1174,7 @@ describe("thread list slot", () => {
       channel.close();
     };
     const quietly = () => new Promise((resolve) => setTimeout(resolve, 20));
-    const answers = (...results: Array<unknown | Promise<unknown>>) => {
+    const answers = (...results: (unknown | Promise<unknown>)[]) => {
       let call = 0;
       return {
         rpc: { listSummaries: () => results[Math.min(call++, results.length - 1)] },
@@ -1217,7 +1237,7 @@ describe("thread list slot", () => {
   });
 
   describe("when the server reports changed summaries", () => {
-    const answers = (...results: Array<unknown | Promise<unknown>>) => {
+    const answers = (...results: (unknown | Promise<unknown>)[]) => {
       let call = 0;
       return {
         rpc: { listSummaries: () => results[Math.min(call++, results.length - 1)] },
@@ -1271,9 +1291,12 @@ describe("thread list slot", () => {
       }),
     ]);
     showTab(slot, "All");
-    const busy = slot.getByRole("link", { name: "Busy" }).closest<HTMLElement>(".group\\/row")!;
+    const busy =
+      slot.getByRole("link", { name: "Busy" }).closest<HTMLElement>(".group\\/row") ??
+      missingValue("Missing fixture value");
     expect(slot.container.querySelectorAll("[data-provider-glyph]")).toHaveLength(2);
-    const lattice = busy.querySelector("[data-running-glyph]")!;
+    const lattice =
+      busy.querySelector("[data-running-glyph]") ?? missingValue("Missing fixture value");
     expect(lattice.getAttribute("aria-hidden")).toBe("true");
     expect(lattice.querySelectorAll("rect")).toHaveLength(9);
     expect(lattice.getAttribute("width")).toBe("12");
@@ -1339,7 +1362,7 @@ describe("thread list slot", () => {
   describe("snooze", () => {
     it("does not load snoozes when only the sidebar is mounted", () => {
       mounted = renderSlot(
-        app.threadLists[0]!,
+        app.threadLists[0] ?? missingValue("Missing fixture value"),
         {
           activeThreadId: null,
           activeProjectId: null,
@@ -1380,7 +1403,9 @@ describe("thread list slot", () => {
       fireEvent.click(screen.getByRole("menuitem", { name: "Tomorrow" }));
 
       await vi.waitFor(() =>
-        expect(calls(slot, "snooze")).toEqual([{ threadId: "t1", wakeAt: tomorrow!.wakeAt }]),
+        expect(calls(slot, "snooze")).toEqual([
+          { threadId: "t1", wakeAt: (tomorrow ?? missingValue("Missing fixture value")).wakeAt },
+        ]),
       );
     });
 

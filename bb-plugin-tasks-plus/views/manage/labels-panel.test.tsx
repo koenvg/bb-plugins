@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -11,9 +12,9 @@ describe("Manage labels", () => {
   it.each(["button", "Enter"])(
     "keeps the name and color after a rejected create and resets them after retry via %s",
     async (submitWith) => {
-      const createCalls: Array<Record<string, unknown>> = [];
+      const createCalls: Record<string, unknown>[] = [];
       const slot = renderSlot(
-        app.navPanels[0]!,
+        app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
         { subPath: "manage" },
         {
           rpc: {
@@ -38,7 +39,10 @@ describe("Manage labels", () => {
       expect(indigo.tabIndex).toBe(0);
       indigo.focus();
       for (const key of ["ArrowRight", "ArrowDown", "ArrowRight"]) {
-        fireEvent.keyDown(document.activeElement!, { key });
+        fireEvent.keyDown(
+          document.activeElement ?? missingValue("Expected document.activeElement"),
+          { key },
+        );
       }
       expect(document.activeElement).toBe(slot.getByRole("radio", { name: "Green" }));
       expect(createCalls).toEqual([]);

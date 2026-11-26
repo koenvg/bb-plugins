@@ -35,7 +35,7 @@ const identity = {
   documentPath: "/fixture/" + target.path,
 };
 document.documentElement.dataset.theme = params.get("theme") ?? "light";
-const root = document.getElementById("root")!;
+const root = requireFixture(document.getElementById("root"), 'document.getElementById("root")');
 root.className = "fixture-layout";
 const sentinel = document.createElement("aside");
 sentinel.className = "fixture-outside fixture-sentinel";
@@ -46,8 +46,8 @@ for (const [tag, label] of [
   ["code", "Host code"],
   ["button", "Host button"],
 ]) {
-  const element = document.createElement(tag!);
-  element.textContent = label!;
+  const element = document.createElement(requireFixture(tag, "tag"));
+  element.textContent = requireFixture(label, "label");
   sentinel.append(element);
 }
 sentinel.style.cssText = `display:${params.has("sentinel") ? "block" : "none"};position:fixed;left:${(Number(params.get("width")) || 760) + 24}px;top:16px`;
@@ -58,7 +58,7 @@ panel.style.cssText = `width:${Number(params.get("width")) || 760}px;max-width:1
 root.append(panel);
 const app = await loadPluginApp(pluginApp);
 const slot = renderSlot(
-  app.fileOpeners[0]!,
+  requireFixture(app.fileOpeners[0], "app.fileOpeners[0]"),
   { ...target, Original: () => <p>Bound Original fixture</p> },
   {
     rpc: {
@@ -99,3 +99,8 @@ panel.append(slot.container);
 Object.assign(window, {
   presentationFixture: { inspection: slot.inspection, text, panel, target },
 });
+
+function requireFixture<T>(value: T | null | undefined, label: string): T {
+  if (value == null) throw new Error(`Missing fixture value: ${label}`);
+  return value;
+}

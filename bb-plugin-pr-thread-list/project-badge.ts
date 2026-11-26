@@ -20,11 +20,11 @@ export interface ProjectBadge {
 }
 
 const luminance = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((at) => {
+  const light = (at: number) => {
     const channel = parseInt(hex.slice(at, at + 2), 16) / 255;
     return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  };
+  return 0.2126 * light(1) + 0.7152 * light(3) + 0.0722 * light(5);
 };
 
 export function readableOn(background: string): ProjectBadge["foreground"] {
@@ -38,7 +38,7 @@ export function projectBadge(projectId: string, name: string): ProjectBadge {
     hash ^= projectId.charCodeAt(index);
     hash = Math.imul(hash, 0x01000193);
   }
-  const background = PALETTE[(hash >>> 0) % PALETTE.length]!;
+  const background = PALETTE[(hash >>> 0) % PALETTE.length] ?? PALETTE[0];
   return {
     background,
     foreground: readableOn(background),

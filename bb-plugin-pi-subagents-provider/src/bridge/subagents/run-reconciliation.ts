@@ -1,4 +1,4 @@
-import { type AsyncSnapshot, type RunNode } from "./protocol.js";
+import type { AsyncSnapshot, RunNode } from "./protocol.js";
 
 export interface RetainedRun {
   node: RunNode;

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -78,13 +79,17 @@ describe("thread summary states and compact interactions", () => {
     async ({ executions, archives, text, unknown }) => {
       const status = meta([...executions]);
       status.threads.forEach((thread, index) => {
-        thread.archive = archives[index]!;
+        thread.archive = archives[index] ?? missingValue("Expected archives[index]");
       });
       const slot = renderSlot({ component: ThreadSummary }, { taskKey: "ABC-1", meta: status });
       const control = slot.getByRole("button", { name: /Threads for ABC-1/ });
       if (text) expect(control.textContent).toContain(text);
       if (text !== "All archived") expect(control.textContent).not.toContain("All archived");
-      expect(control.textContent!.includes("Archive unavailable")).toBe(unknown);
+      expect(
+        (control.textContent ?? missingValue("Expected control.textContent")).includes(
+          "Archive unavailable",
+        ),
+      ).toBe(unknown);
       fireEvent.click(control);
       await slot.findByRole("dialog");
       expect(slot.queryAllByRole("link")).toHaveLength(
@@ -207,7 +212,7 @@ describe("thread summary states and compact interactions", () => {
 describe("agent activity presentation", () => {
   it("changes a running badge to quiet idle, without changing task or archive state", () => {
     const running = meta(["working"]);
-    running.threads[0]!.archive = "archived";
+    (running.threads[0] ?? missingValue("Expected running.threads[0]")).archive = "archived";
     const slot = renderSlot({ component: ThreadSummary }, { taskKey: "ABC-1", meta: running });
     const button = slot.getByRole("button", { name: /1 Running, All threads archived/ });
     expect(button.getAttribute("data-agent-state")).toBe("running");
@@ -260,7 +265,10 @@ describe("agent activity presentation", () => {
     );
     const button = slot.getByRole("button");
     const intersect = (isIntersecting: boolean) =>
-      observe!([{ isIntersecting } as IntersectionObserverEntry], {} as IntersectionObserver);
+      (observe ?? missingValue("Expected observe"))(
+        [{ isIntersecting } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
     try {
       intersect(false);
       expect(button.dataset.motionPaused).toBe("true");

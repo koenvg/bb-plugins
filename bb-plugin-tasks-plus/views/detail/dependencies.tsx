@@ -20,12 +20,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 type Side = "blockedBy" | "blocks";
 
-type CandidateCatalog = {
+interface CandidateCatalog {
   isLoading: boolean;
   error: string | null;
   request: () => void;
   retry: () => void;
-};
+}
 
 const SIDE_TITLES: Record<Side, string> = {
   blockedBy: "Blocked by",

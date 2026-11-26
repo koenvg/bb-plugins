@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -31,7 +32,11 @@ function ready(text: string, path = target.path): ReadResult {
 }
 async function mount(read: () => ReadResult | Promise<ReadResult> = () => ready("# Document")) {
   const app = await loadPluginApp(plugin);
-  const slot = renderSlot(app.fileOpeners[0]!, props, { rpc: { read_document: read } });
+  const slot = renderSlot(
+    app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
+    props,
+    { rpc: { read_document: read } },
+  );
   return { app, slot };
 }
 afterEach(cleanup);
@@ -40,7 +45,10 @@ describe("rendered reader", () => {
   it("registers only a live md/markdown file opener", async () => {
     const { app, slot } = await mount();
     expect(app.fileOpeners).toHaveLength(1);
-    expect(app.fileOpeners[0]!.extensions).toEqual(["md", "markdown"]);
+    expect((app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).extensions).toEqual([
+      "md",
+      "markdown",
+    ]);
     expect(app.sourceCodeRenderers).toHaveLength(0);
     expect(app.diffRenderers).toHaveLength(0);
     expect(app.contentScripts).toHaveLength(0);
@@ -159,7 +167,7 @@ describe("rendered reader", () => {
       };
       const app = await loadPluginApp(plugin);
       const slot = renderSlot(
-        app.fileOpeners[0]!,
+        app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
         { ...input, Original: props.Original },
         {
           rpc: {
@@ -296,7 +304,7 @@ describe("rendered reader", () => {
     const { app, slot } = await mount(() =>
       ++reads === 1 ? pending : ready("# Second", "second.md"),
     );
-    const Reader = app.fileOpeners[0]!.component;
+    const Reader = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
     slot.lifecycle.rerender(<Reader {...props} path="second.md" />);
     await slot.findByRole("heading", { name: "Second" });
     finish(ready("# Late first"));
@@ -306,7 +314,7 @@ describe("rendered reader", () => {
   it("does not reload for a newly allocated but identical source", async () => {
     const { app, slot } = await mount();
     await slot.findByRole("heading", { name: "Document" });
-    const Reader = app.fileOpeners[0]!.component;
+    const Reader = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
     slot.lifecycle.rerender(<Reader {...props} source={{ ...source }} />);
     await waitFor(() => expect(slot.inspection.rpcCalls).toHaveLength(1));
   });
@@ -376,9 +384,9 @@ describe("rendered reader", () => {
       }
       fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
       expect(pending).toHaveLength(2);
-      pending[1]!.resolve(ready("# Latest"));
+      (pending[1] ?? missingValue("Expected pending[1]")).resolve(ready("# Latest"));
       await slot.findByRole("heading", { name: "Latest" });
-      pending[0]!.reject(new Error("Late failure"));
+      (pending[0] ?? missingValue("Expected pending[0]")).reject(new Error("Late failure"));
       await waitFor(() => expect(slot.queryByRole("alert")).toBeNull());
       expect(slot.getByRole("heading", { name: "Latest" })).toBeTruthy();
     },
@@ -397,9 +405,9 @@ describe("rendered reader", () => {
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
     expect(pending).toHaveLength(2);
-    pending[1]!(ready("# Latest"));
+    (pending[1] ?? missingValue("Expected pending[1]"))(ready("# Latest"));
     await slot.findByRole("heading", { name: "Latest" });
-    pending[0]!(ready("# Old refresh"));
+    (pending[0] ?? missingValue("Expected pending[0]"))(ready("# Old refresh"));
     await waitFor(() => expect(slot.queryByRole("heading", { name: "Old refresh" })).toBeNull());
     expect(slot.getByRole("heading", { name: "Latest" })).toBeTruthy();
   });
@@ -431,7 +439,7 @@ describe("rendered reader", () => {
           finishes.push(resolve);
         }),
     );
-    const Reader = app.fileOpeners[0]!.component;
+    const Reader = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
     slot.lifecycle.rerender(
       <Reader {...props} source={{ ...source, experimental_hostId: "other-remote" }} />,
     );
@@ -447,10 +455,10 @@ describe("rendered reader", () => {
       />,
     );
     expect(finishes).toHaveLength(3);
-    finishes[2]!(ready("# Latest source"));
+    (finishes[2] ?? missingValue("Expected finishes[2]"))(ready("# Latest source"));
     await slot.findByRole("heading", { name: "Latest source" });
-    finishes[1]!(ready("# Wrong host"));
-    finishes[0]!(ready("# First source"));
+    (finishes[1] ?? missingValue("Expected finishes[1]"))(ready("# Wrong host"));
+    (finishes[0] ?? missingValue("Expected finishes[0]"))(ready("# First source"));
     await Promise.resolve();
     expect(slot.queryByRole("heading", { name: "Wrong host" })).toBeNull();
     expect(slot.queryByRole("heading", { name: "First source" })).toBeNull();

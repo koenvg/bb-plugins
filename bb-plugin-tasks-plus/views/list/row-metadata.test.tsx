@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import type { TaskWorkStatus } from "../../shared/contract.js";
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -81,13 +83,13 @@ interface ListFixture {
   tasks: Task[];
   labels?: Label[];
   threadsByTask?: Record<string, TaskThread[]>;
-  prsByTask?: Record<string, import("../../shared/contract.js").TaskWorkStatus["pullRequests"]>;
+  prsByTask?: Record<string, TaskWorkStatus["pullRequests"]>;
 }
 
 function renderList(fixture: ListFixture) {
   const calls = { listComments: 0, listAttachments: 0 };
   const slot = renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: PROJECT_ID },
     {
       rpc: {
@@ -296,7 +298,7 @@ describe("list-row metadata rail", () => {
     const { slot } = renderList({
       tasks: [
         task(1),
-        task(2, [labels[0]!.id]),
+        task(2, [(labels[0] ?? missingValue("Expected labels[0]")).id]),
         task(
           3,
           labels.map((entry) => entry.id),

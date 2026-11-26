@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -18,13 +19,14 @@ if (!window.matchMedia) {
 }
 
 const app = await loadPluginApp(() => import("../../app"));
-const ticketRegistration = app.tabs.find(
-  (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
-    tab.id === "ticket" &&
-    tab.availability === "fixed" &&
-    tab.context.kind === "nav-panel" &&
-    tab.context.panelId === "tasks",
-)!;
+const ticketRegistration =
+  app.tabs.find(
+    (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
+      tab.id === "ticket" &&
+      tab.availability === "fixed" &&
+      tab.context.kind === "nav-panel" &&
+      tab.context.panelId === "tasks",
+  ) ?? missingValue("Expected a non-null value");
 
 afterEach(cleanup);
 
@@ -94,7 +96,7 @@ function detailRpc(overrides: Record<string, unknown> = {}) {
 describe("task detail pull request pills", () => {
   it("links a thread's pull request as a keyboard-reachable anchor", async () => {
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "task/TSK-5" },
       {
         openUrl: () => true,
@@ -129,7 +131,7 @@ describe("task detail pull request pills", () => {
 
   it("marks threads whose PR lookup failed and stays quiet otherwise", async () => {
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "task/TSK-5" },
       {
         rpc: detailRpc({
@@ -155,7 +157,7 @@ describe("task detail pull request pills", () => {
   it("detaches a thread from its card after confirmation and refetches the list", async () => {
     let detached = false;
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "task/TSK-5" },
       {
         rpc: detailRpc({
@@ -192,7 +194,7 @@ describe("task detail pull request pills", () => {
     };
     let lookupCount = 0;
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "task/TSK-5" },
       {
         rpc: detailRpc({
@@ -236,12 +238,12 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-type RefreshObservation = {
+interface RefreshObservation {
   stage: string;
   methods: string[];
   retainedNodes: boolean[];
   removedNodes: string[];
-};
+}
 
 describe("task status changes retain thread and pull request data", () => {
   for (const surface of ["standalone", "native Ticket"] as const) {
@@ -260,7 +262,7 @@ describe("task status changes retain thread and pull request data", () => {
           };
           const subPath = surface === "standalone" ? "task/TSK-5" : "all?task=TSK-5";
           const page = renderSlot(
-            app.navPanels[0]!,
+            app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
             { subPath },
             {
               experimental_panel: { openTab: () => true },
@@ -296,7 +298,8 @@ describe("task status changes retain thread and pull request data", () => {
           const pr = await ui.findByRole("link", {
             name: "Pull request #12: Ship the PR pill (Merged)",
           });
-          const editor = root.querySelector<HTMLElement>(".tiptap")!;
+          const editor =
+            root.querySelector<HTMLElement>(".tiptap") ?? missingValue("Expected a non-null value");
           expect(title.textContent).toBe("Ship the PR pill");
           expect(worker.textContent).toBe("Worker");
           expect(pr.textContent).toBe("#12");
@@ -334,7 +337,9 @@ describe("task status changes retain thread and pull request data", () => {
             await act(async () => {});
             record("initial");
             delayReads = true;
-            const status = ui.getAllByRole("button", { name: "Todo" })[0]!;
+            const status =
+              ui.getAllByRole("button", { name: "Todo" })[0] ??
+              missingValue("Expected a non-null value");
             status.focus();
             fireEvent.keyDown(status, { key: "Enter" });
             fireEvent.click(await page.findByRole("menuitem", { name: "In Progress" }));
@@ -380,8 +385,8 @@ describe("task status changes retain thread and pull request data", () => {
             ).toHaveLength(1);
             expect(ui.getAllByRole("button", { name: "In Progress" })).toHaveLength(2);
             expect(
-              observations[0]!.methods.filter((method) =>
-                ["listTaskThreads", "listTaskPullRequests"].includes(method),
+              (observations[0] ?? missingValue("Expected observations[0]")).methods.filter(
+                (method) => ["listTaskThreads", "listTaskPullRequests"].includes(method),
               ),
             ).toEqual(["listTaskThreads", "listTaskPullRequests"]);
             expect(
@@ -400,11 +405,9 @@ describe("task status changes retain thread and pull request data", () => {
             });
             record("threads event control");
             expect(
-              observations
-                .at(-1)!
-                .methods.filter((method) =>
-                  ["listTaskThreads", "listTaskPullRequests"].includes(method),
-                ),
+              (observations.at(-1) ?? missingValue("Expected a non-null value")).methods.filter(
+                (method) => ["listTaskThreads", "listTaskPullRequests"].includes(method),
+              ),
             ).toEqual(["listTaskThreads", "listTaskPullRequests"]);
           } finally {
             observer.disconnect();

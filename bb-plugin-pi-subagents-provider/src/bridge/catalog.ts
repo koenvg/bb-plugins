@@ -68,13 +68,13 @@ function toCatalogModel(model: PiRpcModel): PiCatalogModel | undefined {
 }
 
 export interface PiCatalog {
-  listModels(): Promise<{
+  listModels: () => Promise<{
     models: AvailableModel[];
     selectedOnlyModels: AvailableModel[];
   }>;
-  rawModels(): Promise<PiRpcModel[]>;
-  probe(): Promise<Record<string, unknown>>;
-  close(): Promise<void>;
+  rawModels: () => Promise<PiRpcModel[]>;
+  probe: () => Promise<Record<string, unknown>>;
+  close: () => Promise<void>;
 }
 
 const catalogsByCwd = new Map<string, Promise<PiCatalog>>();
@@ -90,7 +90,7 @@ async function spawnCatalog(
     served: boolean;
     refreshing: Promise<void> | null;
     ready: Promise<Record<string, unknown>>;
-    getModelScope(): { scopedModelIds: string[]; defaultModelId?: string } | undefined;
+    getModelScope: () => { scopedModelIds: string[]; defaultModelId?: string } | undefined;
   }
 
   let generation: CatalogChildGeneration | null = null;
@@ -326,7 +326,7 @@ export async function closeAllPiCatalogs(): Promise<void> {
 
 export function createLiveContextWindowResolver(): {
   resolve: PiModelContextWindowResolver;
-  learn(models: readonly PiRpcModel[]): void;
+  learn: (models: readonly PiRpcModel[]) => void;
 } {
   const known = new Map<string, PiRpcModel>();
   let resolver = createPiModelContextWindowResolverFrom([]);

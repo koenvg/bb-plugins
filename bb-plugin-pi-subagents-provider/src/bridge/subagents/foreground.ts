@@ -1,7 +1,7 @@
 import { describeObservedActivity } from "../../observed-activity.js";
 import { z } from "zod";
 import { boundedValue, type ViewRow } from "../../subagents-contract.js";
-import { type ViewOwner } from "./view-store.js";
+import type { ViewOwner } from "./view-store.js";
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

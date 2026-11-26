@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -27,7 +28,10 @@ const listProjects = () => ({ projects: [project, other] });
 function openPicker() {
   act(
     () =>
-      void TASKS_COMMANDS.find((command) => command.id === "switch-project")!.run({
+      void (
+        TASKS_COMMANDS.find((command) => command.id === "switch-project") ??
+        missingValue("Expected a non-null value")
+      ).run({
         threadId: null,
         projectId: null,
         experimental_panel: experimental_makePanelController(),

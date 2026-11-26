@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect, type Page } from "@playwright/test";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { createStore, registerTasksApi } from "../../api";
@@ -40,9 +41,10 @@ async function setup(page: Page) {
   task(beta.id, "Canceled work", 50, ["in_progress", "canceled"]);
   task(beta.id, "No recorded start", 50, ["done"]);
   let refuseSave = true;
-  const calls: Array<{ method: string; input: unknown }> = [];
+  const calls: { method: string; input: unknown }[] = [];
   await page.route("**/__stats_rpc/*", async (route) => {
-    const method = route.request().url().split("/").at(-1)!;
+    const method =
+      route.request().url().split("/").at(-1) ?? missingValue("Expected a non-null value");
     const input: unknown = route.request().postDataJSON();
     calls.push({ method, input });
     if (method === "updateTask" && refuseSave) {

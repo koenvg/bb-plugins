@@ -94,11 +94,14 @@ function updateStatus(status: typeof task.status | undefined) {
     };
   }
   task = { ...task, status: status ?? task.status };
-  document.getElementById("stored-status")!.textContent = task.status;
+  requireFixture(
+    document.getElementById("stored-status"),
+    'document.getElementById("stored-status")',
+  ).textContent = task.status;
   return { ok: true, task };
 }
 const slot = renderSlot(
-  app.navPanels[0]!,
+  requireFixture(app.navPanels[0], "app.navPanels[0]"),
   {
     subPath: new URLSearchParams(location.search).has("board")
       ? `${project.id}?view=board`
@@ -174,16 +177,25 @@ for (const [id, blocked] of [
   ["archive-creator", false],
   ["unarchive-creator", true],
 ] as const) {
-  document.getElementById(id)!.addEventListener("click", async () => {
-    creatorArchived = !blocked;
-    await slot.behavior.emitRealtime("tasks:changed", {
-      taskId: task.id,
-      projectId: task.projectId,
-    });
-  });
+  requireFixture(document.getElementById(id), "document.getElementById(id)").addEventListener(
+    "click",
+    async () => {
+      creatorArchived = !blocked;
+      await slot.behavior.emitRealtime("tasks:changed", {
+        taskId: task.id,
+        projectId: task.projectId,
+      });
+    },
+  );
 }
 document.addEventListener("click", () => {
-  document.getElementById("host-navigation")!.textContent = JSON.stringify(
-    slot.inspection.navigateCalls,
-  );
+  requireFixture(
+    document.getElementById("host-navigation"),
+    'document.getElementById("host-navigation")',
+  ).textContent = JSON.stringify(slot.inspection.navigateCalls);
 });
+
+function requireFixture<T>(value: T | null | undefined, label: string): T {
+  if (value == null) throw new Error(`Missing fixture value: ${label}`);
+  return value;
+}

@@ -1,4 +1,4 @@
-import { type Capture } from "./subagents-contract.js";
+import type { Capture } from "./subagents-contract.js";
 
 /** Retain accepted detail and its limits when a newer observation lacks those fields. */
 export function retainCapture(

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -42,7 +43,8 @@ const scrollKey = (scope: (typeof scopes)[number]) =>
     sort: "manual",
   });
 const scrollContainer = (slot: ReturnType<typeof renderSlot>) =>
-  slot.container.querySelector<HTMLDivElement>("[data-list-scroll]")!;
+  slot.container.querySelector<HTMLDivElement>("[data-list-scroll]") ??
+  missingValue("Expected a non-null value");
 let viewportHeight = 100;
 
 beforeEach(() => {
@@ -187,11 +189,12 @@ it("restores each scope against its own saved layout during mounted transitions 
   storeListPreference("active", { ...DEFAULT_LIST_PREFERENCE, collapsedStatuses: ["todo"] });
   storeListPreference("project:project-a", { ...DEFAULT_LIST_PREFERENCE, collapsedStatuses: [] });
   const offsets = [150, 300, 250, 500];
-  for (const [index, scope] of scopes.entries()) writeListScroll(scrollKey(scope), offsets[index]!);
+  for (const [index, scope] of scopes.entries())
+    writeListScroll(scrollKey(scope), offsets[index] ?? missingValue("Expected offsets[index]"));
   const report = vi.fn<(order: VisibleTaskOrder) => void>();
   const slot = renderSlot(
     { component: List },
-    { ...scopes[0]!, onVisibleOrderChange: report },
+    { ...(scopes[0] ?? missingValue("Expected scopes[0]")), onVisibleOrderChange: report },
     { rpc },
   );
   await waitFor(() => expect(scrollContainer(slot).scrollTop).toBe(150));
@@ -220,10 +223,12 @@ it("restores each scope against its own saved layout during mounted transitions 
     await waitFor(() => expect(report.mock.calls.at(-1)?.[0].settled).toBe(true));
     // All/B have six headers only. Active has five rows; A has six rows.
     await waitFor(() => expect(scrollContainer(slot).scrollTop).toBe([150, 300, 250, 164][index]));
-    expect(slot.container.querySelectorAll("[data-task-key]")).toHaveLength([0, 5, 6, 0][index]!);
+    expect(slot.container.querySelectorAll("[data-task-key]")).toHaveLength(
+      [0, 5, 6, 0][index] ?? missingValue("Expected [0, 5, 6, 0][index]"),
+    );
   }
   slot.lifecycle.rerender(<List projectId={null} onVisibleOrderChange={report} />);
   await waitFor(() => expect(scrollContainer(slot).scrollTop).toBe(150));
-  expect(readListScroll(scrollKey(scopes[1]!))).toBe(300);
-  expect(readListScroll(scrollKey(scopes[2]!))).toBe(250);
+  expect(readListScroll(scrollKey(scopes[1] ?? missingValue("Expected scopes[1]")))).toBe(300);
+  expect(readListScroll(scrollKey(scopes[2] ?? missingValue("Expected scopes[2]")))).toBe(250);
 });

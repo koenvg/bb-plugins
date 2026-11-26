@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { useRef } from "react";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -63,8 +64,11 @@ it.each([false, true])(
       );
     }
     const detail = view.getByRole("button", { name: "detail" });
-    detail.parentElement!.hidden = true;
-    detail.parentElement!.setAttribute("inert", "");
+    (detail.parentElement ?? missingValue("Expected detail.parentElement")).hidden = true;
+    (detail.parentElement ?? missingValue("Expected detail.parentElement")).setAttribute(
+      "inert",
+      "",
+    );
     fireEvent.keyDown(detail, { key: "s" });
     expect(detailAction).toHaveBeenCalledTimes(3);
     expect(listAction).toHaveBeenCalledTimes(3);

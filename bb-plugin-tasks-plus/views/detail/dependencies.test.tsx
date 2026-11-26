@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -41,7 +42,7 @@ function baseTask(number: number): Task {
 }
 
 function renderDetail(
-  initialLinks: Array<[number, number]> = [],
+  initialLinks: [number, number][] = [],
   options: {
     cycleOn?: [number, number];
     extraTasks?: Task[];
@@ -56,18 +57,22 @@ function renderDetail(
 ) {
   const base = [...[3, 4, 5].map(baseTask), ...(options.extraTasks ?? [])];
   const links = initialLinks.map(([a, b]) => [
-    base.find((t) => t.number === a)!.id,
-    base.find((t) => t.number === b)!.id,
+    (base.find((t) => t.number === a) ?? missingValue("Expected a non-null value")).id,
+    (base.find((t) => t.number === b) ?? missingValue("Expected a non-null value")).id,
   ]);
   const refOf = (id: string) => {
-    const task = base.find((entry) => entry.id === id)!;
+    const task = base.find((entry) => entry.id === id) ?? missingValue("Expected a non-null value");
     const t = { ...task, ...options.taskOverrides?.(task) };
     return { id: t.id, key: t.key, title: t.title, status: t.status };
   };
   const withLinks = (t: Task): Task => {
     const current = { ...t, ...options.taskOverrides?.(t) };
-    const blockedBy = links.filter(([, b]) => b === t.id).map(([a]) => refOf(a!));
-    const blocks = links.filter(([a]) => a === t.id).map(([, b]) => refOf(b!));
+    const blockedBy = links
+      .filter(([, b]) => b === t.id)
+      .map(([a]) => refOf(a ?? missingValue("Expected a")));
+    const blocks = links
+      .filter(([a]) => a === t.id)
+      .map(([, b]) => refOf(b ?? missingValue("Expected b")));
     return {
       ...current,
       blockedBy,
@@ -80,9 +85,11 @@ function renderDetail(
       blocked: blockedBy.some((ref) => ref.status !== "done" && ref.status !== "canceled"),
     };
   };
-  const cycle = options.cycleOn?.map((n) => base.find((t) => t.number === n)!.id);
+  const cycle = options.cycleOn?.map(
+    (n) => (base.find((t) => t.number === n) ?? missingValue("Expected a non-null value")).id,
+  );
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: "task/ABC-5" },
     {
       sdk: {
@@ -109,7 +116,10 @@ function renderDetail(
         listPresets: () => ({ presets: [] }),
         sidebarSummary: () => ({ projects: [] }),
         getTaskByKey: (raw) => ({
-          task: withLinks(base.find((task) => task.key === rpcInput(raw).taskKey)!),
+          task: withLinks(
+            base.find((task) => task.key === rpcInput(raw).taskKey) ??
+              missingValue("Expected a non-null value"),
+          ),
         }),
         listTasks: (raw) => {
           const input = rpcInput(raw);
@@ -137,7 +147,11 @@ function renderDetail(
             };
           }
           links.push([input.blockerTaskId as string, input.blockedTaskId as string]);
-          const find = (id: unknown) => withLinks(base.find((t) => t.id === id)!);
+          const find = (id: unknown) =>
+            withLinks(
+              base.find((t) => t.id === id) ??
+                missingValue("Expected base.find((t) => t.id === id)"),
+            );
           return {
             ok: true,
             added: true,
@@ -192,7 +206,7 @@ async function closePicker(slot: ReturnType<typeof renderDetail>) {
 }
 
 async function selectTask(slot: ReturnType<typeof renderDetail>, number: number) {
-  const Panel = app.navPanels[0]!.component;
+  const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;
   slot.lifecycle.rerender(<Panel subPath={`task/ABC-${number}`} />);
   await waitFor(() =>
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(`Task ${number}`),

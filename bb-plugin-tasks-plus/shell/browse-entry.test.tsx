@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -15,7 +16,7 @@ import { storeListPreference } from "../views/list/list-preference.js";
 import { TASKS_COMMANDS } from "./commands.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const panel = app.navPanels[0]!;
+const panel = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
 const Panel = panel.component;
 const project: Project = {
   id: "01HZZZZZZZZZZZZZZZZZZZZZP1",
@@ -329,7 +330,10 @@ describe("remembered Tasks entry", () => {
     const slot = open(project.id);
     await slot.findByText("Tenet");
     act(() => {
-      void TASKS_COMMANDS.find((command) => command.id === id)!.run({
+      void (
+        TASKS_COMMANDS.find((command) => command.id === id) ??
+        missingValue("Expected a non-null value")
+      ).run({
         projectId: "unrelated-bb-project",
         threadId: null,
         experimental_panel: experimental_makePanelController(),

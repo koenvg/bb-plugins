@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { dirname, join } from "node:path";
 import { readFile, stat } from "node:fs/promises";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
@@ -126,7 +127,8 @@ describe("complete task attachment enumeration", () => {
     try {
       const prepare = vi.spyOn(bb.storage.database(), "prepare");
       await harness.behavior.callRpc("delegate", { taskId: task.id, presetId: preset.id });
-      const { prompt } = harness.inspection.sdk.callsTo("threads.spawn")[0]![0] as {
+      const { prompt } = (harness.inspection.sdk.callsTo("threads.spawn")[0] ??
+        missingValue("Expected a non-null value"))[0] as {
         prompt: string;
       };
       const section = prompt.split("## Attachments\n\n")[1]?.split("\n\n## ")[0];
@@ -152,11 +154,12 @@ describe("complete task attachment enumeration", () => {
     async (scope) => {
       const { bb, harness, store, task, project, other, expected, excluded } = await setup();
       try {
-        const database = bb.storage
-          .database()
-          .prepare<[], { name: string; file: string }>("PRAGMA database_list")
-          .all()
-          .find((entry) => entry.name === "main")!;
+        const database =
+          bb.storage
+            .database()
+            .prepare<[], { name: string; file: string }>("PRAGMA database_list")
+            .all()
+            .find((entry) => entry.name === "main") ?? missingValue("Expected a non-null value");
         const sameProjectFiles = excluded.filter((file) => file.taskId === other.id);
         const foreignFiles = excluded.filter((file) => file.taskId !== other.id);
         const removed = scope === "task" ? expected : [...expected, ...sameProjectFiles];

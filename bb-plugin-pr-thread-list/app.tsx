@@ -346,11 +346,11 @@ const ThreadRow = ({
   );
 };
 
-const TABS: { value: Tab; label: string; empty: string }[] = [
+const TABS = [
   { value: "attention", label: "Needs attention", empty: "Nothing needs you." },
   { value: "inflight", label: "In flight", empty: "Nothing in flight." },
   { value: "all", label: "All", empty: "No threads" },
-];
+] as const satisfies readonly { value: Tab; label: string; empty: string }[];
 const ACTIVE_ONLY: readonly Lifecycle[] = ["active"];
 const LIFECYCLES: [readonly Lifecycle[], string][] = [
   [["active"], "Active"],
@@ -430,7 +430,8 @@ const TabBar = ({
     ];
     if (next === undefined) return;
     event.preventDefault();
-    const target = TABS[(next + TABS.length) % TABS.length]!;
+    const target = TABS[(next + TABS.length) % TABS.length];
+    if (!target) return;
     onSelect(target.value);
     event.currentTarget.querySelector<HTMLButtonElement>(`[data-tab="${target.value}"]`)?.focus();
   };
@@ -626,7 +627,11 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
   }, []);
   const offsets = useMemo(() => {
     const tops = [0];
-    for (const item of items) tops.push(tops.at(-1)! + HEIGHTS[item.kind]);
+    let top = 0;
+    for (const item of items) {
+      top += HEIGHTS[item.kind];
+      tops.push(top);
+    }
     return tops;
   }, [items]);
   const indexAt = (y: number) => {
@@ -634,7 +639,7 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
     let high = items.length;
     while (low < high) {
       const mid = (low + high) >> 1;
-      if (offsets[mid + 1]! <= y) low = mid + 1;
+      if ((offsets[mid + 1] ?? Infinity) <= y) low = mid + 1;
       else high = mid;
     }
     return Math.min(low, Math.max(0, items.length - 1));
@@ -642,6 +647,7 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
   const start = Math.max(0, indexAt(scrollTop) - OVERSCAN);
   const end = Math.min(items.length, indexAt(scrollTop + viewportHeight) + 1 + OVERSCAN);
   const windowItems = items.slice(start, end);
+  const tabCopy = TABS.find(({ value }) => value === prefs.tab) ?? TABS[0];
   useEffect(() => savePreferences(prefs), [prefs]);
   const update = (change: Partial<ListOptions>) =>
     setPrefs((current) => ({ ...current, ...change }));
@@ -701,7 +707,7 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
         ref={scroller}
         id={panelId}
         role="tabpanel"
-        aria-label={TABS.find(({ value }) => value === prefs.tab)!.label}
+        aria-label={tabCopy.label}
         data-testid="thread-scroll"
         className="min-h-0 flex-1 overflow-y-auto"
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
@@ -719,9 +725,7 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
           </p>
         ) : null}
         {status === "ready" && !archiveLoading && !archiveError && items.length === 0 ? (
-          <p className="p-2 text-muted-foreground">
-            {TABS.find(({ value }) => value === prefs.tab)!.empty}
-          </p>
+          <p className="p-2 text-muted-foreground">{tabCopy.empty}</p>
         ) : null}
         {status === "ready" ? <div aria-hidden="true" style={{ height: offsets[start] }} /> : null}
         {status === "ready"
@@ -756,7 +760,10 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
             )
           : null}
         {status === "ready" ? (
-          <div aria-hidden="true" style={{ height: offsets[items.length]! - offsets[end]! }} />
+          <div
+            aria-hidden="true"
+            style={{ height: (offsets[items.length] ?? 0) - (offsets[end] ?? 0) }}
+          />
         ) : null}
         {showArchive &&
         archived &&

@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { createStore } from ".";
@@ -5,9 +6,9 @@ import type { TaskStatus, TaskStatusTransition } from "../db";
 import plugin from "../server";
 import { mockPrStatusRpc } from "../test-fixtures";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await disposers.pop()!();
+  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
 });
 
 async function setup() {
@@ -55,7 +56,7 @@ async function setup() {
 }
 
 type Fixture = Awaited<ReturnType<typeof setup>>;
-function expectRows(f: Fixture, expected: Array<[string, TaskStatus, TaskStatus]>) {
+function expectRows(f: Fixture, expected: [string, TaskStatus, TaskStatus][]) {
   const rows = f.rows();
   expect(rows).toEqual(
     expected.map(([taskId, fromStatus, toStatus], index) => ({
@@ -248,8 +249,8 @@ describe("status history through public RPC and SDK CLI fixtures", () => {
       const result = await f.harness.behavior.runCli([
         "update",
         task.key,
-        option!,
-        status!,
+        option ?? missingValue("Expected option"),
+        status ?? missingValue("Expected status"),
         "--json",
       ]);
       expect(result, result.stderr).toMatchObject({ exitCode: 0 });

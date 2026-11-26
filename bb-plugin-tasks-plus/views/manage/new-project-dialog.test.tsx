@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -22,7 +23,7 @@ describe("derivePrefix", () => {
 describe("NewProjectDialog", () => {
   function renderEmptyState(overrides: Record<string, unknown> = {}) {
     return renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "" },
       {
         rpc: {
@@ -38,7 +39,7 @@ describe("NewProjectDialog", () => {
   }
 
   it("derives the prefix from the name and creates the project", async () => {
-    const createCalls: Array<Record<string, unknown>> = [];
+    const createCalls: Record<string, unknown>[] = [];
     const slot = renderEmptyState({
       createProject: (input: Record<string, unknown>) => {
         createCalls.push(input);
@@ -99,7 +100,7 @@ describe("NewProjectDialog", () => {
   });
 
   it("links the personal project from the discovered project picker", async () => {
-    const createCalls: Array<Record<string, unknown>> = [];
+    const createCalls: Record<string, unknown>[] = [];
     const slot = renderEmptyState({
       listBbProjects: () => ({
         bbProjects: [{ id: "proj_personal", name: "Personal" }],

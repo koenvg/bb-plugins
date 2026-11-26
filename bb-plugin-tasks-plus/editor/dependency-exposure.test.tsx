@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { Editor, mergeAttributes } from "@tiptap/core";
 import { DOMSerializer, Schema } from "@tiptap/pm/model";
@@ -53,7 +54,7 @@ describe("Tiptap advisory input boundaries", () => {
   it("discards unknown attributes when Tasks loads and replaces Markdown with raw HTML", async () => {
     const onChange = vi.fn();
     const { container, rerender } = render(<TasksEditor value={html} onChange={onChange} />);
-    const surface = container.querySelector(".tiptap")!;
+    const surface = container.querySelector(".tiptap") ?? missingValue("Expected a non-null value");
     expect(surface.querySelector("img")?.getAttribute("alt")).toBe("kept");
     expectNoInjectedAttributes(surface);
 

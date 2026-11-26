@@ -191,21 +191,19 @@ const taskCursorSchema = z
 type TaskCursor = z.infer<typeof taskCursorSchema>;
 
 export class TasksPageCursorError extends Error {
-  constructor(
-    readonly code: "invalid_cursor" | "cursor_query_mismatch" | "stale_cursor",
-    message: string,
-  ) {
+  readonly code: "invalid_cursor" | "cursor_query_mismatch" | "stale_cursor";
+  constructor(code: "invalid_cursor" | "cursor_query_mismatch" | "stale_cursor", message: string) {
     super(message);
+    this.code = code;
     this.name = "TasksPageCursorError";
   }
 }
 
 export class TaskDependencyError extends Error {
-  constructor(
-    readonly code: "dependency_self" | "dependency_cycle",
-    message: string,
-  ) {
+  readonly code: "dependency_self" | "dependency_cycle";
+  constructor(code: "dependency_self" | "dependency_cycle", message: string) {
     super(message);
+    this.code = code;
     this.name = "TaskDependencyError";
   }
 }
@@ -471,8 +469,8 @@ export function escapeLike(value: string): string {
 }
 
 export interface TasksStoreOptions {
-  onTasksUnblocked?(taskIds: readonly string[]): void;
-  onCreatorBackfill?(report: CreatorBackfillReport): void;
+  onTasksUnblocked?: (taskIds: readonly string[]) => void;
+  onCreatorBackfill?: (report: CreatorBackfillReport) => void;
 }
 
 export function createTasksStore(db: PluginDatabase, options: TasksStoreOptions = {}) {

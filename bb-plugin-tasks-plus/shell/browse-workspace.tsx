@@ -35,7 +35,8 @@ export const BrowseWorkspace = ({
 }) => {
   const navigate = useBbNavigate();
   const navigation = useTasksNavigation();
-  const session = useTasksSession()!;
+  const session = useTasksSession();
+  if (!session) throw new Error("Browse workspace requires a tasks session");
   const [order, setOrder] = useState<VisibleTaskOrder & { scope: string }>({
     keys: [],
     settled: false,
@@ -127,7 +128,9 @@ export const BrowseWorkspace = ({
         // A saved navigation must still point at a confirmed visible result.
         if (
           target &&
-          (!latestOrder.current.settled || !latestOrder.current.keys.includes(taskKey!))
+          (taskKey === null ||
+            !latestOrder.current.settled ||
+            !latestOrder.current.keys.includes(taskKey))
         )
           return;
         // Only an accepted destination consumes its reveal. A failed request

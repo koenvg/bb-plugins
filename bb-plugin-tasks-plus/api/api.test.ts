@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
@@ -31,7 +32,7 @@ describe("Tasks RPC domain API", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error("Update failed");
       expect(result.changeId).toEqual(expect.any(String));
-      ids.add(result.changeId!);
+      ids.add(result.changeId ?? missingValue("Expected result.changeId"));
       expect(harness.realtimeSignals.at(-1)).toEqual({
         channel: "tasks:changed",
         payload: { taskId: task.id, projectId: project.id, changeId: result.changeId },
@@ -878,7 +879,8 @@ describe("Tasks RPC domain API", () => {
         },
         plugins: {
           callRpc: mockPrStatusRpc(
-            async ({ environmentId }) => pullRequestsByEnvironment[environmentId]!,
+            async ({ environmentId }) =>
+              pullRequestsByEnvironment[environmentId] ?? missingValue("Expected a non-null value"),
           ),
         },
       },
@@ -1059,22 +1061,25 @@ describe("Tasks RPC domain API", () => {
     });
     expect(harness.sdk.callsTo("plugins.callRpc")).toHaveLength(2);
 
-    resolvers.get("env_a")!({
+    (resolvers.get("env_a") ?? missingValue('Expected resolvers.get("env_a")'))({
       outcome: "available",
       pullRequest: makePullRequest({
         number: 21,
         url: "https://github.com/acme/bb/pull/21",
       }),
     });
-    resolvers.get("env_b")!({ outcome: "absent" });
+    (resolvers.get("env_b") ?? missingValue('Expected resolvers.get("env_b")'))({
+      outcome: "absent",
+    });
 
     const result = tasksRpcContract.listTaskPullRequests.output.parse(await resultPromise);
     expect(result.pullRequests).toHaveLength(1);
     expect(result.pullRequests[0]).toMatchObject({ number: 21 });
-    expect([...result.pullRequests[0]!.threadIds].sort()).toEqual([
-      "thr_alpha0000",
-      "thr_alpha0001",
-    ]);
+    expect(
+      [
+        ...(result.pullRequests[0] ?? missingValue("Expected result.pullRequests[0]")).threadIds,
+      ].sort(),
+    ).toEqual(["thr_alpha0000", "thr_alpha0001"]);
     expect(harness.sdk.callsTo("plugins.callRpc")).toHaveLength(2);
 
     await harness.dispose();
@@ -1115,7 +1120,8 @@ describe("Tasks RPC domain API", () => {
         },
         plugins: {
           callRpc: mockPrStatusRpc(
-            async ({ environmentId }) => lookupByEnvironment[environmentId]!,
+            async ({ environmentId }) =>
+              lookupByEnvironment[environmentId] ?? missingValue("Expected a non-null value"),
           ),
         },
       },

@@ -5,15 +5,15 @@ export interface DescriptionSaveOutcome {
   errorMessage?: string;
 }
 interface DescriptionSaverOptions {
-  save(taskId: string, markdown: string): Promise<DescriptionSaveOutcome>;
-  onError(message: string): void;
+  save: (taskId: string, markdown: string) => Promise<DescriptionSaveOutcome>;
+  onError: (message: string) => void;
   delayMs: number;
-  schedule?(run: () => void, delayMs: number): () => void;
+  schedule?: (run: () => void, delayMs: number) => () => void;
 }
 export interface DescriptionSaver {
-  onChange(taskId: string, markdown: string): void;
-  flush(taskId: string): Promise<DescriptionSaveOutcome>;
-  hasPending(): boolean;
+  onChange: (taskId: string, markdown: string) => void;
+  flush: (taskId: string) => Promise<DescriptionSaveOutcome>;
+  hasPending: () => boolean;
 }
 
 /** Description-only adapter. Detail uses the same queue for all autosaved fields. */
@@ -26,7 +26,8 @@ export function createDescriptionSaver(options: DescriptionSaverOptions): Descri
         session = createTaskEditSession(taskId, {
           ...options,
           save: async (id, patch) => {
-            const result = await options.save(id, patch.description!);
+            if (patch.description === undefined) throw new Error("Missing description to save");
+            const result = await options.save(id, patch.description);
             return result.ok
               ? { ok: true }
               : {

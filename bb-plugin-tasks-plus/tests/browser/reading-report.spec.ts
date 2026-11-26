@@ -1,8 +1,17 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect } from "@playwright/test";
 import { origin } from "./fixture-origin";
 import { writeFile } from "node:fs/promises";
 import { readingReport } from "../preview-document";
 import { reportMeasures, sentinelMeasures } from "./report-measures";
+
+function previewBackgroundMatchesBody() {
+  const background = document.querySelector(".attachment-preview")?.closest(".bg-background");
+  if (!background) throw new Error("Missing attachment preview background");
+  return (
+    getComputedStyle(background).backgroundColor === getComputedStyle(document.body).backgroundColor
+  );
+}
 
 for (const scenario of [
   { width: 390, theme: "light" },
@@ -102,10 +111,16 @@ for (const scenario of [
     expect(measures.headings[1]).toMatchObject({ above: "46px", below: "14px" });
     expect(measures.body.overflow).toBe("auto");
     expect(measures.body.scrollHeight).toBeGreaterThan(measures.body.height);
-    expect(measures.code[0]!.scrollWidth).toBeGreaterThan(measures.code[0]!.width);
-    expect(measures.code[0]!.overflow).toBe("auto");
-    expect(measures.tables[0]!.scrollWidth).toBeGreaterThan(measures.tables[0]!.width);
-    expect(measures.tables[0]!.overflow).toBe("auto");
+    expect(
+      (measures.code[0] ?? missingValue("Expected measures.code[0]")).scrollWidth,
+    ).toBeGreaterThan((measures.code[0] ?? missingValue("Expected measures.code[0]")).width);
+    expect((measures.code[0] ?? missingValue("Expected measures.code[0]")).overflow).toBe("auto");
+    expect(
+      (measures.tables[0] ?? missingValue("Expected measures.tables[0]")).scrollWidth,
+    ).toBeGreaterThan((measures.tables[0] ?? missingValue("Expected measures.tables[0]")).width);
+    expect((measures.tables[0] ?? missingValue("Expected measures.tables[0]")).overflow).toBe(
+      "auto",
+    );
     expect(measures.controls.map((control) => control.name)).toEqual([
       "Preview",
       "Raw",
@@ -128,16 +143,7 @@ for (const scenario of [
       await page.evaluate((value) => {
         document.documentElement.dataset.theme = value;
       }, theme);
-      await expect
-        .poll(() =>
-          page.evaluate(
-            () =>
-              getComputedStyle(
-                document.querySelector(".attachment-preview")!.closest(".bg-background")!,
-              ).backgroundColor === getComputedStyle(document.body).backgroundColor,
-          ),
-        )
-        .toBe(true);
+      await expect.poll(() => page.evaluate(previewBackgroundMatchesBody)).toBe(true);
       expect(await prose.evaluate((element, original) => element === original, originalProse)).toBe(
         true,
       );
@@ -148,8 +154,11 @@ for (const scenario of [
         "true",
       );
       themes[theme] = await page.evaluate(reportMeasures);
-      expect(themes[theme]!.bodyContrast.ratio).toBeGreaterThanOrEqual(4.5);
-      for (const token of themes[theme]!.tokens) expect(token.ratio).toBeGreaterThanOrEqual(4.5);
+      expect(
+        (themes[theme] ?? missingValue("Expected themes[theme]")).bodyContrast.ratio,
+      ).toBeGreaterThanOrEqual(4.5);
+      for (const token of (themes[theme] ?? missingValue("Expected themes[theme]")).tokens)
+        expect(token.ratio).toBeGreaterThanOrEqual(4.5);
       expect(await page.evaluate(sentinelMeasures)).toEqual(sentinels);
       expect(
         await page.evaluate(() =>
@@ -159,9 +168,13 @@ for (const scenario of [
         ),
       ).toEqual([true, true]);
     }
-    expect(themes.light!.bodyContrast.foreground).not.toEqual(themes.dark!.bodyContrast.foreground);
-    expect(themes.custom!.bodyContrast.color).toBe("rgb(48, 51, 78)");
-    expect(themes.custom!.radius).toBe("12px");
+    expect(
+      (themes.light ?? missingValue("Expected themes.light")).bodyContrast.foreground,
+    ).not.toEqual((themes.dark ?? missingValue("Expected themes.dark")).bodyContrast.foreground);
+    expect((themes.custom ?? missingValue("Expected themes.custom")).bodyContrast.color).toBe(
+      "rgb(48, 51, 78)",
+    );
+    expect((themes.custom ?? missingValue("Expected themes.custom")).radius).toBe("12px");
     await dialog.getByRole("button", { name: "Raw", exact: true }).click();
     const raw = dialog.getByLabel("Raw Markdown");
     const originalRaw = await raw.elementHandle();
@@ -169,16 +182,7 @@ for (const scenario of [
       await page.evaluate((value) => {
         document.documentElement.dataset.theme = value;
       }, theme);
-      await expect
-        .poll(() =>
-          page.evaluate(
-            () =>
-              getComputedStyle(
-                document.querySelector(".attachment-preview")!.closest(".bg-background")!,
-              ).backgroundColor === getComputedStyle(document.body).backgroundColor,
-          ),
-        )
-        .toBe(true);
+      await expect.poll(() => page.evaluate(previewBackgroundMatchesBody)).toBe(true);
       expect(await raw.textContent()).toBe(readingReport.source);
       expect(await raw.evaluate((element, original) => element === original, originalRaw)).toBe(
         true,

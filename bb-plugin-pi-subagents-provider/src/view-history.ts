@@ -32,7 +32,8 @@ export function restoreViewHistory(
   // Replay captures in live-store order; row identity and ordering remain newest first.
   for (const state of [...states].reverse())
     for (const original of state.rows) {
-      const row = rows.get(original.id)!;
+      const row = rows.get(original.id);
+      if (!row) throw new Error(`Missing archived row ${original.id}`);
       row.capture = retainCapture(original.capture, row.capture);
     }
   const previousRows = new Map(previous?.rows.map((row) => [row.id, row]));

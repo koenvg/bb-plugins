@@ -183,7 +183,7 @@ export function useSessionLabelsForProjects(projectIds: readonly string[]) {
     let last = resources.map((resource) => resource.read());
     const combine = () => ({
       data: last.every((state) => state.data !== undefined)
-        ? last.flatMap((state) => state.data!)
+        ? last.flatMap((state) => state.data ?? [])
         : undefined,
       error: last.find((state) => state.error)?.error ?? null,
       isLoading: last.some((state) => state.isLoading),

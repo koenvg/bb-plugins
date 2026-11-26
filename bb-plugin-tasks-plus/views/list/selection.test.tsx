@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -143,8 +144,11 @@ it("reports only the retained rendered tree as unsettled while removal waits for
   records = [b];
   await slot.behavior.emitRealtime("tasks:changed", {});
   await waitFor(() => expect(unavailable).toHaveBeenCalledTimes(1));
-  expect(unavailable.mock.calls[0]![0]).toBe("TSK-1");
-  const stillUnavailable = unavailable.mock.calls[0]![1] as () => boolean;
+  expect((unavailable.mock.calls[0] ?? missingValue("Expected unavailable.mock.calls[0]"))[0]).toBe(
+    "TSK-1",
+  );
+  const stillUnavailable = (unavailable.mock.calls[0] ??
+    missingValue("Expected unavailable.mock.calls[0]"))[1] as () => boolean;
   expect(stillUnavailable()).toBe(true);
   expect(
     slot.getByRole("button", { name: "Open TSK-1: Origin" }).getAttribute("aria-current"),

@@ -125,7 +125,7 @@ test("observer preserves response and socket semantics and restores its own wrap
 
 function observerWindow(fetch) {
   return Object.assign(new EventTarget(), {
-    WebSocket: class {},
+    WebSocket: EventTarget,
     document: new EventTarget(),
     performance: { now: () => 10 },
     fetch,

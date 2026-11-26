@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import type { PullRequestResult as Lookup } from "./pr-status.js";
 import type { ZodType } from "zod";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
@@ -14,9 +15,9 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await disposers.pop()!();
+  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
 });
 
 function pullRequest(state: "open" | "draft" | "merged" | "closed") {
@@ -475,13 +476,13 @@ describe("task completion PR gate", () => {
       `rejects a concurrent %s during ${method} completion`,
       async (change) => {
         const { harness, store, task } = await setup({ outcome: "absent" });
-        const lookupStarted = deferred<void>();
+        const lookupStarted = deferred<undefined>();
         const lookup = deferred<Lookup>();
         harness.sdk.stub(
           "plugins.callRpc",
           mockPrStatusRpc(async ({ environmentId }) => {
             if (environmentId === "env_open") return pullRequest("open");
-            lookupStarted.resolve();
+            lookupStarted.resolve(undefined);
             return lookup.promise;
           }),
         );

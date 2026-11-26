@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { makeTask } from "../test-fixtures.js";
 import { createTaskPreviews } from "./task-previews.js";
@@ -39,14 +40,14 @@ describe("adjacent preview queue", () => {
     const selected = previews.load("TSK-7");
     await flush();
     expect(fetch.mock.calls.at(-1)).toEqual(["TSK-7"]);
-    pending[0]!.resolve(task("TSK-1"));
+    (pending[0] ?? missingValue("Expected pending[0]")).resolve(task("TSK-1"));
     await flush();
     expect(fetch.mock.calls.at(-1)).toEqual(["TSK-5"]);
     expect(fetch).toHaveBeenCalledTimes(4);
-    pending[1]!.resolve(task("TSK-2"));
+    (pending[1] ?? missingValue("Expected pending[1]")).resolve(task("TSK-2"));
     await flush();
     expect(fetch.mock.calls.at(-1)).toEqual(["TSK-6"]);
-    pending[2]!.resolve(task("TSK-7"));
+    (pending[2] ?? missingValue("Expected pending[2]")).resolve(task("TSK-7"));
     await selected;
     previews.dispose();
   });
@@ -103,7 +104,7 @@ describe("adjacent preview queue", () => {
       previews.warm(["TSK-5", "TSK-6"]);
       await flush();
       expect(fetch).toHaveBeenCalledTimes(2);
-      pending[0]!.resolve(task("TSK-1"));
+      (pending[0] ?? missingValue("Expected pending[0]")).resolve(task("TSK-1"));
       await flush();
       expect(previews.read("TSK-1").current).toBe(false);
       expect(fetch.mock.calls.at(-1)).toEqual(["TSK-5"]);

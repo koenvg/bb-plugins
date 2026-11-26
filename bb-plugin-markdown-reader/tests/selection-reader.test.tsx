@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
@@ -56,8 +57,8 @@ async function mount(
   pluginServer(bb);
   disposers.push(() => harness.lifecycle.dispose());
   const app = await loadPluginApp(pluginApp);
-  let api: PluginComposerApi;
-  const Opener = app.fileOpeners[0]!.component;
+  let api: PluginComposerApi | undefined;
+  const Opener = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
   const ObservedOpener = (props: PluginFileOpenerProps) => {
     api = useComposer();
     return <Opener {...props} />;
@@ -84,23 +85,31 @@ async function mount(
     },
   );
   await slot.findByRole("heading", { name: "Heading" });
-  return { slot, harness, api: api! };
+  return { slot, harness, api: api ?? missingValue("Expected api") };
 }
-function select(node: Node, start = 0, end = node.textContent!.length) {
+function select(
+  node: Node,
+  start = 0,
+  end = (node.textContent ?? missingValue("Expected node.textContent")).length,
+) {
   const range = document.createRange();
   range.setStart(node, start);
   range.setEnd(node, end);
-  const selection = window.getSelection()!;
+  const selection = window.getSelection() ?? missingValue("Expected window.getSelection()");
   selection.removeAllRanges();
   selection.addRange(range);
   fireEvent(document, new Event("selectionchange"));
-  fireEvent.pointerUp(node.parentElement!);
+  fireEvent.pointerUp(node.parentElement ?? missingValue("Expected node.parentElement"));
 }
 it("appends selected Preview prose to the associated draft without replacing, sending, or file access", async () => {
   const { slot, harness } = await mount();
   const original = slot.inspection.composer.draft;
   const calls = [...harness.inspection.sdk.calls];
-  select(slot.getByText("Selected prose.").firstChild!, 0, 8);
+  select(
+    slot.getByText("Selected prose.").firstChild ?? missingValue("Expected a non-null value"),
+    0,
+    8,
+  );
   fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
   await waitFor(() =>
     expect(slot.inspection.composer.text).toBe(
@@ -135,10 +144,18 @@ it.each([
     fireEvent.click(slot.getByRole("button", { name: "Raw" }));
     const spans = slot.getByLabelText("Raw Markdown").querySelectorAll("[data-source-line]");
     const range = document.createRange();
-    range.setStart(spans[2]!.firstChild!, 2);
-    range.setEnd(spans[4]!.firstChild!, 0);
-    window.getSelection()!.removeAllRanges();
-    window.getSelection()!.addRange(range);
+    range.setStart(
+      (spans[2] ?? missingValue("Expected spans[2]")).firstChild ??
+        missingValue("Expected a non-null value"),
+      2,
+    );
+    range.setEnd(
+      (spans[4] ?? missingValue("Expected spans[4]")).firstChild ??
+        missingValue("Expected a non-null value"),
+      0,
+    );
+    (window.getSelection() ?? missingValue("Expected window.getSelection()")).removeAllRanges();
+    (window.getSelection() ?? missingValue("Expected window.getSelection()")).addRange(range);
     fireEvent(document, new Event("selectionchange"));
     fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
     expect(slot.inspection.composer.text).toBe(reference + "> alpha **one**\n> \n> \n");
@@ -169,8 +186,9 @@ it.each([
     const walker = document.createTreeWalker(raw, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode();
     while (node) {
-      if (offset <= node.textContent!.length) return [node, offset];
-      offset -= node.textContent!.length;
+      if (offset <= (node.textContent ?? missingValue("Expected node.textContent")).length)
+        return [node, offset];
+      offset -= (node.textContent ?? missingValue("Expected node.textContent")).length;
       node = walker.nextNode();
     }
     throw new Error("Selection offset outside source");
@@ -178,8 +196,8 @@ it.each([
   const range = document.createRange();
   range.setStart(...boundary(content.indexOf(from)));
   range.setEnd(...boundary(content.indexOf(to)));
-  window.getSelection()!.removeAllRanges();
-  window.getSelection()!.addRange(range);
+  (window.getSelection() ?? missingValue("Expected window.getSelection()")).removeAllRanges();
+  (window.getSelection() ?? missingValue("Expected window.getSelection()")).addRange(range);
   fireEvent(document, new Event("selectionchange"));
   fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
   expect(slot.inspection.composer.text).toBe(expected);
@@ -194,8 +212,8 @@ it("cites an element-boundary selection in grouped Raw", async () => {
   const range = document.createRange();
   range.setStart(raw, 0);
   range.setEnd(raw, 1);
-  window.getSelection()!.removeAllRanges();
-  window.getSelection()!.addRange(range);
+  (window.getSelection() ?? missingValue("Expected window.getSelection()")).removeAllRanges();
+  (window.getSelection() ?? missingValue("Expected window.getSelection()")).addRange(range);
   fireEvent(document, new Event("selectionchange"));
   fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
   expect(slot.inspection.composer.text).toBe(
@@ -210,7 +228,11 @@ it("keeps storage ownership separate from the recipient and preserves a selected
   });
   const insert = vi.spyOn(api, "insert");
   const replace = vi.spyOn(api, "replace");
-  select(slot.getByText("Selected prose.").firstChild!, 0, 8);
+  select(
+    slot.getByText("Selected prose.").firstChild ?? missingValue("Expected a non-null value"),
+    0,
+    8,
+  );
   fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
   // The public harness has no caret. Explicit placement is the SDK contract
   // that protects a selected range; actual editor selection is a native check.
@@ -223,7 +245,7 @@ it("keeps storage ownership separate from the recipient and preserves a selected
 });
 it("discards a pending quote when the associated composer changes", async () => {
   const { slot } = await mount();
-  select(slot.getByText("Selected prose.").firstChild!);
+  select(slot.getByText("Selected prose.").firstChild ?? missingValue("Expected a non-null value"));
   const button = await slot.findByRole("button", { name: "Add to chat" });
   await slot.behavior.setComposerScope({ kind: "thread", threadId: "other" });
   fireEvent.click(button);
@@ -238,7 +260,7 @@ it("shows an unavailable action for a queued-message editor without changing its
     threadId: "destination",
     queuedMessageId: "queue",
   });
-  select(slot.getByText("Selected prose.").firstChild!);
+  select(slot.getByText("Selected prose.").firstChild ?? missingValue("Expected a non-null value"));
   const button = await slot.findByRole("button", { name: "Add to chat" });
   expect(button.getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(button);
@@ -251,7 +273,7 @@ it("reports rejected insertion once, with no retry or draft loss", async () => {
   const insert = vi.spyOn(api, "insert").mockImplementation(() => {
     throw new Error("Unavailable");
   });
-  select(slot.getByText("Selected prose.").firstChild!);
+  select(slot.getByText("Selected prose.").firstChild ?? missingValue("Expected a non-null value"));
   const button = await slot.findByRole("button", { name: "Add to chat" });
   fireEvent.click(button);
   fireEvent.click(button);
@@ -266,7 +288,11 @@ it("does not repeat a successful insertion when focus fails", async () => {
   vi.spyOn(api, "focus").mockImplementation(() => {
     throw new Error("Not mounted");
   });
-  select(slot.getByText("Selected prose.").firstChild!, 0, 8);
+  select(
+    slot.getByText("Selected prose.").firstChild ?? missingValue("Expected a non-null value"),
+    0,
+    8,
+  );
   const button = await slot.findByRole("button", { name: "Add to chat" });
   fireEvent.click(button);
   fireEvent.click(button);
@@ -303,7 +329,11 @@ it.each([
       "# Heading\n\nSelected prose.\n",
       "",
     );
-    select(slot.getByText("Selected prose.").firstChild!, 0, 8);
+    select(
+      slot.getByText("Selected prose.").firstChild ?? missingValue("Expected a non-null value"),
+      0,
+      8,
+    );
     fireEvent.click(await slot.findByRole("button", { name: "Add to chat" }));
     expect(slot.inspection.composer.text).toBe(reference + "> Selected\n");
   },

@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { handleLine } from "./bridge.js";
@@ -330,7 +331,10 @@ it("evicts an idle catalog child", async () => {
   const { spawned } = harness.readProcessLog();
   expect(spawned).toHaveLength(1);
   const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline && !harness.readProcessLog().exited.includes(spawned[0]!)) {
+  while (
+    Date.now() < deadline &&
+    !harness.readProcessLog().exited.includes(spawned[0] ?? missingValue("Expected spawned[0]"))
+  ) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   expect(harness.readProcessLog().exited).toContain(spawned[0]);

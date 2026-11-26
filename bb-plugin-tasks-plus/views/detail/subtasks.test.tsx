@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { createStore, registerTasksApi } from "../../api";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
@@ -57,7 +58,7 @@ function renderParent(
   createTask?: (raw: unknown) => Promise<unknown>,
 ) {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: "task/ABC-1" },
     {
       sdk: {
@@ -104,7 +105,7 @@ function renderParent(
 async function subtaskRow(slot: ReturnType<typeof renderParent>, key: string) {
   const byText = await slot.findByText(key);
   const row = byText.closest("button");
-  return within(row!);
+  return within(row ?? missingValue("Expected row"));
 }
 
 const blockedSubtask = task(2, {

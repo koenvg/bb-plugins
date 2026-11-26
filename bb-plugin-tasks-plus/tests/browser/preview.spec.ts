@@ -8,6 +8,19 @@ const source =
   ' |\r\n\r\n```typescript\r\n\tconst text = "' +
   "long-code-".repeat(25) +
   '";  \r\n```\r\n';
+function previewGeometry(element: Element) {
+  const panel = element.querySelector(".attachment-preview") ?? element;
+  const toolbar = panel.querySelector(".attachment-preview-toolbar");
+  const body = panel.querySelector(".attachment-preview-body");
+  if (!toolbar) throw new Error("Missing attachment preview toolbar");
+  if (!body) throw new Error("Missing attachment preview body");
+  return {
+    panel: panel.getBoundingClientRect().toJSON(),
+    toolbar: toolbar.getBoundingClientRect().toJSON(),
+    body: body.getBoundingClientRect().toJSON(),
+  };
+}
+
 for (const width of [1280, 390]) {
   test(`generic real overlay at ${width}px`, async ({ page, context }) => {
     const errors: string[] = [];
@@ -32,30 +45,10 @@ for (const width of [1280, 390]) {
     const dialog = page.getByRole("dialog", { name: filename });
     await expect(dialog.getByRole("status")).toHaveText("Loading Markdown preview…");
     await page.waitForTimeout(300);
-    const loadingGeometry = await dialog.evaluate((element) => {
-      const panel = element.querySelector(".attachment-preview") || element;
-      return {
-        panel: panel.getBoundingClientRect().toJSON(),
-        toolbar: panel
-          .querySelector(".attachment-preview-toolbar")!
-          .getBoundingClientRect()
-          .toJSON(),
-        body: panel.querySelector(".attachment-preview-body")!.getBoundingClientRect().toJSON(),
-      };
-    });
+    const loadingGeometry = await dialog.evaluate(previewGeometry);
     await page.evaluate(() => window.dispatchEvent(new Event("fixture-ready")));
     await expect(dialog.getByRole("heading", { name: "Investigation", exact: true })).toBeVisible();
-    const readyGeometry = await dialog.evaluate((element) => {
-      const panel = element.querySelector(".attachment-preview") || element;
-      return {
-        panel: panel.getBoundingClientRect().toJSON(),
-        toolbar: panel
-          .querySelector(".attachment-preview-toolbar")!
-          .getBoundingClientRect()
-          .toJSON(),
-        body: panel.querySelector(".attachment-preview-body")!.getBoundingClientRect().toJSON(),
-      };
-    });
+    const readyGeometry = await dialog.evaluate(previewGeometry);
     expect(readyGeometry).toEqual(loadingGeometry);
     await expect(dialog.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute(
       "aria-pressed",
@@ -75,10 +68,16 @@ for (const width of [1280, 390]) {
     await page.keyboard.press("Tab");
     await dialog.getByRole("button", { name: "Preview", exact: true }).focus();
     const geometry = await page.evaluate(() => {
-      const panel = document.querySelector(".attachment-preview")!;
-      const body = panel.querySelector(".attachment-preview-body")!;
-      const prose = panel.querySelector(".mr-prose")!;
-      const code = panel.querySelector("pre")!;
+      const panel = document.querySelector(".attachment-preview");
+      if (!panel) throw new Error("Missing attachment preview panel");
+      const body = panel.querySelector(".attachment-preview-body");
+      const prose = panel.querySelector(".mr-prose");
+      const code = panel.querySelector("pre");
+      if (!body) throw new Error("Missing attachment preview body");
+      if (!prose) throw new Error("Missing attachment preview prose");
+      if (!code) throw new Error("Missing attachment preview code block");
+      const active = document.activeElement;
+      if (!active) throw new Error("Missing focused element in preview");
       return {
         pageOverflow: document.documentElement.scrollWidth > innerWidth,
         panelWidth: panel.getBoundingClientRect().width,
@@ -102,8 +101,8 @@ for (const width of [1280, 390]) {
             rect.bottom <= innerHeight
           );
         }),
-        focusInside: panel.contains(document.activeElement),
-        focusOutline: getComputedStyle(document.activeElement!).outlineWidth,
+        focusInside: panel.contains(active),
+        focusOutline: getComputedStyle(active).outlineWidth,
       };
     });
     expect(geometry.pageOverflow).toBe(false);
@@ -164,10 +163,13 @@ for (const width of [1280, 390]) {
     await page.evaluate(() => {
       const close = [
         ...document.querySelectorAll<HTMLButtonElement>(".attachment-preview button"),
-      ].find((element) => element.textContent === "Close")!;
+      ].find((element) => element.textContent === "Close");
+      if (!close) throw new Error("Missing attachment preview close button");
       close.click();
       window.dispatchEvent(new Event("fixture-listbox"));
-      document.querySelector<HTMLElement>('[role="listbox"]')!.focus();
+      const listbox = document.querySelector<HTMLElement>('[role="listbox"]');
+      if (!listbox) throw new Error("Missing replacement listbox");
+      listbox.focus();
     });
     const listbox = page.getByRole("listbox", { name: "Newer choices" });
     await expect(dialog).not.toBeVisible();

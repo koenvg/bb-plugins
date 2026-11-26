@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect } from "@playwright/test";
 import { remoteOrigin } from "./fixture-origin";
 
@@ -38,11 +39,20 @@ for (const width of [1280, 390]) {
     await viewer.getByRole("img").click();
     await expect(viewer).toBeVisible();
     const imageBounds = await viewer.getByRole("img").boundingBox();
-    expect(imageBounds!.width).toBeLessThanOrEqual(800);
-    expect(imageBounds!.height / imageBounds!.width).toBeCloseTo(0.5, 2);
-    expect(imageBounds!.x).toBeGreaterThanOrEqual(0);
-    expect(imageBounds!.x + imageBounds!.width).toBeLessThanOrEqual(width);
-    await page.mouse.move(imageBounds!.x + 10, imageBounds!.y + 10);
+    expect((imageBounds ?? missingValue("Expected imageBounds")).width).toBeLessThanOrEqual(800);
+    expect(
+      (imageBounds ?? missingValue("Expected imageBounds")).height /
+        (imageBounds ?? missingValue("Expected imageBounds")).width,
+    ).toBeCloseTo(0.5, 2);
+    expect((imageBounds ?? missingValue("Expected imageBounds")).x).toBeGreaterThanOrEqual(0);
+    expect(
+      (imageBounds ?? missingValue("Expected imageBounds")).x +
+        (imageBounds ?? missingValue("Expected imageBounds")).width,
+    ).toBeLessThanOrEqual(width);
+    await page.mouse.move(
+      (imageBounds ?? missingValue("Expected imageBounds")).x + 10,
+      (imageBounds ?? missingValue("Expected imageBounds")).y + 10,
+    );
     await page.mouse.down();
     await page.mouse.move(2, 2);
     await page.mouse.up();

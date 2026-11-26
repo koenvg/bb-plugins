@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
@@ -339,7 +340,7 @@ it.each(["all", "project", "active"])(
       ].map((method) => [method, (input: unknown) => call(method, input)]),
     );
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       {
         subPath: scope === "project" ? project.id : scope === "active" ? "active" : "all",
       },
@@ -348,10 +349,12 @@ it.each(["all", "project", "active"])(
     const childControl = await slot.findByRole("button", {
       name: new RegExp(`PR details for ${child.key}`),
     });
-    const childRow = childControl.closest("[data-task-key]")!;
-    const parentRow = slot
-      .getByRole("button", { name: new RegExp(`PR details for ${task.key}`) })
-      .closest("[data-task-key]")!;
+    const childRow =
+      childControl.closest("[data-task-key]") ?? missingValue("Expected a non-null value");
+    const parentRow =
+      slot
+        .getByRole("button", { name: new RegExp(`PR details for ${task.key}`) })
+        .closest("[data-task-key]") ?? missingValue("Expected a non-null value");
     expect(parentRow.getAttribute("data-dimmed")).toBe("true");
     expect(childRow.getAttribute("data-dimmed")).toBeNull();
     for (const row of [parentRow, childRow])
@@ -569,9 +572,10 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   expect(slot.getByRole("link", { name: /Open GitHub PR acme\/ready #42/ }).textContent).toContain(
     "Ready to merge",
   );
-  const terminalRow = slot
-    .getByRole("link", { name: /Open GitHub PR acme\/merged #42/ })
-    .closest("[data-task-key]")!;
+  const terminalRow =
+    slot
+      .getByRole("link", { name: /Open GitHub PR acme\/merged #42/ })
+      .closest("[data-task-key]") ?? missingValue("Expected a non-null value");
   expect(terminalRow.textContent).toContain("All archived");
   expect(
     within(terminalRow as HTMLElement).getByRole("button", {

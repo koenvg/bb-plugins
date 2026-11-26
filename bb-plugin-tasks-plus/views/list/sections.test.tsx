@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -94,7 +95,7 @@ it("excludes collapsed entries from visible order without changing tree entries 
     count: 3,
   };
   expect(visibleTreeTasks(tree)).toEqual([other]);
-  expect(tree.groups[0]!.entries).toHaveLength(1);
+  expect((tree.groups[0] ?? missingValue("Expected tree.groups[0]")).entries).toHaveLength(1);
   expect(tree.count).toBe(3);
 });
 

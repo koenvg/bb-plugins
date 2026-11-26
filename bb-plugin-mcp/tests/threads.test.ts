@@ -65,7 +65,7 @@ async function call(
   const response = await f.rpc("tools/call", tool, credential);
   return { status: response.status, body: await response.json() };
 }
-function unavailable(body: any) {
+function unavailable(body: { result: unknown }) {
   expect(body.result).toEqual({
     isError: true,
     content: [{ type: "text", text: "THREAD_UNAVAILABLE" }],
@@ -305,12 +305,14 @@ describe("read-only thread protocol", () => {
     expect([initial, final]).toEqual(originals);
   });
 
+  type ThreadPage = { threads: unknown[]; nextCursor: string | null };
+
   it("pages visible summaries with 50 records, continuation and no private fields", async () => {
     const f = await setup();
     f.rows.push(row("hidden", { visibility: "hidden" }), row("other", { projectId: "proj_other" }));
     const client = await f.client();
     try {
-      const first = (await client.callTool(list)).structuredContent as any;
+      const first = (await client.callTool(list)).structuredContent as ThreadPage;
       expect(first.threads).toHaveLength(50);
       expect(first.nextCursor).toBe("50");
       expect(first.threads[0]).toEqual({
@@ -326,7 +328,7 @@ describe("read-only thread protocol", () => {
           name: list.name,
           arguments: { projectId: "proj_a", cursor: first.nextCursor },
         })
-      ).structuredContent as any;
+      ).structuredContent as ThreadPage;
       expect(second.threads).toHaveLength(15);
       expect(second.nextCursor).toBeNull();
       expect(JSON.stringify([first, second])).not.toMatch(
@@ -341,7 +343,7 @@ describe("read-only thread protocol", () => {
       });
       const small = (
         await client.callTool({ name: list.name, arguments: { projectId: "proj_a", limit: 1 } })
-      ).structuredContent as any;
+      ).structuredContent as ThreadPage;
       expect(small.threads).toHaveLength(1);
       expect(small.nextCursor).toBe("1");
       expect(

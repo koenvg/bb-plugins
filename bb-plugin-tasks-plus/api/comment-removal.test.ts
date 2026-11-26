@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
@@ -115,7 +116,8 @@ describe("removed comment operations", () => {
       expect(harness.sdk.callsTo("threads.send")).toEqual([]);
       const download = await harness.fetchHttp(
         "GET",
-        attachmentDownloadUrl(file.id).split("/http")[1]!,
+        attachmentDownloadUrl(file.id).split("/http")[1] ??
+          missingValue("Expected a non-null value"),
       );
       expect(download.status).toBe(200);
       expect(await download.text()).toBe("retained bytes");
@@ -146,13 +148,16 @@ describe("removed comment operations", () => {
         VALUES ('comment', '${taskId}', 'user', 'Operator', 'Removed body', 'created');
         INSERT INTO attachments VALUES
         ('${fileId}', NULL, 'comment', '${fileName}', 'application/octet-stream', ${bytes.length}, 'legacy.blob', 0, 'created');`);
-      const database = db
-        .prepare<[], { name: string; file: string }>("PRAGMA database_list")
-        .all()
-        .find((entry) => entry.name === "main")!;
+      const database =
+        db
+          .prepare<[], { name: string; file: string }>("PRAGMA database_list")
+          .all()
+          .find((entry) => entry.name === "main") ?? missingValue("Expected a non-null value");
       await writeFile(join(dirname(database.file), "legacy.blob"), bytes);
       try {
-        const url = attachmentDownloadUrl(fileId).split("/http")[1]!;
+        const url =
+          attachmentDownloadUrl(fileId).split("/http")[1] ??
+          missingValue("Expected a non-null value");
         const store = createStore(bb);
         registerTasksApi(bb, store);
         const route = vi.spyOn(bb.http, "route");

@@ -97,11 +97,11 @@ const MarkdownTaskInput = Extension.create({
 interface TableMarkdownState {
   out: string;
   inTable: boolean;
-  write(value: string): void;
-  ensureNewLine(): void;
-  closeBlock(node: ProseMirrorNode): void;
-  render(node: ProseMirrorNode, parent: ProseMirrorNode, index: number): void;
-  renderInline(node: ProseMirrorNode): void;
+  write: (value: string) => void;
+  ensureNewLine: () => void;
+  closeBlock: (node: ProseMirrorNode) => void;
+  render: (node: ProseMirrorNode, parent: ProseMirrorNode, index: number) => void;
+  renderInline: (node: ProseMirrorNode) => void;
 }
 
 function tableChildren(node: ProseMirrorNode): readonly ProseMirrorNode[] {
@@ -245,7 +245,7 @@ function createMentionNode({
       return {
         markdown: {
           serialize(
-            state: { write(value: string): void },
+            state: { write: (value: string) => void },
             node: { attrs: Record<string, string> },
           ) {
             const id = node.attrs[idAttribute];
@@ -295,10 +295,10 @@ const TrailingParagraph = Extension.create({
 });
 
 export interface MentionSuggestionHandle {
-  getItems(query: string): Promise<MentionItem[]>;
-  onChange(props: SuggestionProps<MentionItem, MentionItem>): void;
-  onExit(): void;
-  onKeyDown(event: KeyboardEvent): boolean;
+  getItems: (query: string) => Promise<MentionItem[]>;
+  onChange: (props: SuggestionProps<MentionItem, MentionItem>) => void;
+  onExit: () => void;
+  onKeyDown: (event: KeyboardEvent) => boolean;
 }
 
 const MentionSuggestion = Extension.create<{

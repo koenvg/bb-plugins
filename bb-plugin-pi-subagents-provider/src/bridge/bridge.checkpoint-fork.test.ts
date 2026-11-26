@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -59,7 +60,10 @@ it("branches the source session at the checkpoint and leaves the source untouche
   });
   source.appendMessage(assistant("second answer", 4));
   const sourceFile = join(sessionDir, "thr_ckpt_src.jsonl");
-  copyFileSync(source.getSessionFile()!, sourceFile);
+  copyFileSync(
+    source.getSessionFile() ?? missingValue("Expected source.getSessionFile()"),
+    sourceFile,
+  );
   const sourceBefore = readFileSync(sourceFile, "utf8");
 
   const fork = await harness.request(1, "thread/fork", {

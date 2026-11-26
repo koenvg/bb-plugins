@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Command, CommandInput, CommandItem, CommandList } from "../components/ui/command.js";
@@ -75,13 +76,13 @@ function setupPicker(inventory = readyInventory(), compact = false) {
               id: "parent",
               name: "Work",
               parentFolderId: null,
-              createdAt: projects[0]!.createdAt,
+              createdAt: (projects[0] ?? missingValue("Expected projects[0]")).createdAt,
             },
             {
               id: "child",
               name: "Products",
               parentFolderId: "parent",
-              createdAt: projects[0]!.createdAt,
+              createdAt: (projects[0] ?? missingValue("Expected projects[0]")).createdAt,
             },
           ],
         }),
@@ -163,10 +164,16 @@ describe("Tasks project switcher", () => {
       await waitFor(() => expect(document.activeElement).toBe(input));
       const options = await slot.findAllByRole("option");
       expect(options).toHaveLength(3);
-      expect(options[0]!.textContent).toContain("Work / Products");
-      expect(options[0]!.textContent).toContain("Current");
-      expect(options[0]!.getAttribute("data-value")).toBe("one");
-      expect(options[1]!.getAttribute("data-value")).toBe("two");
+      expect((options[0] ?? missingValue("Expected options[0]")).textContent).toContain(
+        "Work / Products",
+      );
+      expect((options[0] ?? missingValue("Expected options[0]")).textContent).toContain("Current");
+      expect((options[0] ?? missingValue("Expected options[0]")).getAttribute("data-value")).toBe(
+        "one",
+      );
+      expect((options[1] ?? missingValue("Expected options[1]")).getAttribute("data-value")).toBe(
+        "two",
+      );
       expect(slot.getByRole("button", { name: "Close" })).toBeDefined();
       await slot.findByText("Selected Product, PROD");
     },
@@ -179,7 +186,11 @@ describe("Tasks project switcher", () => {
     fireEvent.change(input, { target: { value: "pRoD" } });
     await waitFor(() => expect(slot.getAllByRole("option")).toHaveLength(2));
     fireEvent.keyDown(input, { key: "n", ctrlKey: true });
-    expect(slot.getAllByRole("option")[1]!.getAttribute("aria-selected")).toBe("true");
+    expect(
+      (slot.getAllByRole("option")[1] ?? missingValue("Expected a non-null value")).getAttribute(
+        "aria-selected",
+      ),
+    ).toBe("true");
     expect((input as HTMLInputElement).value).toBe("pRoD");
     expect(document.activeElement).toBe(input);
     expect(slot.onSelect).not.toHaveBeenCalled();
@@ -202,13 +213,27 @@ describe("Tasks project switcher", () => {
       await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
       await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Tasks"));
       expect(slot.onSelect).not.toHaveBeenCalled();
-      expect(fireEvent.keyDown(document.activeElement!, { key: "n", ctrlKey: true })).toBe(true);
-      expect(fireEvent.keyDown(document.activeElement!, { key: "p", ctrlKey: true })).toBe(true);
+      expect(
+        fireEvent.keyDown(
+          document.activeElement ?? missingValue("Expected document.activeElement"),
+          { key: "n", ctrlKey: true },
+        ),
+      ).toBe(true);
+      expect(
+        fireEvent.keyDown(
+          document.activeElement ?? missingValue("Expected document.activeElement"),
+          { key: "p", ctrlKey: true },
+        ),
+      ).toBe(true);
       fireEvent.click(slot.getByRole("button", { name: "Open picker" }));
       const reopened = await slot.findByRole("combobox");
       expect((reopened as HTMLInputElement).value).toBe("");
       await waitFor(() =>
-        expect(slot.getAllByRole("option")[0]!.getAttribute("aria-selected")).toBe("true"),
+        expect(
+          (
+            slot.getAllByRole("option")[0] ?? missingValue("Expected a non-null value")
+          ).getAttribute("aria-selected"),
+        ).toBe("true"),
       );
       fireEvent.click(slot.getByRole("button", { name: "Close" }));
       await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
@@ -234,7 +259,11 @@ describe("Tasks project switcher", () => {
       { key: "ArrowDown", shiftKey: true },
     ]) {
       expect(fireEvent.keyDown(input, event)).toBe(true);
-      expect(slot.getAllByRole("option")[0]!.getAttribute("aria-selected")).toBe("true");
+      expect(
+        (slot.getAllByRole("option")[0] ?? missingValue("Expected a non-null value")).getAttribute(
+          "aria-selected",
+        ),
+      ).toBe("true");
     }
     const hostShortcut = vi.fn();
     window.addEventListener("keydown", hostShortcut);
@@ -278,7 +307,11 @@ describe("Tasks project switcher", () => {
       expect(inventory.refresh).toHaveBeenCalledOnce();
       slot.rerenderInventory(readyInventory());
       await waitFor(() =>
-        expect(slot.getAllByRole("option")[0]!.getAttribute("aria-selected")).toBe("true"),
+        expect(
+          (
+            slot.getAllByRole("option")[0] ?? missingValue("Expected a non-null value")
+          ).getAttribute("aria-selected"),
+        ).toBe("true"),
       );
     }
   });
@@ -295,7 +328,7 @@ describe("Tasks project switcher", () => {
     expect(slot.getAllByRole("option").some((o) => o.getAttribute("data-value") === "two")).toBe(
       false,
     );
-    fireEvent.click(slot.getAllByRole("option")[1]!);
+    fireEvent.click(slot.getAllByRole("option")[1] ?? missingValue("Expected a non-null value"));
     expect(slot.onSelect).toHaveBeenCalledExactlyOnceWith("three");
   });
 });

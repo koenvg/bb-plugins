@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { fixture, loopbackFetch } from "./fixtures.js";
@@ -374,7 +375,9 @@ it("bounds config by the remaining original SDK budget after defaults", async ()
   const result = await call(token, { workspace: "worktree" });
   expect(result.structuredContent.state).toBe("pending");
   await expect.poll(() => readConfig.mock.calls.length).toBe(1);
-  const signal = readConfig.mock.calls[0][0]!.signal!;
+  const signal =
+    (readConfig.mock.calls[0][0] ?? missingValue("Expected readConfig.mock.calls[0][0]")).signal ??
+    missingValue("Expected a non-null value");
   expect(signal.aborted).toBe(false);
   await expect
     .poll(async () => (await poll(result.structuredContent.operationId)).structuredContent.code)
@@ -442,7 +445,13 @@ it.each(["defaults", "config"])(
     await expect
       .poll(async () => (await call(token, { workspace: "worktree" })).structuredContent.code)
       .toBe("PRE_DISPATCH_ABORTED");
-    if (stage === "config") expect(readConfig.mock.calls[0][0]!.signal!.aborted).toBe(true);
+    if (stage === "config")
+      expect(
+        (
+          (readConfig.mock.calls[0][0] ?? missingValue("Expected readConfig.mock.calls[0][0]"))
+            .signal ?? missingValue("Expected a non-null value")
+        ).aborted,
+      ).toBe(true);
     defaultsReady.resolve(defaults);
     configReady.resolve(config("host_primary"));
     await new Promise((resolve) => setTimeout(resolve, 20));

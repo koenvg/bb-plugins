@@ -1,11 +1,12 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { calculateTaskDuration } from "../shared/task-duration.js";
 import { createTasksStore, type TaskStatus } from ".";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await disposers.pop()!();
+  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
 });
 
 function setup() {
@@ -18,7 +19,7 @@ function setup() {
     store.createTask({ projectId: project.id, title: "Task", status });
   const duration = (taskId: string) =>
     calculateTaskDuration({
-      status: store.getTask(taskId)!.status,
+      status: (store.getTask(taskId) ?? missingValue("Expected store.getTask(taskId)")).status,
       transitions: store.listTaskStatusTransitions(taskId),
     });
   return { db, store, task, duration };

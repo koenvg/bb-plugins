@@ -48,23 +48,25 @@ export function threadMenuItems(
         onNavigate();
       },
     });
-  if (index > 0)
+  const before = pinned[index - 1];
+  if (index > 0 && before)
     items.push({
       label: "Move up",
       run: () =>
         sdk.threads.reorderPinned({
           threadId: id,
           previousThreadId: pinned[index - 2]?.id ?? null,
-          nextThreadId: pinned[index - 1]!.id,
+          nextThreadId: before.id,
         }),
     });
-  if (index >= 0 && index < pinned.length - 1)
+  const after = pinned[index + 1];
+  if (index >= 0 && after)
     items.push({
       label: "Move down",
       run: () =>
         sdk.threads.reorderPinned({
           threadId: id,
-          previousThreadId: pinned[index + 1]!.id,
+          previousThreadId: after.id,
           nextThreadId: pinned[index + 2]?.id ?? null,
         }),
     });
@@ -80,13 +82,14 @@ export function threadMenuItems(
         run: () => sdk.threads.update({ threadId: id, sectionId: section.id }),
       });
     }
-  if (thread.environment?.id)
+  const environmentId = thread.environment?.id;
+  if (environmentId)
     items.push({
       label: "New thread in environment",
       run: () =>
         actions.openNewThread({
           projectId: thread.projectId,
-          environmentId: thread.environment!.id!,
+          environmentId,
         }),
     });
   items.push(

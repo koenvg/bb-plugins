@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
@@ -169,7 +170,9 @@ describe("browse delayed focus and save safety", () => {
     expect(row(slot, 3).getAttribute("aria-current")).toBe("true");
     expect(
       slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").map((c) => c.input),
-    ).toEqual([{ taskId: tasks[0]!.id, description: "Save A first" }]);
+    ).toEqual([
+      { taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id, description: "Save A first" },
+    ]);
   });
 
   it("does not navigate on an unsettled refresh or retained failed-removal snapshot", async () => {
@@ -212,9 +215,9 @@ describe("browse delayed focus and save safety", () => {
     });
     await slot.findByRole("textbox", { name: "Task title" });
     await edit(slot, "Keep A");
-    const selected = slot.container.querySelector<HTMLElement>(
-      '[data-nav-item][aria-current="true"]',
-    )!;
+    const selected =
+      slot.container.querySelector<HTMLElement>('[data-nav-item][aria-current="true"]') ??
+      missingValue("Expected a non-null value");
     const focus = vi.spyOn(selected, "focus");
     detail(slot).focus();
     press("Escape");

@@ -5,7 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { type Label, type Task, type TaskStatus, type TaskThread } from "../../shared/contract.js";
+import type { Label, Task, TaskStatus, TaskThread } from "../../shared/contract.js";
 import { useTasksRpc } from "../../shell/data.js";
 import { useBoardData, type BoardCardMeta } from "./data.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
@@ -76,7 +76,7 @@ const WorkingAgentsChip = ({ threads }: { threads: TaskThread[] }) => {
     <span className="flex min-w-0 items-center gap-1 font-medium text-success">
       <span aria-hidden className="size-1.5 shrink-0 animate-pulse rounded-full bg-success" />
       <span className="truncate">
-        {threads.length === 1 ? threads[0]!.presetName : `${threads.length} agents`}
+        {threads.length === 1 ? threads[0]?.presetName : `${threads.length} agents`}
       </span>
     </span>
   );

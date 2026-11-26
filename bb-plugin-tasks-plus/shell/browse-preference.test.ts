@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import { createBrowsePreference } from "./browse-preference.js";
 
@@ -17,7 +18,9 @@ describe("browse scope preference", () => {
     });
     preference.store({ kind: "all" });
     expect(openPreference().load()).toEqual({ kind: "all" });
-    expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({
+    expect(
+      JSON.parse(window.localStorage.getItem(KEY) ?? missingValue("Expected a non-null value")),
+    ).toEqual({
       version: 1,
       scope: { kind: "all" },
     });

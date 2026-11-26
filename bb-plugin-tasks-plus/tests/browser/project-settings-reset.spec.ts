@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { test, expect } from "@playwright/test";
@@ -33,7 +34,9 @@ for (const route of ["table.html", "index.html"]) {
     await page.goto(`/project-settings-preview/${route}`);
     const evidence = page.locator("#evidence");
     await expect(evidence).toContainText('"fixtureOnly": true');
-    const original = JSON.parse((await evidence.textContent())!);
+    const original = JSON.parse(
+      (await evidence.textContent()) ?? missingValue("Expected a non-null value"),
+    );
     if (route === "index.html")
       await page.getByRole("tab", { name: "Projects", exact: true }).click();
 
@@ -79,7 +82,9 @@ for (const route of ["table.html", "index.html"]) {
     );
     expect(storageAtStartup).toEqual(unrelated);
     await expect(evidence).toContainText('"fixtureOnly": true');
-    expect(JSON.parse((await evidence.textContent())!)).toEqual(original);
+    expect(
+      JSON.parse((await evidence.textContent()) ?? missingValue("Expected a non-null value")),
+    ).toEqual(original);
     await expect(page.locator("html")).not.toHaveClass("light");
     if (route === "index.html") {
       await expect(page.getByRole("tab", { name: "Labels", exact: true })).toHaveAttribute(
@@ -100,7 +105,9 @@ for (const route of ["table.html", "index.html"]) {
       .toEqual(original.projects);
     await page.reload();
     await expect(evidence).toContainText('"fixtureOnly": true');
-    expect(JSON.parse((await evidence.textContent())!)).toEqual(original);
+    expect(
+      JSON.parse((await evidence.textContent()) ?? missingValue("Expected a non-null value")),
+    ).toEqual(original);
     expect(await page.evaluate(() => ({ ...localStorage }))).toMatchObject(unrelated);
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(
       "Stale cache",
