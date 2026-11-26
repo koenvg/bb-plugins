@@ -132,13 +132,6 @@ for (const coarse of [true, false]) {
           await expect(cost).toBeFocused();
           await page.keyboard.press("Enter");
           await expect(cost).toHaveAttribute("aria-pressed", "true");
-          const groups = panel.getByRole("group", { name: "Usage grouping" });
-          await groups.getByRole("button", { name: "Threads", exact: true }).focus();
-          await page.keyboard.press("Tab");
-          const workspaces = groups.getByRole("button", { name: "Workspaces", exact: true });
-          await expect(workspaces).toBeFocused();
-          await page.keyboard.press("Space");
-          await expect(panel.getByRole("heading", { name: "Top 10 workspaces" })).toBeVisible();
           await previous.click();
           await expect(next).toBeEnabled();
           await panel.getByRole("button", { name: "Latest", exact: true }).click();

@@ -1,9 +1,9 @@
-import { test, expect, noOverflow, capture, jsonEvidence } from "./fixtures.js";
+import { test, expect, noOverflow, jsonEvidence } from "./fixtures.js";
 import { chart, rows, axFacts } from "./calendar-driver.js";
 import { layout } from "./chart-layout.js";
 
 for (const width of [375, 1280]) {
-  test(`full-word token rankings and tooltip at ${width}px`, async ({ page }, info) => {
+  test(`full-word token subtotal and tooltip at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 1100 });
     await page.goto("/calendar.html?state=cache-heavy");
     await chart(page);
@@ -12,35 +12,6 @@ for (const width of [375, 1280]) {
       "title",
       "4,625,000,000 tokens",
     );
-    const ranking = page.getByRole("table", { name: "Recorded usage ranking" });
-    await expect(ranking.locator("tbody td:last-child")).toHaveText([
-      "745.92 million",
-      "301.55 million",
-      "301.55 million",
-    ]);
-    await expect(ranking.locator("tbody td:last-child").nth(1)).toHaveAttribute(
-      "title",
-      "301,550,002 tokens",
-    );
-    await expect(ranking.locator("tbody td:last-child").nth(2)).toHaveAttribute(
-      "title",
-      "301,550,001 tokens",
-    );
-    await noOverflow(page);
-    const rankingCapture = await capture(page, info, `token-rankings-${width}`);
-    const rankingBoxes = await ranking.locator("tbody td").evaluateAll((cells) =>
-      cells.map((cell) => {
-        const box = cell.getBoundingClientRect();
-        return {
-          text: cell.textContent,
-          x: box.x,
-          right: box.right,
-          height: box.height,
-          width: box.width,
-        };
-      }),
-    );
-    expect(rankingBoxes.every((box) => box.x >= 0 && box.right <= width)).toBe(true);
 
     const surface = page.locator('.ts-chart[role="img"]');
     await surface.focus();
@@ -86,8 +57,6 @@ for (const width of [375, 1280]) {
     await info.attach(tooltipCapture, { path: tooltipPath, contentType: "image/png" });
     await jsonEvidence(info, "token-counts.json", {
       width,
-      rankingBoxes,
-      rankingCapture,
       tooltipCapture,
       accessibility,
       measurements,

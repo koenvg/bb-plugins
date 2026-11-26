@@ -14,6 +14,7 @@ import {
   AccountsActivity,
   accountDetails,
 } from "../machines/accounts-view.js";
+import { AccountAllowance } from "../machines/account-allowance.js";
 import { MachineReportPanel } from "../machines/report-view.js";
 import type { Machine } from "../machines/machines-contract.js";
 
@@ -25,7 +26,7 @@ function useAccountsApi() {
   const reference = useRef(rpc);
   reference.current = rpc;
   const api = useRef<AccountsApi | null>(null);
-  api.current ??= (input) => reference.current.call("machineAccounts", input);
+  api.current ??= (input) => reference.current.call("machineAccountsV2", input);
   return api.current;
 }
 function useAccounts() {
@@ -207,14 +208,16 @@ const QuotaPage = () => {
             Refresh allowance
           </button>
         </header>
-        <MachineReportPanel
-          now={state.now}
-          snapshot={snapshot.current}
-          read={read.current}
-          prepare={prepare.current}
-        />
-        <AccountsOverview data={state.data} now={state.now} loading={state.loading} />
-        <MachineManagement machines={machines} />
+        <AccountAllowance data={state.data} now={state.now} loading={state.loading} />
+        <section className="mt-6" aria-label="Recorded usage">
+          <h2 className="mb-3 text-base font-semibold">Recorded usage</h2>
+          <MachineReportPanel
+            now={state.now}
+            snapshot={snapshot.current}
+            read={read.current}
+            prepare={prepare.current}
+          />
+        </section>
       </div>
     </main>
   );

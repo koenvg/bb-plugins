@@ -220,7 +220,6 @@ for (const coarse of [false, true]) {
     test("full dashboard capture retains chart identity", async ({ page }, info) => {
       await page.goto("/calendar.html?state=model-totals");
       await chart(page);
-      await expect(page.getByRole("heading", { name: "Top 10 threads" })).toBeVisible();
       await page.evaluate(
         () =>
           new Promise<void>((resolve) =>

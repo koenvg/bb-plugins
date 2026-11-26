@@ -27,18 +27,17 @@ it("refreshes the visible graph on its own cadence without adding account owners
   await flush();
   expect(within(page.container).getByRole("group", { name: "Daily recorded values" })).toBeTruthy();
   expect(f.machineAccounts).toHaveBeenCalledTimes(1);
-  const reads = (group: CalendarQuery["group"]) =>
-    f.machineReports.mock.calls.filter(
-      ([input]) => (input as { query: CalendarQuery }).query.group === group,
-    ).length;
-  const chartReads = reads("workspace");
-  const threadReads = reads("thread");
+  const chartReads = f.machineReports.mock.calls.length;
   await act(async () => {
     await vi.advanceTimersByTimeAsync(120_000);
   });
   expect(f.machinePreparation).toHaveBeenCalledTimes(3);
-  expect(reads("workspace")).toBe(chartReads + 2);
-  expect(reads("thread")).toBe(threadReads + 2);
+  expect(f.machineReports).toHaveBeenCalledTimes(chartReads + 2);
+  expect(
+    f.machineReports.mock.calls.every(
+      ([input]) => (input as { query: CalendarQuery }).query.group === "workspace",
+    ),
+  ).toBe(true);
   expect(
     f.machineAccounts.mock.calls.every(([input]) => !(input as { refresh: boolean }).refresh),
   ).toBe(true);
@@ -85,16 +84,7 @@ it("ages the last report while preparation is stopped, supports manual reread, a
   expect(q.queryByText(/Recorded values are out of date/)).toBeNull();
   expect(q.getByRole("button", { name: "Retry preparation" })).toBeTruthy();
   expect(f.machinePreparation).toHaveBeenCalledTimes(1);
-  expect(
-    f.machineReports.mock.calls.filter(
-      ([input]) => (input as { query: CalendarQuery }).query.group === "workspace",
-    ),
-  ).toHaveLength(2);
-  expect(
-    f.machineReports.mock.calls.filter(
-      ([input]) => (input as { query: CalendarQuery }).query.group === "thread",
-    ),
-  ).toHaveLength(1);
+  expect(f.machineReports).toHaveBeenCalledTimes(2);
   page.lifecycle.unmount();
   const calls = page.inspection.rpcCalls.length;
   await act(async () => {

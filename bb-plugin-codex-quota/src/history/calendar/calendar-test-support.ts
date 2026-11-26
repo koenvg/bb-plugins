@@ -60,17 +60,8 @@ export function calendarSnapshot(
             }
           : { state: "unavailable" },
     })),
-    ranking: Array.from({ length: 50 }, (_, n) => ({
-      key: query.group === "workspace" ? `/synthetic/workspace-${n + 1}` : `thr_synthetic_${n + 1}`,
-      label:
-        query.group === "workspace" ? `/synthetic/workspace-${n + 1}` : `Synthetic thread ${n + 1}`,
-      metadata: query.group === "workspace" ? "recorded-workspace" : "available",
-      totalTokens: 10,
-      attribution: query.group === "workspace" ? "workspace-only" : "exact-thread",
-      coverage: recorded,
-      money: { ...emptyMoney, records: 1 },
-    })),
-    truncated: true,
+    ranking: [],
+    truncated: false,
     identity: "complete",
     identityPending: false,
   };
@@ -237,8 +228,6 @@ export function calendarEmptySnapshot(
     excludedTokens: 0,
     money,
   };
-  value.ranking = [];
-  value.truncated = false;
   value.days = value.days.map((day) => ({
     ...day,
     totalTokens: 0,

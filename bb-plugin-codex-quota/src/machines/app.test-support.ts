@@ -87,7 +87,7 @@ export async function dashboardFixture() {
   const collectorControl = vi.fn(async (_input: unknown): Promise<unknown> => missingHistory);
   const options = {
     rpc: {
-      machineAccounts,
+      machineAccountsV2: machineAccounts,
       machineReports,
       machineReportSnapshot,
       machinePreparation,
@@ -99,5 +99,5 @@ export async function dashboardFixture() {
   };
   const page = () => renderSlot(app.navPanels[0]!, { subPath: "" }, options);
   const settings = () => renderSlot(app.settingsSections[0]!, {}, options);
-  return { app, data, options, page, settings, ...options.rpc };
+  return { app, data, options, page, settings, machineAccounts, ...options.rpc };
 }

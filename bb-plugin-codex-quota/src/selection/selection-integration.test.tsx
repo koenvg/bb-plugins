@@ -35,10 +35,11 @@ it.each([
       }
       return { hostId, generation: 3 };
     });
-    const page = f.page();
-    const q = within(page.container);
-    await q.findByText("63%");
-    await setHistoryManagementOpen(page.container);
+    const dashboard = within(f.page().container);
+    const settings = f.settings();
+    const q = within(settings.container);
+    await dashboard.findByText("63%", { exact: false });
+    await setHistoryManagementOpen(settings.container);
     await q.findByText("History not configured on this host.");
     if (late) {
       f.historyReadiness.mockImplementationOnce(async () => stale.promise);
@@ -47,8 +48,8 @@ it.each([
     }
     fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[1]!);
     expect(q.queryByRole("region", { name: "History readiness" })).toBeNull();
-    expect(q.getByText("63%")).toBeTruthy();
-    expect(q.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
+    expect(dashboard.getByText("63%", { exact: false }).textContent).toBe("63% left");
+    expect(dashboard.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
     if (back) {
       fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[0]!);
     }

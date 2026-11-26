@@ -64,7 +64,7 @@ button.querySelector("svg")!.replaceWith(iconContainer);
 const icon = createRoot(iconContainer);
 const Battery = app.icons[0]!.component;
 icon.render(<Battery className="size-5" />);
-const options = { rpc: { machineAccounts: async () => data } };
+const options = { rpc: { machineAccountsV2: async () => data } };
 const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
 const owners = ["quota-refresh", "quota-footer"].map((id) => {
   const owner = renderSlot(

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { quotaViewSchema } from "../quota/contract.js";
+import { dashboardQuotaViewSchema, quotaViewSchema } from "../quota/contract.js";
 import { activityViewSchema } from "../activity/activity-contract.js";
 import {
   calendarQuerySchema,
@@ -20,25 +20,21 @@ export { accountObservationInput, accountObservationSchema } from "../quota/cont
 export const accountsRequestSchema = z
   .object({ refresh: z.boolean(), includeActivity: z.boolean() })
   .strict();
-export const accountsSchema = z
-  .object({
-    machines: z.array(machineSchema).max(MAX_MACHINES),
-    accounts: z
-      .array(
-        z
-          .object({
-            key: z.string().min(1).max(256),
-            machines: z.array(z.string().min(1).max(128)).max(MAX_MACHINES),
-            identity: z.enum(["verified", "unknown"]),
-            quota: quotaViewSchema,
-            activity: activityViewSchema,
-          })
-          .strict(),
-      )
-      .max(MAX_MACHINES),
-    truncated: z.boolean(),
-  })
-  .strict();
+const accountSchema = z.strictObject({
+  key: z.string().min(1).max(256),
+  machines: z.array(z.string().min(1).max(128)).max(MAX_MACHINES),
+  identity: z.enum(["verified", "unknown"]),
+  quota: quotaViewSchema,
+  activity: activityViewSchema,
+});
+export const legacyAccountsSchema = z.strictObject({
+  machines: z.array(machineSchema).max(MAX_MACHINES),
+  accounts: z.array(accountSchema).max(MAX_MACHINES),
+  truncated: z.boolean(),
+});
+export const accountsSchema = legacyAccountsSchema.extend({
+  accounts: z.array(accountSchema.extend({ quota: dashboardQuotaViewSchema })).max(MAX_MACHINES),
+});
 export type MachineAccounts = z.infer<typeof accountsSchema>;
 export const reportsRequestSchema = z
   .object({

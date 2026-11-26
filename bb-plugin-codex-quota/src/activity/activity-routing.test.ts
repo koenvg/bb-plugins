@@ -3,6 +3,7 @@ import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testi
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 import { createQuotaHostEntry } from "../plugin/host.js";
 import plugin from "../plugin/server.js";
+import { quotaFixture } from "../machines/machines.test-support.js";
 import { normalizeActivity } from "./activity.js";
 
 const time = Date.UTC(2026, 3, 23, 12);
@@ -21,18 +22,7 @@ describe("activity host and server boundaries", () => {
       createQuotaHostEntry({
         auth: async () => ({ status: "ok", token: "private-token", identity: "private-identity" }),
         now: () => time,
-        read: async () => ({
-          status: "ok",
-          snapshot: {
-            observedAt: new Date(time).toISOString(),
-            plan: null,
-            general: [],
-            additional: [],
-            bindingWindowId: null,
-            bindingRemainingPercent: null,
-            bankedResets: 0,
-          },
-        }),
+        read: async () => ({ status: "ok", snapshot: quotaFixture(time).snapshot }),
         activityRead: async () => {
           throw new Error("private@example.invalid");
         },

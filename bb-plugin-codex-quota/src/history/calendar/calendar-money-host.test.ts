@@ -277,20 +277,6 @@ it("keeps the known captured estimate and priced denominator separate from all t
         },
       }),
     ]),
-    ranking: expect.arrayContaining([
-      expect.objectContaining({
-        key: "/unpriced",
-        totalTokens: 10,
-        money: {
-          state: "unavailable",
-          capturedCost: null,
-          pricedRecords: 0,
-          records: 1,
-          pricedEntities: 0,
-          reason: "missing-prices",
-        },
-      }),
-    ]),
   });
   await f.harness.experimental_dispose();
 });
@@ -378,7 +364,7 @@ it("never creates a monetary zero when accepted usage has no eligible prices or 
   });
   await f.harness.experimental_dispose();
 });
-it("uses every accepted priced entity and record beyond the fifty-row ranking and old event cap", async () => {
+it("uses every accepted priced entity and record beyond the old event cap", async () => {
   const f = await fixture();
   f.db.transaction(() => {
     for (let n = 0; n < 12060; n += 1) {
@@ -398,14 +384,7 @@ it("uses every accepted priced entity and record beyond the fifty-row ranking an
         pricedEntities: 59,
       },
     },
-    ranking: expect.any(Array),
-    truncated: true,
   });
-  const view = await f.read();
-  if (view.state === "unavailable") {
-    throw Error(view.reason);
-  }
-  expect(view.ranking).toHaveLength(50);
   await f.harness.experimental_dispose();
 }, 30000);
 it("preserves tiny and large finite originally captured values without price lookup", async () => {
@@ -413,22 +392,12 @@ it("preserves tiny and large finite originally captured values without price loo
   put(f.db, 1, "/tiny", Number.MIN_VALUE);
   put(f.db, 2, "/large", 1e9);
   f.db.close();
-  const view = await f.read();
-  if (view.state === "unavailable") {
-    throw Error(view.reason);
-  }
-  expect(view.ranking.find((row) => row.key === "/tiny")?.money).toMatchObject({
-    capturedCost: Number.MIN_VALUE,
-    pricedRecords: 1,
-    pricedEntities: 1,
+  const tiny = await f.read({ ...query, scope: { kind: "workspace", workspace: "/tiny" } });
+  expect(tiny).toMatchObject({
+    summary: { money: { capturedCost: Number.MIN_VALUE, pricedRecords: 1, pricedEntities: 1 } },
   });
-  expect(view.ranking.find((row) => row.key === "/large")?.money).toMatchObject({
-    capturedCost: 1e9,
-    state: "available",
-  });
-  expect(
-    await f.read({ ...query, scope: { kind: "workspace", workspace: "/tiny" } }),
-  ).toMatchObject({ summary: { money: { capturedCost: Number.MIN_VALUE } } });
+  const large = await f.read({ ...query, scope: { kind: "workspace", workspace: "/large" } });
+  expect(large).toMatchObject({ summary: { money: { capturedCost: 1e9, state: "available" } } });
   await f.harness.experimental_dispose();
 });
 it("retains compact prices after class expiry, reopen and changes in later model prices", async () => {
@@ -457,7 +426,7 @@ it("retains compact prices after class expiry, reopen and changes in later model
   });
   await f.harness.experimental_dispose();
 });
-it("excludes canonical rejected prices and unverified shares from exact-thread estimates without guessing labels", async () => {
+it("excludes canonical rejected prices and unverified shares from exact-thread estimates", async () => {
   const f = await fixture();
   f.db.transaction(() => {
     put(f.db, 1, "/shared", 4);
@@ -511,14 +480,6 @@ it("excludes canonical rejected prices and unverified shares from exact-thread e
       excludedTokens: 30,
       money: { capturedCost: 8, records: 1, pricedEntities: 1 },
     },
-    ranking: [
-      expect.objectContaining({
-        key: "thr_deleted",
-        label: "Deleted thread thr_deleted",
-        metadata: "deleted",
-        money: expect.objectContaining({ capturedCost: 8 }),
-      }),
-    ],
   });
   await f.harness.experimental_dispose();
 });

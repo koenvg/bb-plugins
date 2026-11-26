@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { MachineReportPanel } from "./machines/report-view.js";
 import { reportFixture } from "./machines/app.test-support.js";
@@ -30,7 +30,7 @@ it.each([
   [999_999, "1 million", "999,999"],
   [999_999_999, "1 billion", "999,999,999"],
 ] as const)(
-  "shows readable totals and ranking counts with exact titles for %s",
+  "shows readable subtotals with exact titles and daily values for %s",
   async (count, readable, exact) => {
     render(
       <MachineReportPanel
@@ -39,7 +39,6 @@ it.each([
         read={async ({ query }) => {
           const view = calendarSnapshot(query);
           view.days[14].totalTokens = view.summary.totalTokens = count;
-          view.ranking = [{ ...view.ranking[0], totalTokens: count }];
           return reportFixture(view);
         }}
       />,
@@ -47,82 +46,10 @@ it.each([
     const subtotal = screen.getByLabelText("Recorded token subtotal");
     await waitFor(() => expect(subtotal.textContent).toBe(readable));
     expect(subtotal.getAttribute("title")).toBe(`${exact} tokens`);
-    const ranking = screen.getByRole("table", { name: "Recorded usage ranking" });
-    await waitFor(() =>
-      expect(ranking.querySelector("tbody td:last-child")?.textContent).toBe(readable),
-    );
-    expect(ranking.querySelector("tbody td:last-child")?.getAttribute("title")).toBe(
-      `${exact} tokens`,
-    );
     const daily = screen.getByRole("table", { name: "Daily recorded usage" });
     expect(daily.querySelectorAll("tbody tr")[14].children[1].textContent).toBe(exact);
   },
 );
-
-it("sorts distinct raw counts even when their readable labels match, and leaves money unchanged", async () => {
-  render(
-    <MachineReportPanel
-      now={now}
-      prepare={prepare}
-      read={async ({ query }) => {
-        const view = calendarSnapshot(query);
-        view.ranking = [
-          {
-            ...view.ranking[0],
-            key: "lower",
-            label: "Lower",
-            totalTokens: 301_550_001,
-            money: {
-              state: "available",
-              capturedCost: 2.5,
-              records: 1,
-              pricedRecords: 1,
-              pricedEntities: 1,
-              reason: "ok",
-            },
-          },
-          {
-            ...view.ranking[0],
-            key: "higher",
-            label: "Higher",
-            totalTokens: 301_550_002,
-            money: {
-              state: "available",
-              capturedCost: 1.25,
-              records: 1,
-              pricedRecords: 1,
-              pricedEntities: 1,
-              reason: "ok",
-            },
-          },
-        ];
-        return reportFixture(view);
-      }}
-    />,
-  );
-  const table = screen.getByRole("table", { name: "Recorded usage ranking" });
-  await waitFor(() => expect(table.querySelectorAll("tbody tr")).toHaveLength(2));
-  const rows = () => Array.from(table.querySelectorAll("tbody tr"));
-  expect(rows().map((row) => row.querySelector("td span")?.textContent)).toEqual([
-    "Higher",
-    "Lower",
-  ]);
-  expect(rows().map((row) => row.lastElementChild?.textContent)).toEqual([
-    "301.55 million",
-    "301.55 million",
-  ]);
-  expect(rows().map((row) => row.lastElementChild?.getAttribute("title"))).toEqual([
-    "301,550,002 tokens",
-    "301,550,001 tokens",
-  ]);
-  fireEvent.click(screen.getByRole("button", { name: "Estimated cost" }));
-  expect(rows().map((row) => row.querySelector("td span")?.textContent)).toEqual([
-    "Lower",
-    "Higher",
-  ]);
-  expect(rows().map((row) => row.lastElementChild?.textContent)).toEqual(["$2.50", "$1.25"]);
-  expect(rows().map((row) => row.lastElementChild?.getAttribute("title"))).toEqual([null, null]);
-});
 
 it.each(["unknown", "observed-inactivity"] as const)(
   "preserves %s subtotal and exact-title policy",

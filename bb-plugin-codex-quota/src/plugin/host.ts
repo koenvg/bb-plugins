@@ -1,5 +1,6 @@
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk";
-import { hostContract } from "../quota/contract.js";
+import type { ExperimentalHostRpcHandlers } from "@get-bb/plugin-sdk";
+import { hostContract, legacyQuotaView } from "../quota/contract.js";
 import { fetchNormalizedQuota } from "../account/feasibility.js";
 import { fetchNormalizedActivity } from "../activity/activity-fetch.js";
 import { createAccount } from "../account/account.js";
@@ -19,6 +20,16 @@ type Dependencies = AccountDependencies & { history?: HostHistory };
 export function createQuotaHostEntry(deps: Dependencies) {
   const account = createAccount(deps);
   const history = deps.history ?? createHostHistory();
+  const observe: ExperimentalHostRpcHandlers<typeof hostContract>["accountObservationV2"] = (
+    { challenge, refresh, includeActivity },
+    context,
+  ) =>
+    account.observation(
+      challenge,
+      refresh,
+      includeActivity,
+      AbortSignal.any([context.signal, context.lifecycle.signal]),
+    );
   return experimental_defineHostEntry({
     contract: hostContract,
     dispose: () => {
@@ -27,13 +38,11 @@ export function createQuotaHostEntry(deps: Dependencies) {
     },
     handlers: {
       ping: async () => ({ reachable: true }),
-      accountObservation: ({ challenge, refresh, includeActivity }, context) =>
-        account.observation(
-          challenge,
-          refresh,
-          includeActivity,
-          AbortSignal.any([context.signal, context.lifecycle.signal]),
-        ),
+      accountObservation: async (input, context) => {
+        const observation = await observe(input, context);
+        return { ...observation, quota: legacyQuotaView(observation.quota) };
+      },
+      accountObservationV2: observe,
       calendarReport: (calendar, context) =>
         history.report(calendar, {
           dataDir: context.experimental_paths.dataDir,
@@ -93,10 +102,12 @@ export function createQuotaHostEntry(deps: Dependencies) {
           refresh === true,
           AbortSignal.any([context.signal, context.lifecycle.signal]),
         ),
-      quota: ({ refresh }, context) =>
-        account.quota(
-          refresh === true,
-          AbortSignal.any([context.signal, context.lifecycle.signal]),
+      quota: async ({ refresh }, context) =>
+        legacyQuotaView(
+          await account.quota(
+            refresh === true,
+            AbortSignal.any([context.signal, context.lifecycle.signal]),
+          ),
         ),
     },
   });

@@ -30,7 +30,7 @@ function fixture(multiple = false) {
   const machinePreparation = vi.fn(async () => ({ state: "settled", progress: "ready" }));
   const options = {
     rpc: {
-      machineAccounts,
+      machineAccountsV2: machineAccounts,
       machineReports,
       machinePreparation,
       selectHost,
@@ -127,14 +127,6 @@ describe("all-machine Codex slots", () => {
     expect(f.machinePreparation).toHaveBeenCalledTimes(preparations);
     expect(page.queryByText("Daily values")).toBeNull();
     expect(page.getAllByRole("heading", { name: /Account [12]/ })).toHaveLength(2);
-    await act(async () => {
-      fireEvent.click(page.getByRole("button", { name: "Threads" }));
-    });
-    await waitFor(() =>
-      expect((f.machineReports.mock.lastCall![0] as { query: CalendarQuery }).query.group).toBe(
-        "thread",
-      ),
-    );
     expect(f.selectHost).not.toHaveBeenCalled();
   });
   it("shows a known qualifier when some account quota is unavailable, without a min label", async () => {
@@ -146,43 +138,90 @@ describe("all-machine Codex slots", () => {
     await waitFor(() => expect(badge.container.textContent).toBe("63%"));
     expect(badge.queryByText("min")).toBeNull();
     expect(
-      page.getByText(
-        "Account activity is counted once per account and is not added to the recorded usage chart.",
-      ),
+      page.getByText("Account-wide limits and balances. Separate from recorded machine usage."),
     ).toBeTruthy();
   });
-  it("keeps combined recorded totals when showing verified-thread rankings", async () => {
-    const f = fixture();
-    f.machineReports.mockImplementation(async (input) => {
-      const query = (input as { query: CalendarQuery }).query;
-      const data = reportsFixture(query, f.now);
-      if (query.group === "thread") {
-        for (const row of data.machines) {
-          if (row.report.state !== "unavailable") {
-            row.report.ranking = [];
-          }
-        }
-      }
-      return data;
+  it("shows account credits and resets above the chart, without ranking or machine controls", async () => {
+    const f = fixture(true);
+    const first = f.data.accounts[0]!.quota.snapshot!;
+    Object.assign(first, {
+      credits: { kind: "balance", balance: "0.00000000001" },
+      bankedResets: 0,
     });
     const page = f.dashboard();
-    await waitFor(() =>
-      expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand"),
-    );
-    const baseReads = f.machineReports.mock.calls.filter(
-      ([input]) => (input as { query: CalendarQuery }).query.group === "workspace",
-    ).length;
-    fireEvent.click(page.getByRole("button", { name: "Threads" }));
-    await waitFor(() =>
-      expect((f.machineReports.mock.lastCall![0] as { query: CalendarQuery }).query.group).toBe(
-        "thread",
-      ),
-    );
-    expect(page.getByLabelText("Recorded token subtotal").textContent).toBe("1.2 thousand");
+    const allowance = page.getByRole("region", { name: "Account allowance" });
+    const chart = page.getByRole("region", { name: "All-machine recorded usage" });
+    expect(allowance.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(4);
+    await waitFor(() => {
+      expect(within(allowance).getByText("<1", { exact: true }).closest("dd")?.textContent).toBe(
+        "<1 credits left",
+      );
+      expect(within(chart).getByLabelText("Recorded token subtotal").textContent).toBe(
+        "1.2 thousand",
+      );
+    });
+    const firstAccount = within(page.getByRole("region", { name: "Account 1 allowance" }));
     expect(
-      f.machineReports.mock.calls.filter(
-        ([input]) => (input as { query: CalendarQuery }).query.group === "workspace",
-      ),
-    ).toHaveLength(baseReads);
+      firstAccount.getByText("0", { exact: true, selector: "dd" }).closest("div")?.textContent,
+    ).toBe("Banked resets0 available");
+    expect(
+      firstAccount
+        .getByText("5-hour window", { selector: "dt" })
+        .closest("div")
+        ?.querySelector("time")?.dateTime,
+    ).toBe(first.general[0]!.resetAt);
+    expect(
+      within(page.getByRole("region", { name: "Account 2 allowance" })).getByText("Unavailable", {
+        selector: "dd",
+      }).textContent,
+    ).toBe("Unavailable");
+    expect(
+      within(allowance).getByRole("link", { name: "Open Codex Usage" }).getAttribute("target"),
+    ).toBe("_blank");
+    expect(page.queryByRole("table", { name: "Recorded usage ranking" })).toBeNull();
+    expect(page.queryByText("Machine status and collection settings")).toBeNull();
+    expect(
+      f.machineReports.mock.calls.map(([input]) => (input as { query: CalendarQuery }).query.group),
+    ).not.toContain("thread");
+  });
+
+  it("labels last-known credits and hides expired credits and resets", async () => {
+    const f = fixture(true);
+    const [lastKnown, expired] = f.data.accounts;
+    const staleSnapshot = lastKnown!.quota.snapshot!;
+    staleSnapshot.observedAt = new Date(f.now - 10 * 60_000).toISOString();
+    staleSnapshot.credits = { kind: "unlimited" };
+    staleSnapshot.general[0]!.resetAt = new Date(f.now - 60_000).toISOString();
+    const expiredSnapshot = expired!.quota.snapshot!;
+    expiredSnapshot.observedAt = new Date(f.now - 25 * 60 * 60_000).toISOString();
+    expiredSnapshot.credits = { kind: "balance", balance: "125" };
+    expiredSnapshot.bankedResets = 12;
+    const page = f.dashboard();
+    const stale = within(await page.findByRole("region", { name: "Account 1 allowance" }));
+    expect(stale.getByText("Unlimited").textContent).toBe("Unlimited");
+    const staleStatus = stale.getByRole("status");
+    expect(staleStatus.textContent).toContain("Account 1: Stale · Observed");
+    expect(staleStatus.querySelector("time")?.dateTime).toBe(staleSnapshot.observedAt);
+    expect(stale.getByText("Reset due", { exact: false }).querySelector("time")?.dateTime).toBe(
+      staleSnapshot.general[0]!.resetAt,
+    );
+    const unavailable = within(page.getByRole("region", { name: "Account 2 allowance" }));
+    expect(unavailable.getAllByText("Unavailable", { selector: "dd" })).toHaveLength(2);
+    const expiredStatus = unavailable.getByRole("status");
+    expect(expiredStatus.textContent).toBe("Account 2: Observation expired");
+    expect(unavailable.queryByText("Weekly window")).toBeNull();
+    await act(async () => {
+      expired!.quota = accountsFixture(f.now, true).accounts[1]!.quota;
+      fireEvent.click(page.getByRole("button", { name: "Refresh allowance" }));
+    });
+    expect(unavailable.getByRole("status")).toBe(expiredStatus);
+    expect(expiredStatus.textContent).toContain("Account 2: Observed");
+    expect(staleStatus.textContent).toContain("Stale");
+    const allowance = within(page.getByRole("region", { name: "Account allowance" }));
+    const statuses = allowance.getAllByRole("status");
+    expect(statuses.filter((status) => status.textContent?.includes("Observed"))).toEqual([
+      staleStatus,
+      expiredStatus,
+    ]);
   });
 });

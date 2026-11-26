@@ -117,6 +117,78 @@ describe("Codex quota normalization", () => {
 });
 
 describe("bounded quota GET", () => {
+  it.each([
+    [undefined, undefined],
+    [
+      { has_credits: true, unlimited: false, balance: "12345678901234567890.125" },
+      { kind: "balance", balance: "12345678901234567890.125" },
+    ],
+    [
+      { has_credits: false, unlimited: false, balance: "0.00" },
+      { kind: "balance", balance: "0.00" },
+    ],
+    [{ has_credits: true, unlimited: true }, { kind: "unlimited" }],
+    [{ has_credits: false, unlimited: false }, undefined],
+    [{ has_credits: true, unlimited: false, balance: 9.99 }, undefined],
+    [{ has_credits: true, unlimited: false, balance: "1e2" }, undefined],
+    [{ has_credits: true, unlimited: false, balance: "-1.25" }, undefined],
+    [{ has_credits: true, unlimited: false, balance: "2\n" }, undefined],
+    [{ has_credits: true, unlimited: "true", balance: "10" }, undefined],
+  ])(
+    "projects paid credits from WHAM %j without changing quota windows",
+    async (credits, expected) => {
+      const get = async () =>
+        new Response(
+          JSON.stringify({
+            rate_limit: { primary_window: { used_percent: 35 } },
+            credits,
+          }),
+        );
+      const result = await fetchNormalizedQuota(token, signal, get, observedAt);
+      expect(result.snapshot?.bindingRemainingPercent).toBe(65);
+      expect(result.snapshot?.credits).toEqual(expected);
+    },
+  );
+  it.each([
+    [
+      { has_credits: true, unlimited: false, balance: "740.25" },
+      undefined,
+      { credits: { kind: "balance", balance: "740.25" }, bankedResets: null },
+    ],
+    [undefined, 0, { bankedResets: 0 }],
+    [{ has_credits: true, unlimited: false, balance: "invalid" }, -1, null],
+  ])(
+    "keeps independently valid allowance when windows are absent (%j, %j)",
+    async (credits, count, expected) => {
+      const result = await fetchNormalizedQuota(
+        token,
+        signal,
+        async () =>
+          new Response(
+            JSON.stringify({
+              rate_limit: null,
+              credits,
+              rate_limit_reset_credits: { available_count: count },
+            }),
+          ),
+        observedAt,
+      );
+      if (expected === null) {
+        expect(result).toEqual({ status: "unsupported", snapshot: null });
+      } else {
+        expect(result).toMatchObject({
+          status: "ok",
+          snapshot: {
+            ...expected,
+            general: [],
+            additional: [],
+            bindingWindowId: null,
+            bindingRemainingPercent: null,
+          },
+        });
+      }
+    },
+  );
   it("returns only normalized values and fixed status on request failures", async () => {
     const response = new Response(
       JSON.stringify({ rate_limit: { primary_window: { used_percent: 35 } } }),

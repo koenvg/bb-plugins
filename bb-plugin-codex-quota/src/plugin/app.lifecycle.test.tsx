@@ -33,7 +33,7 @@ function options() {
     read,
     rpc: {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
-      machineAccounts: async () => metadataFixture(["host_a"], await read()),
+      machineAccountsV2: async () => metadataFixture(["host_a"], await read()),
       read,
     },
   };
@@ -140,7 +140,7 @@ describe("app-wide quota ownership", () => {
     expect(
       within(page.getByRole("region", { name: "Account allowance" })).getByRole("status")
         .textContent,
-    ).toMatch(/^Fresh · updating/);
+    ).toMatch(/^Observed .*Refreshing allowance/);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(240_000);
     });
@@ -153,7 +153,7 @@ describe("app-wide quota ownership", () => {
     expect(
       within(page.getByRole("region", { name: "Account allowance" })).getByRole("status")
         .textContent,
-    ).toMatch(/^Stale · updating/);
+    ).toMatch(/^Stale · Observed .*Refreshing allowance/);
     await act(async () => {
       finish();
     });

@@ -1,6 +1,91 @@
 import { describe, expect, it } from "vitest";
 import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server.js";
+import { quotaFixture } from "../machines/machines.test-support.js";
+import { emptyActivity } from "../activity/activity-contract.js";
+
+it.each(["missing method", "offline", "malformed reply"])(
+  "new dashboard uses legacy allowance only when the host reports a %s",
+  async (failure) => {
+    const quota = quotaFixture(Date.now(), 63);
+    quota.snapshot.bankedResets = 2;
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "codex-quota",
+      sdk: {
+        hosts: {
+          list: async () => [makeHostResponse({ id: "old_host", status: "connected" })],
+          get: async () => makeHostResponse({ id: "old_host", status: "connected" }),
+        },
+      },
+      experimental_callHostRpc: async ({ method }) => {
+        if (method === "accountObservation") {
+          return { proof: "a".repeat(64), quota, activity: emptyActivity("unavailable") };
+        }
+        if (failure === "malformed reply") return { quota: {} };
+        const missing = failure === "missing method";
+        const message = missing
+          ? 'unknown host method "accountObservationV2"'
+          : "Host is not connected";
+        throw Object.assign(new Error(message), {
+          status: 502,
+          body: { code: missing ? "command_failed" : "host_unavailable", message },
+        });
+      },
+    });
+    await plugin(bb);
+    try {
+      const reading = await harness.behavior.callRpc("machineAccountsV2", {
+        refresh: true,
+        includeActivity: false,
+      });
+      if (failure === "missing method") {
+        expect(reading).toMatchObject({ accounts: [{ identity: "verified", quota }] });
+        const calls = harness.experimental_hostRpcCalls;
+        expect(calls.map(({ method }) => method)).toEqual([
+          "accountObservationV2",
+          "accountObservation",
+        ]);
+        expect(calls[1]?.input).toEqual(calls[0]?.input);
+      } else {
+        expect(reading).toMatchObject({
+          accounts: [{ identity: "unknown", quota: { state: "unavailable", snapshot: null } }],
+        });
+        expect(harness.experimental_hostRpcCalls.map(({ method }) => method)).toEqual([
+          "accountObservationV2",
+        ]);
+      }
+    } finally {
+      await harness.lifecycle.dispose();
+    }
+  },
+);
+
+it("keeps paid credits on the versioned dashboard route only", async () => {
+  const quota = quotaFixture(Date.now(), 63);
+  const credits = { kind: "balance", balance: "740.25" };
+  const host = makeHostResponse({ id: "host_one", status: "connected" });
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "codex-quota",
+    sdk: { hosts: { list: async () => [host], get: async () => host } },
+    experimental_callHostRpc: async () => ({
+      proof: "a".repeat(64),
+      quota: { ...quota, snapshot: { ...quota.snapshot, credits } },
+      activity: emptyActivity("unavailable"),
+    }),
+  });
+  await plugin(bb);
+  try {
+    const request = { refresh: false, includeActivity: false };
+    const dashboard = await harness.behavior.callRpc("machineAccountsV2", request);
+    const legacy = await harness.behavior.callRpc("machineAccounts", request);
+    expect(dashboard).toMatchObject({
+      accounts: [{ identity: "verified", quota: { snapshot: { ...quota.snapshot, credits } } }],
+    });
+    expect(legacy).toHaveProperty("accounts.0.quota", quota);
+  } finally {
+    await harness.lifecycle.dispose();
+  }
+});
 
 describe("Codex Quota scaffold", () => {
   it("only calls the selected enrolled host through the typed host RPC", async () => {

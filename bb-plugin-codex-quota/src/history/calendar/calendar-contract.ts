@@ -216,33 +216,11 @@ export const calendarReportSchema = z
         summary: calendarSummarySchema,
         comparison: comparisonSchema.optional(),
         days: z.array(calendarDaySchema).length(30),
+        // Older hosts and cache entries still send calendar ranking rows. Never forward them.
         ranking: z
-          .array(
-            z
-              .object({
-                key: z.string().min(1).max(16384),
-                label: z.string().min(1).max(16384),
-                metadata: z.enum([
-                  "recorded-workspace",
-                  "available",
-                  "archived",
-                  "deleted",
-                  "missing",
-                ]),
-                totalTokens: count,
-                attribution: z.enum([
-                  "exact-thread",
-                  "workspace-only",
-                  "mixed",
-                  "ambiguous",
-                  "unknown",
-                ]),
-                coverage: calendarCoverageSchema,
-                money: calendarMoneySchema,
-              })
-              .strict(),
-          )
-          .max(50),
+          .array(z.unknown())
+          .max(50)
+          .transform((): [] => []),
         truncated: z.boolean(),
         identity: z.enum(["complete", "partial", "unknown"]),
         identityPending: z.boolean(),
@@ -263,8 +241,7 @@ export const calendarReportSchema = z
           (total) =>
             total.money.pricedEntities > total.activeEntities ||
             total.activeEntities > total.money.records,
-        ) ||
-        value.ranking.some((row) => row.money.pricedEntities > 1)
+        )
       ) {
         ctx.addIssue({ code: "custom", message: "Calendar entity denominator mismatch" });
       }

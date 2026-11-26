@@ -71,32 +71,20 @@ for (const [suite, states] of Object.entries(matrices)) {
         } else {
           await chart(page);
         }
-        await expect(
-          page.getByRole("group", { name: "Usage grouping" }).getByRole("button"),
-        ).toHaveText(["Threads", "Workspaces"]);
-        await expect(page.getByRole("button", { name: "Threads", exact: true })).toHaveAttribute(
-          "aria-pressed",
-          "true",
-        );
-        if (state === "partial") {
-          const ranking = page.getByRole("table", { name: "Recorded usage ranking" });
-          await expect(ranking.locator("tbody tr")).toHaveCount(10);
-          const before = await rows(page);
-          const readsBefore = (await calls(page)).filter(
-            (call) => call.method === "machineReports" && call.input.query!.group === "workspace",
-          ).length;
-          await page.getByRole("button", { name: "Workspaces", exact: true }).click();
-          await expect(page.getByRole("heading", { name: "Top 10 workspaces" })).toBeVisible();
-          await expect(ranking.locator("tbody tr")).toHaveCount(10);
-          expect(await rows(page)).toEqual(before);
-          expect(
-            (await calls(page)).filter(
-              (call) => call.method === "machineReports" && call.input.query!.group === "workspace",
-            ),
-          ).toHaveLength(readsBefore);
-          await page.getByRole("button", { name: "Threads", exact: true }).click();
-          await expect(page.getByRole("heading", { name: "Top 10 threads" })).toBeVisible();
-          expect(await rows(page)).toEqual(before);
+        if (state === "partial" && suite === "calendar") {
+          const allowance = page.getByRole("region", { name: "Account allowance", exact: true });
+          await expect(allowance.getByText("2 available")).toBeVisible();
+          await expect(allowance.getByText("1 Oct, 14:00 UTC")).toHaveAttribute(
+            "datetime",
+            "2026-10-01T14:00:00.000Z",
+          );
+          await expect(page.getByRole("table", { name: "Recorded usage ranking" })).toHaveCount(0);
+          await expect(page.getByText("Machine status and collection settings")).toHaveCount(0);
+          const allowanceBox = await allowance.boundingBox();
+          const chartBox = await page
+            .getByRole("region", { name: "Recorded usage", exact: true })
+            .boundingBox();
+          expect(allowanceBox!.y + allowanceBox!.height).toBeLessThan(chartBox!.y);
         }
         const facts = [];
         const captures = [];
@@ -198,7 +186,7 @@ for (const [suite, states] of Object.entries(matrices)) {
         expect(
           requests.every((call) =>
             [
-              "machineAccounts",
+              "machineAccountsV2",
               "machinePreparation",
               "machineReports",
               "machineReportSnapshot",
@@ -213,7 +201,7 @@ for (const [suite, states] of Object.entries(matrices)) {
         for (const call of requests.filter((call) =>
           ["machineReports", "machineReportSnapshot"].includes(call.method),
         )) {
-          expect(call.input.query!.includeUncertain).toBe(call.input.query!.group === "workspace");
+          expect(call.input.query).toMatchObject({ group: "workspace", includeUncertain: true });
           if (call.method === "machineReports") {
             expect(call.input).toMatchObject({ prepare: false, refresh: false });
           } else {

@@ -2,7 +2,7 @@
 
 ## Use the chart
 
-Open Codex Quota from the navigation sidebar. The Codex dashboard shows All machines and combines recorded usage across machines without a host selector. The chart and Top 10 ranking come before Account allowance. The Refresh allowance button remains in the page header.
+Open Codex Quota from the navigation sidebar. The Codex page puts paid credits, banked resets, and allowance windows with scheduled reset dates above recorded usage. The Refresh allowance button remains in the page header. The chart combines recorded usage across all machines without a host selector.
 
 The TanStack Charts bar chart shows 30 local calendar dates through today in the viewer's IANA timezone. Previous and Next move the range by 30 days. Next is disabled at the latest range. Previous stops at retained bounds. Latest returns to the current range.
 
@@ -10,11 +10,9 @@ Today's values include only recorded events before the report's observation time
 
 The primary page has two metrics: Tokens and Estimated cost. Changing the metric is local. It does not read history again. Date navigation reads only the bounded retained report. There are no daily-detail, entity-inspection or comparison controls on this page.
 
-Below the chart, Top 10 threads is the default ranking. Select Workspaces to show Top 10 workspaces, or Threads to return to verified threads. The ranking follows the selected metric and date range. Changing the ranking group does not change the chart's workspace-based totals. Verified threads are a subset of workspace usage, not extra tokens to add. Shared paths on different machines remain separate.
+The token chart divides each recorded daily total by model. Colors stay tied to model IDs as dates change. Up to eight named models are shown; remaining known attribution is Other models. Unknown model is the recorded remainder without retained model detail, including expired detail and older machine reports. The tooltip and accessible table keep exact model counts and token-category facts. Reasoning remains part of output and is not counted twice. Missing detail on one machine does not suppress another machine's known model usage.
 
-The token chart divides each recorded daily total by model. Colors stay tied to model IDs as dates and rankings change. Up to eight named models are shown; remaining known attribution is Other models. Unknown model is the recorded remainder without retained model detail, including expired detail and older machine reports. The tooltip and accessible table keep exact model counts and token-category facts. Reasoning remains part of output and is not counted twice. Missing detail on one machine does not suppress another machine's known model usage.
-
-Tokens includes retained uncertain counts by default as a separate dashed chart segment. There is no uncertainty toggle or combined-total banner. The tooltip and accessible table separate recorded and uncertain counts. Duplicate checks are approximate; missing or unreadable records remain unknown. Estimated cost, recorded totals, rankings, quota and account activity do not include uncertain tokens. This mode is not available for exact-thread reports or comparisons.
+Tokens includes retained uncertain counts by default as a separate dashed chart segment. There is no uncertainty toggle or combined-total banner. The tooltip and accessible table separate recorded and uncertain counts. Duplicate checks are approximate; missing or unreadable records remain unknown. Estimated cost, recorded totals, quota and account activity do not include uncertain tokens. This mode is not available for exact-thread reports or comparisons.
 
 The chart reads the index only. To recover earlier omissions, start a new manual import from the configured roots in Historical import. The UI enables uncertain recovery automatically. Resume preserves the frozen import mode. See [Historical import](IMPORT.md) for source limits and duplicate rules.
 
@@ -64,7 +62,7 @@ Records, writer activity, configured roots, settled imports and complete identit
 
 ## Open collection settings
 
-Expand Machine status and collection settings below Account allowance, then select Manage history for a connected machine. The same disclosure is available in the public SDK Usage collection settings section. Account activity and extra allowance windows are in settings. Account activity is independent of selected-host Pi usage.
+In Settings → **Usage collection**, expand **Machine status and collection settings** and select **Manage history** for a connected machine. Account activity is also in Usage collection. It is independent of selected-host Pi usage.
 
 Collection and history management starts closed. Its panels mount only while open. Opening requests bounded readiness and import status for the selected host. Reopening refreshes both. Closing or unmounting suppresses queued UI requests and late UI results. It cannot undo host work already dispatched. Collector and import commands remain separate from read-only chart navigation.
 
@@ -90,7 +88,7 @@ For compact layout, refresh behaviour and touch navigation checks, run `bun run 
 
 ## Storage and interfaces
 
-Schema 5 retains source and class metadata without changing immutable Pi scalar facts or historical columns. Supported schema-4 read-only reports remain available. Internal `readCalendarTotals` uses indexed storage-side aggregation over accepted records in the bounded UTC interval. Real IANA boundaries assign local dates, including 23-hour and 25-hour dates. Logical cutoffs use the later of the current retention policy and saved monotonic cutoff. Dormant reads cannot expose expired ranges or classes while physical cleanup waits. No individual event array or accepted-record cap crosses the report boundary. The DTO has exactly 30 dates and at most 50 ranked entities. The selected-host chart component does not render the ranking.
+Schema 5 retains source and class metadata without changing immutable Pi scalar facts or historical columns. Supported schema-4 read-only reports remain available. Internal `readCalendarTotals` uses indexed storage-side aggregation over accepted records in the bounded UTC interval. Real IANA boundaries assign local dates, including 23-hour and 25-hour dates. Logical cutoffs use the later of the current retention policy and saved monotonic cutoff. Dormant reads cannot expose expired ranges or classes while physical cleanup waits. No individual event array or accepted-record cap crosses the report boundary. The report contains exactly 30 dates. The legacy calendar ranking field remains empty for compatibility with older readers. New readers discard ranking rows from older hosts and cached reports.
 
 `HostHistory` keeps read, control and controlImport. Its optional calendar query/result uses the existing read context and snapshot without refreshing collector readiness. `calendarReport` validates dates, timezone, grouping, scope and echoed query identity. Server routing rechecks selected enrollment and cancellation before dispatch and after return. No-query readiness calls do not aggregate calendar data.
 

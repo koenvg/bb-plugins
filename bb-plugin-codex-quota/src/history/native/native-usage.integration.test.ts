@@ -504,8 +504,18 @@ it("bounds lines, revisits pending files, and gives native identity only to the 
     ],
   } as typeof f.context.identities;
   await f.prepare();
-  const report = await f.report({ ...query, group: "thread" });
-  expect(report.ranking.map((row) => row.key)).toEqual(["thr_native"]);
+  const native = await f.report({
+    ...query,
+    group: "thread",
+    scope: { kind: "thread", threadId: "thr_native" },
+  });
+  const pi = await f.report({
+    ...query,
+    group: "thread",
+    scope: { kind: "thread", threadId: "thr_pi" },
+  });
+  expect(native.summary.totalTokens).toBe(600);
+  expect(pi.summary.totalTokens).toBe(0);
 });
 it("supports schema-4 read-only scalar projection and transactional writer migration", async () => {
   const f = await fixture([header(), turn()]);

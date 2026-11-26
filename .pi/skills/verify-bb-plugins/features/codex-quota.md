@@ -12,9 +12,9 @@ Users inspect Codex quota by account and recorded usage across all machines. Mac
 
 ## How to get to it (user POV)
 
-- Open **Codex Quota** from navigation or activate its lower-sidebar quota action. The dashboard shows **All machines** with recorded usage above account allowances. It has no dashboard host selector.
+- Open **Codex Quota** from navigation or activate its lower-sidebar quota action. The dashboard shows **All machines** with account credits and resets above recorded usage. It has no dashboard host selector.
 - Use the dashboard's calendar model filters for recorded usage. For account-wide activity, open Settings → **Usage collection** and inspect **Account-wide activity**. Use **Refresh account activity** for a new observation.
-- For machine-specific history, expand **Machine status and collection settings** on the dashboard or in **Usage collection**. With approval for the intended enrolled host, activate that machine's **Manage history** action. This opens collection management, not a selected-host dashboard chart.
+- For machine-specific history, expand **Machine status and collection settings** in Settings → **Usage collection**. With approval for the intended enrolled host, activate that machine's **Manage history** action. This opens collection management, not a selected-host dashboard chart.
 - Explicit historical import is a separate action described in the package README. It requires approval for the exact host and is never an automatic fixture setup step.
 - An approved automation can call `collectorMaintenance` with `{ hostId, operation: "readiness" }` or `{ hostId, operation: "repair-existing" }`. No dashboard selection, host enumeration, or enrollment is needed. Exact-target human approval remains the automation's responsibility.
 

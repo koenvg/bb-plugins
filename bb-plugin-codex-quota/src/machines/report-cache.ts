@@ -154,12 +154,7 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
           return;
         }
         const keys = [key, ...old.filter((entry) => entry !== key)].slice(0, 8);
-        // Ranking names can be long. Preserve daily totals within KV's 256KB bound.
-        const saved =
-          Buffer.byteLength(JSON.stringify(parsed)) <= 200_000
-            ? parsed
-            : { ...parsed, ranking: [], truncated: true };
-        await storage.set(root + key, saved);
+        await storage.set(root + key, parsed);
         if (!admit()) {
           return;
         }

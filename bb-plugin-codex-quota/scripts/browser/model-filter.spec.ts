@@ -50,7 +50,6 @@ async function expectedStack(page: Page, values: number[], maximum: number) {
 }
 async function settled(page: Page) {
   await chart(page);
-  await expect(page.getByRole("heading", { name: "Top 10 threads" })).toBeVisible();
   await page.evaluate(
     () =>
       new Promise<void>((resolve) =>
@@ -83,7 +82,10 @@ for (const width of [375, 1280]) {
       const daily = await rows(page);
       expect(daily[14].slice(-2)).toEqual(["100", "500"]);
       const initial = await bars(page);
-      const initialBarBox = (await page.locator(".ts-chart__bar rect").first().boundingBox())!;
+      const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
+      const origin = (await surface.boundingBox())!;
+      const bar = (await page.locator(".ts-chart__bar rect").first().boundingBox())!;
+      const point = { x: bar.x - origin.x + bar.width / 2, y: bar.y - origin.y + bar.height / 2 };
       expect(initial.map((group) => group.length)).toEqual([1, 1]);
       expect(initial.map((group) => ({ height: group[0].height, y: group[0].y }))).toEqual(
         await expectedStack(page, [100, 500], 600),
@@ -150,7 +152,13 @@ for (const width of [375, 1280]) {
       await capture(page, info, `compact-default-${width}-${theme}`);
       await settled(page);
       const application = await page.getByRole("img").elementHandle();
-      const plot = await page.locator(".ts-chart-host").boundingBox();
+      const plotWithinPanel = () =>
+        page.getByRole("region", { name: "All-machine recorded usage" }).evaluate((panel) => {
+          const base = panel.getBoundingClientRect();
+          const rect = panel.querySelector(".ts-chart-host")!.getBoundingClientRect();
+          return { x: rect.x - base.x, y: rect.y - base.y, width: rect.width, height: rect.height };
+        });
+      const plot = await plotWithinPanel();
       await page.keyboard.press("Space");
       await expect(fast).toHaveAttribute("aria-pressed", "false");
       await expect(fast).toBeFocused();
@@ -164,7 +172,7 @@ for (const width of [375, 1280]) {
       expect(
         await application!.evaluate((node) => node === document.querySelector('[role="img"]')),
       ).toBe(true);
-      expect(await page.locator(".ts-chart-host").boundingBox()).toEqual(plot);
+      expect(await plotWithinPanel()).toEqual(plot);
       expect(
         await fast.evaluate((node) => ({
           visible: node.matches(":focus-visible"),
@@ -200,7 +208,7 @@ for (const width of [375, 1280]) {
         expect(await axis(page)).toEqual(
           hiddenIndex === 0 ? ["0", "125", "250", "375", "500"] : ["0", "25", "50", "75", "100"],
         );
-        expect(await page.locator(".ts-chart-host").boundingBox()).toEqual(plot);
+        expect(await plotWithinPanel()).toEqual(plot);
         await restore(page).click();
         expect(await bars(page)).toEqual(initial);
         expect(
@@ -249,10 +257,9 @@ for (const width of [375, 1280]) {
         expect(allHiddenTip.definitions).toEqual(fullTip.definitions);
         expect(allHiddenTip.tooltip).toBe(fullTip.tooltip);
         await page.mouse.move(0, 0);
-        await page.mouse.move(
-          initialBarBox.x + initialBarBox.width / 2,
-          initialBarBox.y + initialBarBox.height / 2,
-        );
+        await surface.scrollIntoViewIfNeeded();
+        const box = (await surface.boundingBox())!;
+        await page.mouse.move(box.x + point.x, box.y + point.y);
         await expect(page.getByRole("tooltip").locator("time")).toHaveAttribute(
           "datetime",
           daily[14][0],
@@ -269,7 +276,8 @@ for (const width of [375, 1280]) {
       expect(await page.getByLabel("Shared account allowance").textContent()).toBe(allowance);
       expect(await page.getByLabel("Recorded token subtotal").textContent()).toBe(summary);
       await series(page, names[1]).click();
-      await page.getByRole("button", { name: "Workspaces", exact: true }).click();
+      await page.getByRole("button", { name: "Estimated cost", exact: true }).click();
+      await page.getByRole("button", { name: "Tokens", exact: true }).click();
       await expect(series(page, names[1])).toHaveAttribute("aria-pressed", "false");
       await noOverflow(page);
       await capture(page, info, `filtered-${width}-${theme}`);

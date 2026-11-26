@@ -4,6 +4,8 @@ export type QuotaWindow = {
   remainingPercent: number;
   resetAt: string | null;
 };
+export const creditBalancePattern = /^[0-9]{1,32}(?:\.[0-9]{1,32})?(?![\s\S])/;
+export type AccountCredits = { kind: "balance"; balance: string } | { kind: "unlimited" };
 export type QuotaSnapshot = {
   observedAt: string;
   plan: "free" | "plus" | "pro" | "team" | "business" | "enterprise" | "edu" | null;
@@ -12,6 +14,7 @@ export type QuotaSnapshot = {
   bindingWindowId: string | null;
   bindingRemainingPercent: number | null;
   bankedResets: number | null;
+  credits?: AccountCredits;
 };
 
 type RecordValue = Record<string, unknown>;
@@ -22,6 +25,20 @@ const asRecord = (value: unknown): RecordValue | null =>
 const percent = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
 const round = (value: number): number => Math.round(value * 100) / 100;
+
+function accountCredits(value: unknown): AccountCredits | undefined {
+  const credits = asRecord(value);
+  if (typeof credits?.has_credits !== "boolean" || typeof credits.unlimited !== "boolean") {
+    return undefined;
+  }
+  if (credits.unlimited) {
+    return { kind: "unlimited" };
+  }
+  const { balance } = credits;
+  return typeof balance === "string" && creditBalancePattern.test(balance)
+    ? { kind: "balance", balance }
+    : undefined;
+}
 
 function resetTime(window: RecordValue, observedAtMs: number): string | null {
   const absolute = window.reset_at;
@@ -164,7 +181,11 @@ export function normalizeQuota(payload: unknown, observedAtMs: number): QuotaSna
   if (codeReview.length) {
     additional.push({ name: "Code review", windows: codeReview });
   }
-  if (!general.length && !additional.length) {
+  const credits = accountCredits(root.credits);
+  const banked = asRecord(root.rate_limit_reset_credits)?.available_count;
+  const bankedResets =
+    typeof banked === "number" && Number.isSafeInteger(banked) && banked >= 0 ? banked : null;
+  if (!general.length && !additional.length && !credits && bankedResets === null) {
     return null;
   }
   if (general.length + additional.reduce((sum, item) => sum + item.windows.length, 0) > 32) {
@@ -173,7 +194,6 @@ export function normalizeQuota(payload: unknown, observedAtMs: number): QuotaSna
 
   const plan = root.plan_type;
   const knownPlans = ["free", "plus", "pro", "team", "business", "enterprise", "edu"] as const;
-  const banked = asRecord(root.rate_limit_reset_credits)?.available_count;
   const binding = general.reduce<QuotaWindow | null>(
     (best, item) => (best === null || item.remainingPercent < best.remainingPercent ? item : best),
     null,
@@ -183,9 +203,9 @@ export function normalizeQuota(payload: unknown, observedAtMs: number): QuotaSna
     plan: knownPlans.find((value) => value === plan) ?? null,
     general,
     additional,
+    ...(credits ? { credits } : {}),
     bindingWindowId: binding?.id ?? null,
     bindingRemainingPercent: binding?.remainingPercent ?? null,
-    bankedResets:
-      typeof banked === "number" && Number.isSafeInteger(banked) && banked >= 0 ? banked : null,
+    bankedResets,
   };
 }

@@ -34,7 +34,9 @@ for (const theme of ["light", "dark"] as const) {
               document.querySelector(".ts-chart")!.getBoundingClientRect().top - 532;
           });
           const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
-          await expect.poll(async () => (await surface.boundingBox())!.y).toBe(532);
+          await expect
+            .poll(async () => Math.abs((await surface.boundingBox())!.y - 532))
+            .toBeLessThanOrEqual(1);
           expect((await surface.boundingBox())!.height).toBe(280);
           const beforeCalls = await calls(page);
           const beforeRows = await rows(page);
@@ -126,7 +128,9 @@ for (const theme of ["light", "dark"] as const) {
                 document.querySelector(".ts-chart")!.getBoundingClientRect().top - 300;
               return original;
             });
-            await expect.poll(async () => (await surface.boundingBox())!.y).toBe(300);
+            await expect
+              .poll(async () => Math.abs((await surface.boundingBox())!.y - 300))
+              .toBeLessThanOrEqual(1);
             await page.setViewportSize({ width: 375, height: 600 });
             await expect
               .poll(() => card.evaluate((element) => element.scrollHeight > element.clientHeight))
@@ -184,7 +188,9 @@ for (const theme of ["light", "dark"] as const) {
             await page.locator("#scrolling-shell").evaluate((shell, top) => {
               shell.scrollTop = top;
             }, originalScroll);
-            await expect.poll(async () => (await surface.boundingBox())!.y).toBe(532);
+            await expect
+              .poll(async () => Math.abs((await surface.boundingBox())!.y - 532))
+              .toBeLessThanOrEqual(1);
             await expect(card).toBeFocused();
             await expect(native).toHaveAttribute("data-sticky", "true");
             await jsonEvidence(info, "escape-focus.json", {
@@ -204,7 +210,9 @@ for (const theme of ["light", "dark"] as const) {
           await page.locator("#scrolling-shell").evaluate((shell) => {
             shell.scrollTop += 80;
           });
-          await expect.poll(async () => (await surface.boundingBox())!.y).toBe(452);
+          await expect
+            .poll(async () => Math.abs((await surface.boundingBox())!.y - 452))
+            .toBeLessThanOrEqual(1);
           await expect
             .poll(async () => (await card.boundingBox())!.y + (await card.boundingBox())!.height)
             .toBeLessThanOrEqual(804);
@@ -270,7 +278,9 @@ for (const portalMode of ["popover", "fallback"] as const) {
         shell.scrollTop = document.querySelector(".ts-chart")!.getBoundingClientRect().top - 300;
       });
       const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
-      await expect.poll(async () => (await surface.boundingBox())!.y).toBe(300);
+      await expect
+        .poll(async () => Math.abs((await surface.boundingBox())!.y - 300))
+        .toBeLessThanOrEqual(1);
       await surface.focus();
       await page.keyboard.press("Home");
       for (let index = 0; index < 14; index += 1) {

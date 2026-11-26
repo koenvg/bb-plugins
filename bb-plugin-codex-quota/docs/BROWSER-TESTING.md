@@ -77,4 +77,4 @@ Use `bun run test:browser --list` to discover the current suite without launchin
 
 ## Native usage fixture
 
-`native-usage.spec.ts` has eight desktop and 375px cases using reports from `createHostHistory.prepare/report`. It checks literal model-only token and captured-cost values, both metrics, date navigation, host and all-machine scope, ranking, loading chart space, explicit retry, and offline display. Screenshots and `backend-reports.json` retain these facts. Legacy tier fields in the owned fixtures do not affect totals or model attribution. See [Native usage](NATIVE-USAGE.md).
+`native-usage.spec.ts` has eight desktop and 375px cases using reports from `createHostHistory.prepare/report`. It checks literal model-only token and captured-cost values, both metrics, date navigation, host and all-machine scope, loading chart space, explicit retry, and offline display. Screenshots and `backend-reports.json` retain these facts. Legacy tier fields in the owned fixtures do not affect totals or model attribution. See [Native usage](NATIVE-USAGE.md).

@@ -107,8 +107,7 @@ try {
     },
   });
   assert.equal(report.days.length, 30);
-  assert.equal(report.ranking.length, 50);
-  assert.equal(report.truncated, true);
+  assert.deepEqual(report.ranking, []);
   assert.equal(report.next, false);
   assert.deepEqual(report.days[14].classes, {
     state: "available",
@@ -119,7 +118,6 @@ try {
     cacheWrite: 0,
   });
   assert.deepEqual(report.days[14].money, report.summary.money);
-  assert.equal(report.ranking.find((row) => row.key === "/workspace-1").money.capturedCost, 0.123);
   assert.equal(
     report.days[0].money.capturedCost,
     null,

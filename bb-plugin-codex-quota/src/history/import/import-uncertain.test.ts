@@ -155,7 +155,6 @@ it("keeps uncertain import and stats opt-in, with recorded tokens and prices unc
     expect(estimated.summary.money).toEqual(normal.summary.money);
     expect(estimated.summary.uncertain).toEqual({ totalTokens: 20, records: 1 });
     expect(estimated.days.find((d) => d.date === "2026-10-01")?.uncertain?.totalTokens).toBe(20);
-    expect(estimated.ranking).toEqual(normal.ranking);
     expect(JSON.stringify(f.db.prepare("SELECT * FROM usage_uncertain").all())).not.toContain(
       "PRIVATE_BODY",
     );

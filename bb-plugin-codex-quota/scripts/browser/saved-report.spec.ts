@@ -15,6 +15,12 @@ const release = (page: Page, name: string) =>
     (name) => (window as unknown as { savedFixture: Fixture }).savedFixture.release(name),
     name,
   );
+const chartInPanel = (page: Page) =>
+  page.getByRole("region", { name: "All-machine recorded usage" }).evaluate((panel) => {
+    const outer = panel.getBoundingClientRect();
+    const inner = panel.querySelector(".ts-chart-host")!.getBoundingClientRect();
+    return { x: inner.x - outer.x, y: inner.y - outer.y, width: inner.width, height: inner.height };
+  });
 for (const width of sizes) {
   test(`saved opening ${width} shows literal totals before held work and revalidates`, async ({
     page,
@@ -33,7 +39,7 @@ for (const width of sizes) {
     const held = await receipts(page);
     expect(
       held.filter((row) => row.event === "live-request").map((row) => row.query?.group),
-    ).toEqual(["workspace", "thread"]);
+    ).toEqual(["workspace"]);
     expect(
       held
         .filter((row) => row.event.endsWith("response"))
@@ -47,7 +53,7 @@ for (const width of sizes) {
       .boundingBox();
     expect(panelBefore?.width).toBe(width === 375 ? 335 : 960);
     await chart(page);
-    const chartBefore = await page.locator(".ts-chart-host").boundingBox();
+    const chartBefore = await chartInPanel(page);
     await page.getByRole("button", { name: "Estimated cost", exact: true }).click();
     expect(await receipts(page)).toEqual(held);
     await page.getByRole("button", { name: "Previous 30 days" }).click();
@@ -62,14 +68,10 @@ for (const width of sizes) {
     await expect(page.getByLabel("Captured cost subtotal")).toHaveText("$9.00");
     await expect(page.getByText(/Last-known summaries retained/)).toHaveCount(0);
     await chart(page);
-    const chartAfter = await page.locator(".ts-chart-host").boundingBox();
+    const chartAfter = await chartInPanel(page);
     expect(chartAfter).toEqual(chartBefore);
     const refreshed = await receipts(page);
     expect(refreshed.some((row) => row.event === "preparation-response")).toBe(false);
-    expect(
-      refreshed.some((row) => row.event === "saved-response" && row.query?.group === "thread"),
-    ).toBe(false);
-    await release(page, "threads");
     await release(page, "preparation");
     await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.8 thousand");
     await page.getByRole("button", { name: "Latest", exact: true }).click();
@@ -79,7 +81,6 @@ for (const width of sizes) {
     await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.2 thousand");
     await expect(page.getByText(/Last-known summaries retained/)).toBeVisible();
     await release(page, "live");
-    await release(page, "threads");
     await release(page, "preparation");
     await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.8 thousand");
     await noOverflow(page);
@@ -116,7 +117,7 @@ for (const width of sizes) {
     const held = await receipts(page);
     expect(
       held.filter((row) => row.event === "live-request").map((row) => row.query?.group),
-    ).toEqual(["workspace", "thread"]);
+    ).toEqual(["workspace"]);
     expect(held.filter((row) => row.event === "saved-response")).toEqual([]);
     await release(page, "live");
     await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.8 thousand");
@@ -125,12 +126,11 @@ for (const width of sizes) {
     expect(beforeSaved.some((row) => row.event === "saved-response")).toBe(false);
     expect(beforeSaved.some((row) => row.event === "preparation-response")).toBe(false);
     await release(page, "saved");
-    await release(page, "threads");
     await expect
       .poll(
         async () => (await receipts(page)).filter((row) => row.event === "saved-response").length,
       )
-      .toBe(2);
+      .toBe(1);
     await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.8 thousand");
     await expect(page.getByLabel("Captured cost subtotal")).toHaveText("$9.00");
     await expect(page.getByText(/Last-known summaries retained/)).toHaveCount(0);

@@ -37,11 +37,6 @@ for (const width of sizes) {
     await page.getByRole("button", { name: "Estimated cost", exact: true }).click();
     await recorded(page, "$0.06");
     expect(await page.evaluate(() => (window as any).nativeUsageFixture.calls.length)).toBe(calls);
-    await page.getByRole("button", { name: "Workspaces", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Top 10 workspaces" })).toBeVisible();
-    await page.getByRole("button", { name: "Threads", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Top 10 threads" })).toBeVisible();
-    await recorded(page, "$0.06");
     await capture(page, info, `native-all-${width}`);
     await page.getByRole("button", { name: "Previous 30 days", exact: true }).click();
     const subtotal = page.getByLabel("Recorded token subtotal", { exact: true });
@@ -58,7 +53,6 @@ for (const width of sizes) {
     for (const report of previousReports) {
       expect(report).toMatchObject({
         state: "unknown",
-        ranking: [],
         summary: { totalTokens: 0, activeEntities: 0, money: { records: 0, capturedCost: null } },
       });
       expect(report.days).toHaveLength(30);

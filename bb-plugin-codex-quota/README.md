@@ -54,9 +54,7 @@ Host selection is used only for machine-specific history management. It does not
 
 ## Reset countdown
 
-The summary shows time left until the limiting window resets. Each window also shows its own countdown and exact reset date. Durations use whole days and hours, hours and minutes below one day, and minutes below one hour. Under a minute, the label is "Less than a minute left". Missing reset times remain unknown.
-
-Countdowns advance within a minute while the app window is open. Clock ticks do not issue quota requests. "Reset due" means the reported reset time has arrived, not that new allowance has been confirmed. The normal fresh dashboard omits the routine "Updated…" line; updating feedback, stale observation timestamps, and sidebar observation metadata remain available.
+The Codex page shows scheduled resets as UTC dates. A due reset is not confirmation of renewed allowance. Missing reset times remain unknown. The sidebar and Usage collection settings retain their countdowns. Clock ticks do not issue quota requests.
 
 ## Background refresh
 
@@ -68,7 +66,7 @@ Browsers can suspend or throttle background windows, so this is not an exact one
 
 ## Freshness and limitations
 
-A successful snapshot is fresh for less than five minutes. Pending updates do not change its observation time or extend that validity. For example, an observed 42% remains visible while updating at one minute. At five minutes the account entry labels its retained 42% as stale. That observation can still supply the plain footer percentage if it is the lowest retained account allowance, but it no longer supplies battery fill. At 24 hours neither view shows the expired percentage. A failed quota read may retain an explicitly stale observation with its original timestamp. These are observed percentages, not real-time balances.
+A successful snapshot is fresh for less than five minutes. Pending updates do not change its observation time or extend that validity. At five minutes the account entry labels its retained values as stale. That observation can still supply the plain footer percentage if it is the lowest retained account allowance, but it no longer supplies battery fill. At 24 hours the expired observation no longer supplies values. A failed quota read may retain an explicitly stale observation with its original timestamp. The values describe the observation, not real-time balances.
 
 Focus and visibility resume request an account refresh only when due and recalculate age. Repeated focus cannot bypass failure backoff. Each host checks Pi's active account on quota reads; offline, changed, or uncheckable identities cannot return another account's snapshot as fresh. Host worker memory remains the authoritative quota cache, and reload discards it. The private Codex endpoint and its response fields can change without notice.
 
@@ -78,7 +76,9 @@ Quota and account activity do not read Pi or BB transcripts, require a collector
 
 The token graph shows recorded usage by model, with Other models for overflow and Unknown model for unattributed tokens. Supported native Codex requests enter bounded preparation without a Pi collector. Legacy token-count-only history remains incomplete. Native prices are unavailable. See [Native usage](docs/NATIVE-USAGE.md) for admission, safeguards, fixture limits, and the explicit collector repair needed after a future deployment.
 
-The primary page shows all-machine recorded usage above account allowances, with a thirty-day calendar chart and model filters. Recorded usage covers thirty local dates through today in the viewer's IANA timezone. Previous/Next move by thirty calendar dates within retained bounds. Choose Tokens or Estimated cost; metric changes are local. The page also provides thread or workspace rankings.
+The Codex page places account allowance above all-machine recorded usage. It shows a paid credit balance, banked resets and scheduled reset dates when reported by the account. A zero balance or reset count is distinct from an unavailable value. **Open Codex Usage** opens ChatGPT in a new tab for redemption. The browser's sign-in can differ from the machines' Pi accounts.
+
+The recorded usage chart covers thirty local dates through today in the viewer's IANA timezone. Previous and Next move by thirty calendar dates within retained bounds. Choose Tokens or Estimated cost; metric changes are local.
 
 Hover a date or use the chart's keyboard navigation for exact values, coverage, pricing and recorded exclusions. A screen-reader table carries the same facts. Missing values are unavailable, not zero. Only reliable scoped observed inactivity permits token zero; imported, omitted, paused, recovery and unfinished-work intervals do not certify inactivity.
 
@@ -86,13 +86,13 @@ Captured estimated cost uses only original finite positive eligible Pi prices. M
 
 The reporting API retains conservative current/prior known subtotals, verified thread attribution and entity denominators. The primary chart combines machine workspace totals without assigning unknown workspace usage to threads. Account activity and allowance are separate from these totals. Active-period percentages remain unavailable because existing evidence cannot prove complete active collection.
 
-Opening the page starts bounded all-machine report preparation. That attempt can maintain storage and does not prove complete collection. Chart navigation and Retry read bounded reports without quota/activity calls, transcript import execution, or collector/root changes. Collection, identity, and import controls remain machine-specific under **Machine status and collection settings**. Account activity is in Settings under **Usage collection**. Additional quota windows appear with account allowances.
+Opening the page starts bounded all-machine report preparation. That attempt can maintain storage and does not prove complete collection. Chart navigation and Retry read bounded reports without quota/activity calls, transcript import execution, or collector/root changes. Collection, identity and import controls remain machine-specific under **Machine status and collection settings** in Settings → **Usage collection**, alongside account activity.
 
-See [docs/CALENDAR.md](docs/CALENDAR.md) for states, retention, keyboard use, read-only storage limits and synthetic verification. Account allowance and the official link remain available below report failures. This slice has no installed/live acceptance and does not prove complete active-range comparisons.
+See [docs/CALENDAR.md](docs/CALENDAR.md) for states, retention, keyboard use, read-only storage limits and synthetic verification. Chart failures do not hide the allowance or the official usage link.
 
 ## Machine-specific collection and workspace totals
 
-Expand **Machine status and collection settings** on the dashboard or in Settings under **Usage collection**. Use the intended connected machine's **Manage history** action to load its readiness and saved import status immediately. This does not filter the all-machine dashboard. Expanding **Machine status and collection settings** alone does not start those requests. Closing it removes the management panels and hides late results. After reopening, use **Manage history** again to load fresh status. Closing the panels does not stop an installed collector or undo host work that already started.
+In Settings → **Usage collection**, expand **Machine status and collection settings**. Use the intended connected machine's **Manage history** action to load its readiness and saved import status. This does not filter the all-machine chart. Expanding the disclosure alone does not start those requests. Closing it hides the management panels and late results. On reopening, use **Manage history** again to load fresh status. Closing the panels does not stop an installed collector or undo host work that already started.
 
 History readiness targets the machine chosen through **Manage history**. It checks SQLite support and this plugin's asset without installing it or using account credentials. **Check readiness** also reconciles compact plugin-owned logs after installation. It never discovers or reads transcript bodies, starts an import, or refreshes quota/activity.
 

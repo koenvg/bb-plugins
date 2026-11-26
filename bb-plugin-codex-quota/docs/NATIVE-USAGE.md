@@ -43,7 +43,7 @@ After a future approved deployment, an existing collector may be incompatible be
 - `src/history/native/native-usage.integration.test.ts` covers mixed usage, replay, forks, archive moves, alias arrival order, cancellation, classes, prices, confinement, budgets, schema-4 reads, and expiry. It also checks unchanged historical metadata, literal replay proof hashing, and resumed legacy context stripping.
 - `src/history/collection/legacy-record.test.ts` checks v1 and v2 ingress. `src/machines/report-cache.test.ts` checks legacy cache survival at both read paths. `src/history/legacy-report-contract.test.ts` checks strict new contracts and aligned offline sums.
 - `scripts/check-bundled-native-usage.mjs` invokes the built host entry. Its unchanged legacy fixtures produce 450 mixed tokens, one synthetic model totaling 450, and captured Pi cost 0.03. Repeated preparation stays 450. Native-only usage remains 370 with or without obsolete tier fields.
-- `scripts/prepare-native-usage-fixture.ts` supplies public backend reports to `scripts/browser/native-usage.spec.ts`. At 375px and 1280px it checks values, dates, scopes, metrics, ranking, loading space, retry, and offline display. Fixture controls are not installed BB controls.
+- `scripts/prepare-native-usage-fixture.ts` supplies public backend reports to `scripts/browser/native-usage.spec.ts`. At 375px and 1280px it checks values, dates, scopes, metrics, loading space, retry, and offline display. Fixture controls are not installed BB controls.
 
 The files `native-legacy-usage.jsonl` and `pi-legacy-usage.jsonl` retain historical tier fields and original speed-named identity strings solely as legacy-boundary inputs. The active collector, report, model projection, and UI have no tier dimension.
 
