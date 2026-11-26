@@ -89,7 +89,8 @@ describe("list keyboard navigation", () => {
   });
   it("does not treat a focused row control as an independent selection", async () => {
     const slot = render();
-    (await slot.findByRole("button", { name: "Expand subtasks of TSK-1" })).focus();
+    const byRole = await slot.findByRole("button", { name: "Expand subtasks of TSK-1" });
+    byRole.focus();
     await press(slot, "j");
     expect(focusedRowName()).toBe("Open TSK-1: Title 1");
   });
@@ -134,7 +135,8 @@ describe("list row menus from the keyboard", () => {
     await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
     await press(slot, "j");
     await press(slot, "p");
-    expect((await slot.findByRole("menu")).textContent).toContain("Set priority");
+    const byRole = await slot.findByRole("menu");
+    expect(byRole.textContent).toContain("Set priority");
   });
   it("opens the labels menu on l and saves a toggled label", async () => {
     const updates: Record<string, unknown>[] = [];

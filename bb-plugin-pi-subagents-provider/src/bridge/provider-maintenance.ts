@@ -199,15 +199,19 @@ export async function getPiProviderInstallationStatus(
     executablePath: resolvedExecutable,
     npmBin: npmGlobal.npmBin,
   });
-  const installAction: ProviderInstallationStatus["installAction"] =
-    actionKind === null || !checkUpdates
-      ? null
-      : {
-          kind: actionKind,
-          label: actionKind === "install" ? "Install" : "Update",
-          command: (await piInstallationCommand(actionKind, resolvedExecutable, installSource))
-            .displayCommand,
-        };
+  let installAction: ProviderInstallationStatus["installAction"] = null;
+  if (actionKind !== null && checkUpdates) {
+    const { displayCommand } = await piInstallationCommand(
+      actionKind,
+      resolvedExecutable,
+      installSource,
+    );
+    installAction = {
+      kind: actionKind,
+      label: actionKind === "install" ? "Install" : "Update",
+      command: displayCommand,
+    };
+  }
 
   return {
     executableName: "pi",

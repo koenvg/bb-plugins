@@ -111,8 +111,9 @@ describe("bb tasks dependencies", () => {
     store.tasks.addTaskDependency(abc1.id, abc2.id);
     store.tasks.addTaskDependency(abc2.id, abc3.id);
 
-    const human = (await ok("show", "ABC-2")).stdout;
-    const json = JSON.parse((await ok("show", "ABC-2", "--json")).stdout);
+    const { stdout: human } = await ok("show", "ABC-2");
+    const result = await ok("show", "ABC-2", "--json");
+    const json = JSON.parse(result.stdout);
 
     expect(human).toMatch(/Blocked\s+yes, by ABC-1/);
     expect(human).toMatch(/Blocked by\nKEY\s+STATUS\s+TITLE\nABC-1\s+todo\s+Blocker/);
@@ -129,7 +130,7 @@ describe("bb tasks dependencies", () => {
     const { task, ok } = await setup();
     task("Only");
 
-    const human = (await ok("show", "ABC-1")).stdout;
+    const { stdout: human } = await ok("show", "ABC-1");
 
     expect(human).toMatch(/Blocked\s+no/);
     expect(human).toContain("Blocked by\n(none)");

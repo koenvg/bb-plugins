@@ -48,7 +48,8 @@ describe("Manage labels", () => {
       };
 
       submit();
-      expect((await slot.findByRole("alert")).textContent).toBe("Label creation unavailable");
+      const byRole = await slot.findByRole("alert");
+      expect(byRole.textContent).toBe("Label creation unavailable");
       expect(name).toHaveProperty("value", "  Release  ");
       expect(slot.getByRole("radio", { name: "Green" }).getAttribute("aria-checked")).toBe("true");
       expect(slot.getByRole("button", { name: "Add label" })).toHaveProperty("disabled", false);

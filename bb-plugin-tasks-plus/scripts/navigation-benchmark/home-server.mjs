@@ -36,10 +36,8 @@ await runLocalHarness({
         format: "esm",
         tsconfig: join(tasks, "tsconfig.json"),
       });
-      backend = (await import(join(output, "backend.mjs"))).createLocalBackend(
-        "bbp60-home-413",
-        413,
-      );
+      const { createLocalBackend } = await import(join(output, "backend.mjs"));
+      backend = createLocalBackend("bbp60-home-413", 413);
       resources.backend = backend;
       await write("fixture.json", backend.fixture);
       const graph = await build({

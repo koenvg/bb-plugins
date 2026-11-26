@@ -269,7 +269,8 @@ describe("snoozes", () => {
     expect(changes(harness)).toHaveLength(2);
     rows.push(row("new-child", "parent"));
     await harness.emitThreadEvent("thread.failed", thread("new-child"));
-    expect((await list(harness)).snoozes).toEqual(result.snoozes);
+    const result2 = await list(harness);
+    expect(result2.snoozes).toEqual(result.snoozes);
   });
 
   it("does not persist or publish a partial group after a later read fails", async () => {
@@ -295,7 +296,8 @@ describe("snoozes", () => {
       await harness.callRpc("snooze", { threadId: "other", wakeAt: NOW + HOUR });
       if (event === "manual") await harness.callRpc("wake", { threadId: "grandchild" });
       else await harness.emitThreadEvent(event, thread("grandchild"));
-      expect((await list(harness)).snoozes).toEqual({ other: NOW + HOUR });
+      const result = await list(harness);
+      expect(result.snoozes).toEqual({ other: NOW + HOUR });
       expect(harness.sdk.callsTo("threads.markUnread")).toEqual([]);
       expect(changes(harness)).toHaveLength(3);
     },
@@ -310,13 +312,15 @@ describe("snoozes", () => {
       await harness.lifecycle.dispose();
       harness = setup({ rows: family, databasePath });
       await harness.emitThreadEvent("thread.failed", thread("child"));
-      expect((await list(harness)).snoozes).toEqual({});
+      const result = await list(harness);
+      expect(result.snoozes).toEqual({});
       await harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR });
       await harness.lifecycle.dispose();
       vi.setSystemTime(NOW + 2 * HOUR);
       harness = setup({ rows: family, databasePath });
       await harness.runSchedule(SNOOZE_WAKE_SCHEDULE);
-      expect((await list(harness)).snoozes).toEqual({});
+      const result2 = await list(harness);
+      expect(result2.snoozes).toEqual({});
       expect(harness.sdk.callsTo("threads.markUnread")).toHaveLength(4);
     } finally {
       await harness.lifecycle.dispose();
@@ -333,7 +337,8 @@ describe("snoozes", () => {
         return {};
       });
       await harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR });
-      expect((await list(harness)).snoozes).toEqual({});
+      const result = await list(harness);
+      expect(result.snoozes).toEqual({});
     },
   );
 
@@ -342,7 +347,8 @@ describe("snoozes", () => {
     await harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR });
     await harness.emitThreadEvent("thread.archived", thread("parent"));
     await harness.emitThreadEvent("thread.unarchived", thread("parent"));
-    expect((await list(harness)).snoozes).toEqual({
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({
       child: NOW + HOUR,
       grandchild: NOW + HOUR,
       sibling: NOW + HOUR,
@@ -353,7 +359,8 @@ describe("snoozes", () => {
       return {};
     });
     await harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR });
-    expect((await list(harness)).snoozes).toEqual({
+    const result2 = await list(harness);
+    expect(result2.snoozes).toEqual({
       parent: NOW + HOUR,
       grandchild: NOW + HOUR,
       sibling: NOW + HOUR,
@@ -371,7 +378,8 @@ describe("snoozes", () => {
     rows[rows.findIndex(({ id }) => id === "sibling")] = row("sibling", "parent", NOW);
     vi.setSystemTime(NOW + HOUR);
     await harness.runSchedule(SNOOZE_WAKE_SCHEDULE);
-    expect((await list(harness)).snoozes).toEqual({});
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({});
     expect(harness.sdk.callsTo("threads.markUnread").flat()).toEqual(
       expect.arrayContaining([{ threadId: "parent" }, { threadId: "grandchild" }]),
     );
@@ -405,7 +413,8 @@ describe("snoozes", () => {
     await new Promise<void>((resolve) => setImmediate(resolve));
     finishUnread();
     await Promise.all([sweep, replacement]);
-    expect((await list(harness)).snoozes).toEqual({
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({
       parent: NOW + 5 * HOUR,
       child: NOW + 5 * HOUR,
       grandchild: NOW + 5 * HOUR,
@@ -424,7 +433,8 @@ describe("snoozes", () => {
     vi.setSystemTime(NOW + HOUR);
     await harness.runSchedule(SNOOZE_WAKE_SCHEDULE);
     expect(harness.sdk.callsTo("threads.markUnread")).toEqual([]);
-    expect((await list(harness)).snoozes).toEqual({});
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({});
   });
 
   it.each(["thread.idle", "thread.failed"] as const)(
@@ -439,7 +449,8 @@ describe("snoozes", () => {
         return family;
       });
       await harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR });
-      expect((await list(harness)).snoozes).toEqual({});
+      const result = await list(harness);
+      expect(result.snoozes).toEqual({});
     },
   );
 
@@ -453,7 +464,8 @@ describe("snoozes", () => {
       return family;
     });
     await harness.callRpc("snooze", { threadId: "child", wakeAt: NOW + HOUR });
-    expect((await list(harness)).snoozes).toEqual({ child: NOW + HOUR, grandchild: NOW + HOUR });
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({ child: NOW + HOUR, grandchild: NOW + HOUR });
   });
 
   it("does not capture a member removed during hierarchy loading", async () => {
@@ -466,7 +478,8 @@ describe("snoozes", () => {
       return family;
     });
     await harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR });
-    expect((await list(harness)).snoozes).toEqual({
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({
       parent: NOW + HOUR,
       grandchild: NOW + HOUR,
       sibling: NOW + HOUR,
@@ -494,7 +507,8 @@ describe("snoozes", () => {
     await harness.emitThreadEvent("thread.failed", thread("child"));
     finishUnread();
     await Promise.all([sweep, replacement]);
-    expect((await list(harness)).snoozes).toEqual({});
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({});
   });
 
   it("releases the mutation queue after a failed read update", async () => {
@@ -507,6 +521,7 @@ describe("snoozes", () => {
       harness.callRpc("snooze", { threadId: "parent", wakeAt: NOW + HOUR }),
     ).rejects.toThrow("cannot mark read");
     await harness.callRpc("snooze", { threadId: "other", wakeAt: NOW + HOUR });
-    expect((await list(harness)).snoozes).toEqual({ other: NOW + HOUR });
+    const result = await list(harness);
+    expect(result.snoozes).toEqual({ other: NOW + HOUR });
   });
 });

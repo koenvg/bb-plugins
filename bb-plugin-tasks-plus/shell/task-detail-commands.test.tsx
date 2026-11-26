@@ -722,7 +722,8 @@ describe("linked BB project command", () => {
     expect(slot.queryByLabelText("Linked bb project")).toBeNull();
     expect(projectUpdates).toEqual([]);
     run(linkedProjectCommand);
-    expect((await slot.findByLabelText("Linked bb project")).textContent).toBe("Not linked");
+    const byLabelText = await slot.findByLabelText("Linked bb project");
+    expect(byLabelText.textContent).toBe("Not linked");
   });
 
   it("retargets a listed command to the newly shown task's tracker", async () => {
@@ -808,9 +809,8 @@ describe("linked BB project command", () => {
     const reloaded = render("task/TSK-2");
     await ready(reloaded, "TSK-2");
     run(linkedProjectCommand);
-    expect((await reloaded.findByLabelText("Linked bb project")).textContent).toBe(
-      "Second workspace",
-    );
+    const byLabelText = await reloaded.findByLabelText("Linked bb project");
+    expect(byLabelText.textContent).toBe("Second workspace");
     fireEvent.click(reloaded.getByRole("button", { name: "Unlink" }));
     await waitFor(() =>
       expect(projectUpdates).toEqual([

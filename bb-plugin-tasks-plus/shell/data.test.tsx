@@ -21,7 +21,10 @@ interface ProbeProps {
 
 const Probe = ({ taskKey, onFrame }: ProbeProps) => {
   const query = useTasksQuery(
-    async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
+    async (rpc) => {
+      const result = await rpc.call("getTaskByKey", { taskKey });
+      return result.task;
+    },
     ["tasks:changed"],
     [taskKey],
   );
@@ -215,7 +218,10 @@ const StandaloneProbe = () => {
   const refresh = useTasksRefreshSource();
   const query = useTasksQueryWithRefresh(
     refresh,
-    async (rpc) => (await rpc.call("getTaskByKey", { taskKey: first.key })).task,
+    async (rpc) => {
+      const result = await rpc.call("getTaskByKey", { taskKey: first.key });
+      return result.task;
+    },
     ["tasks:changed"],
   );
   return (

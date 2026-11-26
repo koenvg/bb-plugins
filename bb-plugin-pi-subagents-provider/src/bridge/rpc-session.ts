@@ -444,7 +444,8 @@ export class PiRpcSession {
     if (this.isProcessing) {
       throw new Error("Cannot compact context while Pi is processing a turn");
     }
-    if ((await this.getState()).isStreaming) {
+    const state = await this.getState();
+    if (state.isStreaming) {
       throw new Error("Cannot compact context while Pi is processing a turn");
     }
     await this.prepareSpeed();

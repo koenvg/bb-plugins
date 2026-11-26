@@ -51,9 +51,8 @@ describe("creator attribution without dependency policy", () => {
     const show = await f.cli(["show", agent.key]);
     expect(show.stdout).toContain("thr_creator");
     expect(await f.list("--blocked")).toEqual([]);
-    expect((await f.list("--ready")).map((task) => task.id).sort()).toEqual(
-      [agent.id, human.id].sort(),
-    );
+    const result = await f.list("--ready");
+    expect(result.map((task) => task.id).sort()).toEqual([agent.id, human.id].sort());
     expect(f.get).not.toHaveBeenCalled();
   });
 
@@ -109,9 +108,8 @@ describe("creator attribution without dependency policy", () => {
     expect(blocked).toMatchObject([
       { id: dependent.id, openBlockerCount: 1, blocked: true, blockedBy: [{ id: blocker.id }] },
     ]);
-    expect((await f.list("--ready")).map((task) => task.id).sort()).toEqual(
-      [ready.id, blocker.id].sort(),
-    );
+    const result = await f.list("--ready");
+    expect(result.map((task) => task.id).sort()).toEqual([ready.id, blocker.id].sort());
     const source = tasksRpcContract.getTask.output.parse(
       await f.harness.callRpc("getTask", { taskId: blocker.id }),
     ).task!;
@@ -123,7 +121,8 @@ describe("creator attribution without dependency policy", () => {
     for (const status of ["done", "canceled"] as const) {
       f.store.tasks.updateTask(blocker.id, { status });
       expect(await f.list("--blocked")).toEqual([]);
-      expect((await f.list("--ready")).find((task) => task.id === dependent.id)).toMatchObject({
+      const result2 = await f.list("--ready");
+      expect(result2.find((task) => task.id === dependent.id)).toMatchObject({
         openBlockerCount: 0,
         blocked: false,
         blockedBy: [{ id: blocker.id, status }],

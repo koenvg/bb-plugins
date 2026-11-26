@@ -28,7 +28,8 @@ describe("browse delayed focus and save safety", () => {
         throw new Error("Lookup offline");
       },
     });
-    (await slot.findByRole("button", { name: "Open TSK-1: Title 1" })).focus();
+    const byRole = await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
+    byRole.focus();
     press("o");
     await acceptNavigation(slot);
     await act(async () => loaded.resolve(null));
@@ -69,7 +70,8 @@ describe("browse delayed focus and save safety", () => {
     async (target) => {
       const loaded = deferred<unknown>();
       const slot = setup("all", { getTaskByKey: () => loaded.promise });
-      (await slot.findByRole("button", { name: "Open TSK-1: Title 1" })).focus();
+      const byRole = await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
+      byRole.focus();
       press("o");
       await acceptNavigation(slot);
       const other = document.createElement(target === "editor" ? "input" : "button");

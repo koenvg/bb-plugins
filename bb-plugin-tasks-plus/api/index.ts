@@ -868,19 +868,19 @@ export function registerHandlers(
               limitPerGroup: String(MAX_THREAD_SEARCH_RESULTS),
             })
           : null;
-      const threads = candidates
-        ? [...candidates.active.results, ...candidates.archived.results].map(
-            (result) => result.thread,
-          )
-        : (
-            await bb.sdk.threads.list({
-              limit: MAX_THREAD_SEARCH_RESULTS,
-            })
-          ).filter((thread) => {
-            if (query.length === 0) return true;
-            const title = thread.title ?? thread.titleFallback ?? "";
-            return title.toLocaleLowerCase().includes(query.toLocaleLowerCase());
-          });
+      let threads;
+      if (candidates) {
+        threads = [...candidates.active.results, ...candidates.archived.results].map(
+          (result) => result.thread,
+        );
+      } else {
+        const recent = await bb.sdk.threads.list({ limit: MAX_THREAD_SEARCH_RESULTS });
+        threads = recent.filter((thread) => {
+          if (query.length === 0) return true;
+          const title = thread.title ?? thread.titleFallback ?? "";
+          return title.toLocaleLowerCase().includes(query.toLocaleLowerCase());
+        });
+      }
       return {
         threads: threads
           .sort((left, right) => right.updatedAt - left.updatedAt)

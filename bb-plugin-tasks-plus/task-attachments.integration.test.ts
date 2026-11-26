@@ -180,9 +180,8 @@ describe("complete task attachment enumeration", () => {
         }
         for (const attachment of retained) {
           expect(store.tasks.getAttachment(attachment.id)).toEqual(attachment);
-          expect((await stat(join(dirname(database.file), attachment.blobPath))).isFile()).toBe(
-            true,
-          );
+          const result2 = await stat(join(dirname(database.file), attachment.blobPath));
+          expect(result2.isFile()).toBe(true);
           expect(await readFile(join(dirname(database.file), attachment.blobPath), "utf8")).toBe(
             attachment.fileName,
           );

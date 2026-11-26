@@ -137,7 +137,11 @@ async function presetSpawnEnvironment(bb: BbPluginApi, preset: Preset): Promise<
     return { type: "project-default" };
   }
 
-  const hostId = preset.machineId ?? (await bb.sdk.system.config()).primaryHostId;
+  let hostId = preset.machineId;
+  if (hostId == null) {
+    const config = await bb.sdk.system.config();
+    hostId = config.primaryHostId;
+  }
   if (hostId === null) {
     throw new DelegationError(
       "spawn_target_invalid",

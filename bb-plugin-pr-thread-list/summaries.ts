@@ -9,9 +9,8 @@ type Sdk = Pick<BbPluginApi["sdk"], "threads" | "plugins">;
 
 async function insightAvailable(sdk: Sdk): Promise<boolean> {
   try {
-    const plugin = (await sdk.plugins.list()).plugins.find(
-      (entry) => entry.id === INSIGHT_PLUGIN_ID,
-    );
+    const result = await sdk.plugins.list();
+    const plugin = result.plugins.find((entry) => entry.id === INSIGHT_PLUGIN_ID);
     return plugin !== undefined && plugin.enabled && LIVE_STATUSES.has(plugin.status);
   } catch {
     // A list we may not read must not hide PR status that github-insight still writes.

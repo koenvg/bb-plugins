@@ -102,7 +102,8 @@ function renderParent(
 }
 
 async function subtaskRow(slot: ReturnType<typeof renderParent>, key: string) {
-  const row = (await slot.findByText(key)).closest("button");
+  const byText = await slot.findByText(key);
+  const row = byText.closest("button");
   return within(row!);
 }
 
@@ -145,7 +146,8 @@ describe("sub-task rows in the parent detail view", () => {
           return host.harness.callRpc("createTask", rpcInput(raw));
         },
       );
-      expect((await slot.findByText("Not archived")).textContent).toBe("Not archived");
+      const byText = await slot.findByText("Not archived");
+      expect(byText.textContent).toBe("Not archived");
       fireEvent.click(await slot.findByRole("button", { name: "Add sub-task" }));
       const input = slot.getByPlaceholderText("Sub-task of ABC-1…");
       fireEvent.change(input, { target: { value: "Independent child" } });
@@ -195,8 +197,10 @@ describe("sub-task rows in the parent detail view", () => {
   it("show dependency badges per sub-task", async () => {
     const slot = renderParent(() => [blockedSubtask, blockingSubtask, plainSubtask]);
 
-    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1 task")).toBeTruthy();
-    expect((await subtaskRow(slot, "ABC-3")).getByText("Blocks 2 tasks")).toBeTruthy();
+    const result = await subtaskRow(slot, "ABC-2");
+    expect(result.getByText("Blocked by 1 task")).toBeTruthy();
+    const result2 = await subtaskRow(slot, "ABC-3");
+    expect(result2.getByText("Blocks 2 tasks")).toBeTruthy();
     const plain = await subtaskRow(slot, "ABC-4");
     expect(plain.queryByText(/Blocked by|Blocks/)).toBeNull();
   });
@@ -204,7 +208,8 @@ describe("sub-task rows in the parent detail view", () => {
   it("drop the blocked badge when the blocker is done", async () => {
     let current = blockedSubtask;
     const slot = renderParent(() => [current]);
-    expect((await subtaskRow(slot, "ABC-2")).getByText("Blocked by 1 task")).toBeTruthy();
+    const result = await subtaskRow(slot, "ABC-2");
+    expect(result.getByText("Blocked by 1 task")).toBeTruthy();
 
     current = {
       ...blockedSubtask,
@@ -217,8 +222,9 @@ describe("sub-task rows in the parent detail view", () => {
       projectId: PROJECT_ID,
     });
 
-    await waitFor(async () =>
-      expect((await subtaskRow(slot, "ABC-2")).queryByText("Blocked by 1 task")).toBeNull(),
-    );
+    await waitFor(async () => {
+      const result = await subtaskRow(slot, "ABC-2");
+      return expect(result.queryByText("Blocked by 1 task")).toBeNull();
+    });
   });
 });

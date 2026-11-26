@@ -67,7 +67,8 @@ test(
       if (guardClosed) await guardClosed;
       await rm(root, { recursive: true, force: true });
     });
-    const start = (await execFile("ps", ["-p", String(dummy.pid), "-o", "lstart="])).stdout.trim();
+    const result2 = await execFile("ps", ["-p", String(dummy.pid), "-o", "lstart="]);
+    const start = result2.stdout.trim();
     await dummyClosed;
     guard = spawn(
       process.execPath,
@@ -116,7 +117,8 @@ test(
     assert.equal(result.passed, true);
     assert.equal(result.knownPidCount, 1);
     assert.ok(result.actionElapsedMs < plan.limitMs);
-    const calls = (await readFile(log, "utf8"))
+    const file = await readFile(log, "utf8");
+    const calls = file
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));

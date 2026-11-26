@@ -81,7 +81,8 @@ describe("safe standalone detail navigation", () => {
     expect(slot.inspection.navigateCalls).toEqual([]);
     await changeDescription(slot, "Latest A");
     await act(async () => reply.resolve({ ok: false, error: { message: "Cannot save" } }));
-    expect((await slot.findByRole("alert")).textContent).toContain("Cannot save");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Cannot save");
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(slot.container.querySelector(".tiptap")?.textContent).toContain("Latest A");
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));

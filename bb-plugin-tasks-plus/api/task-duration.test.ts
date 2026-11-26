@@ -53,7 +53,8 @@ describe("single-task duration from persisted status history", () => {
       ["done", "2026-10-21T17:00:00.000Z"],
     ] as const)
       await f.transition(status, at);
-    expect((await f.lookup()).duration).toEqual(completed);
+    const result = await f.lookup();
+    expect(result.duration).toEqual(completed);
     const byId = tasksRpcContract.getTask.output.parse(
       await f.call("getTask", { taskId: f.task.id }),
     );
@@ -75,7 +76,8 @@ describe("single-task duration from persisted status history", () => {
       await f.transition(status, "2026-10-20T09:00:00.000Z");
       await f.transition("in_progress", "2026-10-20T11:00:00.000Z");
       await f.transition("done", completed.completedAt);
-      expect((await f.lookup()).duration).toEqual({
+      const result = await f.lookup();
+      expect(result.duration).toEqual({
         ...completed,
         interrupted: true,
         statisticsEligible: false,
@@ -120,29 +122,34 @@ describe("single-task duration from persisted status history", () => {
     });
     await f.transition("in_progress", "2026-10-21T10:00:00.000Z");
     await f.transition("done", completed.completedAt);
-    expect((await f.lookup()).duration).toEqual(completed);
+    const result = await f.lookup();
+    expect(result.duration).toEqual(completed);
   });
 
   it("reports missing or invalid history without using task timestamps", async () => {
     const f = setup();
-    expect((await f.lookup()).duration).toMatchObject({
+    const result = await f.lookup();
+    expect(result.duration).toMatchObject({
       kind: "unavailable",
       reason: "missing-start",
     });
     await f.transition("in_progress", completed.startedAt);
     f.db.prepare("UPDATE tasks SET status = 'done' WHERE id = ?").run(f.task.id);
     f.db.prepare("DELETE FROM task_status_transitions WHERE to_status = 'done'").run();
-    expect((await f.lookup()).duration).toMatchObject({
+    const result2 = await f.lookup();
+    expect(result2.duration).toMatchObject({
       kind: "unavailable",
       reason: "missing-completion",
     });
     f.db.prepare("UPDATE task_status_transitions SET changed_at = 'invalid'").run();
-    expect((await f.lookup()).duration).toMatchObject({
+    const result3 = await f.lookup();
+    expect(result3.duration).toMatchObject({
       kind: "unavailable",
       reason: "invalid-timestamp",
     });
     f.db.prepare("DELETE FROM task_status_transitions").run();
-    expect((await f.lookup()).duration).toMatchObject({
+    const result4 = await f.lookup();
+    expect(result4.duration).toMatchObject({
       kind: "unavailable",
       reason: "missing-start",
     });

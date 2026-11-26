@@ -92,13 +92,10 @@ describe("Stats in the production shell", () => {
       "1 canceled task excluded.",
     );
     fireEvent.click(slot.getByRole("button", { name: "Show tasks" }));
-    expect(
-      (
-        await slot.findByRole("button", {
-          name: "Open DEV-11: Move task attachments into the detail panel",
-        })
-      ).textContent,
-    ).toContain("7d 8h");
+    const byRole = await slot.findByRole("button", {
+      name: "Open DEV-11: Move task attachments into the detail panel",
+    });
+    expect(byRole.textContent).toContain("7d 8h");
     expect(measures(slot.container)).toEqual(["1d 4h", "1d 7.6h", "10"]);
     fireEvent.click(slot.getByRole("button", { name: "Hide tasks" }));
     expect(slot.queryByText("Interrupted tasks")).toBeNull();
@@ -166,7 +163,8 @@ describe("Stats in the production shell", () => {
     await act(async () => resolve(rpc.getTaskStats({})));
     await slot.findByText("Slowest completed tasks");
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
-    expect((await slot.findByRole("alert")).textContent).toContain("Stats unavailable");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Stats unavailable");
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
     await slot.findByText("Slowest completed tasks");
     expect(measures(slot.container)).toEqual(["1d 4h", "1d 7.6h", "10"]);
@@ -198,7 +196,8 @@ describe("Stats in the production shell", () => {
     await slot.findByText("Slowest completed tasks");
     expect(localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)).toBe(before);
     fireEvent.keyDown(slot.getByRole("button", { name: "Tasks navigation" }), { key: "ArrowDown" });
-    expect((await slot.findByRole("menuitem", { name: "Stats" })).textContent).toContain("Stats");
+    const byRole = await slot.findByRole("menuitem", { name: "Stats" });
+    expect(byRole.textContent).toContain("Stats");
     fireEvent.keyDown(slot.getByRole("menu"), { key: "Escape" });
     fireEvent.click(
       within(slot.getByRole("navigation", { name: "Tasks views" })).getByRole("button", {
@@ -207,9 +206,8 @@ describe("Stats in the production shell", () => {
     );
     expect(slot.navigateCalls.at(-1)).toEqual(destination(project.id));
     slot.lifecycle.rerender(<Panel subPath={project.id} />);
-    expect((await slot.findByRole("button", { name: "Board" })).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
+    const byRole2 = await slot.findByRole("button", { name: "Board" });
+    expect(byRole2.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("holds detail Back to Stats until the pending description save succeeds", async () => {
@@ -251,7 +249,8 @@ describe("Stats in the production shell", () => {
       getTaskStats: () => aggregateTaskStats(statsInputs.slice(0, count), statsProjects),
     });
     const warning = `Only ${count} ${count === 1 ? "task" : "tasks"} so far. Treat these numbers as an early indication.`;
-    expect((await slot.findByText(warning)).textContent).toBe(warning);
+    const byText = await slot.findByText(warning);
+    expect(byText.textContent).toBe(warning);
     expect(slot.container.querySelectorAll(".stats-slowest button")).toHaveLength(count);
   });
 

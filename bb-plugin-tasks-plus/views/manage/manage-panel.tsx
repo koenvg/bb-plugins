@@ -110,8 +110,11 @@ const LabelsSection = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const projectId = selectedProjectId ?? projectList[0]?.id ?? null;
   const labels = useTasksQuery(
-    async (rpc) =>
-      projectId ? (await rpc.call("listLabels", { projectId })).labels : ([] as Label[]),
+    async (rpc): Promise<Label[]> => {
+      if (!projectId) return [];
+      const { labels } = await rpc.call("listLabels", { projectId });
+      return labels;
+    },
     ["projects:changed"],
     [projectId],
   );
@@ -259,7 +262,10 @@ const LabelsSection = () => {
 const PresetsSection = () => {
   const rpc = useTasksRpc();
   const presets = usePresets();
-  const machines = useTasksQuery(async (rpc) => (await rpc.call("listMachines", {})).machines, []);
+  const machines = useTasksQuery(async (rpc) => {
+    const result = await rpc.call("listMachines", {});
+    return result.machines;
+  }, []);
   const [dialog, setDialog] = useState<{
     key: number;
     editing: Preset | null;

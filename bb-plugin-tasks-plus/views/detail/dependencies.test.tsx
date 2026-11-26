@@ -220,10 +220,12 @@ describe("task detail dependency sections", () => {
       },
     });
     const attribution = await section(slot, "Creation attribution");
-    expect((await attribution.findByText("Not archived")).textContent).toBe("Not archived");
+    const byText = await attribution.findByText("Not archived");
+    expect(byText.textContent).toBe("Not archived");
     archivedAt = 1;
     await slot.behavior.emitRealtime("threads:changed", {});
-    expect((await attribution.findByText("Archived")).textContent).toBe("Archived");
+    const byText2 = await attribution.findByText("Archived");
+    expect(byText2.textContent).toBe("Archived");
     await slot.behavior.emitRealtime("tasks:changed", {});
     await waitFor(() =>
       expect(slot.getByRole("region", { name: "Blocked by" }).textContent).toContain(
@@ -232,12 +234,12 @@ describe("task detail dependency sections", () => {
     );
     deletedAt = 2;
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
-    expect((await attribution.findByText("Deleted")).textContent).toBe("Deleted");
+    const byText3 = await attribution.findByText("Deleted");
+    expect(byText3.textContent).toBe("Deleted");
     fail = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    expect((await attribution.findByText("Unavailable. Archive state unknown.")).textContent).toBe(
-      "Unavailable. Archive state unknown.",
-    );
+    const byText4 = await attribution.findByText("Unavailable. Archive state unknown.");
+    expect(byText4.textContent).toBe("Unavailable. Archive state unknown.");
     expect(attribution.queryByText("Deleted")).toBeNull();
     expect(
       attribution.getByRole("button", { name: "Open creator thread thr_lifecycle" }).textContent,
@@ -293,9 +295,8 @@ describe("task detail dependency sections", () => {
     });
     const blocked = await section(slot, "Blocked by");
     const attribution = await section(slot, "Creation attribution");
-    expect((await attribution.findByText("Release readiness")).textContent).toBe(
-      "Release readiness",
-    );
+    const byText = await attribution.findByText("Release readiness");
+    expect(byText.textContent).toBe("Release readiness");
     expect(blocked.queryByText("thr_creator_full_id")).toBeNull();
     expect(attribution.getByText("thr_creator_full_id").textContent).toBe("thr_creator_full_id");
     expect(reads).toEqual(["thr_creator_full_id"]);
@@ -325,11 +326,11 @@ describe("task detail dependency sections", () => {
     expect(attribution.getByText("thr_unavailable_full_id").textContent).toBe(
       "thr_unavailable_full_id",
     );
-    expect((await section(slot, "Blocked by")).getByText("No open blockers.")).toBeTruthy();
+    const result = await section(slot, "Blocked by");
+    expect(result.getByText("No open blockers.")).toBeTruthy();
     await act(async () => response.reject(new Error("Denied")));
-    expect((await attribution.findByText("Unavailable. Archive state unknown.")).textContent).toBe(
-      "Unavailable. Archive state unknown.",
-    );
+    const byText = await attribution.findByText("Unavailable. Archive state unknown.");
+    expect(byText.textContent).toBe("Unavailable. Archive state unknown.");
     fireEvent.click(
       attribution.getByRole("button", { name: "Open creator thread thr_unavailable_full_id" }),
     );
@@ -368,7 +369,8 @@ describe("task detail dependency sections", () => {
     ).toBe("Resolved · 2 · not included in open blockers");
     expect(blocked.getAllByText("Not an open blocker")).toHaveLength(2);
     const attribution = await section(slot, "Creation attribution");
-    expect((await attribution.findByText("Fallback title")).textContent).toBe("Fallback title");
+    const byText = await attribution.findByText("Fallback title");
+    expect(byText.textContent).toBe("Fallback title");
     expect(attribution.getByText("Archived").textContent).toBe("Archived");
     expect(blocked.queryByText("thr_archived")).toBeNull();
     fireEvent.click(blocked.getByRole("button", { name: /Open task ABC-3/ }));
@@ -385,8 +387,10 @@ describe("task detail dependency sections", () => {
       [3, 5],
       [5, 4],
     ]);
-    expect((await section(slot, "Blocked by")).getByText("ABC-3")).toBeTruthy();
-    expect((await section(slot, "Blocks")).getByText("ABC-4")).toBeTruthy();
+    const result = await section(slot, "Blocked by");
+    expect(result.getByText("ABC-3")).toBeTruthy();
+    const result2 = await section(slot, "Blocks");
+    expect(result2.getByText("ABC-4")).toBeTruthy();
     for (const number of [4, 3, 5]) await selectTask(slot, number);
     expect(catalogReads(slot)).toHaveLength(0);
     await slot.behavior.emitRealtime("tasks:changed", {});
@@ -401,7 +405,8 @@ describe("task detail dependency sections", () => {
   ])("keeps keyboard search focus while %s choices load", async (name, label) => {
     const page = deferred<{ tasks: Task[]; nextCursor: null }>();
     const slot = renderDetail([], { catalog: () => page.promise });
-    fireEvent.click((await section(slot, name)).getByRole("button", { name: label }));
+    const result = await section(slot, name);
+    fireEvent.click(result.getByRole("button", { name: label }));
     await pickerStatus(slot);
     const input = slot.getByRole("combobox");
     await waitFor(() => expect(document.activeElement).toBe(input));
@@ -421,12 +426,12 @@ describe("task detail dependency sections", () => {
     });
     const blockedBy = await section(slot, "Blocked by");
     fireEvent.click(blockedBy.getByRole("button", { name: "Add blocker" }));
-    expect((await pickerStatus(slot)).textContent).toContain("Loading tasks");
+    const result = await pickerStatus(slot);
+    expect(result.textContent).toContain("Loading tasks");
     expect(slot.queryByText("No tasks.")).toBeNull();
     await closePicker(slot);
-    fireEvent.click(
-      (await section(slot, "Blocks")).getByRole("button", { name: "Add blocked task" }),
-    );
+    const result2 = await section(slot, "Blocks");
+    fireEvent.click(result2.getByRole("button", { name: "Add blocked task" }));
     expect(catalogReads(slot)).toHaveLength(1);
     await act(async () => page.resolve({ tasks: [baseTask(3)], nextCursor: "page-2" }));
     await slot.findByRole("option", { name: /ABC-4/ });
@@ -439,9 +444,8 @@ describe("task detail dependency sections", () => {
 
   it("shows confirmed empty choices only after a successful read", async () => {
     const slot = renderDetail([], { catalog: () => ({ tasks: [baseTask(5)], nextCursor: null }) });
-    fireEvent.click(
-      (await section(slot, "Blocks")).getByRole("button", { name: "Add blocked task" }),
-    );
+    const result = await section(slot, "Blocks");
+    fireEvent.click(result.getByRole("button", { name: "Add blocked task" }));
     await slot.findByText("No tasks.");
     expect(slot.queryByRole("alert")).toBeNull();
     expect(within(slot.getByRole("listbox")).queryByRole("status")).toBeNull();
@@ -457,16 +461,15 @@ describe("task detail dependency sections", () => {
         return { tasks: [baseTask(4)], nextCursor: null };
       },
     });
-    fireEvent.click(
-      (await section(slot, "Blocked by")).getByRole("button", { name: "Add blocker" }),
-    );
-    expect((await slot.findByRole("alert")).textContent).toContain("Catalog offline");
+    const result = await section(slot, "Blocked by");
+    fireEvent.click(result.getByRole("button", { name: "Add blocker" }));
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Catalog offline");
     expect(slot.queryByText("No tasks.")).toBeNull();
     expect(slot.queryByRole("option")).toBeNull();
     await closePicker(slot);
-    fireEvent.click(
-      (await section(slot, "Blocks")).getByRole("button", { name: "Add blocked task" }),
-    );
+    const result2 = await section(slot, "Blocks");
+    fireEvent.click(result2.getByRole("button", { name: "Add blocked task" }));
     await slot.findByRole("alert");
     expect(catalogReads(slot)).toHaveLength(2);
     fail = false;
@@ -511,9 +514,8 @@ describe("task detail dependency sections", () => {
     const slot = renderDetail([], {
       catalog: () => (++reads === 1 ? old.promise : { tasks: [baseTask(4)], nextCursor: null }),
     });
-    fireEvent.click(
-      (await section(slot, "Blocked by")).getByRole("button", { name: "Add blocker" }),
-    );
+    const result = await section(slot, "Blocked by");
+    fireEvent.click(result.getByRole("button", { name: "Add blocker" }));
     await pickerStatus(slot);
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("option", { name: /ABC-4/ });
@@ -523,9 +525,8 @@ describe("task detail dependency sections", () => {
     await closePicker(slot);
     fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
     await act(async () => {});
-    fireEvent.click(
-      (await section(slot, "Blocks")).getByRole("button", { name: "Add blocked task" }),
-    );
+    const result2 = await section(slot, "Blocks");
+    fireEvent.click(result2.getByRole("button", { name: "Add blocked task" }));
     await slot.findByRole("option", { name: /ABC-4/ });
     expect(catalogReads(slot)).toHaveLength(3);
   });
@@ -539,16 +540,14 @@ describe("task detail dependency sections", () => {
       const slot = renderDetail([], {
         catalog: () => (++reads === 1 ? old.promise : current.promise),
       });
-      fireEvent.click(
-        (await section(slot, "Blocked by")).getByRole("button", { name: "Add blocker" }),
-      );
+      const result2 = await section(slot, "Blocked by");
+      fireEvent.click(result2.getByRole("button", { name: "Add blocker" }));
       await pickerStatus(slot);
       await selectTask(slot, 4);
       expect(slot.queryByRole("combobox")).toBeNull();
       expect(catalogReads(slot)).toHaveLength(1);
-      fireEvent.click(
-        (await section(slot, "Blocks")).getByRole("button", { name: "Add blocked task" }),
-      );
+      const result3 = await section(slot, "Blocks");
+      fireEvent.click(result3.getByRole("button", { name: "Add blocked task" }));
       await act(async () => {
         if (result === "success") old.resolve({ tasks: [baseTask(3)], nextCursor: null });
         else old.reject(new Error("Old task failure"));
@@ -627,6 +626,7 @@ describe("task detail dependency sections", () => {
 
     await slot.findByText(/this makes a cycle/);
     expect(blockedBy.queryByText("ABC-3")).toBeNull();
-    expect((await section(slot, "Blocks")).getByText("ABC-4")).toBeTruthy();
+    const result = await section(slot, "Blocks");
+    expect(result.getByText("ABC-4")).toBeTruthy();
   });
 });

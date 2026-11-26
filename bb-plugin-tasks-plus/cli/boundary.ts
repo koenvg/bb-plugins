@@ -61,9 +61,8 @@ async function defaultProject(
     }
     return undefined;
   }
-  const matches = (await listProjects(domain)).filter(
-    (project) => project.linkedBbProjectId === ctx.projectId,
-  );
+  const projects2 = await listProjects(domain);
+  const matches = projects2.filter((project) => project.linkedBbProjectId === ctx.projectId);
   if (matches.length === 0) {
     throw new CliError(
       `no tracker project is linked to BB project ${ctx.projectId}; pass --project or link one with bb tasks project update`,
@@ -94,9 +93,8 @@ async function requiredProject(
   address: string | undefined,
 ): Promise<Project> {
   if (address) return resolveProject(domain, address);
-  const linked = ctx.projectId
-    ? (await listProjects(domain)).filter((project) => project.linkedBbProjectId === ctx.projectId)
-    : [];
+  const projects = ctx.projectId ? await listProjects(domain) : [];
+  const linked = projects.filter((project) => project.linkedBbProjectId === ctx.projectId);
   const suggestion = linked.length === 1 ? linked[0] : undefined;
   throw new CliError("missing required option --project", {
     code: "missing_required",
@@ -152,7 +150,8 @@ async function resolveTaskIds(
 ): Promise<string[]> {
   const ids: string[] = [];
   for (const address of addresses) {
-    ids.push((await resolveTask(domain, address)).id);
+    const task = await resolveTask(domain, address);
+    ids.push(task.id);
   }
   return ids;
 }

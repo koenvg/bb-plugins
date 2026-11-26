@@ -99,10 +99,12 @@ for (const width of [1280, 390]) {
     const closeBounds = await close.boundingBox();
     await page.screenshot({ path: info.outputPath(`tall-image-open-${width}.png`) });
     await Promise.all([scrollEnd(), page.keyboard.press("PageDown")]);
-    expect((await scroll()).top).toBeGreaterThan(100);
+    const result = await scroll();
+    expect(result.top).toBeGreaterThan(100);
     const afterPage = await scroll();
     await Promise.all([scrollEnd(), page.keyboard.press("PageUp")]);
-    expect((await scroll()).top).toBe(0);
+    const result2 = await scroll();
+    expect(result2.top).toBe(0);
     await page.mouse.move(bounds!.x + bounds!.width / 2, 350);
     await Promise.all([scrollEnd(), page.mouse.wheel(0, 10000)]);
     await expect
@@ -111,7 +113,8 @@ for (const width of [1280, 390]) {
         return current.height - current.client - current.top;
       })
       .toBeLessThanOrEqual(1);
-    expect((await scroll()).top).toBeGreaterThan(100);
+    const result3 = await scroll();
+    expect(result3.top).toBeGreaterThan(100);
     const bottom = await image.boundingBox();
     expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(viewerBounds!.y + viewerBounds!.height);
     expect(bottom!.y + bottom!.height).toBeGreaterThan(400);
@@ -131,7 +134,12 @@ for (const width of [1280, 390]) {
     await page.keyboard.press("Enter");
     await expect(viewer).toBeVisible();
     await page.keyboard.press("PageDown");
-    await expect.poll(async () => (await scroll()).top).toBeGreaterThan(100);
+    await expect
+      .poll(async () => {
+        const result = await scroll();
+        return result.top;
+      })
+      .toBeGreaterThan(100);
     await page.keyboard.press("Escape");
     await expect(viewer).toHaveCount(0);
     await expect(trigger).toBeFocused();

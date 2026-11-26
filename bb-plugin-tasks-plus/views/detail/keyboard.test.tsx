@@ -432,9 +432,8 @@ describe("Markdown dialog in the full Tasks app", () => {
         ]),
       );
       fireEvent.click(slot.getByRole("button", { name: "pending.md" }));
-      expect((await slot.findByRole("dialog", { name: "pending.md" })).textContent).toContain(
-        "Loading Markdown preview…",
-      );
+      const byRole = await slot.findByRole("dialog", { name: "pending.md" });
+      expect(byRole.textContent).toContain("Loading Markdown preview…");
       expect(signal.aborted).toBe(false);
       await act(async () => {
         if (success) attachments.splice(0);
@@ -452,7 +451,8 @@ describe("Markdown dialog in the full Tasks app", () => {
           expect(document.activeElement).toBe(slot.getByRole("button", { name: "Attach file" })),
         );
       } else {
-        expect((await slot.findByText("Disk is read-only")).textContent).toBe("Disk is read-only");
+        const byText = await slot.findByText("Disk is read-only");
+        expect(byText.textContent).toBe("Disk is read-only");
         expect(slot.getByRole("dialog", { name: "pending.md" }).textContent).toContain(
           "Loading Markdown preview…",
         );
@@ -473,9 +473,8 @@ describe("Markdown dialog in the full Tasks app", () => {
         expect(slot.queryByRole("heading", { name: "Still usable" })).toBeNull();
         expect(document.activeElement).toBe(slot.getByRole("button", { name: "Attach file" }));
       } else {
-        expect(
-          (await slot.findByRole("heading", { name: "Still usable", level: 1 })).textContent,
-        ).toBe("Still usable");
+        const byRole2 = await slot.findByRole("heading", { name: "Still usable", level: 1 });
+        expect(byRole2.textContent).toBe("Still usable");
         expect(slot.getByRole("link", { name: "Download" }).getAttribute("href")).toBe(
           `/api/v1/plugins/tasks-plus/http/attachments/download?attachmentId=${attachment.id}`,
         );

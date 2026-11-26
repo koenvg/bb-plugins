@@ -317,7 +317,8 @@ describe("Task embed panel", () => {
     expect(slot.queryByText("TSK-5")).toBeNull();
     expect(slot.getByText("TSK-4")).toBeTruthy();
     await act(async () => finishSave({ ok: false, error: { message: "Save rejected" } }));
-    expect((await slot.findByRole("alert")).textContent).toContain("Save rejected");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Save rejected");
     expect(slot.getByRole("button", { name: "Open TSK-4 in Tasks" })).toBeTruthy();
     expect(slot.queryByRole("button", { name: "Open TSK-5 in Tasks" })).toBeNull();
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Edited A");
@@ -395,9 +396,8 @@ describe("Task embed panel", () => {
         },
       },
     );
-    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe(
-      "Ship task embeds",
-    );
+    const byRole = await slot.findByRole("textbox", { name: "Task title" });
+    expect(byRole.textContent).toBe("Ship task embeds");
     fireEvent.click(slot.getByRole("button", { name: "Open TSK-4 in Tasks" }));
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
@@ -425,9 +425,8 @@ describe("Task embed panel", () => {
       await initial.findByRole("button", { name: "Open TSK-4 in Tasks" });
       cleanup();
       const restored = restore();
-      expect((await restored.findByRole("textbox", { name: "Task title" })).textContent).toBe(
-        "Ship task embeds",
-      );
+      const byRole = await restored.findByRole("textbox", { name: "Task title" });
+      expect(byRole.textContent).toBe("Ship task embeds");
       expect(restored.queryByText("Later linked task")).toBeNull();
     },
   );
@@ -491,9 +490,8 @@ describe("Task embed panel", () => {
         },
       },
     );
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Couldn't load the linked task.",
-    );
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Couldn't load the linked task.");
     expect(slot.queryByText("No task is linked to this thread.")).toBeNull();
     fail = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
@@ -580,7 +578,8 @@ describe("Task embed panel", () => {
       await slot.findByText("Next task");
       slot.getByRole("button", { name: "Open TSK-5 in Tasks" });
     } else {
-      expect((await slot.findByRole("alert")).textContent).toContain("Save rejected");
+      const byRole = await slot.findByRole("alert");
+      expect(byRole.textContent).toContain("Save rejected");
       expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(
         "Edited linked task",
       );

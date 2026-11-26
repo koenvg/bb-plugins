@@ -90,7 +90,8 @@ it("renders Idle to Running to Idle from background-only lifecycle publications 
   );
   const badge = (label: string) =>
     slot.findByRole("button", { name: new RegExp(`Threads for ${task.key}: ${label}`) });
-  expect((await badge("1 Idle")).textContent).toContain("1 Idle");
+  const result = await badge("1 Idle");
+  expect(result.textContent).toContain("1 Idle");
   let signalIndex = 0;
   for (const [count, label, status] of [
     [1, "1 Running", "working"],
@@ -105,7 +106,8 @@ it("renders Idle to Running to Idle from background-only lifecycle publications 
     signalIndex = harness.realtimeSignals.length;
     expect(signals).toEqual([{ channel: "threads:changed", payload: { taskId: task.id } }]);
     for (const signal of signals) await slot.behavior.emitRealtime(signal.channel, signal.payload);
-    expect((await badge(label)).textContent).toContain(label);
+    const result2 = await badge(label);
+    expect(result2.textContent).toContain(label);
     expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.liveStatus)).toEqual([
       status,
     ]);

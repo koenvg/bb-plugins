@@ -52,7 +52,8 @@ describe("browse save and task ownership", () => {
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(row(slot, 3).getAttribute("aria-current")).toBeNull();
     await act(async () => first.resolve({ ok: false, error: { message: "Save refused" } }));
-    expect((await slot.findByRole("alert")).textContent).toContain("Save refused");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Save refused");
     await edit(slot, "Newer draft for A");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Newer draft for A");
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
@@ -145,7 +146,8 @@ describe("selected detail lookup isolation", () => {
     expect(row(slot, 1)).toBeTruthy();
     fail = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
-    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe("Title 2");
+    const byRole = await slot.findByRole("textbox", { name: "Task title" });
+    expect(byRole.textContent).toBe("Title 2");
   });
 
   it("ignores late A responses after B loads", async () => {
@@ -201,7 +203,8 @@ describe("selected detail lookup isolation", () => {
     await edit(slot, "Draft before disappearance");
     missing = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    expect((await slot.findByRole("alert")).textContent).toContain("Retain this draft");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Retain this draft");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft before disappearance");
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(slot.inspection.navigateCalls).toEqual([]);

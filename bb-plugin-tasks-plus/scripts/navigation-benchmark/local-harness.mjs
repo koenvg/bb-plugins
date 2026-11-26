@@ -60,7 +60,8 @@ try {
         tsconfig: join(tasks, "tsconfig.json"),
       });
       // Resolve external backend dependencies from this owned checkout, not the evidence directory.
-      const backendSource = (await readFile(join(output, "backend.mjs"), "utf8")).replaceAll(
+      const file2 = await readFile(join(output, "backend.mjs"), "utf8");
+      const backendSource = file2.replaceAll(
         'from "@get-bb/plugin-sdk/testing"',
         `from ${JSON.stringify(join(tasks, "node_modules/@get-bb/plugin-sdk/dist/testing/index.js"))}`,
       );
@@ -70,8 +71,10 @@ try {
       ledger.database = backend.databasePath;
       await saveLedger();
       // Confirm every fixture read through the schema-validating SDK boundary.
-      for (const task of backend.fixture.tasks)
-        task.revision = (await backend.call("getTaskByKey", { taskKey: task.key })).task.updatedAt;
+      for (const task of backend.fixture.tasks) {
+        const { task: current } = await backend.call("getTaskByKey", { taskKey: task.key });
+        task.revision = current.updatedAt;
+      }
       backend.calls.length = 0;
       await write("fixture.json", backend.fixture);
       const browserBuild = await build({
@@ -115,10 +118,8 @@ try {
         inputs: browserInputs,
         metafile: browserBuild.metafile,
       });
-      const cssSource = (await readFile(join(quota, "scripts/preview.css"), "utf8")).replace(
-        ':where([data-bb-plugin="codex-quota"])',
-        ":where(body)",
-      );
+      const file3 = await readFile(join(quota, "scripts/preview.css"), "utf8");
+      const cssSource = file3.replace(':where([data-bb-plugin="codex-quota"])', ":where(body)");
       const css = await compile(cssSource, { base: join(quota, "scripts"), onDependency() {} });
       const scanner = new Scanner({
         sources: [
@@ -279,7 +280,8 @@ try {
         (response) => response.url() === endpoint + "/app.js",
       );
       await page.goto(endpoint);
-      const loadedBundle = await (await loadedResponse).body();
+      const result2 = await loadedResponse;
+      const loadedBundle = await result2.body();
       if (hash(loadedBundle) !== hash(appBytes))
         throw new Error("Loaded/served/disk bundle mismatch");
       await page.waitForFunction(() => Boolean(window.lab), null, { timeout: 30000 });

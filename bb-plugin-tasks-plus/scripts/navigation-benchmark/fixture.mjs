@@ -62,13 +62,18 @@ export async function writeFixture(dir, owner) {
   );
 }
 export async function cleanupFixture(dir, owner) {
-  if (!(await lstat(dir)).isDirectory() || (await lstat(dir)).isSymbolicLink())
-    throw new Error("Not an owned directory.");
-  const names = (await readdir(dir)).sort();
+  const directory = await lstat(dir);
+  if (!directory.isDirectory()) throw new Error("Not an owned directory.");
+  const linkCheck = await lstat(dir);
+  if (linkCheck.isSymbolicLink()) throw new Error("Not an owned directory.");
+  const names = await readdir(dir);
+  names.sort();
   if (names.join(",") !== "fixture.json,ownership.json")
     throw new Error("Unexpected files; cleanup refused.");
-  for (const name of names)
-    if (!(await lstat(join(dir, name))).isFile()) throw new Error("Not an owned regular file.");
+  for (const name of names) {
+    const file = await lstat(join(dir, name));
+    if (!file.isFile()) throw new Error("Not an owned regular file.");
+  }
   const identity = JSON.parse(await readFile(join(dir, "ownership.json"), "utf8"));
   const bytes = await readFile(join(dir, "fixture.json"));
   if (

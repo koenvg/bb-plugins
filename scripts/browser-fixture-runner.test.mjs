@@ -228,7 +228,8 @@ for (const [mode, signal, code, runtime] of [
       await run.waitFor(mode === "cancel-startup" ? "parent.txt" : "handoff.json");
       run.child.kill(signal);
       run.child.kill(signal);
-      assert.equal((await run.exited)[0], code, run.output());
+      const result = await run.exited;
+      assert.equal(result[0], code, run.output());
       assert.equal(run.output().includes("Infrastructure failure"), false, run.output());
       assert.deepEqual(await readdir(join(run.root, "temporary")), ["historical.png"]);
       if (mode === "cancel-tests") {
@@ -246,7 +247,8 @@ test("invalid worker runtime fails before launching the preview", async () => {
   for (const runtime of ["deno", "", "/usr/bin/node"]) {
     const run = await scenario("success", [], false, runtime);
     try {
-      assert.equal((await run.exited)[0], 1, run.output());
+      const result = await run.exited;
+      assert.equal(result[0], 1, run.output());
       assert.match(run.output(), /BB_PLAYWRIGHT_RUNTIME must be bun or node/);
       assert.deepEqual(await readdir(join(run.root, "temporary")), ["historical.png"]);
       await assert.rejects(readFile(join(run.root, "parent.txt")), { code: "ENOENT" });
@@ -273,7 +275,8 @@ test.each([undefined, "node"])(
     ];
     const run = await scenario("success", args, true, runtime);
     try {
-      assert.equal((await run.exited)[0], 0, run.output());
+      const result = await run.exited;
+      assert.equal(result[0], 0, run.output());
       const handoff = JSON.parse(await readFile(join(run.root, "handoff.json"), "utf8"));
       assert.deepEqual(handoff.args, ["test", ...args.slice(1)]);
       assert.equal(handoff.runtime, runtime ?? "bun");

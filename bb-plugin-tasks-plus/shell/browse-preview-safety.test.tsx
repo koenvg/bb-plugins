@@ -91,9 +91,8 @@ describe("retained preview safety", () => {
     const title = await slot.findByRole("textbox", { name: "Task title" });
     failure = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    expect((await slot.findByRole("alert")).textContent).toContain(
-      "Showing previously loaded data",
-    );
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Showing previously loaded data");
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Description 1");
     expect(slot.inspection.navigateCalls).toEqual([]);

@@ -38,7 +38,7 @@ const labels = {
 };
 function near(value: boolean) {
   act(() => {
-    for (const callback of visible) callback(value);
+    for (const onVisibilityChange of visible) onVisibilityChange(value);
   });
 }
 describe("inline image comparison", () => {

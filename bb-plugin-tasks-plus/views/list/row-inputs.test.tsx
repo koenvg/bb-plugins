@@ -112,11 +112,8 @@ it("keeps task edits, labels and live thread/PR observations visible after selec
   const row = slot.container.querySelector<HTMLElement>('[data-task-key="TSK-1"]')!;
   fireEvent.contextMenu(row);
   fireEvent.keyDown(await slot.findByRole("menuitem", { name: "Labels" }), { key: "ArrowRight" });
-  expect(
-    (await slot.findByRole("menuitemcheckbox", { name: "Regression" })).getAttribute(
-      "aria-checked",
-    ),
-  ).toBe("true");
+  const byRole = await slot.findByRole("menuitemcheckbox", { name: "Regression" });
+  expect(byRole.getAttribute("aria-checked")).toBe("true");
 });
 
 it("uses the current context action for edits and reports pending writes as unsettled", async () => {

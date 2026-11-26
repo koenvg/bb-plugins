@@ -20,9 +20,10 @@ function useThreadTaskData({ threadIds }: PluginThreadActionDataInput): ThreadTa
     refresh,
     async (rpc): Promise<ThreadTaskData> => {
       const results = await Promise.allSettled(
-        threadIds.map(
-          async (threadId) => (await rpc.call("getTasksForThread", { threadId })).tasks,
-        ),
+        threadIds.map(async (threadId) => {
+          const result = await rpc.call("getTasksForThread", { threadId });
+          return result.tasks;
+        }),
       );
       const next = new Map<string, readonly Task[]>();
       threadIds.forEach((id, index) => {

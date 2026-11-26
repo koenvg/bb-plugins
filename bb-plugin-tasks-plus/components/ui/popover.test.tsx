@@ -113,7 +113,8 @@ for (const isCompact of [false, true]) {
       const trigger = view.getByRole("button", { name: "Summary" });
       trigger.focus();
       fireEvent.click(trigger);
-      (await view.findByRole("button", { name: "Close details" })).focus();
+      const byRole = await view.findByRole("button", { name: "Close details" });
+      byRole.focus();
       view.unmount();
       const focusRemoved = vi.spyOn(trigger, "focus");
       const next = document.createElement("button");

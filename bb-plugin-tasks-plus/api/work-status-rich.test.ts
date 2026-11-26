@@ -30,7 +30,8 @@ function clearSummary(overrides: Record<string, unknown> = {}) {
 
 it("reports Ready through public RPC and presentation only with explicit complete fresh producer evidence", async () => {
   const { read } = setup({ thr_a: clearSummary() });
-  const pr = (await read()).pullRequests.items[0]!;
+  const result = await read();
+  const pr = result.pullRequests.items[0]!;
   expect(pr).toMatchObject({
     details: "available",
     rich: { readiness: "ready" },
@@ -40,7 +41,8 @@ it("reports Ready through public RPC and presentation only with explicit complet
 
 it("reads a summary without a waiting count from an older producer", async () => {
   const { read } = setup({ thr_a: clearSummary() });
-  expect((await read()).pullRequests.items[0]!.details).toBe("available");
+  const result = await read();
+  expect(result.pullRequests.items[0]!.details).toBe("available");
 });
 
 it("shows a check waiting for the user instead of Ready", async () => {
@@ -58,7 +60,8 @@ it("shows a check waiting for the user instead of Ready", async () => {
       blockers: ["checks_waiting"],
     }),
   });
-  const pr = (await read()).pullRequests.items[0]!;
+  const result = await read();
+  const pr = result.pullRequests.items[0]!;
   expect(pr.details).toBe("available");
   expect(pr.rich?.conditions).toContain("checks_waiting");
   expect(primaryBucket(pr).label).toBe("Checks waiting for you");
@@ -104,7 +107,8 @@ it("retains a known conflict when current association uncertainty suppresses Rea
       },
     },
   );
-  const pr = (await read()).pullRequests.items[0]!;
+  const result = await read();
+  const pr = result.pullRequests.items[0]!;
   expect(pr).toMatchObject({
     details: "incomplete",
     detailsReason: "association_unavailable",
@@ -124,7 +128,8 @@ it.each(["merged", "closed"] as const)(
         },
       },
     );
-    const pr = (await read()).pullRequests.items[0]!;
+    const result = await read();
+    const pr = result.pullRequests.items[0]!;
     expect(pr).toMatchObject({
       state,
       details: "available",
@@ -169,7 +174,8 @@ it.each([
   "suppresses Ready and exposes incomplete producer prerequisites %#",
   async (overrides, reason) => {
     const { read } = setup({ thr_a: clearSummary(overrides) });
-    const pr = (await read()).pullRequests.items[0]!;
+    const result = await read();
+    const pr = result.pullRequests.items[0]!;
     expect(pr).toMatchObject({ details: "incomplete", detailsReason: reason });
     expect(primaryBucket(pr).label).not.toContain("Ready");
   },
@@ -198,7 +204,8 @@ it.each([
   "cross-checks producer decisions and codes while preserving every blocker %#",
   async (overrides, label) => {
     const { read } = setup({ thr_a: clearSummary(overrides) });
-    const pr = (await read()).pullRequests.items[0]!;
+    const result = await read();
+    const pr = result.pullRequests.items[0]!;
     expect(primaryBucket(pr).label).toBe(label);
     expect(pr.rich?.readiness).not.toBe("ready");
     if (label === "Conflicts" && "blockers" in overrides)
@@ -224,7 +231,8 @@ it.each([
   const { read } = setup({
     thr_a: clearSummary({ mergeQueue: { position: 2, state } }),
   });
-  const pr = (await read()).pullRequests.items[0]!;
+  const result = await read();
+  const pr = result.pullRequests.items[0]!;
   expect(pr).toMatchObject({
     details: "available",
     rich: { queue: { state, position: 2 } },
@@ -246,7 +254,8 @@ it.each([
   "preserves recognized queue cues and uninterpretable secondary evidence %#",
   async (queue, label) => {
     const { read } = setup({ thr_a: clearSummary({ mergeQueue: queue }) });
-    const pr = (await read()).pullRequests.items[0]!;
+    const result = await read();
+    const pr = result.pullRequests.items[0]!;
     expect(pr).toMatchObject({
       details: "incomplete",
       detailsReason: "unsupported_queue",
@@ -325,7 +334,8 @@ it.each(["draft", "merged", "closed"] as const)(
         blockers: ["conflicts", "checks_failed"],
       }),
     });
-    const pr = (await read()).pullRequests.items[0]!;
+    const result = await read();
+    const pr = result.pullRequests.items[0]!;
     expect(primaryBucket(pr).label).toBe(
       state === "draft" ? "Draft, conflicts" : state === "merged" ? "Merged" : "Closed",
     );
@@ -349,7 +359,8 @@ it.each([false, true])(
           }
         : {},
     );
-    const pr = (await read()).pullRequests.items[0]!;
+    const result = await read();
+    const pr = result.pullRequests.items[0]!;
     expect(pr.threadIds).toEqual(expect.arrayContaining(["thr_a", "thr_b"]));
     expect(pr.details).not.toBe("available");
     expect(primaryBucket(pr).label).not.toContain("Ready");
@@ -521,7 +532,8 @@ it.each(["open", "draft", "merged", "closed"] as const)(
         }),
       },
     );
-    expect((await read()).pullRequests.items[0]).toMatchObject({
+    const result = await read();
+    expect(result.pullRequests.items[0]).toMatchObject({
       state,
       details: state === "open" || state === "draft" ? "stale" : "available",
       rich: { refreshedAt: "2020-01-01T00:00:00Z" },
@@ -546,7 +558,8 @@ it.each([
   "keeps host lifecycle but never treats invalid or additive producer evidence as complete %#",
   async (packet, details, reason) => {
     const { read } = setup({ thr_a: packet });
-    expect((await read()).pullRequests.items[0]).toMatchObject({
+    const result = await read();
+    expect(result.pullRequests.items[0]).toMatchObject({
       url: URL,
       state: "open",
       details,
@@ -569,7 +582,8 @@ it("uses newest same-PR evidence, retains all associations, and falls back to ol
     blockers: [],
   });
   const { read } = setup({ thr_old: summary(), thr_new: fresh });
-  expect((await read()).pullRequests.items).toEqual([
+  const result = await read();
+  expect(result.pullRequests.items).toEqual([
     expect.objectContaining({
       details: "available",
       threadIds: expect.arrayContaining(["thr_old", "thr_new"]),
@@ -592,7 +606,8 @@ it("uses newest same-PR evidence, retains all associations, and falls back to ol
       },
     },
   );
-  expect((await terminal.read()).pullRequests).toMatchObject({
+  const result2 = await terminal.read();
+  expect(result2.pullRequests).toMatchObject({
     availability: "partial",
     items: [
       expect.objectContaining({
@@ -623,7 +638,8 @@ it.each([
     const { read } = setup(
       Object.fromEntries(order.map((id) => [id, packets[id as keyof typeof packets]])),
     );
-    expect((await read()).pullRequests.items[0]).toMatchObject({
+    const result = await read();
+    expect(result.pullRequests.items[0]).toMatchObject({
       state: "open",
       details: "unavailable",
       detailsReason: "conflict",
@@ -652,7 +668,8 @@ it.each([
   "only decisive newer evidence supersedes malformed/conflicting details %#",
   async (other, details) => {
     const { read } = setup({ thr_a: summary(), thr_b: other });
-    expect((await read()).pullRequests.items[0]?.details).toBe(details);
+    const result = await read();
+    expect(result.pullRequests.items[0]?.details).toBe(details);
   },
 );
 
@@ -669,7 +686,8 @@ it("uses newer lifecycle evidence but never applies details across an incompatib
       },
     }),
   });
-  expect((await read()).pullRequests.items[0]).toMatchObject({
+  const result = await read();
+  expect(result.pullRequests.items[0]).toMatchObject({
     state: "merged",
     details: "unavailable",
     detailsReason: "lifecycle_mismatch",
@@ -677,7 +695,8 @@ it("uses newer lifecycle evidence but never applies details across an incompatib
   const newerMetadata = setup({
     thr_a: summary({ pr: { number: 42, url: URL, state: "draft" } }),
   });
-  expect((await newerMetadata.read()).pullRequests.items[0]).toMatchObject({
+  const result2 = await newerMetadata.read();
+  expect(result2.pullRequests.items[0]).toMatchObject({
     state: "draft",
     details: "available",
   });
@@ -693,7 +712,8 @@ it("uses newer lifecycle evidence but never applies details across an incompatib
       },
     }),
   });
-  expect((await different.read()).pullRequests.items).toEqual([
+  const result3 = await different.read();
+  expect(result3.pullRequests.items).toEqual([
     expect.objectContaining({
       url: "https://github.com/acme/other/pull/42",
       details: "unavailable",
@@ -703,7 +723,8 @@ it("uses newer lifecycle evidence but never applies details across an incompatib
   const absent = setup(undefined, {
     host: async () => ({ outcome: "absent" }),
   });
-  expect((await absent.read()).pullRequests).toEqual({
+  const result4 = await absent.read();
+  expect(result4.pullRequests).toEqual({
     availability: "available",
     items: [],
     unavailableThreadIds: [],
@@ -715,7 +736,8 @@ it("keeps unresolved equal-time lifecycle conflicts unavailable", async () => {
     thr_a: summary(),
     thr_b: summary({ pr: { number: 42, url: URL, state: "merged" } }),
   });
-  expect((await read()).pullRequests.items[0]).toMatchObject({
+  const result = await read();
+  expect(result.pullRequests.items[0]).toMatchObject({
     state: "unknown",
     details: "unavailable",
     detailsReason: "conflict",
@@ -747,12 +769,14 @@ it.each([
   async (plugins, reason) => {
     const { read, getMetadata, plugins: detection } = setup(undefined, { plugins });
     const id = "00000000-0000-4000-8000-000000000001";
-    for (const step of ["start", "continue", "finish"] as const)
-      expect((await read({ id, step })).pullRequests.items[0]).toMatchObject({
+    for (const step of ["start", "continue", "finish"] as const) {
+      const { pullRequests } = await read({ id, step });
+      expect(pullRequests.items[0]).toMatchObject({
         state: "open",
         details: "unavailable",
         detailsReason: reason,
       });
+    }
     expect(detection).toHaveBeenCalledTimes(1);
     expect(getMetadata).not.toHaveBeenCalled();
     await read({ id: "00000000-0000-4000-8000-000000000002", step: "start" });
@@ -772,17 +796,20 @@ it("isolates metadata read failures, preserves known counts and re-reads failed/
     },
   );
   const id = "00000000-0000-4000-8000-000000000001";
-  for (const step of ["start", "continue", "finish"] as const)
-    expect((await read({ id, step })).pullRequests.items[0]).toMatchObject({
+  for (const step of ["start", "continue", "finish"] as const) {
+    const { pullRequests } = await read({ id, step });
+    expect(pullRequests.items[0]).toMatchObject({
       details: "incomplete",
       detailsReason: "metadata_error",
       rich: { checks: { failed: 2 } },
       threadIds: expect.arrayContaining(["thr_a", "thr_b", "thr_none"]),
     });
+  }
   expect(getMetadata).toHaveBeenCalledTimes(3);
   expect(plugins).toHaveBeenCalledTimes(1);
   failed = false;
-  expect((await read()).pullRequests.items[0]).toMatchObject({
+  const result = await read();
+  expect(result.pullRequests.items[0]).toMatchObject({
     details: "available",
   });
   expect(getMetadata).toHaveBeenCalledTimes(6);
@@ -807,14 +834,17 @@ it("bounds combined thread/environment/metadata retention at 4096 with explicit 
   expect(getMetadata).toHaveBeenCalledTimes(1296);
   expect(plugins).toHaveBeenCalledTimes(1);
   await vi.advanceTimersByTimeAsync(60_000);
-  expect((await read({ id, step: "continue" })).availability).toBe("unavailable");
+  const result = await read({ id, step: "continue" });
+  expect(result.availability).toBe("unavailable");
   expect(getMetadata).toHaveBeenCalledTimes(1296);
-  expect((await read()).pullRequests.items[0]?.details).toBe("available");
+  const result2 = await read();
+  expect(result2.pullRequests.items[0]?.details).toBe("available");
   expect(getMetadata).toHaveBeenCalledTimes(2696);
   const other = "00000000-0000-4000-8000-000000000002";
   await read({ id: other, step: "start" });
   await read({ id: other, step: "finish" });
-  expect((await read({ id: other, step: "continue" })).availability).toBe("unavailable");
+  const result3 = await read({ id: other, step: "continue" });
+  expect(result3.availability).toBe("unavailable");
   expect(vi.getTimerCount()).toBe(0);
 });
 

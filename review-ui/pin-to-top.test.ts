@@ -18,7 +18,7 @@ class FakeResizeObserver {
 }
 
 function resize() {
-  for (const callback of resizeCallbacks) callback([], {} as ResizeObserver);
+  for (const onResize of resizeCallbacks) onResize([], {} as ResizeObserver);
 }
 
 function placeAt(element: HTMLElement, contentTop: () => number, area: HTMLElement) {

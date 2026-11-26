@@ -73,7 +73,8 @@ describe("Tasks without Orchestrator", () => {
         ["report-context", "--help"],
         ["report-show", "--help"],
       ]) {
-        expect((await harness.behavior.runCli(args)).exitCode).not.toBe(0);
+        const result = await harness.behavior.runCli(args);
+        expect(result.exitCode).not.toBe(0);
       }
       expect(store.tasks.listTasks()).toEqual([]);
       expect(harness.inspection.sdk.calls).toHaveLength(before);

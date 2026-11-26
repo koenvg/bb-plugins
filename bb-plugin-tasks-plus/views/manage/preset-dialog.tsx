@@ -150,10 +150,10 @@ export const PresetDialog = ({
   const set = <K extends keyof PresetDraft>(key: K, value: PresetDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
 
-  const machinesQuery = useTasksQuery(
-    async (rpc) => (await rpc.call("listMachines", {})).machines,
-    [],
-  );
+  const machinesQuery = useTasksQuery(async (rpc) => {
+    const result = await rpc.call("listMachines", {});
+    return result.machines;
+  }, []);
   const machines = machinesQuery.data;
 
   const canSubmit =

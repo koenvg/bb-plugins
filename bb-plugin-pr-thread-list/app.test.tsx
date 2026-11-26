@@ -1035,7 +1035,8 @@ describe("thread list slot", () => {
       {},
       { rpc: { listSummaries: () => ({ insightAvailable: false, summaries: {} }) } },
     );
-    expect((await slot.findByRole("note")).textContent).toContain("GitHub Insight");
+    const byRole = await slot.findByRole("note");
+    expect(byRole.textContent).toContain("GitHub Insight");
     slot.lifecycle.unmount();
     const available = mount([thread()], {}, withSummaries({ t1: prSummary() }));
     await available.findByRole("button", { name: "Open PR tab, PR #42: ready to merge" });

@@ -165,7 +165,8 @@ for (const change of ["replace", "truncate"]) {
     const expected = release();
     fs.writeFileSync(f.file, JSON.stringify(expected) + "\n");
     f.notify(undefined);
-    assert.deepEqual((await observer.receipt).log, expected);
+    const result = await observer.receipt;
+    assert.deepEqual(result.log, expected);
   });
 }
 
@@ -190,7 +191,8 @@ test("wrong scope, provider, stale time and duplicate notifications do not borro
   f.notify(undefined);
   f.notify("unrelated");
   f.notify(undefined);
-  assert.deepEqual((await observer.receipt).log, expected);
+  const result = await observer.receipt;
+  assert.deepEqual(result.log, expected);
 });
 
 test("startup reads a bounded pre-existing positive line instead of waiting for another event", async (t) => {
@@ -205,7 +207,8 @@ test("startup reads a bounded pre-existing positive line instead of waiting for 
     watch: f.watch,
   });
   t.after(observer.close);
-  assert.deepEqual((await observer.receipt).log, expected);
+  const result = await observer.receipt;
+  assert.deepEqual(result.log, expected);
 });
 
 test("missing notifications time out as unproved without an elapsed-time sweep inference", async (t) => {
@@ -233,7 +236,8 @@ test("the real Node watcher captures one isolated append with no BB or model pro
   t.after(observer.close);
   const expected = release();
   fs.appendFileSync(f.file, JSON.stringify(expected) + "\n");
-  assert.deepEqual((await observer.receipt).log, expected);
+  const result = await observer.receipt;
+  assert.deepEqual(result.log, expected);
 });
 
 test("a non-regular log fails before opening a blocking pipe", async (t) => {
@@ -282,7 +286,8 @@ test("truncate and regrow on the same inode cannot concatenate an old partial fr
   const expected = release();
   fs.writeFileSync(f.file, JSON.stringify(expected) + "\n");
   f.notify(undefined);
-  assert.deepEqual((await observer.receipt).log, expected);
+  const result = await observer.receipt;
+  assert.deepEqual(result.log, expected);
 });
 
 for (const defect of ["malformed", "duplicate-control", "too-many-files", "too-large-file"]) {
@@ -331,7 +336,8 @@ test("an append during file-watch setup is read without a later notification", a
     watch,
   });
   t.after(observer.close);
-  assert.deepEqual((await observer.receipt).log, expected);
+  const result = await observer.receipt;
+  assert.deepEqual(result.log, expected);
 });
 
 test("a BOM-prefixed release is rejected rather than hashed as different bytes", async (t) => {

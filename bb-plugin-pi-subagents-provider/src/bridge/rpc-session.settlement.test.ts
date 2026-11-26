@@ -432,12 +432,13 @@ it.each(["bb-first", "bb-last"])(
     const source = BB_PI_EXTENSION_SOURCE.slice(CODEX_SPEED_SOURCE.length)
       .replace(/^import .*;$/gm, "")
       .replace("export default async function bbExtension", "async function bbExtension");
+    const { randomUUID } = await import("node:crypto");
     const bbFactory: ExtensionFactory = runInNewContext(`${source}; bbExtension`, {
       PiRuntime: { VERSION, SessionManager },
       __bbCodexSpeed: { installSpeed: () => null },
       setTimeout,
       clearTimeout,
-      randomUUID: (await import("node:crypto")).randomUUID,
+      randomUUID,
       Buffer,
       StringDecoder,
       process: {
@@ -552,7 +553,8 @@ it.each(["bb-first", "bb-last"])(
         "agent_settled",
       ]);
       if (order === "bb-last") {
-        expect((await a.settled)?.error).toEqual(
+        const result = await a.settled;
+        expect(result?.error).toEqual(
           new Error("Pi extension settlement identity is missing or invalid"),
         );
         expect(h.onDone).toHaveBeenCalledTimes(1);
@@ -630,7 +632,8 @@ it.each(["start", "settlement"])(
         h.event({ type: "agent_settled" });
       }
       await vi.advanceTimersByTimeAsync(5_001);
-      expect((await dispatch.settled)?.error).toEqual(
+      const result = await dispatch.settled;
+      expect(result?.error).toEqual(
         new Error("Pi extension settlement identity is missing or invalid"),
       );
       expect(h.onDone).toHaveBeenCalledTimes(1);

@@ -116,17 +116,15 @@ export function processesAbsent(pids, rows) {
 
 async function run(p) {
   validatePlan(p);
-  const api = async (args, signal) =>
-    JSON.parse(
-      (
-        await execFile("bb", args, {
-          timeout: 2000,
-          maxBuffer: 1024 * 1024,
-          signal,
-        })
-      ).stdout,
-    );
-  const thread = (await api(["thread", "show", p.threadId, "--json"])).thread;
+  const api = async (args, signal) => {
+    const result = await execFile("bb", args, {
+      timeout: 2000,
+      maxBuffer: 1024 * 1024,
+      signal,
+    });
+    return JSON.parse(result.stdout);
+  };
+  const { thread } = await api(["thread", "show", p.threadId, "--json"]);
   if (
     thread.providerId !== "pi-subagents" ||
     thread.parentThreadId !== p.ownerThreadId ||
@@ -191,16 +189,16 @@ async function run(p) {
       stop: ({ signal }) => stopOwnedThread(p, api, signal),
       verifyAbsence: async ({ signal }) => {
         if (!pids.size) return false;
-        const state = (await api(["thread", "show", p.threadId, "--json"], signal)).thread;
+        const { thread: state } = await api(["thread", "show", p.threadId, "--json"], signal);
         const queue = await api(["thread", "queue", "list", p.threadId, "--json"], signal);
         let rows;
         try {
-          rows = (
-            await execFile("ps", ["-p", [...pids.keys()].join(","), "-o", "pid=,lstart="], {
-              timeout: 2000,
-              signal,
-            })
-          ).stdout;
+          const processList = await execFile(
+            "ps",
+            ["-p", [...pids.keys()].join(","), "-o", "pid=,lstart="],
+            { timeout: 2000, signal },
+          );
+          rows = processList.stdout;
         } catch (error) {
           if (error.code !== 1 || error.stdout?.trim() || error.stderr?.trim()) throw error;
           rows = "";

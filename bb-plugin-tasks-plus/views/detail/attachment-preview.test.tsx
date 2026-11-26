@@ -202,9 +202,8 @@ describe("task-scoped attachment owner", () => {
     trigger.focus();
     openA();
     await resolve(0, new Response("", { status: 500 }));
-    expect((await screen.findByRole("status")).textContent).toContain(
-      "The preview could not load.",
-    );
+    const byRole = await screen.findByRole("status");
+    expect(byRole.textContent).toContain("The preview could not load.");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(pending[0]!.signal.aborted).toBe(true);
     await resolve(1, reply(a, "# Retried"));
