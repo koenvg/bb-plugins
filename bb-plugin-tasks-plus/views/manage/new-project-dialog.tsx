@@ -56,10 +56,10 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const bbProjects = useTasksQuery(
-    async (rpc) => (await rpc.call("listBbProjects")).bbProjects,
-    [],
-  );
+  const bbProjects = useTasksQuery(async (rpc) => {
+    const result = await rpc.call("listBbProjects");
+    return result.bbProjects;
+  }, []);
   const bbProjectList = bbProjects.data ?? [];
 
   useEffect(() => {

@@ -187,7 +187,10 @@ const foldersSnapshot = {
 
 export function useFolders() {
   return useTasksQuery(
-    async (rpc) => (await rpc.call("listFolders")).folders,
+    async (rpc) => {
+      const result = await rpc.call("listFolders");
+      return result.folders;
+    },
     ["projects:changed"],
     [],
     { snapshot: foldersSnapshot },
@@ -205,7 +208,10 @@ const sidebarSummarySnapshot = {
 
 export function useSidebarSummary() {
   return useTasksQuery(
-    async (rpc) => (await rpc.call("sidebarSummary")).projects,
+    async (rpc) => {
+      const result = await rpc.call("sidebarSummary");
+      return result.projects;
+    },
     ["tasks:changed", "projects:changed", "threads:changed"],
     [],
     { snapshot: sidebarSummarySnapshot },

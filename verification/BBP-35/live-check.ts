@@ -117,13 +117,10 @@ console.log("draftMedia ->", JSON.stringify(loaded.drafts?.draftMedia ?? loaded)
 const signed = Object.values(loaded.drafts?.draftMedia ?? {})[0] as string | undefined;
 if (signed) {
   const res = await fetch(signed);
-  console.log(
-    "signed fetch ->",
-    res.status,
-    res.headers.get("content-type"),
-    (await res.arrayBuffer()).byteLength,
-    "bytes",
-  );
+  const status = res.status;
+  const contentType = res.headers.get("content-type");
+  const body = await res.arrayBuffer();
+  console.log("signed fetch ->", status, contentType, body.byteLength, "bytes");
 }
 const anon = await fetch(uploaded.url, { redirect: "manual" });
 console.log("anonymous original url ->", anon.status);

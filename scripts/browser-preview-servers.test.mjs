@@ -143,24 +143,31 @@ for (const preview of previews) {
       assert.notEqual(secondOrigin, origin);
       const response = await fetch(origin + preview.path);
       assert.equal(response.status, 200);
-      assert.ok((await response.text()).includes(preview.marker));
+      const result = await response.text();
+      assert.ok(result.includes(preview.marker));
       if (preview.name === "compose-chat") {
         assert.equal(response.headers.get("cache-control"), "no-store");
-        assert.equal((await fetch(origin + preview.path, { method: "HEAD" })).status, 200);
-        assert.equal(await (await fetch(origin + preview.path, { method: "HEAD" })).text(), "");
-        assert.equal((await fetch(origin + preview.path, { method: "POST" })).status, 404);
+        const result2 = await fetch(origin + preview.path, { method: "HEAD" });
+        assert.equal(result2.status, 200);
+        const result3 = await fetch(origin + preview.path, { method: "HEAD" });
+        assert.equal(await result3.text(), "");
+        const result4 = await fetch(origin + preview.path, { method: "POST" });
+        assert.equal(result4.status, 404);
       }
       if (preview.name === "codex-quota") {
         assert.ok(response.headers.get("content-security-policy").includes("connect-src 'none'"));
-        assert.equal((await fetch(origin + "/speed-fixture.mjs")).status, 404);
+        const result5 = await fetch(origin + "/speed-fixture.mjs");
+        assert.equal(result5.status, 404);
       }
       if (preview.name === "markdown-reader") {
-        assert.equal((await fetch(origin + "/tests/preview.tsx")).status, 200);
+        const result6 = await fetch(origin + "/tests/preview.tsx");
+        assert.equal(result6.status, 200);
         const modulePath = `/tests/${moduleDirectory.split("/").at(-1)}/live.ts`;
         const moduleFile = join(moduleDirectory, "live.ts");
         const initialModule = await fetch(origin + modulePath);
         assert.equal(initialModule.status, 200);
-        assert.ok((await initialModule.text()).includes('marker = "before"'));
+        const result7 = await initialModule.text();
+        assert.ok(result7.includes('marker = "before"'));
         const ws = new WebSocket(origin.replace("http:", "ws:") + "/", "vite-hmr");
         const message = (type) =>
           new Promise((resolve, reject) => {
@@ -195,13 +202,15 @@ for (const preview of previews) {
             origin + modulePath + `?t=${receipt.updates[0].timestamp}`,
           );
           assert.equal(updatedModule.status, 200);
-          assert.ok((await updatedModule.text()).includes('marker = "after"'));
+          const result8 = await updatedModule.text();
+          assert.ok(result8.includes('marker = "after"'));
         } finally {
           ws.close();
         }
       }
+      const result9 = await fetch(origin + "/../package.json");
       assert.equal(
-        (await fetch(origin + "/../package.json")).status,
+        result9.status,
         ["markdown-reader", "tasks-plus"].includes(preview.name) ? 200 : 404,
       );
       const conflict =
@@ -209,16 +218,20 @@ for (const preview of previews) {
           ? start(preview, parent, "0", ["--port", new URL(origin).port, "--strictPort"])
           : start(preview, parent, new URL(origin).port);
       owners.push(conflict);
-      assert.notEqual((await conflict.exited)[0], 0);
+      const result10 = await conflict.exited;
+      assert.notEqual(result10[0], 0);
       assert.match(conflict.output(), /EADDRINUSE/);
-      assert.equal((await fetch(origin + preview.path)).status, 200);
+      const result11 = await fetch(origin + preview.path);
+      assert.equal(result11.status, 200);
       const invalid = start(preview, parent, "");
       owners.push(invalid);
-      assert.notEqual((await invalid.exited)[0], 0);
+      const result12 = await invalid.exited;
+      assert.notEqual(result12[0], 0);
       assert.match(invalid.output(), /Invalid .*port|Invalid .*PORT/);
       await first.stop();
       await assert.rejects(fetch(origin + preview.path));
-      assert.equal((await fetch(secondOrigin + preview.path)).status, 200);
+      const result13 = await fetch(secondOrigin + preview.path);
+      assert.equal(result13.status, 200);
       await Promise.all(owners.map((owner) => owner.stop()));
       assert.deepEqual(await readdir(parent), ["historical.png"]);
       assert.equal(await readFile(join(parent, "historical.png"), "utf8"), "keep");
@@ -242,12 +255,14 @@ for (const preview of previews) {
       const owner = start(preview, parent);
       try {
         for (let n = 0; n < 1000; n++) {
-          if ((await readdir(parent)).length) break;
+          const result = await readdir(parent);
+          if (result.length) break;
           if (owner.child.exitCode !== null) throw new Error(owner.output());
           await delay(1);
         }
         owner.child.kill("SIGTERM");
-        assert.equal((await owner.exited)[0], 0, owner.output());
+        const result2 = await owner.exited;
+        assert.equal(result2[0], 0, owner.output());
         assert.equal(owner.output().includes("Synthetic preview ready"), false);
         assert.deepEqual(await readdir(parent), []);
       } finally {
@@ -300,9 +315,11 @@ for (const [runtime, mode] of [
         assert.ok(owner.output().includes("TASKS_PLAYWRIGHT_HELD"), owner.output());
         owner.child.kill("SIGTERM");
       }
-      assert.equal((await owner.exited)[0], mode === "cancellation" ? 143 : 1, owner.output());
+      const result = await owner.exited;
+      assert.equal(result[0], mode === "cancellation" ? 143 : 1, owner.output());
       await assert.rejects(fetch(origin + preview.path));
-      assert.equal((await fetch(peerOrigin + preview.path)).status, 200);
+      const result2 = await fetch(peerOrigin + preview.path);
+      assert.equal(result2.status, 200);
       assert.deepEqual(await readdir(parent), before);
     } finally {
       await owner?.stop();
@@ -398,11 +415,10 @@ for (const [previewName, crawlEnded] of [
       assert.equal(process.kill(other.child.pid, 0), true);
       const response = await fetch(otherOrigin + "/package.json");
       assert.equal(response.status, 200);
-      assert.equal((await response.json()).name, `bb-plugin-${previewName}`);
-      assert.deepEqual(
-        (await readdir(parent)).sort(),
-        ["historical.png", basename(otherCache)].sort(),
-      );
+      const result = await response.json();
+      assert.equal(result.name, `bb-plugin-${previewName}`);
+      const result2 = await readdir(parent);
+      assert.deepEqual(result2.sort(), ["historical.png", basename(otherCache)].sort());
       assert.deepEqual(await readDist(), before);
       assert.ok(events.includes("writer-finished"), owner.output());
       assert.ok(
@@ -484,7 +500,8 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
       const otherCache = other.output().match(/Synthetic preview ready at .* \((.+)\)/)[1];
       const response = await fetch(origin + "/");
       assert.equal(response.status, 200);
-      assert.ok((await response.text()).includes("/tests/preview.tsx"));
+      const result = await response.text();
+      assert.ok(result.includes("/tests/preview.tsx"));
       await wait("writer-held");
       await wait("optimized-load-pending");
       owner.child.kill(signal);
@@ -498,14 +515,13 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
       assert.throws(() => process.kill(owner.child.pid, 0), { code: "ESRCH" });
       await assert.rejects(fetch(origin + "/"));
       assert.equal(await readFile(join(parent, "historical.png"), "utf8"), "keep");
-      assert.deepEqual(
-        (await readdir(parent)).sort(),
-        ["historical.png", basename(otherCache)].sort(),
-      );
+      const result2 = await readdir(parent);
+      assert.deepEqual(result2.sort(), ["historical.png", basename(otherCache)].sort());
       assert.equal(process.kill(other.child.pid, 0), true);
       const otherResponse = await fetch(otherOrigin + "/");
       assert.equal(otherResponse.status, 200);
-      assert.ok((await otherResponse.text()).includes("/tests/preview.tsx"));
+      const result3 = await otherResponse.text();
+      assert.ok(result3.includes("/tests/preview.tsx"));
       other.child.kill(signal);
       assert.deepEqual(await other.exited, [0, null], other.output());
       assert.throws(() => process.kill(other.child.pid, 0), { code: "ESRCH" });

@@ -145,7 +145,8 @@ export async function runLocalHarness({ output, phase, execute }) {
       async () => {
         if (evidence.cpuProfile) return evidence.cpuProfile;
         evidence.profilerRunning = false;
-        return (await cdp.send("Profiler.stop")).profile;
+        const result = await cdp.send("Profiler.stop");
+        return result.profile;
       },
       Boolean(evidence.cpuProfile || (cdp && evidence.profilerRunning)),
       "Profiler was not running or already stopped; see successful profile artifact if saved",

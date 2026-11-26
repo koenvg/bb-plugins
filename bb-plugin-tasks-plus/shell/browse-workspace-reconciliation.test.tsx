@@ -136,7 +136,8 @@ describe("ongoing browse selection", () => {
     });
     fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: "Done" }));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-    expect((await slot.findByRole("alert")).textContent).toContain("Keep draft");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Keep draft");
     expect(loadListPreference("all").filters.statuses).toEqual([]);
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft before filter");
@@ -187,7 +188,8 @@ describe("ongoing browse selection", () => {
     await edit(slot, "Draft on removed task");
     removed = true;
     await slot.behavior.emitRealtime("tasks:changed", {});
-    expect((await slot.findByRole("alert")).textContent).toContain("Removal save failed");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Removal save failed");
     expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Draft on removed task");
     expect(slot.inspection.navigateCalls).toEqual([]);

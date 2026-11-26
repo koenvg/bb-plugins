@@ -101,9 +101,8 @@ describe("initial label-filtered browse selection", () => {
       expect(slot.inspection.navigateCalls).toEqual([]);
       expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
       await act(async () => matches.resolve({ tasks: [selected], nextCursor: null }));
-      expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe(
-        selected.title,
-      );
+      const byRole = await slot.findByRole("textbox", { name: "Task title" });
+      expect(byRole.textContent).toBe(selected.title);
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);
     },
@@ -135,9 +134,8 @@ describe("initial label-filtered browse selection", () => {
       expect(slot.queryByRole("textbox", { name: "Task title" })).toBeNull();
       failed = false;
       fireEvent.click(slot.getByRole("button", { name: "Refresh tasks" }));
-      expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe(
-        selected.title,
-      );
+      const byRole = await slot.findByRole("textbox", { name: "Task title" });
+      expect(byRole.textContent).toBe(selected.title);
       expect(row(slot, 1).getAttribute("aria-current")).toBe("true");
       expect(slot.inspection.navigateCalls).toEqual([]);
     },

@@ -209,7 +209,8 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
     const revision = settingsRevision;
     let value: string | undefined;
     try {
-      value = (await settings.get()).taskWebhooks;
+      const current = await settings.get();
+      value = current.taskWebhooks;
     } catch {
       throw new WebhookError("storage_error");
     }

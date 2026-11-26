@@ -67,7 +67,8 @@ test("rejected detach and context close do not skip owned closures or the durabl
     assert.equal(ledger.browser.pid, 123);
     assert.equal(ledger.database, "owned.sqlite");
     await assert.rejects(readFile(join(output, "result.json")), { code: "ENOENT" });
-    assert.match((await json(output, "failure.json")).outcomes.cleanup.cdp.error, /cdp rejected/);
+    const result2 = await json(output, "failure.json");
+    assert.match(result2.outcomes.cleanup.cdp.error, /cdp rejected/);
   });
 });
 
@@ -236,9 +237,11 @@ for (const failure of ["identity", "timeout"]) {
         }),
         failure === "identity" ? /Movement failed/ : /Driver timeout/,
       );
-      assert.equal((await json(output, "warmup.json")).length, 2);
+      const result2 = await json(output, "warmup.json");
+      assert.equal(result2.length, 2);
+      const result3 = await json(output, "warmup-raw.json");
       assert.deepEqual(
-        (await json(output, "warmup-raw.json")).samples.map((s) => s.key),
+        result3.samples.map((s) => s.key),
         ["BENCH-2", "BENCH-3"],
       );
       const raw = await json(output, "partial-raw.json");
@@ -255,18 +258,15 @@ for (const failure of ["identity", "timeout"]) {
       assert.equal(movements.activeMovement.before.current, true);
       if (failure === "identity")
         assert.equal(movements.activeMovement.result.sample.status, "failed");
-      assert.deepEqual((await json(output, "partial-qualification.json")).requests, [
-        "earlier",
-        "failed",
-      ]);
-      assert.equal(
-        (await json(output, "partial-timeline.json")).traceEvents[0].name,
-        "retained-event",
-      );
+      const result4 = await json(output, "partial-qualification.json");
+      assert.deepEqual(result4.requests, ["earlier", "failed"]);
+      const result5 = await json(output, "partial-timeline.json");
+      assert.equal(result5.traceEvents[0].name, "retained-event");
       const ledger = await json(output, "ownership-ledger.json");
       if (failure === "identity") {
         assert.equal(ledger.captures["partial-cpu-profile.json"].status, "saved");
-        assert.deepEqual((await json(output, "partial-cpu-profile.json")).nodes, [{ id: 1 }]);
+        const result6 = await json(output, "partial-cpu-profile.json");
+        assert.deepEqual(result6.nodes, [{ id: 1 }]);
       } else {
         assert.equal(ledger.captures["partial-cpu-profile.json"].status, "failed");
         assert.match(ledger.captures["partial-cpu-profile.json"].error, /Profile unavailable/);
@@ -297,8 +297,9 @@ test("warmup failure retains earlier and failed samples without starting a measu
     assert.equal(partial.stage, "warmup");
     assert.equal(partial.warmup.length, 1);
     assert.equal(partial.movements.length, 0);
+    const result = await json(output, "partial-raw.json");
     assert.deepEqual(
-      (await json(output, "partial-raw.json")).samples.map((s) => s.status),
+      result.samples.map((s) => s.status),
       ["presented", "failed"],
     );
     await assert.rejects(readFile(join(output, "warmup-raw.json")), { code: "ENOENT" });
@@ -329,8 +330,10 @@ test("page closure records unavailable captures but preserves driver history and
     ]) {
       assert.equal(ledger.captures[name].status, "unavailable");
     }
-    assert.equal((await json(output, "partial-movements.json")).movements.length, 1);
-    assert.equal((await json(output, "warmup-raw.json")).samples.length, 2);
+    const result = await json(output, "partial-movements.json");
+    assert.equal(result.movements.length, 1);
+    const result2 = await json(output, "warmup-raw.json");
+    assert.equal(result2.samples.length, 2);
     assert.equal(ledger.cleanup.database.status, "closed");
   });
 });
@@ -351,12 +354,15 @@ test("failure after a successful measurement never overwrites raw artifacts or r
       }),
       /Later case failed/,
     );
+    const result2 = await json(output, "raw.json");
     assert.deepEqual(
-      (await json(output, "raw.json")).samples.map((s) => s.status),
+      result2.samples.map((s) => s.status),
       ["presented", "presented"],
     );
-    assert.equal((await json(output, "movements.json")).length, 2);
-    assert.equal((await json(output, "partial-movements.json")).stage, "cases");
+    const result3 = await json(output, "movements.json");
+    assert.equal(result3.length, 2);
+    const result4 = await json(output, "partial-movements.json");
+    assert.equal(result4.stage, "cases");
     await assert.rejects(readFile(join(output, "summary.json")), { code: "ENOENT" });
     await assert.rejects(readFile(join(output, "result.json")), { code: "ENOENT" });
   });
@@ -397,8 +403,10 @@ test("ledger write failure is reported only after all owned closures and prevent
       (error) => error.errors.some((cause) => cause.code === "EISDIR"),
     );
     assert.deepEqual(calls, ["cdp", "context", "browser", "browserServer", "endpoint", "database"]);
-    assert.equal((await json(output, "result.json")).status, "prepared");
-    assert.match((await json(output, "failure.json")).ledger.persistence.error, /EISDIR/);
+    const result2 = await json(output, "result.json");
+    assert.equal(result2.status, "prepared");
+    const result3 = await json(output, "failure.json");
+    assert.match(result3.ledger.persistence.error, /EISDIR/);
   });
 });
 function latencyEvidence(state) {
@@ -454,7 +462,8 @@ for (const obstruction of ["result", "ledger"]) {
         assert.equal(ledger.summary, undefined);
       } else {
         assert.match(failure.ledger.persistence.error, /EISDIR/);
-        assert.equal((await json(output, "result.json")).status, "prepared");
+        const result2 = await json(output, "result.json");
+        assert.equal(result2.status, "prepared");
       }
       await assert.rejects(readFile(join(output, "summary.json")), { code: "ENOENT" });
     });
@@ -520,8 +529,10 @@ test("a successful run writes completion only after exact cleanup and refuses ou
         owned(state);
       },
     });
-    assert.equal((await json(output, "result.json")).status, "prepared");
-    assert.equal((await json(output, "ownership-ledger.json")).status, "completed");
+    const result2 = await json(output, "result.json");
+    assert.equal(result2.status, "prepared");
+    const result3 = await json(output, "ownership-ledger.json");
+    assert.equal(result3.status, "completed");
     await assert.rejects(runLocalHarness({ output, phase: "preview", execute: async () => {} }), {
       code: "EEXIST",
     });

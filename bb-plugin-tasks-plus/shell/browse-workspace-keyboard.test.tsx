@@ -136,7 +136,8 @@ describe("browse focus transitions", () => {
       getTaskByKey: (raw) =>
         rpcInput(raw).taskKey === "TSK-1" ? loaded.promise : { task: tasks[1] },
     });
-    (await slot.findByRole("button", { name: "Open TSK-1: Title 1" })).focus();
+    const byRole = await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
+    byRole.focus();
     press("o");
     await acceptNavigation(slot);
     await move(slot, "j", 2);

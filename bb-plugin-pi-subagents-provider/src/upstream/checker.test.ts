@@ -210,22 +210,24 @@ describe("read-only upstream comparison", () => {
     const normal = fixture(["other/moved.ts"], ["plugins/provider-pi/a.ts"]);
     const result = await checkUpstream(baseline, {
       now: () => 0,
-      transport: async (p, s) =>
-        p.includes(`/commits/${head}`)
-          ? {
-              ...(await normal(p, s)),
-              data: {
-                ...((await normal(p, s)).data as object),
-                files: [
-                  {
-                    filename: "other/moved.ts",
-                    status: "renamed",
-                    previous_filename: "plugins/provider-pi/a.ts",
-                  },
-                ],
+      transport: async (p, s) => {
+        if (!p.includes(`/commits/${head}`)) return normal(p, s);
+        const response = await normal(p, s);
+        const { data } = await normal(p, s);
+        return {
+          ...response,
+          data: {
+            ...(data as object),
+            files: [
+              {
+                filename: "other/moved.ts",
+                status: "renamed",
+                previous_filename: "plugins/provider-pi/a.ts",
               },
-            }
-          : normal(p, s),
+            ],
+          },
+        };
+      },
     });
     expect(result).toMatchObject({
       status: "review-required",
@@ -274,29 +276,24 @@ describe("read-only upstream comparison", () => {
   });
 
   it("bounds requests, elapsed time, and stalled requests", async () => {
-    expect(
-      (
-        await checkUpstream(baseline, {
-          transport: fixture([]),
-          now: () => 0,
-          bounds: { requests: 1 },
-        })
-      ).status,
-    ).toBe("inconclusive");
+    const result = await checkUpstream(baseline, {
+      transport: fixture([]),
+      now: () => 0,
+      bounds: { requests: 1 },
+    });
+    expect(result.status).toBe("inconclusive");
     let time = 0;
-    expect(
-      (await checkUpstream(baseline, { transport: fixture([]), now: () => (time += 90_000) }))
-        .status,
-    ).toBe("inconclusive");
-    expect(
-      (
-        await checkUpstream(baseline, {
-          transport: () => new Promise(() => {}),
-          now: () => 0,
-          bounds: { requestMs: 1 },
-        })
-      ).status,
-    ).toBe("inconclusive");
+    const result2 = await checkUpstream(baseline, {
+      transport: fixture([]),
+      now: () => (time += 90_000),
+    });
+    expect(result2.status).toBe("inconclusive");
+    const result3 = await checkUpstream(baseline, {
+      transport: () => new Promise(() => {}),
+      now: () => 0,
+      bounds: { requestMs: 1 },
+    });
+    expect(result3.status).toBe("inconclusive");
   });
   it("does not accept a file list that omits changed paths", async () => {
     const normal = fixture(["plugins/provider-pi/a.ts"]);
@@ -355,12 +352,14 @@ describe("read-only upstream comparison", () => {
         },
       };
     };
-    expect((await checkUpstream(baseline, { transport, now: () => 0 })).status).toBe(
-      "no-relevant-change",
-    );
-    expect(
-      (await checkUpstream(baseline, { transport, now: () => 0, bounds: { pages: 1 } })).status,
-    ).toBe("inconclusive");
+    const result = await checkUpstream(baseline, { transport, now: () => 0 });
+    expect(result.status).toBe("no-relevant-change");
+    const result2 = await checkUpstream(baseline, {
+      transport,
+      now: () => 0,
+      bounds: { pages: 1 },
+    });
+    expect(result2.status).toBe("inconclusive");
   });
 
   it("rejects truncated or unavailable complete trees", async () => {

@@ -21,24 +21,25 @@ import { readTasksRefreshGeneration, subscribeTasksRefresh, useTasksRefresh } fr
 
 type Rpc = ReturnType<typeof useRpc<TasksRpcContract>>;
 function createSessionData(rpc: Rpc) {
-  const previews = createTaskPreviews(
-    async (taskKey) => (await rpc.call("getTaskByKey", { taskKey })).task,
-    readTasksRefreshGeneration,
-  );
+  const previews = createTaskPreviews(async (taskKey) => {
+    const result = await rpc.call("getTaskByKey", { taskKey });
+    return result.task;
+  }, readTasksRefreshGeneration);
   let projectsSnapshotRevision = 0;
   const projects = createTaskInventory(
     async () => {
       projectsSnapshotRevision = claimQuerySnapshotRevision("projects");
-      return (await rpc.call("listProjects", {})).projects;
+      const result = await rpc.call("listProjects", {});
+      return result.projects;
     },
     readTasksRefreshGeneration,
     readQuerySnapshot("projects", tasksRpcContract.listProjects.output.shape.projects),
     (current) => writeQuerySnapshot("projects", current, projectsSnapshotRevision),
   );
-  const presets = createTaskInventory(
-    async () => (await rpc.call("listPresets")).presets,
-    readTasksRefreshGeneration,
-  );
+  const presets = createTaskInventory(async () => {
+    const result = await rpc.call("listPresets");
+    return result.presets;
+  }, readTasksRefreshGeneration);
   const labels = new Map<string, ReturnType<typeof createTaskInventory<Label[]>>>();
   return {
     previews,
@@ -47,10 +48,10 @@ function createSessionData(rpc: Rpc) {
     labels(projectId: string) {
       let resource = labels.get(projectId);
       if (!resource) {
-        resource = createTaskInventory(
-          async () => (await rpc.call("listLabels", { projectId })).labels,
-          readTasksRefreshGeneration,
-        );
+        resource = createTaskInventory(async () => {
+          const result = await rpc.call("listLabels", { projectId });
+          return result.labels;
+        }, readTasksRefreshGeneration);
         labels.set(projectId, resource);
       }
       return resource;

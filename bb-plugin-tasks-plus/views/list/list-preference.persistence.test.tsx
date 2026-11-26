@@ -199,9 +199,8 @@ it("preserves All tasks section choices through sort, filter, clear and navigati
   expect(saved.filters.statuses).toEqual([]);
   slot.lifecycle.unmount();
   const remount = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc: baseRpc() });
-  expect((await remount.findByRole("button", { name: "Todo" })).getAttribute("aria-expanded")).toBe(
-    "false",
-  );
+  const byRole = await remount.findByRole("button", { name: "Todo" });
+  expect(byRole.getAttribute("aria-expanded")).toBe("false");
   expect(remount.queryByText("ALP-1")).toBeNull();
   expect(remount.getByRole("button", { name: /Sort/ }).textContent).toContain("Priority");
 });

@@ -63,7 +63,8 @@ describe("Manage folders", () => {
       };
 
       submit();
-      expect((await panel.findByRole("alert")).textContent).toBe("Folder rename unavailable");
+      const byRole = await panel.findByRole("alert");
+      expect(byRole.textContent).toBe("Folder rename unavailable");
       expect(panel.getByRole("textbox")).toHaveProperty("value", "  Planning  ");
       expect(panel.getByRole("button", { name: "Save" })).toHaveProperty("disabled", false);
       expect(panel.getByRole("button", { name: "Cancel" })).toBeDefined();

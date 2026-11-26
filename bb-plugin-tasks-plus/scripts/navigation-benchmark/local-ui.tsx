@@ -25,7 +25,8 @@ const qualification = installQualificationObservers(
   window,
   Object.fromEntries(fixture.tasks.map((task: any) => [task.key, task.revision])),
 );
-const app = collectPluginAppRegistrations((await import("../../app.js")).default);
+const { default: appDefinition } = await import("../../app.js");
+const app = collectPluginAppRegistrations(appDefinition);
 const panel = app.navPanels[0]!;
 const ticketRegistration = app.tabs.find(
   (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>

@@ -165,7 +165,8 @@ describe("basic list PR lifecycle without optional plugins", () => {
       pullRequest,
     );
     absent.attach("thr_absent");
-    expect((await absent.read()).pullRequests).toEqual({
+    const result2 = await absent.read();
+    expect(result2.pullRequests).toEqual({
       availability: "available",
       items: [],
       unavailableThreadIds: [],
@@ -183,7 +184,8 @@ describe("basic list PR lifecycle without optional plugins", () => {
       async () => pr("open", url),
     );
     attach("thr_a");
-    expect((await read()).pullRequests).toEqual({
+    const result = await read();
+    expect(result.pullRequests).toEqual({
       availability: "unavailable",
       items: [],
       unavailableThreadIds: ["thr_a"],
@@ -202,7 +204,8 @@ describe("basic list PR lifecycle without optional plugins", () => {
     );
     attach("thr_a");
     attach("thr_b");
-    expect((await read()).pullRequests.items[0]).toMatchObject({
+    const result = await read();
+    expect(result.pullRequests.items[0]).toMatchObject({
       state: "open",
       threadIds: expect.arrayContaining(["thr_a", "thr_b"]),
     });
@@ -216,7 +219,8 @@ describe("basic list PR lifecycle without optional plugins", () => {
     );
     conflicting.attach("thr_a");
     conflicting.attach("thr_b");
-    expect((await conflicting.read()).pullRequests.items[0]).toMatchObject({
+    const result2 = await conflicting.read();
+    expect(result2.pullRequests.items[0]).toMatchObject({
       url: "https://github.com/acme/bb/pull/42",
       state: "unknown",
       threadIds: expect.arrayContaining(["thr_a", "thr_b"]),
@@ -253,7 +257,8 @@ describe("basic list PR lifecycle without optional plugins", () => {
         vi.advanceTimersByTime(1_000);
       }
       expect(store.tasks.listTaskThreads(task.id).map((thread) => thread.threadId)).toEqual(order);
-      expect((await read()).pullRequests).toMatchObject({
+      const result = await read();
+      expect(result.pullRequests).toMatchObject({
         availability: "available",
         items: [
           {
@@ -265,7 +270,8 @@ describe("basic list PR lifecycle without optional plugins", () => {
         ],
         unavailableThreadIds: [],
       });
-      expect((await read()).pullRequests.items[0]!.threadIds).toHaveLength(3);
+      const result2 = await read();
+      expect(result2.pullRequests.items[0]!.threadIds).toHaveLength(3);
       expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
     },
   );
@@ -345,21 +351,16 @@ describe("basic list PR lifecycle without optional plugins", () => {
     await reader([task.id], refresh(1, "continue"));
     expect(pullRequest).toHaveBeenCalledTimes(2046);
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(
-      (await reader([task.id], refresh(1, "continue"))).byTaskId[task.id]!.pullRequests
-        .availability,
-    ).toBe("unavailable");
+    const result = await reader([task.id], refresh(1, "continue"));
+    expect(result.byTaskId[task.id]!.pullRequests.availability).toBe("unavailable");
     expect(pullRequest).toHaveBeenCalledTimes(2046);
     attached = attached.slice(-4);
-    expect(
-      (await reader([task.id], refresh(2, "start"))).byTaskId[task.id]!.pullRequests.availability,
-    ).toBe("available");
+    const result2 = await reader([task.id], refresh(2, "start"));
+    expect(result2.byTaskId[task.id]!.pullRequests.availability).toBe("available");
     expect(pullRequest).toHaveBeenCalledTimes(2050);
     await reader([], refresh(2, "finish"));
-    expect(
-      (await reader([task.id], refresh(2, "continue"))).byTaskId[task.id]!.pullRequests
-        .availability,
-    ).toBe("unavailable");
+    const result3 = await reader([task.id], refresh(2, "continue"));
+    expect(result3.byTaskId[task.id]!.pullRequests.availability).toBe("unavailable");
     reader.dispose();
     expect(vi.getTimerCount()).toBe(0);
   });

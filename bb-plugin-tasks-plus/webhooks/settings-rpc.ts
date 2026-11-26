@@ -63,7 +63,10 @@ export function registerWebhookSettings(bb: BbPluginApi, store: TasksApiStore, w
     async testWebhook(input) {
       const parsed = byId.safeParse(input);
       if (!parsed.success) return failure("invalid_input");
-      return action(async () => ({ outcome: (await webhooks.test(parsed.data.id)).outcome }));
+      return action(async () => {
+        const result = await webhooks.test(parsed.data.id);
+        return { outcome: result.outcome };
+      });
     },
     async deleteWebhook(input) {
       const parsed = byId.safeParse(input);

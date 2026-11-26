@@ -211,7 +211,8 @@ describe("blocked work confirm in the list status menu", () => {
     const slot = render(PROJECT_ID);
     await pickListStatus(slot, "ABC-5");
 
-    fireEvent.click((await confirmDialog(slot)).getByText("Cancel"));
+    const result = await confirmDialog(slot);
+    fireEvent.click(result.getByText("Cancel"));
 
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     expect(called(slot, "updateTask")).toBe(false);
@@ -226,7 +227,8 @@ describe("blocked work confirm in the list status menu", () => {
     const slot = render(PROJECT_ID);
     await pickListStatus(slot, "ABC-5");
 
-    fireEvent.click((await confirmDialog(slot)).getByText("Start anyway"));
+    const result = await confirmDialog(slot);
+    fireEvent.click(result.getByText("Start anyway"));
 
     await waitFor(() =>
       expect(slot.rpcCalls).toContainEqual(
@@ -260,7 +262,8 @@ describe("blocked work confirm on a board drop", () => {
 
     await dragToInProgress(slot, "ABC-5");
     await expectListedBlockers(slot);
-    fireEvent.click((await confirmDialog(slot)).getByText("Cancel"));
+    const result = await confirmDialog(slot);
+    fireEvent.click(result.getByText("Cancel"));
 
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     expect(called(slot, "boardMove")).toBe(false);
@@ -273,7 +276,8 @@ describe("blocked work confirm on a board drop", () => {
     const slot = render(`${PROJECT_ID}?view=board`);
 
     await dragToInProgress(slot, "ABC-5");
-    fireEvent.click((await confirmDialog(slot)).getByText("Start anyway"));
+    const result = await confirmDialog(slot);
+    fireEvent.click(result.getByText("Start anyway"));
 
     await waitFor(() =>
       expect(slot.rpcCalls).toContainEqual(
@@ -301,7 +305,8 @@ describe("blocked work confirm in the task detail", () => {
 
     await openDetailStatus(slot);
     await expectListedBlockers(slot);
-    fireEvent.click((await confirmDialog(slot)).getByText("Cancel"));
+    const result = await confirmDialog(slot);
+    fireEvent.click(result.getByText("Cancel"));
 
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     expect(called(slot, "updateTask")).toBe(false);
@@ -311,7 +316,8 @@ describe("blocked work confirm in the task detail", () => {
     const slot = render("task/ABC-5");
 
     await openDetailStatus(slot);
-    fireEvent.click((await confirmDialog(slot)).getByText("Start anyway"));
+    const result = await confirmDialog(slot);
+    fireEvent.click(result.getByText("Start anyway"));
 
     await waitFor(() => expect(called(slot, "updateTask")).toBe(true));
   });
@@ -322,7 +328,8 @@ describe("blocked work confirm in the task detail", () => {
     await dispatch(slot);
     await expectListedBlockers(slot);
     expect(called(slot, "delegate")).toBe(false);
-    fireEvent.click((await confirmDialog(slot)).getByText("Start anyway"));
+    const result = await confirmDialog(slot);
+    fireEvent.click(result.getByText("Start anyway"));
 
     await waitFor(() => expect(called(slot, "delegate")).toBe(true));
   });

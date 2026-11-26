@@ -133,20 +133,20 @@ describe("registered saved attachment preview", () => {
         blobPath: "blobs/absent",
         isImage: false,
       });
-      expect(
-        await (
-          await harness.fetchHttp("GET", `/attachments/preview?attachmentId=${attachment.id}`)
-        ).json(),
-      ).toEqual({ error: { code: "missing" } });
+      const http = await harness.fetchHttp(
+        "GET",
+        `/attachments/preview?attachmentId=${attachment.id}`,
+      );
+      expect(await http.json()).toEqual({ error: { code: "missing" } });
       vi.spyOn(store, "getAttachment").mockReturnValueOnce({
         ...attachment,
         blobPath: "../secret",
       });
-      expect(
-        await (
-          await harness.fetchHttp("GET", `/attachments/preview?attachmentId=${attachment.id}`)
-        ).json(),
-      ).toEqual({ error: { code: "failed" } });
+      const http2 = await harness.fetchHttp(
+        "GET",
+        `/attachments/preview?attachmentId=${attachment.id}`,
+      );
+      expect(await http2.json()).toEqual({ error: { code: "failed" } });
     } finally {
       await harness.dispose();
     }

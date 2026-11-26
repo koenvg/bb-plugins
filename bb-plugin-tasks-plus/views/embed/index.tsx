@@ -237,7 +237,11 @@ function TaskEmbedPanelContent({ params, threadId }: ExperimentalThreadActionTab
   const requestedKey =
     isRecord(params) && typeof params.taskKey === "string" ? params.taskKey.trim() : "";
   const linked = useTasksQuery(
-    async (rpc) => (requestedKey ? [] : (await rpc.call("getTasksForThread", { threadId })).tasks),
+    async (rpc) => {
+      if (requestedKey) return [];
+      const { tasks } = await rpc.call("getTasksForThread", { threadId });
+      return tasks;
+    },
     ["tasks:changed", "threads:changed"],
     [threadId, requestedKey],
   );

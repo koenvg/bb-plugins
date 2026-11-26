@@ -277,7 +277,8 @@ describe("Manage production project table", () => {
     expect(env.calls[0]?.name).toBe("Saved name");
     fireEvent.keyDown(document, { key: "Tab" });
     fireEvent.focus(env.slot.getByRole("button", { name: "Cancel HOME" }));
-    expect((await within(document.body).findByRole("tooltip")).textContent).toBe("Cancel HOME");
+    const byRole = await within(document.body).findByRole("tooltip");
+    expect(byRole.textContent).toBe("Cancel HOME");
   });
 
   it("offers the existing named palette without replacing custom colours until an explicit choice", async () => {
@@ -471,9 +472,8 @@ describe("Manage production project table", () => {
       "true",
     );
     request.reject(new Error("Fixture save unavailable"));
-    expect((await env.slot.findByRole("alert")).textContent).toBe(
-      "Could not save HOME: Fixture save unavailable",
-    );
+    const byRole = await env.slot.findByRole("alert");
+    expect(byRole.textContent).toBe("Could not save HOME: Fixture save unavailable");
     expect(home).toHaveProperty("value", "Retry HOME");
     expect(work).toHaveProperty("value", "Keep WORK");
     env.setUpdate(() => ({
@@ -565,9 +565,8 @@ describe("Manage production project table", () => {
     const env = setup();
     env.setList(() => Promise.reject(new Error("Inventory offline")));
     openProjects(env.slot);
-    expect((await env.slot.findByRole("alert")).textContent).toBe(
-      "Could not load projects: Inventory offline",
-    );
+    const byRole = await env.slot.findByRole("alert");
+    expect(byRole.textContent).toBe("Could not load projects: Inventory offline");
     expect(env.slot.queryByText(/No projects yet/)).toBeNull();
     expect(env.slot.queryByRole("textbox")).toBeNull();
     expect(env.slot.queryByRole("button", { name: /Save / })).toBeNull();
@@ -593,9 +592,8 @@ describe("Manage production project table", () => {
     await chooseColor(env, "HOME", "Purple");
     env.setList(() => Promise.reject(new Error("Read failed")));
     await env.slot.emitRealtime("projects:changed", {});
-    expect((await env.slot.findByRole("alert")).textContent).toBe(
-      "Could not load projects: Read failed",
-    );
+    const byRole = await env.slot.findByRole("alert");
+    expect(byRole.textContent).toBe("Could not load projects: Read failed");
     expect(home).toHaveProperty("value", "Keep through failure");
     expect(env.slot.getByRole("button", { name: "Colour for HOME: Purple" })).toBeDefined();
     expect(env.slot.getByRole("button", { name: "Save HOME" })).toHaveProperty("disabled", true);
@@ -841,9 +839,8 @@ describe("Manage production project table", () => {
     });
     await waitFor(() => expect(home).toHaveProperty("value", "Saved response"));
     read.reject(new Error("Post-save read failed"));
-    expect((await env.slot.findByRole("alert")).textContent).toBe(
-      "Could not load projects: Post-save read failed",
-    );
+    const byRole = await env.slot.findByRole("alert");
+    expect(byRole.textContent).toBe("Could not load projects: Post-save read failed");
     expect(home).toHaveProperty("value", "Saved response");
     fireEvent.change(home, { target: { value: "Edit during failure" } });
     fireEvent.click(env.slot.getByRole("button", { name: "Cancel HOME" }));

@@ -339,7 +339,7 @@ describe("dispatch task command", () => {
     } else slot.unmount();
     expect(cancel).toHaveBeenCalledWith(1);
     act(() => {
-      for (const callback of frames.splice(0)) callback(0);
+      for (const onFrame of frames.splice(0)) onFrame(0);
     });
     expect(slot.queryByRole("menu")).toBeNull();
     expect(calls).toEqual([]);

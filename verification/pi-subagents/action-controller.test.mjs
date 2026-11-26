@@ -295,7 +295,8 @@ test("completion failure stops even if the dispatch acknowledgement is still pen
   });
   await flush();
   assert.equal(stops, 1);
-  assert.equal((await result).outcome, "failed");
+  const result2 = await result;
+  assert.equal(result2.outcome, "failed");
 });
 
 test("a completion microtask cannot bypass an overdue or exact soft cutoff", async () => {

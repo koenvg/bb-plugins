@@ -124,7 +124,8 @@ describe("project picker shell navigation", () => {
       projectId: project.id,
     });
     await act(async () => pending.resolve({ ok: false, error: { message: "Save refused" } }));
-    expect((await slot.findByRole("alert")).textContent).toContain("Save refused");
+    const byRole = await slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Save refused");
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
       "Unsaved project switch draft",
     );

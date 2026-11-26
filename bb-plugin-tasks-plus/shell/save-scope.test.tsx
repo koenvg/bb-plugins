@@ -147,7 +147,8 @@ describe("save-before-switch with remembered browse scope", () => {
       assertOrigin("Pending description");
       expect(slot.inspection.navigateCalls).toEqual([]);
       await act(async () => firstSave.resolve({ ok: false, error: { message: "Save refused" } }));
-      expect((await slot.findByRole("alert")).textContent).toContain("Save refused");
+      const byRole = await slot.findByRole("alert");
+      expect(byRole.textContent).toContain("Save refused");
       await editDescription(slot.container, "Retained latest description");
       assertOrigin("Retained latest description");
       expect(slot.inspection.navigateCalls).toEqual([]);

@@ -153,9 +153,11 @@ it("retains safe hrefs and native modifiers but suppresses ordinary fallback on 
   expect(fireEvent.click(link, { button: 2 })).toBe(true);
   expect(open.mock.calls).toEqual([]);
   expect(fireEvent.click(link)).toBe(false);
-  expect((await screen.findByRole("status")).textContent).toBe("Link could not be opened.");
+  const byRole = await screen.findByRole("status");
+  expect(byRole.textContent).toBe("Link could not be opened.");
   expect(fireEvent.click(link)).toBe(false);
-  expect((await screen.findByRole("status")).textContent).toBe("Link could not be opened.");
+  const byRole2 = await screen.findByRole("status");
+  expect(byRole2.textContent).toBe("Link could not be opened.");
   fireEvent.click(link);
   expect(open.mock.calls).toEqual([
     ["https://example.org/path?q=1#x"],

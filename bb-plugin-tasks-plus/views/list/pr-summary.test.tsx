@@ -153,7 +153,8 @@ it.each([false, true])(
     expect(keys).toEqual([]);
     fireEvent.click(trigger);
     const dialog = await slot.findByRole("dialog", { name: "PRs for ABC-1" });
-    (await slot.findByRole("link", { name: /Open GitHub PR acme\/other #42/ })).focus();
+    const byRole = await slot.findByRole("link", { name: /Open GitHub PR acme\/other #42/ });
+    byRole.focus();
     expect(document.activeElement?.getAttribute("href")).toContain("/other/pull/42");
     fireEvent.keyDown(dialog, { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());

@@ -97,7 +97,7 @@ export async function measureLocalNavigation({
   for (const key of fixture.movements) movements.push(await move(key, "warm"));
   if (phase === "profile") {
     evidence.profilerRunning = false;
-    const profile = (await cdp.send("Profiler.stop")).profile;
+    const { profile } = await cdp.send("Profiler.stop");
     evidence.cpuProfile = profile;
     await write("cpu-profile.json", profile);
     await stopLocalTrace(cdp, evidence);

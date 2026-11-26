@@ -103,7 +103,8 @@ it("reads committed provenance while preserving every dirty byte and Git state",
   r.git("add", "staged.txt");
   writeFileSync(join(r.root, "untracked.txt"), "untracked");
   const before = bytes(r.root);
-  expect((await readCommittedBaseline(r.pkg)).revision).toBe("a".repeat(40));
+  const committedBaseline = await readCommittedBaseline(r.pkg);
+  expect(committedBaseline.revision).toBe("a".repeat(40));
   expect(await inspectStableSource(r.root)).toMatchObject({ ready: false });
   expect(bytes(r.root)).toEqual(before);
 });
@@ -234,8 +235,10 @@ it("uses only the requested checkout despite inherited Git repository and object
   const foreignBefore = bytes(other.root);
   for (const [key, value] of Object.entries(environment))
     if (key.startsWith("GIT_")) vi.stubEnv(key, value);
-  expect((await readCommittedBaseline(r.pkg, environment)).revision).toBe("a".repeat(40));
-  expect((await readCommittedBaseline(r.pkg)).revision).toBe("a".repeat(40));
+  const committedBaseline = await readCommittedBaseline(r.pkg, environment);
+  expect(committedBaseline.revision).toBe("a".repeat(40));
+  const committedBaseline2 = await readCommittedBaseline(r.pkg);
+  expect(committedBaseline2.revision).toBe("a".repeat(40));
   expect(await inspectStableSource(r.root, environment)).toMatchObject({ ready: true });
   expect(bytes(r.root)).toEqual(before);
   expect(bytes(other.root)).toEqual(foreignBefore);

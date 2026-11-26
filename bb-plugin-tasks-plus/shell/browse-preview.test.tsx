@@ -93,7 +93,8 @@ describe("retained browse detail", () => {
     await slot.findByText("Lookup offline");
     failure = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
-    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe("Title 2");
+    const byRole = await slot.findByRole("textbox", { name: "Task title" });
+    expect(byRole.textContent).toBe("Title 2");
   });
 
   it("revalidates retained data on manual refresh and reconnect, sharing inventories", async () => {

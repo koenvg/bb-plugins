@@ -366,7 +366,8 @@ test("a stalled signal guard is bounded by its own arm budget", async () => {
 test("incomplete source coverage cannot be replaced by a contiguous prefix", async () => {
   const f = await setup();
   f.ports.readTarget = async () => ({ ...proof(f.scope), coverageComplete: false });
-  assert.equal((await f.coordinator().run(f.release)).passed, false);
+  const result = await f.coordinator().run(f.release);
+  assert.equal(result.passed, false);
   assert.deepEqual(f.effects.signals, []);
 });
 
@@ -408,7 +409,8 @@ test("temporary log append reaches the coordinator and writes only the new owned
   const controller = f.coordinator();
   const action = observer.receipt.then(controller.run);
   fs.appendFileSync(file, f.release.raw + "\n");
-  assert.equal((await action).passed, true);
+  const result = await action;
+  assert.equal(result.passed, true);
   assert.equal(fs.readFileSync(signalFile, "utf8"), "owned-signal-nonce");
   const audit = await controller.archive();
   assert.deepEqual(audit.queue, []);
@@ -420,7 +422,8 @@ test("a still-running owned signal guard cannot pass cleanup or permit archive",
   const old = f.ports.readClosed;
   f.ports.readClosed = async () => ({ ...(await old()), guardPidRows: "800 independent-guard" });
   const controller = f.coordinator();
-  assert.equal((await controller.run(f.release)).passed, false);
+  const result = await controller.run(f.release);
+  assert.equal(result.passed, false);
   await assert.rejects(controller.archive(), /PRE_ARCHIVE_ABSENCE_UNPROVED/);
   assert.deepEqual(f.effects.archives, []);
 });

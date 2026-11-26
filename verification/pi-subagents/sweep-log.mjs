@@ -128,7 +128,8 @@ export async function openSweepLog({ directory, scope, afterMs, timeoutMs, watch
       do {
         dirty = false;
         await checkDirectory();
-        const names = (await readdir(directory)).filter(filename);
+        const result = await readdir(directory);
+        const names = result.filter(filename);
         if (names.length > 32) throw new Error("SWEEP_LOG_FILE_LIMIT");
         for (const file of states.keys()) {
           if (!names.includes(path.basename(file))) {

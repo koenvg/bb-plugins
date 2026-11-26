@@ -49,7 +49,8 @@ for (const scope of ["all", "active", project.id]) {
       await edit(slot, "Keep section draft");
       const header = sectionHeader(slot, "Done");
       fireEvent.click(header);
-      expect((await slot.findByRole("alert")).textContent).toContain("Section save failed");
+      const byRole = await slot.findByRole("alert");
+      expect(byRole.textContent).toContain("Section save failed");
       expect(header.getAttribute("aria-expanded")).toBe("true");
       expect(row(slot, selected.number).getAttribute("aria-current")).toBe("true");
       expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Keep section draft");

@@ -49,13 +49,11 @@ export function webhookCommands(bb: BbPluginApi, domain: TasksDomain, webhooks: 
       },
       run(input, ctx) {
         return safeCommand(async () => {
-          const scope: WebhookScope =
-            input.options.project === undefined
-              ? { kind: "global" }
-              : {
-                  kind: "tracker",
-                  projectId: (await resolveProject(domain, input.options.project)).id,
-                };
+          let scope: WebhookScope = { kind: "global" };
+          if (input.options.project !== undefined) {
+            const project = await resolveProject(domain, input.options.project);
+            scope = { kind: "tracker", projectId: project.id };
+          }
           const json = await readWebhookConfigFile(
             bb,
             domain,

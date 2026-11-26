@@ -276,13 +276,19 @@ function TaskDetail({
   const projects = useSessionProjects();
   const project = projects.data?.find((entry) => entry.id === task.projectId);
   const bbProjects = useTasksQuery(
-    async (query) => (await query.call("listBbProjects")).bbProjects,
+    async (query) => {
+      const result = await query.call("listBbProjects");
+      return result.bbProjects;
+    },
     ["projects:changed"],
   );
 
   const parent = useTasksQuery(
-    async (query) =>
-      task.parentTaskId ? (await query.call("getTask", { taskId: task.parentTaskId })).task : null,
+    async (query) => {
+      if (!task.parentTaskId) return null;
+      const { task: parentTask } = await query.call("getTask", { taskId: task.parentTaskId });
+      return parentTask;
+    },
     ["tasks:changed"],
     [task.parentTaskId],
   );
@@ -293,7 +299,10 @@ function TaskDetail({
   );
   const labels = useSessionLabels(task.projectId);
   const attachments = useTasksQuery(
-    async (query) => (await query.call("listAttachments", { taskId: task.id })).attachments,
+    async (query) => {
+      const result = await query.call("listAttachments", { taskId: task.id });
+      return result.attachments;
+    },
     ["tasks:changed"],
     [task.id],
   );
@@ -304,7 +313,10 @@ function TaskDetail({
     fallbackRef: previewFallback,
   });
   const threads = useTasksQuery(
-    async (query) => (await query.call("listTaskThreads", { taskId: task.id })).taskThreads,
+    async (query) => {
+      const result = await query.call("listTaskThreads", { taskId: task.id });
+      return result.taskThreads;
+    },
     ["threads:changed"],
     [task.id],
   );

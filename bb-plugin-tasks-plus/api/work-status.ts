@@ -99,8 +99,8 @@ export function createWorkStatusReader({
         return fallback;
       return await read();
     } finally {
-      const next = waiting.shift();
-      if (next) next();
+      const resumeNextRead = waiting.shift();
+      if (resumeNextRead) resumeNextRead();
       else active--;
     }
   };
@@ -206,7 +206,8 @@ export function createWorkStatusReader({
     const result = schedule<RichReason | null>(
       async () => {
         try {
-          const plugin = (await plugins.list()).plugins.find((p) => p.id === "github-insight");
+          const result = await plugins.list();
+          const plugin = result.plugins.find((p) => p.id === "github-insight");
           if (!plugin) return "integration_absent";
           if (!plugin.enabled) return "integration_disabled";
           return ["running", "starting", "degraded"].includes(plugin.status)

@@ -153,7 +153,8 @@ describe("production project deletion safeguards", () => {
     const dialog = await open(env);
     const input = within(dialog).getByRole("textbox", { name: "Type HOME to confirm" });
     fireEvent.change(input, { target: { value: "HOME" } });
-    expect((await within(dialog).findByRole("alert")).textContent).toContain("Count unavailable");
+    const byRole = await within(dialog).findByRole("alert");
+    expect(byRole.textContent).toContain("Count unavailable");
     const button = within(dialog).getByRole("button", { name: "Delete project and tasks" });
     expect(button).toHaveProperty("disabled", true);
     expect(within(dialog).getByRole("status").textContent).not.toContain("0 tasks");
@@ -269,7 +270,8 @@ describe("production project deletion safeguards", () => {
             error: { code: "project_not_empty", message: "Domain refused deletion" },
           });
       });
-      expect((await within(dialog).findByRole("alert")).textContent).toContain(
+      const byRole = await within(dialog).findByRole("alert");
+      expect(byRole.textContent).toContain(
         failure === "transport" ? "Transport failed" : "Domain refused deletion",
       );
       expect(home).toHaveProperty("value", "Keep home draft");
@@ -418,7 +420,8 @@ describe("production project deletion safeguards", () => {
       throw new Error("Post-delete read failed");
     };
     await env.slot.emitRealtime("projects:changed", {});
-    expect((await env.slot.findByRole("alert")).textContent).toContain("Post-delete read failed");
+    const byRole = await env.slot.findByRole("alert");
+    expect(byRole.textContent).toContain("Post-delete read failed");
     expect(env.slot.queryByRole("textbox", { name: "Project name for HOME" })).toBeNull();
     expect(env.slot.getByText("Deleted Home Lab (HOME) and all its tasks.")).toBeDefined();
     expect(work).toHaveProperty("value", "Surviving draft");

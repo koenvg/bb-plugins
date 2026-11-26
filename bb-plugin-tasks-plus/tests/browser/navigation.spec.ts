@@ -103,14 +103,14 @@ for (const width of [1280, 390]) {
         sameSite: "None",
       },
     ]);
-    expect((await context.cookies(remoteOrigin)).map((cookie) => cookie.name)).toEqual([
-      "fixture-auth",
-    ]);
+    const result = await context.cookies(remoteOrigin);
+    expect(result.map((cookie) => cookie.name)).toEqual(["fixture-auth"]);
     const controlPage = await context.newPage();
     const controlUrl = `${remoteOrigin}/tests/assets/cookie-control.png`;
     const controlRequest = controlPage.waitForRequest(controlUrl);
     await controlPage.goto(controlUrl);
-    const controlHeaders = await (await controlRequest).allHeaders();
+    const result2 = await controlRequest;
+    const controlHeaders = await result2.allHeaders();
     expect(controlHeaders.cookie).toContain("fixture-auth=must-not-send");
     await controlPage.close();
     await context.route("https://example.org/**", (route) =>

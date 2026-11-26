@@ -39,8 +39,8 @@ function observePanel() {
   return async (width: number) => {
     panelSize.width = width;
     await act(async () => {
-      for (const [element, callback] of callbacks) {
-        if (element.tagName === "MAIN") callback([], {} as ResizeObserver);
+      for (const [element, onResize] of callbacks) {
+        if (element.tagName === "MAIN") onResize([], {} as ResizeObserver);
       }
     });
   };
@@ -166,7 +166,8 @@ describe("host-controlled Ticket presentation", () => {
     await act(async () => saved.resolve({ ok: true, task: tasks[0] }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     await acceptNavigation(slot);
-    expect((await slot.findByRole("textbox", { name: "Task title" })).textContent).toBe("Title 2");
+    const byRole = await slot.findByRole("textbox", { name: "Task title" });
+    expect(byRole.textContent).toBe("Title 2");
     expect(
       slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").map((c) => c.input),
     ).toEqual([{ taskId: tasks[0]!.id, description: "Save before changing tickets" }]);

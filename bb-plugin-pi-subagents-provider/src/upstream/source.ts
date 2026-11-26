@@ -46,7 +46,8 @@ export async function readCommittedBaseline(
   const git = isolatedGit(environment);
   try {
     const dir = await realpath(packageDir);
-    const root = (await git(dir, ["rev-parse", "--show-toplevel"])).trim();
+    const result = await git(dir, ["rev-parse", "--show-toplevel"]);
+    const root = result.trim();
     const file = relative(root, join(dir, "UPSTREAM.json")).split("\\").join("/");
     if (file.startsWith("../") || file.startsWith("/")) throw new Error();
     return parseBaseline(JSON.parse(await git(root, ["show", `HEAD:${file}`])));
@@ -71,20 +72,21 @@ export async function inspectStableSource(
     if (root !== resolve(path) || /(?:^|\/)(?:worktrees|thr_[^/]+)(?:\/|$)/.test(root))
       throw new Error();
     // A linked worktree has a .git file. Reject it even if its path looks permanent.
-    if (!(await lstat(join(root, ".git"))).isDirectory()) throw new Error();
-    if ((await git(root, ["rev-parse", "--show-toplevel"])).trim() !== root) throw new Error();
+    const gitEntry = await lstat(join(root, ".git"));
+    if (!gitEntry.isDirectory()) throw new Error();
+    const gitRoot = await git(root, ["rev-parse", "--show-toplevel"]);
+    if (gitRoot.trim() !== root) throw new Error();
     const packageDir = join(root, packageName);
     for (const file of prerequisites) {
-      if (
-        !(await lstat(join(packageDir, file))).isFile() ||
-        (await realpath(join(packageDir, file))) !== join(packageDir, file)
-      )
+      const prerequisitePath = join(packageDir, file);
+      const prerequisiteStat = await lstat(prerequisitePath);
+      if (!prerequisiteStat.isFile() || (await realpath(prerequisitePath)) !== prerequisitePath)
         throw new Error();
       await git(root, ["cat-file", "-e", `HEAD:${packageName}/${file}`]);
-      const actual = (
-        await git(root, ["hash-object", "--no-filters", join(packageDir, file)])
-      ).trim();
-      const committed = (await git(root, ["rev-parse", `HEAD:${packageName}/${file}`])).trim();
+      const fileHash = await git(root, ["hash-object", "--no-filters", prerequisitePath]);
+      const actual = fileHash.trim();
+      const headHash = await git(root, ["rev-parse", `HEAD:${packageName}/${file}`]);
+      const committed = headHash.trim();
       if (actual !== committed)
         return {
           ready: false,
@@ -100,11 +102,12 @@ export async function inspectStableSource(
     ]);
     if (dirty) return { ready: false, reason: "Baseline or checker prerequisites are uncommitted" };
     await readCommittedBaseline(packageDir, environment);
+    const revision = await git(root, ["rev-parse", "HEAD"]);
     return {
       ready: true,
       root,
       packageDir,
-      sourceRevision: (await git(root, ["rev-parse", "HEAD"])).trim(),
+      sourceRevision: revision.trim(),
     };
   } catch {
     return {

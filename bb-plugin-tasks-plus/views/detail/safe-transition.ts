@@ -27,7 +27,8 @@ export function createSafeTaskTransition() {
     }
     running = (async () => {
       while (editor?.getSnapshot().pending) {
-        if (!(await editor.flush()).ok) return false;
+        const result = await editor.flush();
+        if (!result.ok) return false;
       }
       // Hold this guard until running clears, including commit's microtasks.
       committing = true;

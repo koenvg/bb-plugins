@@ -106,8 +106,10 @@ async function fixture(
       await config({ url, ...(authorization ? { authorization } : {}) }),
       ...(project ? ["--project", project] : []),
     ]);
-  const project = async (prefix: string) =>
-    (await run(["project", "create", "--name", prefix, "--prefix", prefix])).project;
+  const project = async (prefix: string) => {
+    const result = await run(["project", "create", "--name", prefix, "--prefix", prefix]);
+    return result.project;
+  };
   return {
     ...host,
     run,
@@ -134,7 +136,7 @@ describe("bb tasks webhook", () => {
     const f = await fixture();
     const alpha = await f.project("ALPHA");
     const beta = await f.project("BETA");
-    const summary = (await f.add(global.url, undefined, "Bearer exact-secret")).endpoint;
+    const { endpoint: summary } = await f.add(global.url, undefined, "Bearer exact-secret");
     expect(summary).toEqual({
       id: expect.stringMatching(/^wh_[a-f0-9]{32}$/),
       scope: { kind: "global" },
@@ -177,7 +179,7 @@ describe("bb tasks webhook", () => {
   it("lists redacted summaries, tests marked samples without tasks, deletes and reloads persisted configuration", async () => {
     const target = await receiver();
     const f = await fixture();
-    const endpoint = (await f.add(target.url, undefined, "Bearer hidden")).endpoint;
+    const { endpoint } = await f.add(target.url, undefined, "Bearer hidden");
     expect(await f.run(["webhook", "list"])).toEqual({ endpoints: [endpoint] });
     expect(await f.run(["webhook", "test", endpoint.id])).toEqual({
       endpoint,
@@ -221,23 +223,21 @@ describe("bb tasks webhook", () => {
     const f = await fixture();
     const additions = await Promise.all(Array.from({ length: 8 }, () => f.add(target.url)));
     const endpoints = additions.map((r) => r.endpoint);
+    const result = await f.run(["webhook", "list"]);
     expect(
-      (await f.run(["webhook", "list"])).endpoints.sort((a: { id: string }, b: { id: string }) =>
-        a.id.localeCompare(b.id),
-      ),
+      result.endpoints.sort((a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)),
     ).toEqual([...endpoints].sort((a, b) => a.id.localeCompare(b.id)));
     await Promise.all(endpoints.slice(0, 4).map((e) => f.run(["webhook", "delete", e.id])));
+    const result2 = await f.run(["webhook", "list"]);
     expect(
-      (await f.run(["webhook", "list"])).endpoints.sort((a: { id: string }, b: { id: string }) =>
-        a.id.localeCompare(b.id),
-      ),
+      result2.endpoints.sort((a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)),
     ).toEqual(endpoints.slice(4).sort((a, b) => a.id.localeCompare(b.id)));
   });
 
   it.each([408, 429, 500])("retries HTTP %s briefly and reports safe outcomes", async (status) => {
     const target = await receiver([status, 204]);
     const f = await fixture();
-    const endpoint = (await f.add(target.url, undefined, "Bearer hidden")).endpoint;
+    const { endpoint } = await f.add(target.url, undefined, "Bearer hidden");
     expect(await f.run(["webhook", "test", endpoint.id])).toEqual({
       endpoint,
       outcome: { code: "delivered", attempts: 2, status: 204 },
@@ -253,7 +253,7 @@ describe("bb tasks webhook", () => {
     async (status) => {
       const target = await receiver([status]);
       const f = await fixture();
-      const endpoint = (await f.add(target.url, undefined, "Bearer hidden")).endpoint;
+      const { endpoint } = await f.add(target.url, undefined, "Bearer hidden");
       const outcome = await f.run(["webhook", "test", endpoint.id]);
       expect(outcome).toEqual({ endpoint, outcome: { code: "http_error", attempts: 1, status } });
       expect(target.requests.length).toBe(1);
@@ -267,10 +267,12 @@ describe("bb tasks webhook", () => {
     const target = await receiver();
     const f = await fixture();
     await f.project("ERR");
-    const endpoint = (
-      await f.add("http://127.0.0.1:1/?private=url-secret", undefined, "Bearer hidden")
-    ).endpoint;
-    const success = (await f.add(target.url)).endpoint;
+    const { endpoint } = await f.add(
+      "http://127.0.0.1:1/?private=url-secret",
+      undefined,
+      "Bearer hidden",
+    );
+    const { endpoint: success } = await f.add(target.url);
     expect(await f.run(["create", "--project", "ERR", "--title", "Still created"])).toMatchObject({
       task: { key: "ERR-1" },
     });
@@ -291,8 +293,7 @@ describe("bb tasks webhook", () => {
       .exec(
         "CREATE TRIGGER fail_labels BEFORE INSERT ON task_labels BEGIN SELECT RAISE(ABORT, 'rollback'); END",
       );
-    const label = (await f.run(["label", "create", "--project", "ROLL", "--name", "Failure"]))
-      .label;
+    const { label } = await f.run(["label", "create", "--project", "ROLL", "--name", "Failure"]);
     await expect(
       f.harness.callRpc("createTask", {
         projectId: p.id,

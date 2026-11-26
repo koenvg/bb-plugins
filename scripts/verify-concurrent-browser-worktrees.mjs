@@ -94,20 +94,16 @@ try {
       await mkdir(output, { recursive: true });
       const marker = `${plugin.name}-${side}-checkout-marker`;
       const htmlPath = join(checkout, plugin.html);
+      const html = await readFile(htmlPath, "utf8");
       await writeFile(
         htmlPath,
-        (await readFile(htmlPath, "utf8")).replace(
-          "</html>",
-          `<div id="bbp-196-checkout-marker">${marker}</div></html>`,
-        ),
+        html.replace("</html>", `<div id="bbp-196-checkout-marker">${marker}</div></html>`),
       );
       const sourceHash = createHash("sha256")
         .update(await readFile(htmlPath))
         .digest("hex");
-      assert.ok(
-        (await readFile(htmlPath, "utf8")).includes(marker),
-        "changed HTML contains its checkout marker",
-      );
+      const file = await readFile(htmlPath, "utf8");
+      assert.ok(file.includes(marker), "changed HTML contains its checkout marker");
       const facts = join(output, "browser.json");
       const peer = join(evidence, plugin.name, side === "left" ? "right" : "left", "browser.json");
       const spec = join(checkout, plugin.tests, "bbp-196-concurrent.spec.ts");

@@ -260,7 +260,8 @@ test("drag ordering survives task refresh and failed moves restore the card", as
   await page.mouse.move(target.x + 40, target.y + 2, { steps: 10 });
   await page.mouse.up();
   await expect.poll(cardOrder).toEqual(["TSK-2", "TSK-1"]);
-  await (await inventoryRefreshed).finished();
+  const result = await inventoryRefreshed;
+  await result.finished();
   await page.waitForTimeout(600);
   await expect.poll(cardOrder).toEqual(["TSK-2", "TSK-1"]);
   expect(fixture.requests.find((request) => request.method === "boardMove")?.input).toEqual({

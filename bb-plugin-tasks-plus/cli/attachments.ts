@@ -64,7 +64,8 @@ export function attachmentCommands(bb: BbPluginApi, store: TasksApiStore, domain
         return guard(async () => {
           const ownerAddress = input.positionals["key-or-id"];
           const sourcePath = resolve(ctx.cwd ?? process.cwd(), input.options.file);
-          const owner = { taskId: (await resolveTask(domain, ownerAddress)).id };
+          const task = await resolveTask(domain, ownerAddress);
+          const owner = { taskId: task.id };
           const clientHostId = await resolveClientHostId(bb, domain, input.options.machine, ctx);
           const content = await readAttachmentSource(bb, clientHostId, sourcePath);
           const attachment = await saveAttachmentFromBytes(store.tasks, content, {

@@ -53,13 +53,10 @@ describe("native Ticket tab", () => {
       options: { subPath: "all?task=TSK-2" },
     });
     await acceptNavigation(page);
-    expect(
-      (
-        await within(ticket.container).findByRole("textbox", {
-          name: "Task title",
-        })
-      ).textContent,
-    ).toBe("Title 2");
+    const byRole = await within(ticket.container).findByRole("textbox", {
+      name: "Task title",
+    });
+    expect(byRole.textContent).toBe("Title 2");
     const outside = document.createElement("button");
     document.body.append(outside);
     outside.focus();
@@ -108,7 +105,8 @@ describe("native Ticket tab", () => {
     const restored = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-1",
     });
-    expect((await within(restored.container).findByRole("alert")).textContent).toContain("Offline");
+    const byRole = await within(restored.container).findByRole("alert");
+    expect(byRole.textContent).toContain("Offline");
     expect(within(restored.container).getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(title.textContent).toBe("Unsent title");
     expect(page.inspection.navigateCalls).toEqual([]);
@@ -139,13 +137,10 @@ describe("native Ticket tab", () => {
     const restored = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-2",
     });
-    expect(
-      (
-        await within(restored.container).findByRole("textbox", {
-          name: "Task title",
-        })
-      ).textContent,
-    ).toBe("Title 2");
+    const byRole = await within(restored.container).findByRole("textbox", {
+      name: "Task title",
+    });
+    expect(byRole.textContent).toBe("Title 2");
   });
   it("releases the retained editor and drafts when the Tasks page closes", async () => {
     const page = setup("all?task=TSK-1", {}, { nativeTab: false });
@@ -271,19 +266,17 @@ describe("native Ticket tab", () => {
       }),
     ).toBe(title);
     expect(title.textContent).toBe("Recover A");
-    expect((await within(page.container).findByRole("alert")).textContent).toContain("Offline");
+    const byRole = await within(page.container).findByRole("alert");
+    expect(byRole.textContent).toContain("Offline");
     expect(page.inspection.navigateCalls).toEqual([]);
     canSave = true;
     fireEvent.click(within(page.container).getByRole("button", { name: "Retry save" }));
     await waitFor(() => expect(page.inspection.navigateCalls).toHaveLength(1));
     await acceptNavigation(page);
-    expect(
-      (
-        await within(page.container).findByRole("textbox", {
-          name: "Task title",
-        })
-      ).textContent,
-    ).toBe("Title 2");
+    const byRole2 = await within(page.container).findByRole("textbox", {
+      name: "Task title",
+    });
+    expect(byRole2.textContent).toBe("Title 2");
     canOpen = true;
     fireEvent.click(
       within(page.container).getByRole("button", {
@@ -293,13 +286,10 @@ describe("native Ticket tab", () => {
     const restored = renderSlot(ticketRegistration, {
       subPath: "all?task=TSK-2",
     });
-    expect(
-      (
-        await within(restored.container).findByRole("textbox", {
-          name: "Task title",
-        })
-      ).textContent,
-    ).toBe("Title 2");
+    const byRole3 = await within(restored.container).findByRole("textbox", {
+      name: "Task title",
+    });
+    expect(byRole3.textContent).toBe("Title 2");
     expect(within(page.container).getByRole("region", { name: "Ticket list" })).toBeTruthy();
   });
 });

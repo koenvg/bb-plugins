@@ -46,7 +46,8 @@ async function readAttachmentSource(
   path: string,
 ): Promise<Buffer> {
   try {
-    return (await readClientFile(bb, hostId, path)).bytes;
+    const clientFile = await readClientFile(bb, hostId, path);
+    return clientFile.bytes;
   } catch (error) {
     if (isMissingClientFileError(error)) {
       throw new CliError(`attachment source is not a file: ${path}`, {
