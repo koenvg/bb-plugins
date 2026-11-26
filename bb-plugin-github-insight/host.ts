@@ -19,6 +19,7 @@ import {
   parseGraphqlRateLimitReset,
   RATE_LIMIT_ARGS,
 } from "./github/gh-failure";
+import { createGhApi, rateLimitResetOf } from "./github/gh-api-client";
 import { enqueuePullRequestArgs, mergePullRequestArgs } from "./github/merge-mutations";
 import { readNotFoundPartial } from "./github/not-found-partial";
 import { overviewPageArgs } from "./github/overview-query";
@@ -94,7 +95,7 @@ export default experimental_defineHostEntry({
 
 const RENDER_MARKDOWN_ARGS = ["api", "markdown", "--input", "-"];
 
-async function ghText(args: string[], signal: AbortSignal, stdin?: string): Promise<string> {
+async function spawnGh(args: string[], signal?: AbortSignal, stdin?: string): Promise<string> {
   const run = execFileAsync("gh", args, {
     signal,
     maxBuffer: 64 * 1024 * 1024,
@@ -103,6 +104,8 @@ async function ghText(args: string[], signal: AbortSignal, stdin?: string): Prom
   const { stdout } = await run;
   return stdout;
 }
+
+const ghText = createGhApi({ fetch: globalThis.fetch, runGh: spawnGh });
 
 async function gh(args: string[], signal: AbortSignal, stdin?: string): Promise<unknown> {
   return JSON.parse(await ghText(args, signal, stdin)) as unknown;
@@ -153,7 +156,7 @@ async function ghFailureResult(
   }
   return {
     ok: false,
-    failure: { ...failure, resetAt: await readRateLimitReset(signal) },
+    failure: { ...failure, resetAt: rateLimitResetOf(error) ?? (await readRateLimitReset(signal)) },
   };
 }
 

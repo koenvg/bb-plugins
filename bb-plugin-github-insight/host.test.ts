@@ -1,26 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const ghStdout = vi.hoisted(() => ({ value: "" }));
-const ghFailures = vi.hoisted(() => [] as object[]);
-const ghCalls = vi.hoisted(() => [] as string[][]);
-const ghStdin = vi.hoisted(() => [] as (string | undefined)[]);
+const github = vi.hoisted(() => ({
+  body: "",
+  failures: [] as Response[],
+  requests: [] as { url: string; body: unknown }[],
+}));
 
 vi.mock("node:child_process", async () => {
   const { promisify } = await import("node:util");
   const execFile = Object.assign(vi.fn(), {
-    [promisify.custom]: (_file: string, args: string[]) => {
-      ghCalls.push(args);
-      const failure = ghFailures.shift();
-      return Object.assign(
-        failure === undefined
-          ? Promise.resolve({ stdout: ghStdout.value })
-          : Promise.reject(failure),
-        { child: { stdin: { end: (input?: string) => ghStdin.push(input) } } },
-      );
-    },
+    [promisify.custom]: () =>
+      Object.assign(Promise.resolve({ stdout: "token\n" }), {
+        child: { stdin: { end: () => undefined } },
+      }),
   });
   return { execFile };
 });
+
+vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+  github.requests.push({ url, body: init.body });
+  return github.failures.shift() ?? new Response(github.body);
+});
+
+const httpError = (status: number) => new Response("", { status });
 
 const { default: host } = await import("./host");
 
@@ -37,12 +39,12 @@ async function readRateLimitReset() {
 
 describe("readRateLimitReset", () => {
   it("returns the GraphQL reset time when the quota is used up", async () => {
-    ghStdout.value = rateLimitResponse(0);
+    github.body = rateLimitResponse(0);
     expect(await readRateLimitReset()).toEqual({ resetAt: 1_790_000_000_000 });
   });
 
   it("returns null while quota remains", async () => {
-    ghStdout.value = rateLimitResponse(12);
+    github.body = rateLimitResponse(12);
     expect(await readRateLimitReset()).toEqual({ resetAt: null });
   });
 });
@@ -54,7 +56,7 @@ describe("fetchPrFiles", () => {
       status: "modified",
       patch: "+".repeat(200 * 1024),
     }));
-    ghStdout.value = JSON.stringify(files);
+    github.body = JSON.stringify(files);
     const context = { signal: new AbortController().signal } as Parameters<
       typeof host.handlers.fetchPrFiles
     >[1];
@@ -73,14 +75,13 @@ describe("fetchReviewQueue", () => {
   const queueResponse = JSON.stringify({
     data: { viewer: { login: "me" }, reviewRequests: { issueCount: 0, nodes: [] } },
   });
-  const timeout = { code: 1, stderr: "gh: HTTP 504\n", stdout: "" };
   const tracked = (count: number) =>
     Array.from({ length: count }, (_, number) => ({ owner: "acme", repo: "api", number }));
 
   beforeEach(() => {
-    ghCalls.length = 0;
-    ghFailures.length = 0;
-    ghStdout.value = queueResponse;
+    github.requests.length = 0;
+    github.failures.length = 0;
+    github.body = queueResponse;
   });
 
   async function fetchReviewQueue(count: number) {
@@ -92,11 +93,11 @@ describe("fetchReviewQueue", () => {
 
   it("asks GitHub in one request per 8 tracked PRs", async () => {
     expect(await fetchReviewQueue(17)).toMatchObject({ ok: true });
-    expect(ghCalls).toHaveLength(3);
+    expect(github.requests).toHaveLength(3);
   });
 
   it("returns the failure of a batch when the other batches succeed", async () => {
-    ghFailures.push({ code: 1, stderr: "gh: HTTP 502\n", stdout: "" });
+    github.failures.push(httpError(502));
 
     expect(await fetchReviewQueue(17)).toEqual({
       ok: false,
@@ -105,9 +106,9 @@ describe("fetchReviewQueue", () => {
   });
 
   it("returns a rate limit before a plain failure", async () => {
-    ghFailures.push(
-      { code: 1, stderr: "gh: HTTP 502\n", stdout: "" },
-      { code: 1, stderr: "API rate limit exceeded\n", stdout: "" },
+    github.failures.push(
+      httpError(502),
+      Response.json({ message: "API rate limit exceeded for user ID 1." }, { status: 403 }),
     );
 
     expect(await fetchReviewQueue(9)).toMatchObject({
@@ -116,21 +117,39 @@ describe("fetchReviewQueue", () => {
     });
   });
 
+  it("takes the rate limit reset time from the GitHub response headers", async () => {
+    github.failures.push(
+      Response.json(
+        { message: "API rate limit exceeded for user ID 1." },
+        {
+          status: 403,
+          headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1790000000" },
+        },
+      ),
+    );
+
+    expect(await fetchReviewQueue(0)).toEqual({
+      ok: false,
+      failure: { kind: "rate_limited", resetAt: 1_790_000_000_000 },
+    });
+    expect(github.requests).toHaveLength(1);
+  });
+
   it("retries a request once when GitHub times out", async () => {
-    ghFailures.push(timeout);
+    github.failures.push(httpError(504));
 
     expect(await fetchReviewQueue(0)).toEqual({ ok: true, data: [JSON.parse(queueResponse)] });
-    expect(ghCalls).toHaveLength(2);
+    expect(github.requests).toHaveLength(2);
   });
 
   it("fails when GitHub times out twice", async () => {
-    ghFailures.push(timeout, timeout);
+    github.failures.push(httpError(504), httpError(504));
 
     expect(await fetchReviewQueue(0)).toEqual({
       ok: false,
       failure: { kind: "failed", message: "gh: HTTP 504" },
     });
-    expect(ghCalls).toHaveLength(2);
+    expect(github.requests).toHaveLength(2);
   });
 });
 
@@ -140,22 +159,22 @@ describe("renderMarkdown", () => {
   >[1];
 
   beforeEach(() => {
-    ghCalls.length = 0;
-    ghStdin.length = 0;
-    ghFailures.length = 0;
+    github.requests.length = 0;
+    github.failures.length = 0;
   });
 
   it("renders the text in the repository's context and returns the HTML", async () => {
-    ghStdout.value = '<p><img src="https://private-user-images.githubusercontent.com/x"></p>\n';
+    github.body = '<p><img src="https://private-user-images.githubusercontent.com/x"></p>\n';
 
     const result = await host.handlers.renderMarkdown(
       { owner: "octo", repo: "app", text: "<img src=x>" },
       context,
     );
 
-    expect(result).toEqual({ ok: true, html: ghStdout.value });
-    expect(ghCalls).toEqual([["api", "markdown", "--input", "-"]]);
-    expect(JSON.parse(ghStdin[0]!)).toEqual({
+    expect(result).toEqual({ ok: true, html: github.body });
+    expect(github.requests).toHaveLength(1);
+    expect(github.requests[0]!.url).toBe("https://api.github.com/markdown");
+    expect(JSON.parse(String(github.requests[0]!.body))).toEqual({
       text: "<img src=x>",
       mode: "gfm",
       context: "octo/app",
@@ -163,7 +182,7 @@ describe("renderMarkdown", () => {
   });
 
   it("returns the gh failure", async () => {
-    ghFailures.push({ code: 1, stderr: "gh: HTTP 502\n", stdout: "" });
+    github.failures.push(httpError(502));
 
     expect(
       await host.handlers.renderMarkdown({ owner: "octo", repo: "app", text: "x" }, context),
