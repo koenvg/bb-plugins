@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { forgetPrViews } from "./pr-view-snapshots";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ReactNode } from "react";
@@ -129,7 +130,10 @@ beforeAll(() => {
 
 const filesTab = { component: FilesTab };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  forgetPrViews();
+});
 
 const noThreads: ThreadPlacement = { placed: [], outdated: [] };
 const noReviewDrafts = {
@@ -236,6 +240,7 @@ function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: Revie
       rpc: {
         getReview: handlers.getReview ?? getReview,
         getDrafts: handlers.getDrafts ?? getDrafts,
+        prefetchPr: () => ({}),
         getTimeline: () => ({ kind: "no_pr" }),
         addPrComment: () => ({ kind: "error", message: "unused" }),
         sendToAgent:
@@ -521,6 +526,31 @@ describe("Files tab", () => {
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
 
     expect(await slot.findByText("1 file changed")).toBeTruthy();
+  });
+
+  it("asks GitHub for a fresh review on refresh", async () => {
+    const slot = renderTab(recorded);
+
+    await slot.findByText("3 files changed");
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+
+    await vi.waitFor(() =>
+      expect(slot.inspection.rpcCalls.filter(({ method }) => method === "getReview")).toEqual([
+        expect.objectContaining({ input: { threadId: "thr_1" } }),
+        expect.objectContaining({ input: { threadId: "thr_1", fresh: true } }),
+      ]),
+    );
+  });
+
+  it("shows the last review of the thread at once when it opens again", async () => {
+    const first = renderTab(recorded);
+    await first.findByText("3 files changed");
+    first.unmount();
+
+    const pending = new Promise<ReviewResult>(() => {});
+    const again = renderTabWith({ getReview: () => pending }, recorded);
+
+    expect(again.getByText("3 files changed")).toBeTruthy();
   });
 
   it("shows the diff of a file that gets its patch on refresh", async () => {

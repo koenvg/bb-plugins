@@ -4,7 +4,7 @@ const PR_HEAD_QUERY = `
 query ($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
-      id headRefOid state viewerDidAuthor
+      id headRefOid state viewerDidAuthor changedFiles
       baseRefOid
       baseRepository { name owner { login } }
       headRepository { name owner { login } }

@@ -7,7 +7,11 @@ import { INSIGHT_UPDATED_CHANNEL } from "./core/insight-updated";
 import type { InsightUpdated } from "./core/insight-updated";
 import { collectInsight } from "./core/overview";
 import { REVIEW_QUEUE_UPDATED_CHANNEL } from "./core/review-queue-updated";
-import { REVIEW_DRAFTS_UPDATED_CHANNEL, REVIEW_UPDATED_CHANNEL } from "./core/review-updated";
+import {
+  REVIEW_DRAFTS_UPDATED_CHANNEL,
+  REVIEW_UPDATED_CHANNEL,
+  TIMELINE_UPDATED_CHANNEL,
+} from "./core/review-updated";
 import type { ReviewUpdated } from "./core/review-updated";
 import { newCommentDraftId } from "./core/review-drafts";
 import { createMediaSigner } from "./core/signed-media";
@@ -102,7 +106,7 @@ export default async function plugin(bb: BbPluginApi) {
       }
       return result.html;
     },
-    now: Date.now,
+    now: () => Date.now(),
     newDraftId: newCommentDraftId,
     fetchPrFilesPage: async ({ ref, hostId }, page) =>
       unwrap(await host.call("fetchPrFiles", { ...ref, page }, { hostId })),
@@ -116,6 +120,7 @@ export default async function plugin(bb: BbPluginApi) {
     readPrImage: async ({ hostId }, request) => host.call("readPrImage", request, { hostId }),
     drafts,
     publishDrafts: publishDraftsUpdate,
+    publishReview: publishReviewUpdate,
     viewed: createViewedMarksStore(bb.storage.kv),
     newCommentBasis: (pr) => reviewQueue.newCommentBasis(pr),
     markCommentsSeen: (pr, ids) => reviewQueue.markCommentsSeen(pr, ids),
@@ -225,10 +230,12 @@ export default async function plugin(bb: BbPluginApi) {
       unwrap(await host.call("addComment", request, { hostId })),
     newCommentBasis: (pr) => reviewQueue.newCommentBasis(pr),
     signMedia,
+    publish: (update: ReviewUpdated) => bb.realtime.publish(TIMELINE_UPDATED_CHANNEL, update),
+    now: () => Date.now(),
   });
 
-  async function getReview(threadId: string): Promise<ReviewResult> {
-    const load = await review.loadForDisplay(threadId);
+  async function getReview(threadId: string, fresh?: boolean): Promise<ReviewResult> {
+    const load = await review.loadForDisplay(threadId, { fresh });
     return load.kind === "ok" ? { kind: "ok", ...load.review } : load;
   }
 
@@ -258,9 +265,13 @@ export default async function plugin(bb: BbPluginApi) {
     refresh: ({ threadId }) => service.refresh(threadId),
     getPrInsight: (ref) => service.getPrInsight(ref),
     refreshPrInsight: (ref) => service.refreshPrInsight(ref),
-    getReview: ({ threadId }) => getReview(threadId),
+    getReview: ({ threadId, fresh }) => getReview(threadId, fresh),
+    prefetchPr: async ({ threadId }) => {
+      await Promise.all([review.prefetch(threadId), timeline.prefetch(threadId)]);
+      return {};
+    },
     getDrafts: ({ threadId }) => getDrafts(threadId),
-    getTimeline: ({ threadId, before }) => timeline.getTimeline(threadId, before),
+    getTimeline: ({ threadId, before, fresh }) => timeline.getTimeline(threadId, before, fresh),
     addPrComment: (request) => timeline.addPrComment(request),
     sendToAgent: ({ threadId, reviewThreadIds }) => review.sendToAgent(threadId, reviewThreadIds),
     reply: (request) => writes.reply(request),

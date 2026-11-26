@@ -12,6 +12,7 @@ import { postIntent } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
 import { forgetInsights } from "./pr-availability";
 import { forgetSubTabs } from "./pr-sub-tab";
+import { forgetPrViews } from "./pr-view-snapshots";
 
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@get-bb/plugin-sdk/app")>()),
@@ -40,6 +41,7 @@ afterEach(() => {
   cleanup();
   forgetInsights();
   forgetSubTabs();
+  forgetPrViews();
   vi.restoreAllMocks();
 });
 
@@ -85,6 +87,7 @@ function renderPanel(threadId = "thr_1", handlers: Handlers = {}) {
         refresh: () => ({ kind: "no_pr" }),
         getReview: handlers.getReview ?? (() => emptyReview),
         getDrafts: () => ({ kind: "no_pr" }),
+        prefetchPr: () => ({}),
         getTimeline: handlers.getTimeline ?? (() => ({ kind: "no_pr" })),
         addPrComment: fail,
         markCommentsSeen: fail,

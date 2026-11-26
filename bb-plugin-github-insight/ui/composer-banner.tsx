@@ -6,6 +6,7 @@ import { prStatusView } from "./pr-status-view";
 import type { StatusRow } from "./pr-status-view";
 import { RefreshError } from "./feedback";
 import { useInsight } from "./use-insight";
+import { usePrefetchPr } from "./use-prefetch-pr";
 import { usePaletteMerge } from "./use-palette-merge";
 import { openPrOverview, usePrPanelNavigation } from "./use-pr-panel-navigation";
 import { useReportThreadOpened } from "./use-report-thread-opened";
@@ -26,6 +27,7 @@ const ThreadBanner = ({ threadId }: { threadId: string }) => {
   usePrPanelNavigation(threadId);
   useReportThreadOpened(threadId);
   const insight = useInsight(threadId);
+  usePrefetchPr(threadId, insight.result?.kind === "ok");
   const palette = usePaletteMerge(threadId, insight);
   const panel = experimental_useAppPanel();
   const { result, refreshing, refresh } = insight;

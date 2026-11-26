@@ -17,7 +17,11 @@ type Deps = Parameters<typeof createTimelineService>[0];
 function serviceWith(overrides: Partial<Deps> = {}) {
   const pages: unknown[] = [];
   const comments: unknown[] = [];
+  const published: unknown[] = [];
+  const clock = { now: 0 };
   const service = createTimelineService({
+    publish: (update) => published.push(update),
+    now: () => clock.now,
     resolvePr: async (): Promise<PrResolution> => ({ kind: "pr", target }),
     fetchTimelinePage: async (prTarget, before) => {
       pages.push([prTarget, before]);
@@ -31,7 +35,7 @@ function serviceWith(overrides: Partial<Deps> = {}) {
     signMedia: (markdown) => markdown,
     ...overrides,
   });
-  return { service, pages, comments };
+  return { service, pages, comments, published, clock };
 }
 
 function withoutLastReply() {
@@ -208,5 +212,91 @@ describe("timeline service", () => {
       await service.addPrComment({ threadId: "thr_1", prNodeId: "PR_1", body: "Thanks" }),
     ).toEqual({ kind: "error", message: "No pull request for this thread" });
     expect(comments).toEqual([]);
+  });
+
+  describe("newest page cache", () => {
+    function changingTimeline() {
+      let current: unknown = timelines["cli-14578"];
+      const reads: (string | null)[] = [];
+      const deps = serviceWith({
+        fetchTimelinePage: async (_target, before) => {
+          reads.push(before);
+          return current;
+        },
+      });
+      return { ...deps, reads, change: () => (current = withoutLastReply()) };
+    }
+
+    async function settle() {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    it("returns the stored page within a minute without a GitHub read", async () => {
+      const { service, reads, clock } = changingTimeline();
+      await service.getTimeline("thr_1", null);
+      clock.now = 59_999;
+
+      await service.getTimeline("thr_1", null);
+      await settle();
+
+      expect(reads).toEqual([null]);
+    });
+
+    it("returns the stored page at once after a minute and tells viewers when GitHub changed", async () => {
+      const { service, reads, clock, change, published } = changingTimeline();
+      const first = await service.getTimeline("thr_1", null);
+      change();
+      clock.now = 60_000;
+
+      const second = await service.getTimeline("thr_1", null);
+      await settle();
+      const third = await service.getTimeline("thr_1", null);
+
+      expect(second).toEqual(first);
+      expect(reads).toEqual([null, null]);
+      expect(published).toEqual([{ threadId: "thr_1" }]);
+      expect(third).not.toEqual(first);
+    });
+
+    it("tells no one when the page read again is the same", async () => {
+      const { service, reads, clock, published } = changingTimeline();
+      await service.getTimeline("thr_1", null);
+      clock.now = 60_000;
+
+      await service.getTimeline("thr_1", null);
+      await settle();
+
+      expect(reads).toEqual([null, null]);
+      expect(published).toEqual([]);
+    });
+
+    it("reads GitHub for a fresh read even when the stored page is new", async () => {
+      const { service, reads, change } = changingTimeline();
+      const first = await service.getTimeline("thr_1", null);
+      change();
+
+      const fresh = await service.getTimeline("thr_1", null, true);
+
+      expect(reads).toEqual([null, null]);
+      expect(fresh).not.toEqual(first);
+    });
+
+    it("always reads older pages from GitHub", async () => {
+      const { service, reads } = changingTimeline();
+
+      await service.getTimeline("thr_1", "cursor");
+      await service.getTimeline("thr_1", "cursor");
+
+      expect(reads).toEqual(["cursor", "cursor"]);
+    });
+
+    it("shares one GitHub read between a prefetch and the first load", async () => {
+      const { service, reads } = changingTimeline();
+
+      await Promise.all([service.prefetch("thr_1"), service.getTimeline("thr_1", null)]);
+      await settle();
+
+      expect(reads).toEqual([null]);
+    });
   });
 });

@@ -99,11 +99,7 @@ describe("PR image RPC", () => {
       });
       const loading = harness.behavior.callRpc("getReview", { threadId: "thr_1" });
       try {
-        await vi.waitFor(() =>
-          expect(events).toEqual(
-            boundary === "head" ? ["head", "threads"] : ["head", "threads", "files"],
-          ),
-        );
+        await vi.waitFor(() => expect(events).toEqual(["head", "files", "threads"]));
       } finally {
         pending.resolve(
           boundary === "head" ? ok(head()) : ok([{ filename: "new.png", status: "added" }]),
@@ -116,7 +112,7 @@ describe("PR image RPC", () => {
         files: [{ path: "new.png", previousPath: null, status: "added", patch: null }],
         imageBasis: { headSha, mergeBaseSha },
       });
-      expect(events).toEqual(["head", "threads", "files", "head", "compare"]);
+      expect(events).toEqual(["head", "files", "threads", "files", "head", "compare"]);
     },
   );
 
@@ -165,7 +161,7 @@ describe("PR image RPC", () => {
       throw Error("Expected loaded review");
     }
     expect(review.files).toEqual(expectedFiles);
-    expect(calls).toEqual(["fetchPrHead", "fetchReviewThreads", "fetchPrFiles"]);
+    expect(calls).toEqual(["fetchPrHead", "fetchPrFiles", "fetchReviewThreads"]);
   });
 
   it("resolves image basis for a rename whose previous path alone is raster", async () => {
@@ -223,7 +219,7 @@ describe("PR image RPC", () => {
       });
       try {
         await vi.waitFor(() =>
-          expect(events).toEqual(["fetchPrHead", "fetchReviewThreads", "fetchPrFiles"]),
+          expect(events).toEqual(["fetchPrHead", "fetchPrFiles", "fetchReviewThreads"]),
         );
         (failing === "files" ? files : threadRead).resolve(
           failed({ kind: "failed", message: `${failing} failed` }),
@@ -311,7 +307,7 @@ describe("PR image RPC", () => {
     expect(review.imageBasis?.headSha).toBe("4444444444444444444444444444444444444444");
     expect(
       harness.experimental_hostRpcCalls.filter(({ method }) => method === "fetchPrFiles"),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
   });
 });
 

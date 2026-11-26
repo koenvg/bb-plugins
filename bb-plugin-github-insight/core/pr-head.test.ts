@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import recordedHead from "../test/fixtures/pr-43-head.json";
-import { parsePrHead } from "./pr-head";
+import { changedFilesOf, parsePrHead } from "./pr-head";
 
 describe("parsePrHead", () => {
   it("reads the recorded response", () => {
@@ -46,3 +46,13 @@ function withLatestReview(viewerLatestReview: unknown) {
   const { pullRequest } = recordedHead.data.repository;
   return { data: { repository: { pullRequest: { ...pullRequest, viewerLatestReview } } } };
 }
+
+describe("changedFilesOf", () => {
+  it("reads the number of changed files", () => {
+    expect(changedFilesOf(recordedHead)).toBe(40);
+  });
+
+  it("knows no count when the response has none", () => {
+    expect(changedFilesOf({ data: { repository: { pullRequest: {} } } })).toBeNull();
+  });
+});

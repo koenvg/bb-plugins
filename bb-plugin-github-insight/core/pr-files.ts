@@ -33,15 +33,32 @@ export function parsePrFiles(pages: unknown): ReviewFile[] {
   );
 }
 
+const PARALLEL_PAGE_READS = 6;
+
+async function readPages<T>(numbers: number[], read: (page: number) => Promise<T>): Promise<T[]> {
+  const pages: T[] = [];
+  for (let start = 0; start < numbers.length; start += PARALLEL_PAGE_READS) {
+    pages.push(...(await Promise.all(numbers.slice(start, start + PARALLEL_PAGE_READS).map(read))));
+  }
+  return pages;
+}
+
 export async function collectPrFiles(
   fetchPage: (page: number) => Promise<unknown>,
+  fileCount: Promise<number | null> = Promise.resolve(null),
 ): Promise<ReviewFile[]> {
-  const pages: z.infer<typeof restFilePagesSchema> = [];
-  let page: z.infer<typeof restFilePageSchema>;
-  do {
-    page = restFilePageSchema.parse(await fetchPage(pages.length + 1));
-    pages.push(page);
-  } while (page.length === PR_FILES_PER_PAGE && pages.length < MAX_PR_FILE_PAGES);
+  const readPage = async (page: number) => restFilePageSchema.parse(await fetchPage(page));
+  const pages = [await readPage(1)];
+  const isFull = (page: z.infer<typeof restFilePageSchema>) => page.length === PR_FILES_PER_PAGE;
+  if (isFull(pages[0]!)) {
+    const count = await fileCount.catch(() => null);
+    const pageCount = Math.min(Math.ceil((count ?? 0) / PR_FILES_PER_PAGE), MAX_PR_FILE_PAGES);
+    const rest = Array.from({ length: Math.max(pageCount - 1, 0) }, (_, index) => index + 2);
+    pages.push(...(await readPages(rest, readPage)));
+  }
+  while (isFull(pages.at(-1)!) && pages.length < MAX_PR_FILE_PAGES) {
+    pages.push(await readPage(pages.length + 1));
+  }
   return parsePrFiles(pages);
 }
 
