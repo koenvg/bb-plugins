@@ -1,3 +1,4 @@
+import { chromium } from "@playwright/test";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -43,8 +44,7 @@ try {
       {
         command,
         baseURL: server.url.href,
-        executablePath:
-          "/Users/koen/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || chromium.executablePath(),
         downloads: false,
         syntheticOnly: true,
       },
