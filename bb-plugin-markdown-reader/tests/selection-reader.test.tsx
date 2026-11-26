@@ -1,11 +1,17 @@
 import { fail as missingValue } from "node:assert/strict";
+import { startTransition, useLayoutEffect, useRef, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import {
+  installTestPluginRuntime,
+  loadPluginApp,
+  renderSlot,
+} from "@get-bb/plugin-sdk/testing/app";
 import pluginApp from "../app";
 import pluginServer from "../server";
-import { readResultSchema, type ReaderTarget } from "../source";
+import { readResultSchema, type ReaderTarget, type TextSnapshot } from "../source";
+import { SelectionAction } from "../selection";
 import {
   useComposer,
   type PluginComposerApi,
@@ -60,7 +66,10 @@ async function mount(
   let api: PluginComposerApi | undefined;
   const Opener = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
   const ObservedOpener = (props: PluginFileOpenerProps) => {
-    api = useComposer();
+    const composer = useComposer();
+    useLayoutEffect(() => {
+      api = composer;
+    }, [composer]);
     return <Opener {...props} />;
   };
   const slot = renderSlot(
@@ -101,6 +110,70 @@ function select(
   fireEvent(document, new Event("selectionchange"));
   fireEvent.pointerUp(node.parentElement ?? missingValue("Expected node.parentElement"));
 }
+
+it("discards a deferred selection when the destination changes away and back", async () => {
+  installTestPluginRuntime();
+  const snapshot: TextSnapshot = {
+    target,
+    text: "Selected prose.",
+    sha256: "hash",
+    sizeBytes: 15,
+    hostId: "remote",
+    rootPath: "/work",
+    documentPath: "/work/note.md",
+    documentDirectory: "/work",
+  };
+  const append = vi.fn(() => null);
+  const Fixture = () => {
+    const [draft, setDraft] = useState("a");
+    const panel = useRef<HTMLDivElement>(null);
+    return (
+      <>
+        <div ref={panel}>
+          <p className="mr-prose">{snapshot.text}</p>
+        </div>
+        <button
+          type="button"
+          ref={(button) => {
+            if (button && draft === "b") setDraft("a");
+          }}
+          onClick={() => setDraft("b")}
+        >
+          Switch draft
+        </button>
+        <SelectionAction
+          panel={panel}
+          snapshot={snapshot}
+          view="preview"
+          destination={{ key: draft, available: true, append }}
+          revision={0}
+        />
+      </>
+    );
+  };
+  const screen = render(<Fixture />);
+  const prose = screen.getByText(snapshot.text);
+  const range = document.createRange();
+  range.selectNodeContents(prose);
+  const selection = window.getSelection() ?? missingValue("Expected window.getSelection()");
+  selection.addRange(range);
+
+  await act(async () => {
+    startTransition(() => {
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Switch draft" }));
+  });
+
+  expect(screen.queryByRole("button", { name: "Add to chat" })).toBeNull();
+  expect(append).not.toHaveBeenCalled();
+
+  select(prose.firstChild ?? missingValue("Expected a non-null value"), 0, 8);
+  fireEvent.click(screen.getByRole("button", { name: "Add to chat" }));
+  expect(append).toHaveBeenCalledExactlyOnceWith(
+    "> note.md\n> workspace · host remote\n> Selected\n",
+  );
+});
 it("appends selected Preview prose to the associated draft without replacing, sending, or file access", async () => {
   const { slot, harness } = await mount();
   const original = slot.inspection.composer.draft;

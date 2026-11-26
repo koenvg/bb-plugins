@@ -121,25 +121,30 @@ export const RemoteImage = ({
   alt: string;
   resources: RemoteImages;
 }) => {
-  const [asset, setAsset] = useState<Asset | null>(null);
-  const [broken, setBroken] = useState(false);
+  const [image, setImage] = useState<{
+    url: string;
+    resources: RemoteImages;
+    asset: Asset | null;
+    broken: boolean;
+  }>({ url, resources, asset: null, broken: false });
+  if (image.url !== url || image.resources !== resources)
+    setImage({ url, resources, asset: null, broken: false });
+  const { asset, broken } = image;
   useEffect(() => {
     const controller = new AbortController();
     let current: Asset | null = null;
-    setAsset(null);
-    setBroken(false);
     void resources
       .load(url, controller.signal)
       .then((loaded) => {
         if (controller.signal.aborted) loaded.release();
         else {
           current = loaded;
-          setAsset(loaded);
+          setImage({ url, resources, asset: loaded, broken: false });
         }
         return;
       })
       .catch(() => {
-        if (!controller.signal.aborted) setBroken(true);
+        if (!controller.signal.aborted) setImage({ url, resources, asset: null, broken: true });
       });
     return () => {
       controller.abort();
@@ -154,7 +159,7 @@ export const RemoteImage = ({
       alt={label}
       onInlineError={() => {
         asset.release();
-        setBroken(true);
+        setImage({ url, resources, asset: null, broken: true });
       }}
     />
   ) : (

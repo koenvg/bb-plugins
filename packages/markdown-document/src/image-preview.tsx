@@ -166,7 +166,9 @@ const ImageDialog = ({
       button.focus({ preventScroll: true });
   };
   const dismissRef = useRef(dismiss);
-  dismissRef.current = dismiss;
+  useLayoutEffect(() => {
+    dismissRef.current = dismiss;
+  }, [dismiss]);
   useLayoutEffect(() => {
     const element = dialog.current;
     if (!element) throw new Error("Dialog is not mounted");
