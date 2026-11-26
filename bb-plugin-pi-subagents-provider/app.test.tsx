@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExperimentalTabRegistration } from "@get-bb/plugin-sdk/app";
@@ -18,18 +19,21 @@ function render(
   } = {},
   payload: unknown = data,
 ) {
-  return renderSlot(app.pendingInteractions[0]!, {
-    interaction: {
-      id: "pint_test",
-      threadId: "thr_test",
-      title: "Allow access?",
-      payload: payload as never,
-      createdAt: 0,
-      expiresAt: null,
+  return renderSlot(
+    app.pendingInteractions[0] ?? missingValue("Expected app.pendingInteractions[0]"),
+    {
+      interaction: {
+        id: "pint_test",
+        threadId: "thr_test",
+        title: "Allow access?",
+        payload: payload as never,
+        createdAt: 0,
+        expiresAt: null,
+      },
+      submit: handlers.submit ?? (async () => undefined),
+      cancel: handlers.cancel ?? (async () => undefined),
     },
-    submit: handlers.submit ?? (async () => undefined),
-    cancel: handlers.cancel ?? (async () => undefined),
-  });
+  );
 }
 
 describe("pi extension ui interaction", () => {
@@ -113,7 +117,8 @@ describe("pi extension ui interaction", () => {
   it("renders editor prefill and submits the edited text", async () => {
     const submit = vi.fn(async () => undefined);
     const view = render({ requestId: "ui-4", method: "editor", prefill: "line one" }, { submit });
-    const editor = view.container.querySelector("textarea")!;
+    const editor =
+      view.container.querySelector("textarea") ?? missingValue("Expected a non-null value");
     fireEvent.change(editor, { target: { value: "line one\nline two" } });
     fireEvent.click(view.getByText("Submit"));
     await vi.waitFor(() => expect(submit).toHaveBeenCalledWith("line one\nline two"));
@@ -168,7 +173,8 @@ describe("pi extension ui interaction", () => {
 
 it("reports read-only subagent support and installed acceptance limits without controls", () => {
   const view = renderSlot(
-    app.settingsSections.find((slot) => slot.id === "subagent-support")!,
+    app.settingsSections.find((slot) => slot.id === "subagent-support") ??
+      missingValue("Expected a non-null value"),
     {},
   );
   expect(view.getByText(/Open the Subagents tab/)).toBeDefined();

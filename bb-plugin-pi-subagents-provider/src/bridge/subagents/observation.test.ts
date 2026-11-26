@@ -1,3 +1,5 @@
+import type { ViewState } from "../../subagents-contract.js";
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import {
   experimental_createDeltaAssembler as createAssembler,
@@ -7,7 +9,7 @@ import { type ThreadDelta, threadDeltaSchema } from "@get-bb/plugin-sdk/provider
 import { createSubagentObservation, type ObservationOptions } from "./observation.js";
 
 import { createViewStore } from "./view-store.js";
-import { type CaptureTarget } from "./capture.js";
+import type { CaptureTarget } from "./capture.js";
 import { restoreViewHistory } from "../../view-history.js";
 const sessionFile = "/owned/session.jsonl";
 const root = (state = "running", children: unknown[] = []) => ({
@@ -159,7 +161,7 @@ it("discloses the SDK anchor limit without emitting progress for an unopened ite
   expect(h.events.filter((e) => e.type === "turn/started")).toHaveLength(1);
 });
 it("publishes one coherent unavailable state for equal no-anchor receipts and clears it on a real turn", async () => {
-  const states: import("../../subagents-contract.js").ViewState[] = [];
+  const states: ViewState[] = [];
   const view = createViewStore(
     (s) => states.push(structuredClone(s)),
     () => 3000,
@@ -190,7 +192,11 @@ it("publishes one coherent unavailable state for equal no-anchor receipts and cl
     await h.observation.refresh();
   }
   expect(states).toHaveLength(1);
-  expect(states[0]!.rows.some((r) => r.capture?.finalOutput === "accepted output")).toBe(true);
+  expect(
+    (states[0] ?? missingValue("Expected states[0]")).rows.some(
+      (r) => r.capture?.finalOutput === "accepted output",
+    ),
+  ).toBe(true);
   h.anchor();
   await h.observation.refresh();
   expect(states).toHaveLength(2);
@@ -202,7 +208,7 @@ it("recaptures the terminal result when settlement arrives during an earlier ins
   vi.useFakeTimers();
   let h: ReturnType<typeof harness> | undefined;
   try {
-    const states: import("../../subagents-contract.js").ViewState[] = [];
+    const states: ViewState[] = [];
     const view = createViewStore(
       (s) => states.push(structuredClone(s)),
       () => 3000,
@@ -230,7 +236,8 @@ it("recaptures the terminal result when settlement arrives during an earlier ins
     await h.observation.refresh();
     expect(h.items().filter((item) => item.status === "completed")).toHaveLength(1);
     expect(view.snapshot().rows[0]?.capture?.finalOutput).toBeUndefined();
-    const [target, requestId] = inspect.mock.calls[0]!;
+    const [target, requestId] =
+      inspect.mock.calls[0] ?? missingValue("Expected inspect.mock.calls[0]");
     finishFirst(reply(target, requestId));
     await vi.advanceTimersByTimeAsync(0);
     expect(inspect).toHaveBeenCalledTimes(1);
@@ -239,7 +246,9 @@ it("recaptures the terminal result when settlement arrives during an earlier ins
     h.time(3750);
     await vi.advanceTimersByTimeAsync(750);
     expect(inspect).toHaveBeenCalledTimes(2);
-    expect(inspect.mock.calls[1]![0].terminal).toBe(true);
+    expect(
+      (inspect.mock.calls[1] ?? missingValue("Expected inspect.mock.calls[1]"))[0].terminal,
+    ).toBe(true);
     expect(view.snapshot().rows[0]?.capture?.finalOutput).toBe("Owned final answer");
     h.observation.dispose("release");
     const persisted = restoreViewHistory(
@@ -259,7 +268,7 @@ describe("native single-run observation", () => {
     const h = harness();
     await h.observation.refresh();
     expect(h.items()).toHaveLength(1);
-    const id = h.items()[0]!.id;
+    const id = (h.items()[0] ?? missingValue("Expected h.items()[0]")).id;
     expect(h.items()[0]).toMatchObject({
       type: "backgroundTask",
       taskType: "local_subagent",
@@ -267,13 +276,15 @@ describe("native single-run observation", () => {
       taskStatus: "running",
       skipTranscript: false,
     });
-    expect(h.items()[0]!.description).toContain("reviewer");
-    expect(h.items()[0]!.summary).toContain("2s");
-    expect(h.items()[0]!.summary).toContain("read");
+    expect((h.items()[0] ?? missingValue("Expected h.items()[0]")).description).toContain(
+      "reviewer",
+    );
+    expect((h.items()[0] ?? missingValue("Expected h.items()[0]")).summary).toContain("2s");
+    expect((h.items()[0] ?? missingValue("Expected h.items()[0]")).summary).toContain("read");
     expect(h.assembler.getOpenTurnId("thread-1")).toBeUndefined();
     h.time(1000000);
     h.observation.widget({ method: "setWidget", widgetKey: "subagent-async" });
-    expect(h.items().at(-1)!.status).toBe("pending");
+    expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe("pending");
     h.set(receipt([root("complete")]));
     await h.observation.refresh();
     await h.observation.refresh();
@@ -312,7 +323,7 @@ describe("native single-run observation", () => {
       { id: ids[0], status: "completed", taskStatus: "completed", skipTranscript: false },
       { id: ids[1], status: "pending", taskStatus: "running", skipTranscript: false },
     ]);
-    expect(latestItems()[1]!.summary).toContain(
+    expect((latestItems()[1] ?? missingValue("Expected latestItems()[1]")).summary).toContain(
       "Last observed activity: Needs attention · Reported tool: bash",
     );
 
@@ -338,12 +349,16 @@ describe("native single-run observation", () => {
     ]) {
       h.set(value);
       await h.observation.refresh();
-      expect(h.items().at(-1)!.status).toBe("pending");
+      expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
+        "pending",
+      );
     }
     expect(h.observation.state().availability).toBe("unavailable");
     h.set(receipt([root("complete")]));
     await h.observation.refresh();
-    expect(h.items().at(-1)!.status).toBe("completed");
+    expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
+      "completed",
+    );
     expect(h.observation.state().inspection).toBe("not-captured");
   });
 
@@ -369,13 +384,13 @@ describe("native single-run observation", () => {
         ]),
       );
       await h.observation.refresh();
-      const id = h.items()[0]!.id;
+      const id = (h.items()[0] ?? missingValue("Expected h.items()[0]")).id;
       expect(h.items().at(-1)).toMatchObject({
         status: "pending",
         taskStatus: "running",
         skipTranscript: false,
       });
-      expect(h.items().at(-1)!.summary).toContain(
+      expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).summary).toContain(
         "Live descendants last observed needing attention: 1",
       );
       expect(view.snapshot().rows).toMatchObject([
@@ -397,7 +412,9 @@ describe("native single-run observation", () => {
         status: state === "complete" ? "completed" : "interrupted",
         taskStatus: state === "complete" ? "completed" : state === "paused" ? "paused" : "stopped",
       });
-      expect(h.items().at(-1)!.summary).not.toContain("Live descendants");
+      expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).summary).not.toContain(
+        "Live descendants",
+      );
       expect(h.deltas.filter((delta) => delta.kind === "item.close")).toHaveLength(1);
       h.observation.dispose("release");
     },
@@ -410,7 +427,7 @@ describe("native single-run observation", () => {
     );
     const h = harness(view);
     await h.observation.refresh();
-    const id = h.items()[0]!.id;
+    const id = (h.items()[0] ?? missingValue("Expected h.items()[0]")).id;
     h.set(
       receipt([{ ...root("paused"), activity: { state: "needs_attention", currentTool: "bash" } }]),
     );
@@ -445,13 +462,15 @@ describe("native single-run observation", () => {
     await h.observation.refresh();
     h.set(receipt([root("complete")]));
     await h.observation.refresh();
-    expect(h.items().at(-1)!.status).toBe("pending");
-    expect(h.items().at(-1)!.summary).toContain(
+    expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe("pending");
+    expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).summary).toContain(
       "Live descendants last observed needing attention: 1",
     );
     h.set(receipt([root("complete"), { ...child, state: "complete" }]));
     await h.observation.refresh();
-    expect(h.items().at(-1)!.status).toBe("completed");
+    expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
+      "completed",
+    );
     expect(new Set(h.items().map((item) => item.id)).size).toBe(1);
   });
 
@@ -464,7 +483,7 @@ describe("native single-run observation", () => {
     async (omitted) => {
       const h = harness();
       await h.observation.refresh();
-      const id = h.items()[0]!.id;
+      const id = (h.items()[0] ?? missingValue("Expected h.items()[0]")).id;
       h.set(receipt([root("complete")], omitted));
       await h.observation.refresh();
       h.set(receipt([]));
@@ -499,10 +518,12 @@ describe("native single-run observation", () => {
       ]);
     h.set(receipt([tree("running")]));
     await h.observation.refresh();
-    expect(h.items().at(-1)!.status).toBe("pending");
+    expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe("pending");
     h.set(receipt([tree("complete")]));
     await h.observation.refresh();
-    expect(h.items().at(-1)!.status).toBe("completed");
+    expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
+      "completed",
+    );
     expect(new Set(h.items().map((item) => item.id)).size).toBe(1);
   });
 
@@ -526,7 +547,9 @@ describe("native single-run observation", () => {
     ]) {
       h.set(value);
       await h.observation.refresh();
-      expect(h.items().at(-1)!.status).toBe("pending");
+      expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).status).toBe(
+        "pending",
+      );
       expect(h.observation.state().availability).toBe("unavailable");
     }
   });
@@ -554,7 +577,9 @@ describe("native single-run observation", () => {
       h.set(receipt([root("complete")]));
       await h.observation.refresh();
       expect(h.items().at(-1)).toMatchObject({ status: "interrupted", taskStatus: "stopped" });
-      expect(h.items().at(-1)!.summary).toContain("unknown");
+      expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).summary).toContain(
+        "unknown",
+      );
       expect(h.items().filter((item) => item.status !== "pending")).toHaveLength(1);
     },
   );
@@ -637,7 +662,7 @@ it("keeps attention and long tools countable, then clears attention on the same 
   const h = harness(view);
   h.set(receipt([{ ...root(), activity: { state: "needs_attention", currentTool: "bash" } }]));
   await h.observation.refresh();
-  const id = h.items()[0]!.id;
+  const id = (h.items()[0] ?? missingValue("Expected h.items()[0]")).id;
   expect(h.items().at(-1)).toMatchObject({
     id,
     status: "pending",
@@ -655,7 +680,9 @@ it("keeps attention and long tools countable, then clears attention on the same 
   h.set(receipt([]));
   await h.observation.refresh();
   expect(h.items().at(-1)).toMatchObject({ id, status: "pending", taskStatus: "running" });
-  expect(h.items().at(-1)!.summary).toContain("999s; Last observed activity: Needs attention");
+  expect((h.items().at(-1) ?? missingValue("Expected h.items().at(-1)")).summary).toContain(
+    "999s; Last observed activity: Needs attention",
+  );
   expect(h.deltas.filter((delta) => delta.kind === "item.close")).toHaveLength(0);
   h.set(receipt([{ ...root(), activity: { state: "active", currentTool: "read" } }]));
   await h.observation.refresh();
@@ -667,9 +694,9 @@ it("keeps attention and long tools countable, then clears attention on the same 
     summary:
       'running; 999s; Last observed activity: "active" · Reported tool: read; result not captured',
   });
-  expect(view.snapshot().rows[0]!.activity).toBe(
-    'Last observed activity: "active" · Reported tool: read',
-  );
+  expect(
+    (view.snapshot().rows[0] ?? missingValue("Expected view.snapshot().rows[0]")).activity,
+  ).toBe('Last observed activity: "active" · Reported tool: read');
   h.set(receipt([root("complete")]));
   await h.observation.refresh();
   await h.observation.refresh();
@@ -711,7 +738,9 @@ it("recaptures an unchanged terminal exact run once when its file route becomes 
     await observation.refresh();
     await vi.advanceTimersByTimeAsync(1);
     expect(inspect).toHaveBeenCalledTimes(1);
-    expect(view.snapshot().rows[0]!.capture).toMatchObject({
+    expect(
+      (view.snapshot().rows[0] ?? missingValue("Expected view.snapshot().rows[0]")).capture,
+    ).toMatchObject({
       status: "captured",
       finalOutput: "answer",
     });

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -72,7 +73,7 @@ const tasks = [
 
 function renderList() {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: PROJECT_ID },
     {
       rpc: {

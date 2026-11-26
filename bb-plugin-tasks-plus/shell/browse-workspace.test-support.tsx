@@ -1,17 +1,19 @@
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../test-fixtures.js";
 
 const app = await loadPluginApp(() => import("../app"));
-export const panel = app.navPanels[0]!;
-export const ticketRegistration = app.tabs.find(
-  (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
-    tab.id === "ticket" &&
-    tab.availability === "fixed" &&
-    tab.context.kind === "nav-panel" &&
-    tab.context.panelId === "tasks",
-)!;
+export const panel = app.navPanels[0] ?? missingValue("Missing fixture value");
+export const ticketRegistration =
+  app.tabs.find(
+    (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
+      tab.id === "ticket" &&
+      tab.availability === "fixed" &&
+      tab.context.kind === "nav-panel" &&
+      tab.context.panelId === "tasks",
+  ) ?? missingValue("Missing fixture value");
 const TasksPage = panel.component;
 export const Panel = ({
   subPath,
@@ -141,9 +143,9 @@ export async function readyDescription(slot: ReturnType<typeof setup>) {
 export async function edit(slot: ReturnType<typeof setup>, text: string, index = 0) {
   await readyDescription(slot);
   await act(async () => {
-    const editor = slot.container.querySelectorAll<HTMLElement>(' .tiptap[contenteditable="true"]')[
-      index
-    ]!;
+    const editor =
+      slot.container.querySelectorAll<HTMLElement>(' .tiptap[contenteditable="true"]')[index] ??
+      missingValue("Missing fixture value");
     editor.innerHTML = `<p>${text}</p>`;
     fireEvent.input(editor);
   });

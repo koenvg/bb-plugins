@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { listSummaries, summariesFingerprint } from "./summaries";
 
@@ -17,7 +18,7 @@ function fakeSdk({
     old: { prSummary: { version: 1 } },
   };
   const getPluginMetadata = vi.fn(async ({ threadId }: { threadId: string }) => {
-    const value = metadata[threadId]!;
+    const value = metadata[threadId] ?? missingValue("Expected metadata[threadId]");
     if (value instanceof Error) throw value;
     return value;
   });

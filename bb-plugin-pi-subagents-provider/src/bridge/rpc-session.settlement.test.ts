@@ -57,8 +57,8 @@ function harness(settlement = true) {
     child: unknown;
     channel: PiSessionChannel;
     isProcessing: boolean;
-    handleEvent(event: PiRpcEvent): void;
-    handleChannelMessage(message: Record<string, unknown>): void;
+    handleEvent: (event: PiRpcEvent) => void;
+    handleChannelMessage: (message: Record<string, unknown>) => void;
     deliveryChain: Promise<void>;
     runs: Map<number, unknown>;
     pendingRunSettlements: unknown[];
@@ -459,8 +459,8 @@ it.each(["bb-first", "bb-last"])(
     });
     let runtime!: {
       _isAgentRunActive: boolean;
-      _handleAgentEvent(event: Record<string, unknown>): Promise<void>;
-      _emitAgentSettled(): Promise<void>;
+      _handleAgentEvent: (event: Record<string, unknown>) => Promise<void>;
+      _emitAgentSettled: () => Promise<void>;
     };
     let b: ReturnType<PiRpcSession["prompt"]> | undefined;
     let startedB = false;

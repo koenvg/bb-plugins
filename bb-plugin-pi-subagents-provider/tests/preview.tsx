@@ -181,7 +181,8 @@ if (!boundedValue(state, VIEW_BYTES)) throw new Error("Synthetic capture exceeds
 viewSchema.parse(state);
 installTestPluginRuntime();
 
-const root = document.getElementById("root")!;
+const root = document.getElementById("root");
+if (!root) throw new Error("Missing preview root");
 if (new URLSearchParams(location.search).get("layout") === "panel") root.style.width = "360px";
 createRoot(root).render(
   <SubagentsView

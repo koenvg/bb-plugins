@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -84,8 +85,8 @@ it("carries descriptions, unions, constants, integers, and closed objects into t
     );
   const tool = registered.find((entry) => entry.name === "bb_rich");
   expect(tool).toBeDefined();
-  expect(tool!.description).toBe("A richly typed bb tool.");
-  const parameters = tool!.parameters as {
+  expect((tool ?? missingValue("Expected tool")).description).toBe("A richly typed bb tool.");
+  const parameters = (tool ?? missingValue("Expected tool")).parameters as {
     description?: string;
     additionalProperties?: boolean;
     required?: string[];

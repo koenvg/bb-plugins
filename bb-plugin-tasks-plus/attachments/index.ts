@@ -35,7 +35,9 @@ const MIME_PATTERN =
   /^(application|audio|font|image|message|model|multipart|text|video)\/[!#$&^_.+\-A-Za-z0-9]+$/;
 const storeRoots = new WeakMap<TasksStore, string>();
 
-type AttachmentOwner = { taskId: string };
+interface AttachmentOwner {
+  taskId: string;
+}
 
 type SaveAttachmentFromBytesOptions = AttachmentOwner & {
   fileName: string;
@@ -50,29 +52,31 @@ interface DatabaseListRow {
 type PluginHttpContext = Parameters<Parameters<BbPluginApi["http"]["route"]>[2]>[0];
 
 class AttachmentRequestError extends Error {
-  constructor(
-    readonly status: 400 | 413,
-    message: string,
-  ) {
+  readonly status: 400 | 413;
+  constructor(status: 400 | 413, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
 export class AttachmentReferencedError extends Error {
-  constructor(readonly attachment: Attachment) {
+  readonly attachment: Attachment;
+  constructor(attachment: Attachment) {
     super(
       `Attachment "${attachment.fileName}" is used in the task description. Remove it from the description before deleting the attachment.`,
     );
+    this.attachment = attachment;
     this.name = "AttachmentReferencedError";
   }
 }
 
 class AttachmentCleanupError extends Error {
-  constructor(
-    readonly attachment: Attachment,
-    readonly cleanupCause: unknown,
-  ) {
+  readonly attachment: Attachment;
+  readonly cleanupCause: unknown;
+  constructor(attachment: Attachment, cleanupCause: unknown) {
     super(`Failed to remove attachment blob: ${attachment.fileName}`);
+    this.attachment = attachment;
+    this.cleanupCause = cleanupCause;
     this.name = "AttachmentCleanupError";
   }
 }
@@ -426,8 +430,10 @@ export function publishAttachmentChanged(
 type PreviewErrorCode = "invalid-request" | "missing" | "unsupported" | "too-large" | "failed";
 
 class PreviewReadError extends Error {
-  constructor(readonly code: PreviewErrorCode) {
+  readonly code: PreviewErrorCode;
+  constructor(code: PreviewErrorCode) {
     super(code);
+    this.code = code;
   }
 }
 

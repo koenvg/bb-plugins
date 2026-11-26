@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { makeAttachment } from "../test-fixtures.js";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -59,7 +60,7 @@ describe("browse save and task ownership", () => {
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
     expect(writes[1]).toMatchObject({
-      taskId: tasks[0]!.id,
+      taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
       description: "Newer draft for A",
     });
     await acceptNavigation(slot);
@@ -90,7 +91,7 @@ describe("browse save and task ownership", () => {
 
   it("preserves saved descriptions and task files through A-B-A navigation", async () => {
     const records = tasks.map((task) => ({ ...task }));
-    const file = makeAttachment(records[0]!.id);
+    const file = makeAttachment((records[0] ?? missingValue("Expected records[0]")).id);
     const writes: Record<string, unknown>[] = [];
     const slot = setup("all?task=TSK-1", {
       getTaskByKey: (raw) => ({ task: records.find((t) => t.key === rpcInput(raw).taskKey) }),
@@ -100,7 +101,8 @@ describe("browse save and task ownership", () => {
       updateTask: (raw) => {
         const input = rpcInput(raw);
         writes.push(input);
-        const task = records.find((t) => t.id === input.taskId)!;
+        const task =
+          records.find((t) => t.id === input.taskId) ?? missingValue("Expected a non-null value");
         Object.assign(task, input);
         return { ok: true, task };
       },
@@ -115,7 +117,9 @@ describe("browse save and task ownership", () => {
     expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved A");
     expect(slot.getByText("a.txt")).toBeTruthy();
-    expect(writes).toMatchObject([{ taskId: records[0]!.id, description: "Saved A" }]);
+    expect(writes).toMatchObject([
+      { taskId: (records[0] ?? missingValue("Expected records[0]")).id, description: "Saved A" },
+    ]);
     expect(
       slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);

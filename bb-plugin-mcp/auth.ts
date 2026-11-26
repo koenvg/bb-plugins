@@ -3,14 +3,14 @@ import { z } from "zod";
 import type { IncomingHttpHeaders } from "node:http";
 import type { Config, Connection } from "./config.js";
 
-export type Identity = {
+export interface Identity {
   mode: Config["authMode"];
   issuer: string;
   owner: string;
   audience: string;
   permissions: ("read" | "control")[];
   expiresAt: number;
-};
+}
 
 const discoverySchema = z.object({ issuer: z.string(), jwks_uri: z.string().url() });
 
@@ -122,7 +122,7 @@ export function authenticator(fetcher: typeof fetch = fetch) {
       requiredClaims: ["exp", "sub", "iss", "aud"],
       clockTolerance: 0,
     });
-    if (payload.sub !== config.owner) throw new Error();
+    if (payload.sub !== config.owner || typeof payload.exp !== "number") throw new Error();
     let control = false;
     if (cloudflare) {
       if (
@@ -144,7 +144,7 @@ export function authenticator(fetcher: typeof fetch = fetch) {
       owner: payload.sub,
       audience,
       permissions: control ? ["read", "control"] : ["read"],
-      expiresAt: payload.exp!,
+      expiresAt: payload.exp,
     };
   };
 }

@@ -31,7 +31,7 @@ export function focusedTaskKey(container: HTMLElement | null): string | null {
 export function forFocusedTask(
   container: () => HTMLElement | null,
   act: (taskKey: string) => void,
-): () => boolean | void {
+): () => boolean | undefined {
   return () => {
     const taskKey = focusedTaskKey(container());
     if (taskKey === null) return false;
@@ -67,11 +67,13 @@ export function moveFocusAcrossColumns(container: HTMLElement | null, delta: 1 |
     (column) => navItems(column).length > 0,
   );
   const current = focusedNavItem(container);
-  const columnIndex = columns.findIndex((column) => current !== null && column.contains(current));
-  if (columnIndex === -1) return focusItem(navItems(container)[0]);
+  if (current === null) return focusItem(navItems(container)[0]);
+  const columnIndex = columns.findIndex((column) => column.contains(current));
+  const source = columns[columnIndex];
+  if (source === undefined) return focusItem(navItems(container)[0]);
   const target = columns[columnIndex + delta];
   if (target === undefined) return true;
-  const row = navItems(columns[columnIndex]!).indexOf(current!);
+  const row = navItems(source).indexOf(current);
   const targetItems = navItems(target);
   return focusItem(targetItems[clamp(row, targetItems.length)]);
 }

@@ -21,12 +21,12 @@ export const snoozeThreadFromServer = (row: ServerThread): SnoozeThread => ({
 
 /** Fetch both lifecycles: excluded parents can still connect active descendants. */
 export async function listSnoozeThreads(threads: {
-  list(args: {
+  list: (args: {
     archived: boolean;
     includeHidden: boolean;
     limit: number;
     offset: number;
-  }): Promise<readonly ServerThread[]>;
+  }) => Promise<readonly ServerThread[]>;
 }): Promise<SnoozeThread[]> {
   const rows = new Map<string, SnoozeThread>();
   for (const archived of [false, true]) {
@@ -56,7 +56,8 @@ export function subtreeMembers<T extends SnoozeThread>(
     visited = new Set<string>(),
     members: T[] = [];
   while (pending.length) {
-    const id = pending.pop()!;
+    const id = pending.pop();
+    if (id === undefined) break;
     if (visited.has(id)) continue;
     visited.add(id);
     const thread = byId.get(id);

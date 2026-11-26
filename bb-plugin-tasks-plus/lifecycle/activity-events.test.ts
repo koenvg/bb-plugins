@@ -125,7 +125,7 @@ for (const phase of ["startup", "sweep"] as const) {
       async (kind, initial, count, staleCount, missing, expected) => {
         vi.useFakeTimers();
         const pending = deferred<Thread>();
-        const started = deferred<void>();
+        const started = deferred<undefined>();
         let reads = 0;
         const f = fixture(async () => {
           if (phase === "sweep" && ++reads === 1) {
@@ -133,7 +133,7 @@ for (const phase of ["startup", "sweep"] as const) {
               ? makeThreadResponse({ id: "thr_worker", status: "error" })
               : snapshot(initial === "working" ? 1 : 0);
           }
-          started.resolve();
+          started.resolve(undefined);
           return pending.promise;
         }, initial);
         let service: ReturnType<typeof f.harness.runService> | undefined;

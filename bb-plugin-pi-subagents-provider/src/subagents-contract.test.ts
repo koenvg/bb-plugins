@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { expect, it } from "vitest";
 import { parseViewState, viewSchema } from "./subagents-contract.js";
 it("validates bounded versioned persisted view state", () => {
@@ -25,7 +26,11 @@ it("qualifies public state with the owning plugin rather than the provider ID", 
   expect(piProviderDeclaration().id).toBe("pi-subagents");
   expect(pluginId).toBe("pi-subagents-provider");
   expect(VIEW_EXTENSION_KIND).toBe(`${pluginId}/${VIEW_KIND}`);
-  expect(piProviderDeclaration().extensionKinds![VIEW_KIND]).toBeDefined();
+  expect(
+    (piProviderDeclaration().extensionKinds ?? missingValue("Expected a non-null value"))[
+      VIEW_KIND
+    ],
+  ).toBeDefined();
 });
 
 it("accepts optional capture enrichment and legacy version-1 captures", () => {

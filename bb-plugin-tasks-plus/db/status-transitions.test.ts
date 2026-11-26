@@ -1,11 +1,12 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { createTasksStore, type TaskStatus, type TaskStatusTransition } from ".";
 import { initializeTasksSchema } from "./schema";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await disposers.pop()!();
+  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
 });
 
 function setup() {
@@ -23,13 +24,16 @@ function setup() {
       FROM task_status_transitions ORDER BY id`)
       .all();
   const now = () =>
-    db.prepare<[], { time: string }>("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now') AS time").get()!
-      .time;
+    (
+      db
+        .prepare<[], { time: string }>("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now') AS time")
+        .get() ?? missingValue("Expected a non-null value")
+    ).time;
   return { bb, harness, db, store, project, task, rows, now };
 }
 
 type Fixture = ReturnType<typeof setup>;
-function expectRows(f: Fixture, expected: Array<[string, TaskStatus, TaskStatus]>, firstId = 1) {
+function expectRows(f: Fixture, expected: [string, TaskStatus, TaskStatus][], firstId = 1) {
   const rows = f.rows();
   expect(rows).toEqual(
     expected.map(([taskId, fromStatus, toStatus], index) => ({
@@ -58,7 +62,7 @@ describe("persisted task status transitions", () => {
       const f = setup();
       const task = f.task("backlog");
       const statuses = ["todo", "in_progress", "in_review", "done", "canceled", "backlog"] as const;
-      const expected: Array<[string, TaskStatus, TaskStatus]> = [];
+      const expected: [string, TaskStatus, TaskStatus][] = [];
       let previous: TaskStatus = "backlog";
       for (const status of statuses) {
         expect(f.store[writer](task.id, { status }).status).toBe(status);
@@ -133,17 +137,24 @@ describe("persisted task status transitions", () => {
       ["backlog", "thr_creator"],
       ["done", "thr_creator"],
     ]);
-    const task = tasks[0]!;
+    const task = tasks[0] ?? missingValue("Expected tasks[0]");
     f.store.updateTask(task.id, { title: "Edited" });
     f.store.updateTask(task.id, { status: "backlog" });
-    f.db.prepare("UPDATE tasks SET position = 0 WHERE id = ?").run(tasks[2]!.id);
-    f.store.updatePosition(task.id, { status: "backlog", afterTaskId: tasks[2]!.id });
+    f.db
+      .prepare("UPDATE tasks SET position = 0 WHERE id = ?")
+      .run((tasks[2] ?? missingValue("Expected tasks[2]")).id);
+    f.store.updatePosition(task.id, {
+      status: "backlog",
+      afterTaskId: (tasks[2] ?? missingValue("Expected tasks[2]")).id,
+    });
     expect(f.store.getTask(task.id)).toMatchObject({
       title: "Edited",
       status: "backlog",
       position: 512,
     });
-    expect(f.store.getTask(tasks[2]!.id)?.position).toBe(1024);
+    expect(f.store.getTask((tasks[2] ?? missingValue("Expected tasks[2]")).id)?.position).toBe(
+      1024,
+    );
     expectRows(f, []);
     f.store.updateTask(task.id, { status: "todo" });
     expectRows(f, [[task.id, "backlog", "todo"]]);
@@ -152,7 +163,7 @@ describe("persisted task status transitions", () => {
   it("timestamps direct SQL writes with SQLite time, not old or future task timestamps", () => {
     const f = setup();
     const task = f.task("todo");
-    const expected: Array<[string, TaskStatus, TaskStatus]> = [];
+    const expected: [string, TaskStatus, TaskStatus][] = [];
     for (const [status, timestamp] of [
       ["done", "1900-01-01T00:00:00.000Z"],
       ["todo", "2999-01-01T00:00:00.000Z"],
@@ -162,7 +173,7 @@ describe("persisted task status transitions", () => {
         .prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?")
         .run(status, timestamp, task.id);
       const upper = f.now();
-      const row = f.rows().at(-1)!;
+      const row = f.rows().at(-1) ?? missingValue("Expected f.rows().at(-1)");
       expect(row.changedAt >= lower && row.changedAt <= upper).toBe(true);
       expect(row.changedAt).not.toBe(timestamp);
       expect(f.store.getTask(task.id)?.updatedAt).toBe(timestamp);
@@ -179,9 +190,11 @@ describe("persisted task status transitions", () => {
     const initial = f.rows();
     expect(initial.map((row) => row.taskId).sort()).toEqual([a.id, b.id].sort());
     expect(initial.map((row) => row.id)).toEqual([1, 2]);
-    expect(initial[0]!.changedAt).toBe(initial[1]!.changedAt);
-    f.store.deleteTask(initial[1]!.taskId);
-    const remaining = initial[0]!.taskId;
+    expect((initial[0] ?? missingValue("Expected initial[0]")).changedAt).toBe(
+      (initial[1] ?? missingValue("Expected initial[1]")).changedAt,
+    );
+    f.store.deleteTask((initial[1] ?? missingValue("Expected initial[1]")).taskId);
+    const remaining = (initial[0] ?? missingValue("Expected initial[0]")).taskId;
     f.store.updateTask(remaining, { status: "in_review" });
     expect(f.rows()).toEqual([
       initial[0],
@@ -190,7 +203,7 @@ describe("persisted task status transitions", () => {
         taskId: remaining,
         fromStatus: "in_progress",
         toStatus: "in_review",
-        changedAt: f.rows()[1]!.changedAt,
+        changedAt: (f.rows()[1] ?? missingValue("Expected f.rows()[1]")).changedAt,
       },
     ]);
   });
@@ -245,13 +258,13 @@ describe("persisted task status transitions", () => {
     disposers.push(() => replacement.harness.lifecycle.dispose());
     expect(replacementDb).not.toBe(f.db);
     const read = () =>
-      replacementDb!
+      (replacementDb ?? missingValue("Expected replacementDb"))
         .prepare(
           "SELECT id, task_id AS taskId, from_status AS fromStatus, to_status AS toStatus, changed_at AS changedAt FROM task_status_transitions ORDER BY id",
         )
         .all();
     expect(read()).toEqual(before);
-    const store = createTasksStore(replacementDb!);
+    const store = createTasksStore(replacementDb ?? missingValue("Expected replacementDb"));
     expect(store.getTask(task.id)?.status).toBe("in_progress");
     store.updatePosition(task.id, { status: "done" });
     expect(read()).toEqual([

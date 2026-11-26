@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PiSessionChannel } from "./session-channel.js";
 
@@ -26,9 +27,17 @@ it("times out unanswered requests and ignores late replies", async () => {
   );
   await vi.advanceTimersByTimeAsync(100);
   await reply;
-  channel.handle({ kind: "reply", id: send.mock.calls[0]![0].id, result: "late" });
+  channel.handle({
+    kind: "reply",
+    id: (send.mock.calls[0] ?? missingValue("Expected send.mock.calls[0]"))[0].id,
+    result: "late",
+  });
   const next = channel.request({ method: "leaf" });
-  channel.handle({ kind: "reply", id: send.mock.calls[1]![0].id, result: "current" });
+  channel.handle({
+    kind: "reply",
+    id: (send.mock.calls[1] ?? missingValue("Expected send.mock.calls[1]"))[0].id,
+    result: "current",
+  });
   await expect(next).resolves.toBe("current");
   expect(vi.getTimerCount()).toBe(0);
 });
@@ -103,7 +112,15 @@ it("disposes all waits and isolates a replacement child generation", async () =>
   const send = vi.fn();
   const current = new PiSessionChannel(send);
   const result = current.request({ method: "leaf" });
-  old.handle({ kind: "reply", id: send.mock.calls[0]![0].id, result: "stale" });
-  current.handle({ kind: "reply", id: send.mock.calls[0]![0].id, result: "current" });
+  old.handle({
+    kind: "reply",
+    id: (send.mock.calls[0] ?? missingValue("Expected send.mock.calls[0]"))[0].id,
+    result: "stale",
+  });
+  current.handle({
+    kind: "reply",
+    id: (send.mock.calls[0] ?? missingValue("Expected send.mock.calls[0]"))[0].id,
+    result: "current",
+  });
   await expect(result).resolves.toBe("current");
 });

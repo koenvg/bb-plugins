@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
@@ -26,18 +27,21 @@ const ref = (task: (typeof tasks)[number]) => ({
 
 describe("embedded detail actions and links", () => {
   it("selects visible subtasks and dependency links in place, but preserves off-list destinations and remembered scope", async () => {
-    const child = { ...tasks[2]!, parentTaskId: tasks[0]!.id };
+    const child = {
+      ...(tasks[2] ?? missingValue("Expected tasks[2]")),
+      parentTaskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
+    };
     const otherProject = {
-      ...tasks[1]!,
+      ...(tasks[1] ?? missingValue("Expected tasks[1]")),
       id: "outside",
       projectId: "another-project",
       key: "CS-1",
     };
     const parent = {
-      ...tasks[0]!,
-      blockedBy: [ref(tasks[1]!), ref(otherProject)],
+      ...(tasks[0] ?? missingValue("Expected tasks[0]")),
+      blockedBy: [ref(tasks[1] ?? missingValue("Expected tasks[1]")), ref(otherProject)],
     };
-    const records = [parent, tasks[1]!, child, otherProject];
+    const records = [parent, tasks[1] ?? missingValue("Expected tasks[1]"), child, otherProject];
     const slot = setup(`${project.id}?view=list`, {
       listTasks: (raw) => ({
         tasks:
@@ -81,11 +85,14 @@ describe("embedded detail actions and links", () => {
   });
 
   it("opens a collapsed same-project subtask as standalone rather than inventing a visible row", async () => {
-    const child = { ...tasks[2]!, parentTaskId: tasks[0]!.id };
+    const child = {
+      ...(tasks[2] ?? missingValue("Expected tasks[2]")),
+      parentTaskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
+    };
     const slot = setup(`${project.id}?view=list&task=TSK-1`, {
       listTasks: (raw) => ({
         tasks:
-          rpcInput(raw).parentTaskId === tasks[0]!.id
+          rpcInput(raw).parentTaskId === (tasks[0] ?? missingValue("Expected tasks[0]")).id
             ? [child]
             : rpcInput(raw).parentTaskId
               ? []
@@ -123,8 +130,12 @@ describe("embedded detail actions and links", () => {
     expect(slot.container.querySelector('[data-task-key="TSK-1"] [data-state="open"]')).toBeNull();
   });
   it("keeps title, description, properties, subtasks, dependencies, linked threads and explicit delegation editable", async () => {
-    let task = tasks[0]!;
-    const child = { ...tasks[2]!, parentTaskId: task.id, title: "New child" };
+    let task = tasks[0] ?? missingValue("Expected tasks[0]");
+    const child = {
+      ...(tasks[2] ?? missingValue("Expected tasks[2]")),
+      parentTaskId: task.id,
+      title: "New child",
+    };
     const writes: Record<string, unknown>[] = [];
     const slot = setup("all?task=TSK-1", {
       getTaskByKey: () => ({ task }),
@@ -190,7 +201,7 @@ describe("embedded detail actions and links", () => {
           (c) =>
             c.method === "addTaskDependency" &&
             rpcInput(c.input).blockerTaskId === task.id &&
-            rpcInput(c.input).blockedTaskId === tasks[1]!.id,
+            rpcInput(c.input).blockedTaskId === (tasks[1] ?? missingValue("Expected tasks[1]")).id,
         ),
       ).toBe(true),
     );
@@ -203,7 +214,10 @@ describe("embedded detail actions and links", () => {
       threadId: "thr_worker",
     });
     expect(slot.inspection.rpcCalls.some((c) => c.method === "delegate")).toBe(false);
-    fireEvent.click(detail.getAllByRole("button", { name: "Astra" })[0]!);
+    fireEvent.click(
+      detail.getAllByRole("button", { name: "Astra" })[0] ??
+        missingValue("Expected a non-null value"),
+    );
     await waitFor(() =>
       expect(
         slot.inspection.rpcCalls.some(
@@ -228,11 +242,19 @@ describe("embedded detail actions and links", () => {
       }),
     });
     await slot.findByRole("textbox", { name: "Task title" });
-    fireEvent.change(slot.container.querySelector('input[type="file"]')!, {
-      target: { files: [new File(["A"], "a.txt")] },
-    });
+    fireEvent.change(
+      slot.container.querySelector('input[type="file"]') ??
+        missingValue("Expected a non-null value"),
+      {
+        target: { files: [new File(["A"], "a.txt")] },
+      },
+    );
     await waitFor(() =>
-      expect(fetch.mock.calls.some(([url]) => url.includes(`taskId=${tasks[0]!.id}`))).toBe(true),
+      expect(
+        fetch.mock.calls.some(([url]) =>
+          url.includes(`taskId=${(tasks[0] ?? missingValue("Expected tasks[0]")).id}`),
+        ),
+      ).toBe(true),
     );
     await select(slot, 2);
     await edit(slot, "Keep B");
@@ -240,7 +262,11 @@ describe("embedded detail actions and links", () => {
       uploaded.resolve(new Response(JSON.stringify({ error: "Offline" }), { status: 500 })),
     );
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Keep B");
-    expect(fetch.mock.calls.some(([url]) => url.includes(`taskId=${tasks[1]!.id}`))).toBe(false);
+    expect(
+      fetch.mock.calls.some(([url]) =>
+        url.includes(`taskId=${(tasks[1] ?? missingValue("Expected tasks[1]")).id}`),
+      ),
+    ).toBe(false);
     expect(slot.queryByText("a.txt")).toBeNull();
     await select(slot, 1);
     expect(slot.queryByRole("button", { name: "Retry upload of a.txt" })).toBeNull();

@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse, type Server } 
 import { randomUUID } from "node:crypto";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { authenticator } from "./auth.js";
-import { type Config, type Connection } from "./config.js";
+import type { Config, Connection } from "./config.js";
 import { hasAccess, projectServer, type ProjectSource, type ProviderSource } from "./control.js";
 import type { ThreadSource, ThreadTool } from "./thread-tools.js";
 import type { Operations, OperationTool } from "./operations.js";

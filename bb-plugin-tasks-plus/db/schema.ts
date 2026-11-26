@@ -6,7 +6,7 @@ export type CreatorSource =
   | { reason: "missing" | "ambiguous" | "malformed" };
 export interface CreatorBackfillReport {
   backfilled: number;
-  skipped: Array<{ taskId: string; reason: string }>;
+  skipped: { taskId: string; reason: string }[];
 }
 
 export function parseCreatorSource(description: string): CreatorSource {
@@ -19,12 +19,13 @@ export function parseCreatorSource(description: string): CreatorSource {
     const references = [...source.matchAll(/\bbbthread[^\s)\]<>]*/gi)];
     if (references.length === 0) return { reason: "malformed" };
     for (const reference of references) {
-      const id = reference[0]!.replace(/^bbthread:\/\//i, "").replace(/[.,;]$/, "");
+      const id = reference[0].replace(/^bbthread:\/\//i, "").replace(/[.,;]$/, "");
       if (!/^thr_[a-zA-Z0-9_]+$/.test(id)) return { reason: "malformed" };
       ids.add(id);
     }
   }
-  return ids.size === 1 ? { threadId: [...ids][0]! } : { reason: "ambiguous" };
+  const [threadId] = ids;
+  return ids.size === 1 && threadId ? { threadId } : { reason: "ambiguous" };
 }
 
 function backfillCreatorThreads(db: PluginDatabase): CreatorBackfillReport {

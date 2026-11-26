@@ -49,7 +49,7 @@ import {
 import { piSessionNeedsRelocation } from "./session-cwd.js";
 import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
 import { createExtensionUiCoordinator, type ExtensionUiCoordinator } from "./extension-ui.js";
-import { type InteractionUiRequest } from "../extension-ui-contract.js";
+import type { InteractionUiRequest } from "../extension-ui-contract.js";
 import {
   getPiInstallGate,
   getPiProviderInstallationRun,

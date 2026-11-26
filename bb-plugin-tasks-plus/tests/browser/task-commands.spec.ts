@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect, type Page } from "@playwright/test";
 
 test.use({ locale: "en-GB" });
@@ -282,7 +283,9 @@ for (const width of [1200, 650]) {
       await page.screenshot({ path: testInfo.outputPath(`${title.replaceAll(" ", "-")}.png`) });
       await page.keyboard.press("Escape");
       await expect(layout.getByRole("button", { name: triggerName, exact: true })).toBeFocused();
-      await expect(page.getByLabel("Fixture updates")).toHaveText(updatesBefore!);
+      await expect(page.getByLabel("Fixture updates")).toHaveText(
+        updatesBefore ?? missingValue("Expected updatesBefore"),
+      );
       await palette(page, title);
       if (role === "option") await expect(page.getByPlaceholder("Add labels…")).toBeFocused();
       else await expect(page.getByRole("menuitem").first()).toBeFocused();
@@ -296,7 +299,12 @@ for (const width of [1200, 650]) {
         await page.keyboard.press("Enter");
       }
       await expect
-        .poll(async () => JSON.parse((await page.getByLabel("Fixture updates").textContent())!))
+        .poll(async () =>
+          JSON.parse(
+            (await page.getByLabel("Fixture updates").textContent()) ??
+              missingValue("Expected a non-null value"),
+          ),
+        )
         .toContainEqual(expected);
       if (role === "option") await page.keyboard.press("Escape");
     }

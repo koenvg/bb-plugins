@@ -1,4 +1,4 @@
-import { type ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import { boundedValue } from "../subagents-contract.js";
 import { useSubagentsHistory } from "./use-subagents-history.js";
 import { SubagentsView } from "./subagents-view.js";

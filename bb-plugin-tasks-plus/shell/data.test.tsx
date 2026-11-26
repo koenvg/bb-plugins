@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { useLayoutEffect } from "react";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -65,7 +66,9 @@ function deferred<T>() {
 }
 const first = makeTask();
 const second = makeTask({ key: "TSK-2", number: 2 });
-type Response = { task: Task | null };
+interface Response {
+  task: Task | null;
+}
 function setup(load: (key: string) => Response | Promise<Response>) {
   const frames: Frame[] = [];
   const onFrame = (frame: Frame) => frames.push(frame);
@@ -80,7 +83,10 @@ function setup(load: (key: string) => Response | Promise<Response>) {
     change(key: string) {
       slot.lifecycle.rerender(<Root taskKey={key} onFrame={onFrame} />);
     },
-    current: () => JSON.parse(slot.getByLabelText("Query").textContent!) as Frame,
+    current: () =>
+      JSON.parse(
+        slot.getByLabelText("Query").textContent ?? missingValue("Expected a non-null value"),
+      ) as Frame,
   };
 }
 afterEach(cleanup);
@@ -248,7 +254,11 @@ describe("Tasks query without a context provider", () => {
       {},
       { rpc: { getTaskByKey: () => response } },
     );
-    const current = () => JSON.parse(slot.getByLabelText("Standalone query").textContent!);
+    const current = () =>
+      JSON.parse(
+        slot.getByLabelText("Standalone query").textContent ??
+          missingValue("Expected a non-null value"),
+      );
     await waitFor(() => expect(current()).toEqual({ key: first.key, error: null, loading: false }));
     const pending = deferred<Response>();
     response = pending.promise;

@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect } from "@playwright/test";
 
 for (const order of ["event-first", "reply-first"]) {
@@ -18,8 +19,14 @@ for (const order of ["event-first", "reply-first"]) {
     await expect(page.getByLabel("Delivered events")).toHaveText("1");
     await expect(page.getByText("Refreshing TSK-1", { exact: false })).toBeHidden();
     await expect(page.getByLabel("Preview reads")).toHaveText("2");
-    expect(await titleNode!.evaluate((node) => node.isConnected)).toBe(true);
-    expect(await editorNode!.evaluate((node) => node.isConnected)).toBe(true);
+    expect(
+      await (titleNode ?? missingValue("Expected titleNode")).evaluate((node) => node.isConnected),
+    ).toBe(true);
+    expect(
+      await (editorNode ?? missingValue("Expected editorNode")).evaluate(
+        (node) => node.isConnected,
+      ),
+    ).toBe(true);
     await page.getByRole("button", { name: "External task edit" }).click();
     await expect(title).toHaveText("External edit");
     await expect(page.getByLabel("Delivered events")).toHaveText("2");

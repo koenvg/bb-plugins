@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -53,7 +54,11 @@ function selected(view: View) {
   return view
     .getAllByRole("tab")
     .filter((node) => node.getAttribute("aria-selected") === "true")
-    .map((node) => node.querySelector(".pi-subagents-tab-label")!.textContent);
+    .map(
+      (node) =>
+        (node.querySelector(".pi-subagents-tab-label") ?? missingValue("Expected a non-null value"))
+          .textContent,
+    );
 }
 
 it("starts at a full overview, opens unique retained views and keeps their order", () => {
@@ -74,7 +79,13 @@ it("starts at a full overview, opens unique retained views and keeps their order
   expect(
     view
       .getAllByRole("tab")
-      .map((node) => node.querySelector(".pi-subagents-tab-label")!.textContent),
+      .map(
+        (node) =>
+          (
+            node.querySelector(".pi-subagents-tab-label") ??
+            missingValue("Expected a non-null value")
+          ).textContent,
+      ),
   ).toEqual(["Agents", "Alpha", "Beta"]);
   expect(view.getByRole("article")).toBe(detail);
   expect(view.getAllByRole("article", { hidden: true })).toHaveLength(2);
@@ -110,9 +121,15 @@ it("keeps task, conversation, tool disclosure and numeric scroll through hidden 
   const view = render(<SubagentsView state={state} />);
   open(view, "Alpha");
   const reader = view.getByRole("region", { name: "Captured conversation" });
-  const task = reader.querySelector<HTMLDetailsElement>(".pi-subagents-task")!;
-  const conversation = reader.querySelector<HTMLDetailsElement>(".pi-subagents-conversation")!;
-  const tool = reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+  const task =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-task") ??
+    missingValue("Expected a non-null value");
+  const conversation =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-conversation") ??
+    missingValue("Expected a non-null value");
+  const tool =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool") ??
+    missingValue("Expected a non-null value");
   task.open = conversation.open = tool.open = true;
   reader.scrollTop = 321;
   agents(view);
@@ -121,7 +138,13 @@ it("keeps task, conversation, tool disclosure and numeric scroll through hidden 
   view.rerender(
     <SubagentsView
       state={snapshot(
-        { ...alpha, capture: { ...alpha.capture!, finalOutput: "new output" } },
+        {
+          ...alpha,
+          capture: {
+            ...(alpha.capture ?? missingValue("Expected alpha.capture")),
+            finalOutput: "new output",
+          },
+        },
         beta,
       )}
     />,
@@ -155,7 +178,13 @@ it("uses tab arrows, Home, End and Delete with after-commit focus and sibling cl
   expect(
     view
       .getAllByRole("tab")
-      .map((node) => node.querySelector(".pi-subagents-tab-label")!.textContent),
+      .map(
+        (node) =>
+          (
+            node.querySelector(".pi-subagents-tab-label") ??
+            missingValue("Expected a non-null value")
+          ).textContent,
+      ),
   ).toEqual(["Agents", "Alpha"]);
   expect(document.activeElement).toBe(tab(view, "Alpha"));
   expect(view.getByRole("button", { name: "Close Alpha tab" }).parentElement).toBe(
@@ -169,18 +198,18 @@ it("uses tab arrows, Home, End and Delete with after-commit focus and sibling cl
 it("moves list focus without opening and opens with Enter or Space", () => {
   const view = render(<SubagentsView state={state} />);
   const buttons = within(view.getByRole("navigation")).getAllByRole("button");
-  buttons[0]!.focus();
-  fireEvent.keyDown(buttons[0]!, { key: "ArrowDown" });
+  (buttons[0] ?? missingValue("Expected buttons[0]")).focus();
+  fireEvent.keyDown(buttons[0] ?? missingValue("Expected buttons[0]"), { key: "ArrowDown" });
   expect(document.activeElement).toBe(buttons[1]);
   expect(selected(view)).toEqual(["Agents"]);
-  fireEvent.keyDown(buttons[1]!, { key: "Home" });
+  fireEvent.keyDown(buttons[1] ?? missingValue("Expected buttons[1]"), { key: "Home" });
   expect(document.activeElement).toBe(buttons[0]);
-  fireEvent.keyDown(buttons[0]!, { key: "End" });
-  fireEvent.keyDown(buttons[1]!, { key: "ArrowUp" });
-  fireEvent.keyDown(buttons[0]!, { key: "Enter" });
+  fireEvent.keyDown(buttons[0] ?? missingValue("Expected buttons[0]"), { key: "End" });
+  fireEvent.keyDown(buttons[1] ?? missingValue("Expected buttons[1]"), { key: "ArrowUp" });
+  fireEvent.keyDown(buttons[0] ?? missingValue("Expected buttons[0]"), { key: "Enter" });
   expect(selected(view)).toEqual(["Alpha"]);
   agents(view);
-  fireEvent.keyDown(buttons[1]!, { key: " " });
+  fireEvent.keyDown(buttons[1] ?? missingValue("Expected buttons[1]"), { key: " " });
   expect(selected(view)).toEqual(["Beta"]);
 });
 
@@ -199,7 +228,13 @@ it("consumes semantic external navigation once and resolves delayed background r
   expect(
     view
       .getAllByRole("tab")
-      .map((node) => node.querySelector(".pi-subagents-tab-label")!.textContent),
+      .map(
+        (node) =>
+          (
+            node.querySelector(".pi-subagents-tab-label") ??
+            missingValue("Expected a non-null value")
+          ).textContent,
+      ),
   ).toEqual(["Agents"]);
   view.rerender(<SubagentsView state={state} target="Alpha" />);
   expect(selected(view)).toEqual(["Alpha"]);
@@ -252,9 +287,11 @@ it("releases evicted capture DOM, retains an ID-only unavailable shell and remou
   const view = render(<SubagentsView state={state} />);
   open(view, "Alpha");
   const reader = view.getByRole("region", { name: "Captured conversation" });
-  const tool = reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+  const tool =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool") ??
+    missingValue("Expected a non-null value");
   tool.open = true;
-  tool.querySelector("summary")!.focus();
+  (tool.querySelector("summary") ?? missingValue('Expected tool.querySelector("summary")')).focus();
   view.rerender(<SubagentsView state={snapshot(beta)} />);
   expect(selected(view)).toEqual(["Unavailable agent"]);
   expect(reader.isConnected).toBe(false);
@@ -267,7 +304,12 @@ it("releases evicted capture DOM, retains an ID-only unavailable shell and remou
   view.rerender(<SubagentsView state={state} />);
   const nextReader = view.getByRole("region", { name: "Captured conversation" });
   expect(nextReader).not.toBe(reader);
-  expect(nextReader.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!.open).toBe(false);
+  expect(
+    (
+      nextReader.querySelector<HTMLDetailsElement>(".pi-subagents-tool") ??
+      missingValue("Expected a non-null value")
+    ).open,
+  ).toBe(false);
   expect(nextReader.textContent).toContain("input Alpha");
   agents(view);
   open(view, "Beta");
@@ -280,12 +322,15 @@ it("preserves accepted detail, disclosure and focus on failed polls and same-tab
   const view = render(<SubagentsView state={state} />);
   open(view, "Alpha");
   const reader = view.getByRole("region", { name: "Captured conversation" });
-  const tool = reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool")!;
+  const tool =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-tool") ??
+    missingValue("Expected a non-null value");
   tool.open = true;
   reader.scrollTop = 90;
   fireEvent.click(tab(view, "Alpha"));
   expect(document.activeElement).toBe(tab(view, "Alpha"));
-  const summary = tool.querySelector("summary")!;
+  const summary =
+    tool.querySelector("summary") ?? missingValue('Expected tool.querySelector("summary")');
   summary.focus();
   view.rerender(<SubagentsView state={state} error="Read failed" />);
   expect(view.getByRole("alert").textContent).toContain("Previously captured detail stays visible");
@@ -342,7 +387,9 @@ it("gives every viewer unique ARIA relationships, including a row literally name
   const ids = tabs.map((node) => node.id);
   expect(new Set(ids).size).toBe(4);
   for (const node of tabs) {
-    const panel = document.getElementById(node.getAttribute("aria-controls")!);
+    const panel = document.getElementById(
+      node.getAttribute("aria-controls") ?? missingValue("Expected a non-null value"),
+    );
     expect(panel?.getAttribute("aria-labelledby")).toBe(node.id);
     expect(panel?.hidden).toBe(node.getAttribute("aria-selected") !== "true");
   }

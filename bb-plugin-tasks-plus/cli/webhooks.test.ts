@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { isUtf8 } from "node:buffer";
 import { createServer } from "node:http";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
@@ -20,13 +21,17 @@ async function receiver(statuses = [204]) {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(Buffer.from(chunk));
     requests.push({
-      url: req.url!,
+      url: req.url ?? missingValue("Expected req.url"),
       authorization: req.headers.authorization,
       body: JSON.parse(Buffer.concat(chunks).toString()),
     });
-    res.writeHead(statuses[Math.min(requests.length - 1, statuses.length - 1)]!, {
-      location: "http://127.0.0.1:1/secret-redirect",
-    });
+    res.writeHead(
+      statuses[Math.min(requests.length - 1, statuses.length - 1)] ??
+        missingValue("Expected a non-null value"),
+      {
+        location: "http://127.0.0.1:1/secret-redirect",
+      },
+    );
     res.end("private response body");
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -172,8 +177,12 @@ describe("bb tasks webhook", () => {
       "Bearer exact-secret",
       "Bearer exact-secret",
     ]);
-    expect(tracker.requests[0]!.body).toEqual(global.requests[0]!.body);
-    expect(other.requests[0]!.body).toEqual(global.requests[1]!.body);
+    expect((tracker.requests[0] ?? missingValue("Expected tracker.requests[0]")).body).toEqual(
+      (global.requests[0] ?? missingValue("Expected global.requests[0]")).body,
+    );
+    expect((other.requests[0] ?? missingValue("Expected other.requests[0]")).body).toEqual(
+      (global.requests[1] ?? missingValue("Expected global.requests[1]")).body,
+    );
   });
 
   it("lists redacted summaries, tests marked samples without tasks, deletes and reloads persisted configuration", async () => {
@@ -185,7 +194,7 @@ describe("bb tasks webhook", () => {
       endpoint,
       outcome: { code: "delivered", attempts: 1, status: 204 },
     });
-    expect(target.requests[0]!.body).toEqual({
+    expect((target.requests[0] ?? missingValue("Expected target.requests[0]")).body).toEqual({
       event: "task.created",
       key: "WEBHOOK-0",
       project: "WEBHOOK",
@@ -243,8 +252,8 @@ describe("bb tasks webhook", () => {
       outcome: { code: "delivered", attempts: 2, status: 204 },
     });
     expect(target.requests.map((r) => r.body)).toEqual([
-      target.requests[0]!.body,
-      target.requests[0]!.body,
+      (target.requests[0] ?? missingValue("Expected target.requests[0]")).body,
+      (target.requests[0] ?? missingValue("Expected target.requests[0]")).body,
     ]);
   });
 
@@ -304,7 +313,10 @@ describe("bb tasks webhook", () => {
     expect(await f.run(["list", "--project", "ROLL"])).toMatchObject({ tasks: [] });
     await f.harness.callRpc("createTask", { projectId: p.id, title: "Committed" });
     await waitForCount(target.requests, 1);
-    expect(target.requests[0]!.body).toMatchObject({ key: "ROLL-1", title: "Committed" });
+    expect((target.requests[0] ?? missingValue("Expected target.requests[0]")).body).toMatchObject({
+      key: "ROLL-1",
+      title: "Committed",
+    });
   });
 
   it.each([
@@ -367,7 +379,10 @@ describe("bb tasks webhook", () => {
     await f.add(target.url);
     await f.run(["create", "--project", "SAFE", "--title", "Delivery restored"]);
     await waitForCount(target.requests, 1);
-    expect(target.requests[0]!.body).toMatchObject({ key: "SAFE-2", title: "Delivery restored" });
+    expect((target.requests[0] ?? missingValue("Expected target.requests[0]")).body).toMatchObject({
+      key: "SAFE-2",
+      title: "Delivery restored",
+    });
     expect(JSON.stringify(f.harness.logEntries)).not.toContain("private");
   });
 
@@ -711,9 +726,9 @@ describe("bb tasks webhook", () => {
     vi.useFakeTimers();
     const signals: AbortSignal[] = [];
     vi.stubGlobal("fetch", (_url: string, options: RequestInit) => {
-      signals.push(options.signal!);
+      signals.push(options.signal ?? missingValue("Expected options.signal"));
       return new Promise<Response>((_resolve, reject) =>
-        options.signal!.addEventListener(
+        (options.signal ?? missingValue("Expected options.signal")).addEventListener(
           "abort",
           () => reject(new Error("private receiver failure")),
           { once: true },

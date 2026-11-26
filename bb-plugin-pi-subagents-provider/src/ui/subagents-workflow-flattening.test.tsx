@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -44,9 +45,17 @@ type View = ReturnType<typeof render>;
 const overviewButtons = (view: View) =>
   within(view.getByRole("navigation", { name: "Observed children" })).getAllByRole("button");
 const labels = (view: View) =>
-  overviewButtons(view).map((button) => button.querySelector(".pi-subagents-label")!.textContent);
+  overviewButtons(view).map(
+    (button) =>
+      (button.querySelector(".pi-subagents-label") ?? missingValue("Expected a non-null value"))
+        .textContent,
+  );
 const depths = (view: View) =>
-  overviewButtons(view).map((button) => button.closest("li")!.style.paddingInlineStart);
+  overviewButtons(view).map(
+    (button) =>
+      (button.closest("li") ?? missingValue('Expected button.closest("li")')).style
+        .paddingInlineStart,
+  );
 const agents = (view: View) => fireEvent.click(view.getByRole("tab", { name: "Agents" }));
 
 it.each([
@@ -76,7 +85,7 @@ it.each([
     const view = render(<SubagentsView state={state} />);
     expect(labels(view)).toEqual(["Child"]);
     expect(depths(view)).toEqual(["0px"]);
-    const button = overviewButtons(view)[0]!;
+    const button = overviewButtons(view)[0] ?? missingValue("Expected overviewButtons(view)[0]");
     expect(button.getAttribute("aria-label")).toBe(
       "Child Background subagent · task unavailable Entry 2 Child 3 running",
     );
@@ -87,9 +96,12 @@ it.each([
     expect(view.getByRole("tab", { name: "Child" }).getAttribute("title")).toBe(
       "Child · Entry 2 · running",
     );
-    expect(view.getByRole("article").querySelector(".pi-subagents-reference")!.textContent).toBe(
-      "Entry 2",
-    );
+    expect(
+      (
+        view.getByRole("article").querySelector(".pi-subagents-reference") ??
+        missingValue("Expected a non-null value")
+      ).textContent,
+    ).toBe("Entry 2");
     expect(JSON.stringify(state)).toBe(before);
     expect(state.rows[0]).toBe(parent);
     expect(state.rows[1]).toBe(frozenChild);
@@ -176,8 +188,11 @@ it.each(preservation)(
     view.rerender(<SubagentsView state={snapshot({ ...workflow, ...extra }, child)} />);
     expect(labels(view)).toEqual(["Workflow", "Child"]);
     expect(depths(view)).toEqual(["0px", "12px"]);
-    fireEvent.click(overviewButtons(view)[0]!);
-    expect(view.getByRole("article").querySelector("h3")!.textContent).toBe("Workflow");
+    fireEvent.click(overviewButtons(view)[0] ?? missingValue("Expected overviewButtons(view)[0]"));
+    expect(
+      (view.getByRole("article").querySelector("h3") ?? missingValue("Expected a non-null value"))
+        .textContent,
+    ).toBe("Workflow");
   },
 );
 
@@ -199,12 +214,16 @@ it("promotes nested wrappers under the nearest visible parent in depth-first ord
   expect(depths(view)).toEqual(["0px", "12px", "12px", "12px", "0px"]);
   expect(
     overviewButtons(view).map(
-      (button) => button.querySelector(".pi-subagents-reference")!.textContent,
+      (button) =>
+        (
+          button.querySelector(".pi-subagents-reference") ??
+          missingValue("Expected a non-null value")
+        ).textContent,
     ),
   ).toEqual(["Entry 1", "Entry 4", "Entry 5", "Entry 6", "Entry 7"]);
-  fireEvent.click(overviewButtons(view)[1]!);
+  fireEvent.click(overviewButtons(view)[1] ?? missingValue("Expected overviewButtons(view)[1]"));
   agents(view);
-  fireEvent.click(overviewButtons(view)[3]!);
+  fireEvent.click(overviewButtons(view)[3] ?? missingValue("Expected overviewButtons(view)[3]"));
   expect(view.getByRole("tab", { name: "delegate Entry 4" }).getAttribute("title")).toBe(
     "delegate · Entry 4 · complete",
   );
@@ -275,7 +294,11 @@ it("retains orphan and cycle fallback without hiding the final traversable repre
   expect(depths(view)).toEqual(["0px", "0px", "0px"]);
   expect(
     overviewButtons(view).map(
-      (button) => button.querySelector(".pi-subagents-reference")!.textContent,
+      (button) =>
+        (
+          button.querySelector(".pi-subagents-reference") ??
+          missingValue("Expected a non-null value")
+        ).textContent,
     ),
   ).toEqual(["Entry 2", "Entry 4", "Entry 5"]);
 });
@@ -284,16 +307,20 @@ it("moves keyboard focus through visible rows only and opens the original child"
   const view = render(<SubagentsView state={snapshot(workflow, child, row("Last"))} />);
   expect(labels(view)).toEqual(["Child", "Last"]);
   const [first, last] = overviewButtons(view);
-  first!.focus();
+  (first ?? missingValue("Expected first")).focus();
   for (const key of ["ArrowDown", "End", "ArrowDown"]) {
-    fireEvent.keyDown(document.activeElement!, { key });
+    fireEvent.keyDown(document.activeElement ?? missingValue("Expected document.activeElement"), {
+      key,
+    });
     expect(document.activeElement).toBe(last);
   }
   for (const key of ["ArrowUp", "Home", "ArrowUp"]) {
-    fireEvent.keyDown(document.activeElement!, { key });
+    fireEvent.keyDown(document.activeElement ?? missingValue("Expected document.activeElement"), {
+      key,
+    });
     expect(document.activeElement).toBe(first);
   }
-  fireEvent.keyDown(first!, { key: "Enter" });
+  fireEvent.keyDown(first ?? missingValue("Expected first"), { key: "Enter" });
   expect(view.getByRole("tab", { name: "Child" }).getAttribute("aria-selected")).toBe("true");
   expect(view.getByRole("article").textContent).toContain("Child 3");
 });
@@ -308,9 +335,12 @@ it.each([false, true])(
       view.rerender(<SubagentsView state={state} target="Workflow" />);
     }
     expect(view.getByRole("tab", { name: "Workflow" }).getAttribute("aria-selected")).toBe("true");
-    expect(view.getByRole("article").querySelector(".pi-subagents-reference")!.textContent).toBe(
-      "Entry 1",
-    );
+    expect(
+      (
+        view.getByRole("article").querySelector(".pi-subagents-reference") ??
+        missingValue("Expected a non-null value")
+      ).textContent,
+    ).toBe("Entry 1");
     expect(view.queryByRole("alert")).toBeNull();
     agents(view);
     expect(labels(view)).toEqual(["Child"]);
@@ -325,7 +355,9 @@ it.each([false, true])(
 it("lets manual visible navigation cancel a delayed hidden-root target", () => {
   const other = row("Other");
   const view = render(<SubagentsView state={snapshot(other)} target="Workflow" />);
-  fireEvent.keyDown(overviewButtons(view)[0]!, { key: "Home" });
+  fireEvent.keyDown(overviewButtons(view)[0] ?? missingValue("Expected overviewButtons(view)[0]"), {
+    key: "Home",
+  });
   view.rerender(<SubagentsView state={snapshot(workflow, child, other)} target="Workflow" />);
   expect(view.getByRole("tab", { name: "Agents" }).getAttribute("aria-selected")).toBe("true");
   expect(labels(view)).toEqual(["Child", "Other"]);
@@ -336,16 +368,21 @@ it("retains a hidden workflow reader across visibility refresh, then evicts its 
   const populated = { ...workflow, capture: capture({ finalOutput: "Parent result" }) };
   const view = render(<SubagentsView state={snapshot(populated, child)} target="Workflow" />);
   const reader = view.getByRole("region", { name: "Captured conversation" });
-  const disclosure = reader.querySelector<HTMLDetailsElement>(".pi-subagents-capture")!;
+  const disclosure =
+    reader.querySelector<HTMLDetailsElement>(".pi-subagents-capture") ??
+    missingValue("Expected a non-null value");
   disclosure.open = true;
   reader.scrollTop = 87;
-  disclosure.querySelector("summary")!.focus();
+  (disclosure.querySelector("summary") ?? missingValue("Expected a non-null value")).focus();
   view.rerender(<SubagentsView state={snapshot(workflow, child)} target="Workflow" />);
   expect(view.getByRole("region", { name: "Captured conversation" })).toBe(reader);
   expect(disclosure.open).toBe(true);
   expect(document.activeElement).toBe(disclosure.querySelector("summary"));
   expect(reader.scrollTop).toBe(87);
-  expect(view.getByRole("article").querySelector("h3")!.textContent).toBe("Workflow");
+  expect(
+    (view.getByRole("article").querySelector("h3") ?? missingValue("Expected a non-null value"))
+      .textContent,
+  ).toBe("Workflow");
   agents(view);
   expect(labels(view)).toEqual(["Child"]);
   fireEvent.click(view.getByRole("tab", { name: "Workflow" }));

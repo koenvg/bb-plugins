@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
@@ -29,7 +30,7 @@ const label = {
   color: "blue",
   createdAt: project.createdAt,
 };
-const selected = { ...tasks[0]!, labelIds: [label.id] };
+const selected = { ...(tasks[0] ?? missingValue("Expected tasks[0]")), labelIds: [label.id] };
 
 // Match the backend: omitted labelIds is unfiltered, [] means no matches.
 function matchedTasks(raw: unknown) {

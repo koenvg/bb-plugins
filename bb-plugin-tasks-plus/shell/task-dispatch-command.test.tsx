@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -9,13 +10,15 @@ import { makeTask, rpcInput } from "../test-fixtures.js";
 import { TASKS_COMMANDS } from "./commands.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const Panel = app.navPanels[0]!.component;
+const Panel = (app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")).component;
 const context: PluginCommandContext = {
   threadId: null,
   projectId: null,
   experimental_panel: experimental_makePanelController(),
 };
-const command = TASKS_COMMANDS.find(({ id }) => id === "task-dispatch")!;
+const command =
+  TASKS_COMMANDS.find(({ id }) => id === "task-dispatch") ??
+  missingValue("Expected a non-null value");
 const available = () => command.isAvailable?.(context);
 const run = () => act(() => void command.run(context));
 const project = {
@@ -69,7 +72,7 @@ function fixture({
   );
   const calls: Record<string, unknown>[] = [];
   const slot = renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: "task/TSK-1" },
     {
       rpc: {
@@ -297,8 +300,8 @@ describe("dispatch task command", () => {
     run();
     shown = "inline";
     act(() => {
-      frames.shift()!(0);
-      frames.shift()!(0);
+      (frames.shift() ?? missingValue("Expected frames.shift()"))(0);
+      (frames.shift() ?? missingValue("Expected frames.shift()"))(0);
     });
     expect(slot.queryByRole("menu")).toBeNull();
     expect(available()).toBe(false);
@@ -332,7 +335,7 @@ describe("dispatch task command", () => {
     const cancel = vi.fn();
     vi.stubGlobal("cancelAnimationFrame", cancel);
     run();
-    act(() => frames.shift()!(0));
+    act(() => (frames.shift() ?? missingValue("Expected frames.shift()"))(0));
     if (change === "switch") {
       slot.rerender(<Panel subPath="task/TSK-2" />);
       await ready(slot, "Task 2");

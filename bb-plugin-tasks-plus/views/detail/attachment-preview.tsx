@@ -30,13 +30,16 @@ type Resource =
   | { kind: "loading" }
   | { kind: "ready"; snapshot: PreviewSnapshot }
   | { kind: "failure"; fault: PreviewFault };
-type Ticket = {
+interface Ticket {
   sequence: number;
   attachmentId: string;
   taskId: string;
   controller: AbortController;
-};
-type FocusSession = { token: number; trigger: HTMLElement };
+}
+interface FocusSession {
+  token: number;
+  trigger: HTMLElement;
+}
 type PreviewState =
   | { kind: "closed" }
   | {

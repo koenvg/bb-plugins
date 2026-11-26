@@ -89,9 +89,9 @@ function compare(a: PluginSidebarThread, b: PluginSidebarThread, options: ListOp
 }
 
 export interface Forest {
-  parentOf(thread: PluginSidebarThread): PluginSidebarThread | undefined;
-  rootOf(thread: PluginSidebarThread): PluginSidebarThread;
-  childrenOf(thread: PluginSidebarThread): readonly PluginSidebarThread[];
+  parentOf: (thread: PluginSidebarThread) => PluginSidebarThread | undefined;
+  rootOf: (thread: PluginSidebarThread) => PluginSidebarThread;
+  childrenOf: (thread: PluginSidebarThread) => readonly PluginSidebarThread[];
 }
 
 /** Hidden threads are left out, and one parent link of each cycle is cut. */
@@ -136,7 +136,8 @@ export function buildForest(threads: readonly PluginSidebarThread[]): Forest {
       siblings = [];
       children.set(parent.id, siblings);
     }
-    siblings.push(byId.get(id)!);
+    const child = byId.get(id);
+    if (child) siblings.push(child);
   }
   return {
     parentOf: (thread) => parents.get(thread.id),
@@ -274,12 +275,12 @@ export function visibleItems(
         return scope.name;
     }
   };
-  type Group = {
+  interface Group {
     scope: GroupScope;
     roots: PluginSidebarThread[];
     rows: Set<string>;
     count: number;
-  };
+  }
   const groups = new Map<string, Group>();
   const add = (scope: GroupScope, { root, members, rows }: Tree) => {
     const key = groupKey(scope);

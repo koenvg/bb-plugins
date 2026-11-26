@@ -42,10 +42,10 @@ export const limits = {
 const shaPattern = /^[0-9a-f]{40}$/;
 // oxlint-disable-next-line eslint/no-control-regex -- Reject control bytes in untrusted upstream identifiers and paths.
 const controlPattern = /[\x00-\x1f\x7f]/;
-function object(value: unknown): Record<string, any> {
+function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Invalid upstream data");
-  return value as Record<string, any>;
+  return value as Record<string, unknown>;
 }
 function sha(value: unknown): string {
   if (typeof value !== "string" || !shaPattern.test(value))
@@ -163,10 +163,11 @@ export async function checkUpstream(
       if (
         sha(object(d.base_commit).sha) !== baseline ||
         sha(object(d.merge_base_commit).sha) !== baseline ||
-        !["ahead", "identical"].includes(d.status)
+        (d.status !== "ahead" && d.status !== "identical")
       )
         throw new Error("Baseline is not an ancestor of upstream head");
       if (
+        typeof d.total_commits !== "number" ||
         !Number.isSafeInteger(d.total_commits) ||
         d.total_commits < 0 ||
         d.total_commits > bound.commits ||
@@ -179,7 +180,7 @@ export async function checkUpstream(
       ) {
         throw new Error("Incomplete comparison commit data");
       }
-      total = d.total_commits as number;
+      total = d.total_commits;
       for (const commit of d.commits) {
         const id = sha(object(commit).sha);
         if (id === baseline || commits.includes(id))
@@ -205,7 +206,7 @@ export async function checkUpstream(
       stage = "commit-files";
       const files = new Set<string>();
       const changedFiles = new Set<string>();
-      let metadata: Record<string, any> = {};
+      let metadata: Record<string, unknown> = {};
       const paths = new Set<string>();
       for (let page = 1; ; page++) {
         if (page > bound.pages) throw new Error("Commit file page bound exhausted");
@@ -219,6 +220,7 @@ export async function checkUpstream(
           const name = repoPath(f.filename);
           if (
             files.has(name) ||
+            typeof f.status !== "string" ||
             !["added", "removed", "modified", "renamed", "copied", "changed", "unchanged"].includes(
               f.status,
             )

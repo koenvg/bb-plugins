@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { afterEach, expect, it, vi } from "vitest";
 import { SUBAGENT_STATUS_SOURCE } from "./extension-source.js";
@@ -83,7 +84,7 @@ it("times out unsupported RPC and removes its reply listener", async () => {
 it("cancels pending reads and subscriptions on shutdown", async () => {
   const h = fixture(() => undefined);
   const failure = expect(h.read()).rejects.toThrow("disposed");
-  h.hooks.get("session_shutdown")!();
+  (h.hooks.get("session_shutdown") ?? missingValue("Expected a non-null value"))();
   await failure;
   expect(h.bus.eventNames()).toEqual(["subagents:rpc:v1:request"]);
 });
@@ -118,8 +119,18 @@ it("guards reserved inspection input instead of falling through to a model", () 
     () => {},
   );
   expect(read.inspectionContext()).toMatchObject({ sessionId: "pi", command: true, guard: true });
-  expect(hooks.get("input")!({ source: "rpc", text: "/subagents-inspect-rpc req run" })).toEqual({
+  expect(
+    (hooks.get("input") ?? missingValue('Expected hooks.get("input")'))({
+      source: "rpc",
+      text: "/subagents-inspect-rpc req run",
+    }),
+  ).toEqual({
     action: "handled",
   });
-  expect(hooks.get("input")!({ source: "rpc", text: "normal prompt" })).toBeUndefined();
+  expect(
+    (hooks.get("input") ?? missingValue('Expected hooks.get("input")'))({
+      source: "rpc",
+      text: "normal prompt",
+    }),
+  ).toBeUndefined();
 });

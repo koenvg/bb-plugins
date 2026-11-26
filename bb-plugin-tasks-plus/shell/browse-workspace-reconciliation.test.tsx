@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
@@ -41,17 +42,21 @@ function statusFilter() {
     collapsedStatuses: [],
   });
 }
-const parent = { ...tasks[0]!, status: "done" as const };
+const parent = { ...(tasks[0] ?? missingValue("Expected tasks[0]")), status: "done" as const };
 const child = {
-  ...tasks[1]!,
+  ...(tasks[1] ?? missingValue("Expected tasks[1]")),
   parentTaskId: parent.id,
   priority: "urgent" as const,
 };
-const nested = [parent, child, tasks[2]!];
+const nested = [parent, child, tasks[2] ?? missingValue("Expected tasks[2]")];
 function nestedRpc(raw: unknown) {
   const input = rpcInput(raw);
   return {
-    tasks: input.parentTaskId ? [] : input.statuses ? [child, tasks[2]!] : nested,
+    tasks: input.parentTaskId
+      ? []
+      : input.statuses
+        ? [child, tasks[2] ?? missingValue("Expected tasks[2]")]
+        : nested,
     nextCursor: null,
   };
 }
@@ -66,12 +71,15 @@ describe("ongoing browse selection", () => {
     await slot.findByRole("textbox", { name: "Task title" });
     expect(keys(slot)).toEqual(["TSK-3", "TSK-1", "TSK-2"]);
     expect(row(slot, 2).getAttribute("aria-current")).toBe("true");
-    const parentRow = row(slot, 1).closest("[data-task-key]")!;
+    const parentRow =
+      row(slot, 1).closest("[data-task-key]") ?? missingValue("Expected a non-null value");
     expect(parentRow.getAttribute("data-dimmed")).toBe("true");
     expect(within(parentRow as HTMLElement).getByText("0/1")).toBeTruthy();
-    const group = slot.container
-      .querySelector('[data-status-group-header="done"]')!
-      .closest("section")!;
+    const group =
+      (
+        slot.container.querySelector('[data-status-group-header="done"]') ??
+        missingValue("Expected a non-null value")
+      ).closest("section") ?? missingValue("Expected a non-null value");
     expect(group.querySelectorAll("[data-task-key]")).toHaveLength(2);
     expect(slot.getByText("2 tasks")).toBeTruthy();
     fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }));
@@ -92,7 +100,9 @@ describe("ongoing browse selection", () => {
       key: "Enter",
     });
     fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: "Due date" }));
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement ?? missingValue("Expected document.activeElement"), {
+      key: "Escape",
+    });
     expect(loadListPreference("all").sort).toBe("due");
     expect(slot.inspection.navigateCalls).toEqual([]);
     expect(keys(slot)).toEqual(["TSK-3", "TSK-1", "TSK-2"]);
@@ -135,7 +145,9 @@ describe("ongoing browse selection", () => {
       key: "Enter",
     });
     fireEvent.click(await slot.findByRole("menuitemcheckbox", { name: "Done" }));
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement ?? missingValue("Expected document.activeElement"), {
+      key: "Escape",
+    });
     const byRole = await slot.findByRole("alert");
     expect(byRole.textContent).toContain("Keep draft");
     expect(loadListPreference("all").filters.statuses).toEqual([]);
@@ -226,14 +238,14 @@ describe("ongoing browse selection", () => {
     fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
     await cleared(slot);
     expect(writes.at(-1)).toMatchObject({
-      taskId: tasks[0]!.id,
+      taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
       status: "done",
     });
   });
 
   it("clears after a detail status edit settles outside the current filter", async () => {
     statusFilter();
-    let current = tasks[0]!;
+    let current = tasks[0] ?? missingValue("Expected tasks[0]");
     const slot = setup("all?task=TSK-1", {
       getTaskByKey: () => ({ task: current }),
       listTasks: (raw) => ({

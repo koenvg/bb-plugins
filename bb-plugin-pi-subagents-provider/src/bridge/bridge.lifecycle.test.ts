@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -199,7 +200,7 @@ it("the fork helper child exits once the fork is done", async () => {
     stopReason: "stop",
     timestamp: 2,
   });
-  const sourceFile = source.getSessionFile()!;
+  const sourceFile = source.getSessionFile() ?? missingValue("Expected source.getSessionFile()");
   const sourceBefore = readFileSync(sourceFile, "utf8");
   mkdirSync(sessionDir, { recursive: true });
   copyFileSync(sourceFile, join(sessionDir, "thr_lc_src.jsonl"));
@@ -331,14 +332,18 @@ it("release_resume_preserves_pi_session_and_replaces_configuration", async () =>
   expect(providerThreadId).toMatch(/^pi_/u);
   const sessionFile = join(harness.sessionDir, `${providerThreadId}.jsonl`);
   expect(existsSync(sessionFile)).toBe(true);
-  const initialHeader = JSON.parse(readFileSync(sessionFile, "utf8").split("\n", 1)[0]!);
+  const initialHeader = JSON.parse(
+    readFileSync(sessionFile, "utf8").split("\n", 1)[0] ??
+      missingValue("Expected a non-null value"),
+  );
   const initialFiles = scratchFiles();
   expect(initialFiles).toHaveLength(2);
   expect(
     readFileSync(
       join(
         experimental_scratchDirForTests(),
-        initialFiles.find((name) => name.endsWith(".md"))!,
+        initialFiles.find((name) => name.endsWith(".md")) ??
+          missingValue("Expected a non-null value"),
       ),
       "utf8",
     ),
@@ -348,7 +353,8 @@ it("release_resume_preserves_pi_session_and_replaces_configuration", async () =>
       readFileSync(
         join(
           experimental_scratchDirForTests(),
-          initialFiles.find((name) => name.endsWith(".json"))!,
+          initialFiles.find((name) => name.endsWith(".json")) ??
+            missingValue("Expected a non-null value"),
         ),
         "utf8",
       ),
@@ -396,7 +402,9 @@ it("release_resume_preserves_pi_session_and_replaces_configuration", async () =>
   expect(resumed.result).toMatchObject({ providerThreadId });
   expect(existsSync(sessionFile)).toBe(true);
   const resumedBytes = readFileSync(sessionFile, "utf8");
-  const resumedHeader = JSON.parse(resumedBytes.split("\n", 1)[0]!);
+  const resumedHeader = JSON.parse(
+    resumedBytes.split("\n", 1)[0] ?? missingValue("Expected a non-null value"),
+  );
   expect(resumedHeader).toEqual(initialHeader);
   const independentlyResumed = SessionManager.open(
     sessionFile,
@@ -409,7 +417,8 @@ it("release_resume_preserves_pi_session_and_replaces_configuration", async () =>
   const resumedPrompt = readFileSync(
     join(
       experimental_scratchDirForTests(),
-      resumedFiles.find((name) => name.endsWith(".md"))!,
+      resumedFiles.find((name) => name.endsWith(".md")) ??
+        missingValue("Expected a non-null value"),
     ),
     "utf8",
   );
@@ -417,7 +426,8 @@ it("release_resume_preserves_pi_session_and_replaces_configuration", async () =>
     readFileSync(
       join(
         experimental_scratchDirForTests(),
-        resumedFiles.find((name) => name.endsWith(".json"))!,
+        resumedFiles.find((name) => name.endsWith(".json")) ??
+          missingValue("Expected a non-null value"),
       ),
       "utf8",
     ),
@@ -471,7 +481,10 @@ it("resume_legacy_pi_session", async () => {
     timestamp: 2,
   });
   const legacyFile = join(harness.sessionDir, `${legacyProviderThreadId}.jsonl`);
-  copyFileSync(source.getSessionFile()!, legacyFile);
+  copyFileSync(
+    source.getSessionFile() ?? missingValue("Expected source.getSessionFile()"),
+    legacyFile,
+  );
   const before = readFileSync(legacyFile, "utf8");
   const reopened = SessionManager.open(legacyFile, harness.sessionDir, harness.workspaceDir);
   expect(JSON.stringify(reopened.buildSessionContext().messages)).toContain(sentinel);
@@ -488,7 +501,11 @@ it("resume_legacy_pi_session", async () => {
   });
   const after = readFileSync(legacyFile, "utf8");
   expect(after).toBe(before);
-  expect(JSON.parse(after.split("\n", 1)[0]!)).toEqual(JSON.parse(before.split("\n", 1)[0]!));
+  expect(
+    JSON.parse(after.split("\n", 1)[0] ?? missingValue('Expected after.split("\\n", 1)[0]')),
+  ).toEqual(
+    JSON.parse(before.split("\n", 1)[0] ?? missingValue('Expected before.split("\\n", 1)[0]')),
+  );
   expect(after).toContain(sentinel);
   const afterReopen = SessionManager.open(legacyFile, harness.sessionDir, harness.workspaceDir);
   expect(JSON.stringify(afterReopen.buildSessionContext().messages)).toContain(sentinel);
@@ -566,7 +583,7 @@ it("a child that ignores EOF and SIGTERM is SIGKILLed", async () => {
   vi.stubEnv("FAKE_PI_HANG_ON_CLOSE", "1");
   await startThread("thr_lc_kill");
   const { spawned } = harness.readProcessLog();
-  const pid = spawned[0]!;
+  const pid = spawned[0] ?? missingValue("Expected spawned[0]");
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   try {
     const stopId = (nextId += 1);

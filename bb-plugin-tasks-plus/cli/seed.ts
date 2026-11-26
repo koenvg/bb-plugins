@@ -10,7 +10,7 @@ interface SeedDemoResult {
   labelsCreated: number;
   tasksCreated: number;
   linkedBbProjectId: string | null;
-  projects: Array<{ id: string; keyPrefix: string; name: string }>;
+  projects: { id: string; keyPrefix: string; name: string }[];
 }
 
 async function createTask(
@@ -88,13 +88,16 @@ export async function seedDemo(
     );
   }
 
+  const [tasksProject, operationsProject, personalProject] = projects;
+  if (!tasksProject || !operationsProject || !personalProject)
+    throw new Error("Missing seed project");
   const labelSpecs = [
-    [projects[0]!, "Backend", "blue"],
-    [projects[0]!, "UX", "violet"],
-    [projects[1]!, "Automation", "orange"],
-    [projects[1]!, "Blocked", "red"],
-    [projects[2]!, "Home", "green"],
-    [projects[2]!, "Errand", "yellow"],
+    [tasksProject, "Backend", "blue"],
+    [tasksProject, "UX", "violet"],
+    [operationsProject, "Automation", "orange"],
+    [operationsProject, "Blocked", "red"],
+    [personalProject, "Home", "green"],
+    [personalProject, "Errand", "yellow"],
   ] as const;
   const labels = [];
   for (const [project, name, color] of labelSpecs) {
@@ -111,40 +114,43 @@ export async function seedDemo(
     );
   }
 
+  const [backend, ux, automation, blocked, home, errand] = labels;
+  if (!backend || !ux || !automation || !blocked || !home || !errand)
+    throw new Error("Missing seed label");
   const tasks: Task[] = [];
   const taskOne = await createTask(domain, {
-    projectId: projects[0]!.id,
+    projectId: tasksProject.id,
     title: "Polish the task detail panel",
     description: "Finish the detail view and verify markdown rendering.",
     status: "in_progress",
     priority: "urgent",
     dueDate: "2026-07-18",
-    labelIds: [labels[1]!.id],
+    labelIds: [ux.id],
   });
   tasks.push(taskOne);
   tasks.push(
     await createTask(domain, {
-      projectId: projects[0]!.id,
+      projectId: tasksProject.id,
       title: "Add CLI smoke coverage",
       description: "Cover the canonical create, list, show, and update flow.",
       status: "in_review",
       priority: "high",
-      labelIds: [labels[0]!.id],
+      labelIds: [backend.id],
     }),
   );
   tasks.push(
     await createTask(domain, {
-      projectId: projects[0]!.id,
+      projectId: tasksProject.id,
       title: "Document project linking",
       status: "todo",
       priority: "medium",
       parentTaskId: taskOne.id,
-      labelIds: [labels[0]!.id, labels[1]!.id],
+      labelIds: [backend.id, ux.id],
     }),
   );
   tasks.push(
     await createTask(domain, {
-      projectId: projects[0]!.id,
+      projectId: tasksProject.id,
       title: "Archive the old prototype notes",
       status: "done",
       priority: "low",
@@ -152,80 +158,80 @@ export async function seedDemo(
   );
 
   const opsParent = await createTask(domain, {
-    projectId: projects[1]!.id,
+    projectId: operationsProject.id,
     title: "Prepare the weekly release",
     description: "Coordinate checks, notes, and the rollout window.",
     status: "in_progress",
     priority: "high",
     dueDate: "2026-07-19",
-    labelIds: [labels[2]!.id],
+    labelIds: [automation.id],
   });
   tasks.push(opsParent);
   tasks.push(
     await createTask(domain, {
-      projectId: projects[1]!.id,
+      projectId: operationsProject.id,
       title: "Confirm CI is green",
       status: "todo",
       priority: "urgent",
       parentTaskId: opsParent.id,
-      labelIds: [labels[2]!.id],
+      labelIds: [automation.id],
     }),
   );
   tasks.push(
     await createTask(domain, {
-      projectId: projects[1]!.id,
+      projectId: operationsProject.id,
       title: "Rotate staging credentials",
       status: "backlog",
       priority: "medium",
-      labelIds: [labels[3]!.id],
+      labelIds: [blocked.id],
     }),
   );
   tasks.push(
     await createTask(domain, {
-      projectId: projects[1]!.id,
+      projectId: operationsProject.id,
       title: "Publish release notes",
       status: "done",
       priority: "low",
-      labelIds: [labels[2]!.id],
+      labelIds: [automation.id],
     }),
   );
 
   const homeParent = await createTask(domain, {
-    projectId: projects[2]!.id,
+    projectId: personalProject.id,
     title: "Plan the weekend reset",
     description: "A short list for getting the house back in shape.",
     status: "todo",
     priority: "medium",
-    labelIds: [labels[4]!.id],
+    labelIds: [home.id],
   });
   tasks.push(homeParent);
   tasks.push(
     await createTask(domain, {
-      projectId: projects[2]!.id,
+      projectId: personalProject.id,
       title: "Pick up groceries",
       status: "todo",
       priority: "high",
       dueDate: "2026-07-17",
       parentTaskId: homeParent.id,
-      labelIds: [labels[5]!.id],
+      labelIds: [errand.id],
     }),
   );
   tasks.push(
     await createTask(domain, {
-      projectId: projects[2]!.id,
+      projectId: personalProject.id,
       title: "Repair the hallway shelf",
       status: "backlog",
       priority: "low",
-      labelIds: [labels[4]!.id],
+      labelIds: [home.id],
     }),
   );
   tasks.push(
     await createTask(domain, {
-      projectId: projects[2]!.id,
+      projectId: personalProject.id,
       title: "Book a dentist appointment",
       status: "canceled",
       priority: "none",
-      labelIds: [labels[5]!.id],
+      labelIds: [errand.id],
     }),
   );
 

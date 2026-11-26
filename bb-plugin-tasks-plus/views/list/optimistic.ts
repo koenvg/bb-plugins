@@ -167,8 +167,8 @@ export function settleFailure(
   const { edit, gens } = makeEntry(prev);
   for (const field of EDIT_FIELDS) {
     if (patch[field] !== undefined && gens[field] === gen) {
-      delete edit[field];
-      delete gens[field];
+      Reflect.deleteProperty(edit, field);
+      Reflect.deleteProperty(gens, field);
     }
   }
   return finalize(entries, taskId, edit, gens, prev.inFlight - 1);

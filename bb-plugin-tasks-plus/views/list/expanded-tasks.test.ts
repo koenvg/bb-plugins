@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { makeTask } from "../../test-fixtures.js";
@@ -33,7 +34,12 @@ describe("expanded task storage", () => {
 
     expect(loadExpandedTasks("project:A")).toEqual(new Set(["T1", "T2"]));
     expect(loadExpandedTasks("all")).toEqual(new Set(["T3"]));
-    expect(JSON.parse(window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY)!)).toMatchObject({
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(EXPANDED_TASKS_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      ),
+    ).toMatchObject({
       version: EXPANDED_TASKS_VERSION,
     });
   });

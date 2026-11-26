@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -205,9 +206,11 @@ describe("shared speed module through the BB bridge", () => {
 
   it("permits Default but blocks Fast on non-Codex models", async () => {
     const catalog = await harness.request(++id, "model/list", { cwd: harness.workspaceDir });
-    const model = (catalog.result as { models: { id: string }[] }).models.find(
-      (entry) => !entry.id.startsWith("openai-codex/"),
-    )!.id;
+    const model = (
+      (catalog.result as { models: { id: string }[] }).models.find(
+        (entry) => !entry.id.startsWith("openai-codex/"),
+      ) ?? missingValue("Expected a non-null value")
+    ).id;
     await harness.startThread(threadId, { options: { ...options(), model } });
     const dispatch = (serviceTier: string) =>
       harness.request(++id, "turn/start", {
@@ -358,7 +361,7 @@ describe("shared speed module through the BB bridge", () => {
     const firstTurnEnd = await harness.waitForTurnBoundary(threadId, refreshEnd);
     const nativeFile = join(
       harness.sessionDir,
-      files().find((file) => file.endsWith(".jsonl"))!,
+      files().find((file) => file.endsWith(".jsonl")) ?? missingValue("Expected a non-null value"),
     );
     const { SessionManager } = await import("@earendil-works/pi-coding-agent");
     const persisted = SessionManager.open(nativeFile);
@@ -503,7 +506,9 @@ describe("shared speed module through the BB bridge", () => {
       (file) => file.endsWith(".jsonl"),
     );
     expect(relative).toBeDefined();
-    const preference = join(harness.sessionDir, relative!) + ".bb-codex-speed.json";
+    const preference =
+      join(harness.sessionDir, relative ?? missingValue("Expected relative")) +
+      ".bb-codex-speed.json";
     const contents = JSON.stringify({ version: 1, speed: "fast" });
     writeFileSync(preference, contents, { mode: 0o600 });
     const providerThreadId = currentProviderId();

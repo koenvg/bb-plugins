@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-type Page = { data: Record<string, any>; next: boolean };
+interface Page {
+  data: Record<string, unknown>;
+  next: boolean;
+}
 export type ReadPage = (path: string) => Promise<Page>;
 interface Entry {
   path: string;
@@ -19,6 +22,11 @@ function id(value: unknown): string {
   if (typeof value !== "string" || !/^[0-9a-f]{40}$/.test(value))
     throw new Error("Incomplete tree metadata");
   return value;
+}
+function field(value: unknown, name: string): unknown {
+  return value !== null && typeof value === "object" && name in value
+    ? (value as Record<string, unknown>)[name]
+    : undefined;
 }
 function parseEntries(input: unknown): Entry[] {
   if (!Array.isArray(input) || input.length >= 100_000) throw new Error("Incomplete tree coverage");
@@ -58,14 +66,14 @@ function verifyTreeHashes(root: string, entries: Entry[]) {
   }
   const name = (e: Entry) => e.path.slice(e.path.lastIndexOf("/") + 1);
   for (const [path, expected] of directories) {
-    const sorted = groups
-      .get(path)!
-      .sort((a, b) =>
-        Buffer.compare(
-          Buffer.from(name(a) + (a.type === "tree" ? "/" : "")),
-          Buffer.from(name(b) + (b.type === "tree" ? "/" : "")),
-        ),
-      );
+    const group = groups.get(path);
+    if (!group) throw new Error("Incomplete tree coverage");
+    const sorted = group.sort((a, b) =>
+      Buffer.compare(
+        Buffer.from(name(a) + (a.type === "tree" ? "/" : "")),
+        Buffer.from(name(b) + (b.type === "tree" ? "/" : "")),
+      ),
+    );
     const content = Buffer.concat(
       sorted.map((e) =>
         Buffer.concat([
@@ -86,7 +94,8 @@ function verifyTreeHashes(root: string, entries: Entry[]) {
 export function treeCoverage(prefix: string, get: ReadPage) {
   const cache = new Map<string, Map<string, string>>();
   async function tree(revision: string) {
-    if (cache.has(revision)) return cache.get(revision)!;
+    const cached = cache.get(revision);
+    if (cached) return cached;
     const response = await get(`${prefix}/git/trees/${revision}?recursive=1`);
     const d = response.data;
     if (response.next || d.sha !== revision || d.truncated !== false)
@@ -99,18 +108,18 @@ export function treeCoverage(prefix: string, get: ReadPage) {
     cache.set(revision, files);
     return files;
   }
-  return async (metadata: Record<string, any>, files: Set<string>) => {
+  return async (metadata: Record<string, unknown>, files: Set<string>) => {
     if (
       !Array.isArray(metadata.parents) ||
       metadata.parents.length < 1 ||
       metadata.parents.length > 32
     )
       throw new Error("Incomplete tree metadata");
-    const parentId = id(metadata.parents[0]?.sha);
+    const parentId = id(field(metadata.parents[0], "sha"));
     const parent = await get(`${prefix}/commits/${parentId}?per_page=100&page=1`);
     if (parent.data.sha !== parentId) throw new Error("Incomplete tree metadata");
-    const before = await tree(id(parent.data.commit?.tree?.sha));
-    const after = await tree(id(metadata.commit?.tree?.sha));
+    const before = await tree(id(field(field(parent.data.commit, "tree"), "sha")));
+    const after = await tree(id(field(field(metadata.commit, "tree"), "sha")));
     const changed = new Set(
       [...before.keys(), ...after.keys()].filter((p) => before.get(p) !== after.get(p)),
     );

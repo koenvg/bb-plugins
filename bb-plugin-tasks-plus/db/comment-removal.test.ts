@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
@@ -105,14 +106,15 @@ describe("comment-removal forward migration", () => {
     const db = legacyDatabase();
     try {
       const before = snapshot(db);
-      before.tasks = before.tasks!.map((row) => ({
+      before.tasks = (before.tasks ?? missingValue("Expected before.tasks")).map((row) => ({
         ...(row as Record<string, unknown>),
         created_by_thread_id: null,
       }));
       const versions = db.prepare("SELECT * FROM schema_version ORDER BY version").all();
-      const files = db.prepare("SELECT * FROM attachments ORDER BY id").all() as Array<
-        Record<string, unknown>
-      >;
+      const files = db.prepare("SELECT * FROM attachments ORDER BY id").all() as Record<
+        string,
+        unknown
+      >[];
       initializeTasksSchema(db);
       const store = createTasksStore(db);
       createTasksStore(db);

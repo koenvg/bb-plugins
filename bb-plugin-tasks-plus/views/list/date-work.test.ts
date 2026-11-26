@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 
 afterEach(() => {
@@ -14,11 +15,15 @@ it("reuses two formatters, parses at local midnight, and follows reference dates
     .mockImplementation(function (locales, options) {
       return new Native(locales, options);
     });
-  const descriptor = Object.getOwnPropertyDescriptor(Native.prototype, "format")!;
+  const descriptor =
+    Object.getOwnPropertyDescriptor(Native.prototype, "format") ??
+    missingValue("Expected a non-null value");
   const used: Date[] = [];
   vi.spyOn(Native.prototype as { readonly format: unknown }, "format", "get").mockImplementation(
     function (this: Intl.DateTimeFormat) {
-      const format = descriptor.get!.call(this) as (date: Date) => string;
+      const format = (descriptor.get ?? missingValue("Expected descriptor.get")).call(this) as (
+        date: Date,
+      ) => string;
       return (date: Date) => {
         used.push(date);
         return format(date);
@@ -37,10 +42,10 @@ it("reuses two formatters, parses at local midnight, and follows reference dates
   expect(formatDueDate("2027-01-01")).toBe("Jan 1");
   expect(construction).toHaveBeenCalledTimes(2);
   expect(used).toHaveLength(6);
-  expect(used[0]!.getFullYear()).toBe(2026);
-  expect(used[0]!.getMonth()).toBe(0);
-  expect(used[0]!.getDate()).toBe(1);
-  expect(used[0]!.getHours()).toBe(0);
+  expect((used[0] ?? missingValue("Expected used[0]")).getFullYear()).toBe(2026);
+  expect((used[0] ?? missingValue("Expected used[0]")).getMonth()).toBe(0);
+  expect((used[0] ?? missingValue("Expected used[0]")).getDate()).toBe(1);
+  expect((used[0] ?? missingValue("Expected used[0]")).getHours()).toBe(0);
 });
 
 it("preserves the invalid-date output instead of crashing a row", async () => {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -75,7 +76,11 @@ function rpc(tasks: Task[] = [], overrides: Record<string, unknown> = {}) {
 }
 
 function open(subPath: string, tasks: Task[] = []) {
-  return renderSlot(app.navPanels[0]!, { subPath }, { rpc: rpc(tasks) });
+  return renderSlot(
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+    { subPath },
+    { rpc: rpc(tasks) },
+  );
 }
 
 describe("panel shortcuts", () => {

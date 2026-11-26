@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { expect, it } from "vitest";
 import { restoreViewHistory } from "./view-history.js";
 import type { ViewRow, ViewState } from "./subagents-contract.js";
@@ -29,7 +30,9 @@ it("counts only rows excluded by this replay on top of the latest cumulative omi
     7,
   );
   const older = state([row("historical")], 90);
-  const result = restoreViewHistory([latest, older], state([], 200))!;
+  const result =
+    restoreViewHistory([latest, older], state([], 200)) ??
+    missingValue("Expected a non-null value");
   expect(result.rows).toEqual(latest.rows);
   expect(result.omitted).toBe(8);
   expect(restoreViewHistory([latest, older], result)).toEqual(result);
@@ -64,9 +67,10 @@ it("retains older terminal output when newer failed captures and mounted task at
     ],
     200,
   );
-  const result = restoreViewHistory([latest, older], mounted)!;
+  const result =
+    restoreViewHistory([latest, older], mounted) ?? missingValue("Expected a non-null value");
   expect(result.omitted).toBe(7);
-  expect(result.rows[0]!.capture).toMatchObject({
+  expect((result.rows[0] ?? missingValue("Expected result.rows[0]")).capture).toMatchObject({
     status: "timeout",
     capturedAt: 1,
     attemptedAt: 2,

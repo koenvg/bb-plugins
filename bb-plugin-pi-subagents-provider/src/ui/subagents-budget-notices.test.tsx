@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -59,7 +60,12 @@ it("distinguishes budget-omitted excerpts from content that was never captured",
     <SubagentsView
       state={{
         ...state,
-        rows: [{ ...state.rows[0]!, capture: { status: "not-captured", capturedAt: 1 } }],
+        rows: [
+          {
+            ...(state.rows[0] ?? missingValue("Expected state.rows[0]")),
+            capture: { status: "not-captured", capturedAt: 1 },
+          },
+        ],
       }}
     />,
   );

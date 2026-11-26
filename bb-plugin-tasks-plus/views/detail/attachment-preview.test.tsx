@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { StrictMode, useRef } from "react";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -75,7 +76,9 @@ function reply(item: Attachment, text: string, extra = {}) {
   });
 }
 async function resolve(index: number, response: Response) {
-  await act(async () => pending[index]!.resolve(response));
+  await act(async () =>
+    (pending[index] ?? missingValue("Expected pending[index]")).resolve(response),
+  );
 }
 afterEach(() => {
   cleanup();
@@ -112,8 +115,20 @@ const Fixture = ({
         onRemove={async (item) => preview.removed(item.id)}
         onError={() => {}}
       />
-      <button onClick={() => preview.open(a, fallback.current!)}>Replace with A</button>
-      <button onClick={() => preview.open(b, fallback.current!)}>Replace with B</button>
+      <button
+        onClick={() =>
+          preview.open(a, fallback.current ?? missingValue("Expected fallback.current"))
+        }
+      >
+        Replace with A
+      </button>
+      <button
+        onClick={() =>
+          preview.open(b, fallback.current ?? missingValue("Expected fallback.current"))
+        }
+      >
+        Replace with B
+      </button>
       <button onClick={() => preview.removed(a.id)}>Confirm removed A</button>
       {preview.dialog}
       {listbox ? (
@@ -179,7 +194,7 @@ describe("task-scoped attachment owner", () => {
     mount();
     openA();
     close();
-    expect(pending[0]!.signal.aborted).toBe(true);
+    expect((pending[0] ?? missingValue("Expected pending[0]")).signal.aborted).toBe(true);
     await resolve(0, reply(a, "# obsolete"));
     expect(screen.queryByRole("dialog")).toBeNull();
     openA();
@@ -205,7 +220,7 @@ describe("task-scoped attachment owner", () => {
     const byRole = await screen.findByRole("status");
     expect(byRole.textContent).toContain("The preview could not load.");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(pending[0]!.signal.aborted).toBe(true);
+    expect((pending[0] ?? missingValue("Expected pending[0]")).signal.aborted).toBe(true);
     await resolve(1, reply(a, "# Retried"));
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Retried");
     close();
@@ -228,7 +243,7 @@ describe("task-scoped attachment owner", () => {
         await waitFor(() => expect(document.activeElement).toBe(trigger));
       }
       fireEvent.click(screen.getByText("Replace with B"));
-      expect(pending[1]!.signal.aborted).toBe(true);
+      expect((pending[1] ?? missingValue("Expected pending[1]")).signal.aborted).toBe(true);
       await resolve(2, reply(b, "# Current B"));
       const dialog = screen.getByRole("dialog", { name: b.fileName });
       const target = within(dialog).getByRole("button", { name: "Raw" });
@@ -355,7 +370,8 @@ describe("task-scoped attachment owner", () => {
       fireEvent.click(screen.getByText("Replace with B"));
       await resolve(1, reply(b, "# Current"));
       const heading = await screen.findByRole("heading", { name: "Current", level: 1 });
-      const dialog = heading.closest('[role="dialog"]')!;
+      const dialog =
+        heading.closest('[role="dialog"]') ?? missingValue("Expected a non-null value");
       const target = within(dialog as HTMLElement).getByRole("button", { name: "Raw" });
       target.focus();
       await act(async () => {});
@@ -372,7 +388,8 @@ describe("task-scoped attachment owner", () => {
       openA();
       await resolve(0, reply(a, "# Ready"));
       await screen.findByRole("heading", { name: "Ready", level: 1 });
-      trigger.parentElement!.style.display = "none";
+      (trigger.parentElement ?? missingValue("Expected trigger.parentElement")).style.display =
+        "none";
       close();
       await waitFor(() =>
         expect(document.activeElement).toBe(screen.getByRole("button", { name: "Task control" })),
@@ -398,7 +415,7 @@ describe("task-scoped attachment owner", () => {
       </StrictMode>,
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(pending[0]!.signal.aborted).toBe(true);
+    expect((pending[0] ?? missingValue("Expected pending[0]")).signal.aborted).toBe(true);
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Task control" })),
     );
@@ -416,12 +433,12 @@ describe("task-scoped attachment owner", () => {
         <Fixture taskId="task-b" />
       </StrictMode>,
     );
-    expect(pending[1]!.signal.aborted).toBe(true);
+    expect((pending[1] ?? missingValue("Expected pending[1]")).signal.aborted).toBe(true);
     await resolve(1, reply(a, "# wrong task"));
     expect(screen.queryByRole("dialog")).toBeNull();
     openA();
     view.unmount();
-    expect(pending[2]!.signal.aborted).toBe(true);
+    expect((pending[2] ?? missingValue("Expected pending[2]")).signal.aborted).toBe(true);
     await resolve(2, reply(a, "# unmounted"));
     expect(screen.queryByRole("dialog")).toBeNull();
   });

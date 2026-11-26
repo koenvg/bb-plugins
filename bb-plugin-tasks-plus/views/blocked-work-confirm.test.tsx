@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -60,7 +61,7 @@ const ready = task(8, [ref(2, "done")]);
 function render(subPath: string, detailTask: Task = blocked) {
   const tasks = [blocked, ready];
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath },
     {
       rpc: {
@@ -113,12 +114,14 @@ function render(subPath: string, detailTask: Task = blocked) {
         listAttachments: () => ({ attachments: [] }),
         updateTask: (raw) => {
           const input = rpcInput(raw);
-          const current = tasks.find((t) => t.id === input.taskId)!;
+          const current =
+            tasks.find((t) => t.id === input.taskId) ?? missingValue("Expected a non-null value");
           return { ok: true, task: { ...current, ...input } };
         },
         boardMove: (raw) => {
           const input = rpcInput(raw);
-          const current = tasks.find((t) => t.id === input.taskId)!;
+          const current =
+            tasks.find((t) => t.id === input.taskId) ?? missingValue("Expected a non-null value");
           return { ok: true, task: { ...current, status: input.status } };
         },
         delegate: () => ({ threadId: "thr_worker" }),
@@ -178,7 +181,9 @@ function layOutBoardColumns() {
 
 async function dragToInProgress(slot: Slot, key: string) {
   const card = await itemFor(slot, key);
-  const column = slot.container.querySelector('[data-board-column="in_progress"]')!;
+  const column =
+    slot.container.querySelector('[data-board-column="in_progress"]') ??
+    missingValue("Expected a non-null value");
   const columns = [...slot.container.querySelectorAll("[data-board-column]")];
   const x = columns.indexOf(column) * 300 + 100;
   fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 10 });
@@ -188,13 +193,13 @@ async function dragToInProgress(slot: Slot, key: string) {
 
 async function openDetailStatus(slot: Slot) {
   const [trigger] = await slot.findAllByRole("button", { name: "Todo" });
-  fireEvent.pointerDown(trigger!, { button: 0, ctrlKey: false });
+  fireEvent.pointerDown(trigger ?? missingValue("Expected trigger"), { button: 0, ctrlKey: false });
   fireEvent.click(await slot.findByRole("menuitem", { name: /In Progress/ }));
 }
 
 async function dispatch(slot: Slot) {
   const [button] = await slot.findAllByRole("button", { name: "Worker" });
-  fireEvent.click(button!);
+  fireEvent.click(button ?? missingValue("Expected button"));
 }
 
 describe("blocked work confirm in the list status menu", () => {
@@ -268,7 +273,10 @@ describe("blocked work confirm on a board drop", () => {
     await waitFor(() => expect(slot.queryByRole("dialog")).toBeNull());
     expect(called(slot, "boardMove")).toBe(false);
     expect(
-      within(slot.container.querySelector('[data-board-column="todo"]')!).getByText("ABC-5"),
+      within(
+        slot.container.querySelector('[data-board-column="todo"]') ??
+          missingValue("Expected a non-null value"),
+      ).getByText("ABC-5"),
     ).toBeTruthy();
   });
 

@@ -2,6 +2,7 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+import type { NavigationFixture } from "./local-backend.js";
 import { createLocalHost } from "./local-host.js";
 import { footerFixture } from "../../../bb-plugin-codex-quota/src/footer/footer-fixture.test-support.js";
 import { mountFooterAdapter } from "../../../bb-plugin-codex-quota/src/footer/footer-adapter.js";
@@ -15,26 +16,27 @@ import { readFullTicket, qualifiesContent } from "./local-identity.mjs";
 
 declare global {
   interface Window {
-    lab: any;
+    lab: typeof lab;
   }
 }
 if (process.env.NODE_ENV !== "production" || typeof React.act !== "undefined")
   throw new Error("Production React is required");
-const fixture = await fetch("/fixture.json").then((response) => response.json());
+const fixture: NavigationFixture = await fetch("/fixture.json").then((response) => response.json());
 const qualification = installQualificationObservers(
   window,
-  Object.fromEntries(fixture.tasks.map((task: any) => [task.key, task.revision])),
+  Object.fromEntries(fixture.tasks.map((task) => [task.key, task.revision])),
 );
 const { default: appDefinition } = await import("../../app.js");
 const app = collectPluginAppRegistrations(appDefinition);
-const panel = app.navPanels[0]!;
+const [panel] = app.navPanels;
 const ticketRegistration = app.tabs.find(
   (tab): tab is Extract<typeof tab, { context: { kind: "nav-panel" }; availability: "fixed" }> =>
     tab.id === "ticket" &&
     tab.availability === "fixed" &&
     tab.context.kind === "nav-panel" &&
     tab.context.panelId === "tasks",
-)!;
+);
+if (!panel || !ticketRegistration) throw new Error("Missing Tasks panel or Ticket registration");
 const Page = panel.component;
 const Ticket = ticketRegistration.component;
 const NativeHost = ({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) => {
@@ -88,15 +90,15 @@ const badgeRoots = adapter.getSnapshot().map((target) => {
 adapter.setNavigationReady(true);
 const read = () => {
   const state = readFullTicket(document, readNativeTicket);
-  const task = fixture.tasks.find((task: any) => task.key === state.detailKey);
+  const task = fixture.tasks.find((task) => task.key === state.detailKey);
   return { ...state, rendered: Boolean(task && qualifiesContent(state, task)) };
 };
-window.lab = {
+const lab = {
   fixture,
   qualification,
   slot,
   read,
-  probe: null,
+  probe: null as { dispose: () => void } | null,
   production: {
     buildMode: process.env.NODE_ENV,
     reactVersion: React.version,
@@ -111,9 +113,11 @@ window.lab = {
     this.probe = createProbe({ window, mode, read, timeoutMs });
   },
   async invalidate(key: string) {
+    const task = fixture.tasks.find((task) => task.key === key);
+    if (!task) throw new Error(`Unknown fixture task ${key}`);
     qualification.ledger.invalidate("owned-invalidation", "tasks:changed");
     await slot.behavior.emitRealtime("tasks:changed", {
-      taskId: fixture.tasks.find((task: any) => task.key === key).id,
+      taskId: task.id,
     });
   },
   dispose() {
@@ -129,3 +133,4 @@ window.lab = {
     sidebar.sidebar.remove();
   },
 };
+window.lab = lab;

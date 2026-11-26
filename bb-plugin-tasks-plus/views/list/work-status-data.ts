@@ -35,7 +35,10 @@ function unavailable(previous?: TaskWorkStatus): TaskWorkStatus {
   };
 }
 
-type Observation = { meta: TaskRowMeta; error: string | null };
+interface Observation {
+  meta: TaskRowMeta;
+  error: string | null;
+}
 
 /** One coalesced visible-list refresh, independent of task/detail query contracts. */
 export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") {

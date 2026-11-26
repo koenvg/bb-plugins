@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { planWeeklyCheck, type SetupPorts } from "./setup.ts";
+import { planWeeklyCheck, type ScheduleRecord, type SetupPorts } from "./setup.ts";
 
 const projectId = "proj_fixture";
 const serverHostId = "host_fixture";
@@ -13,7 +13,7 @@ const source = {
 };
 function ports() {
   const scheduler = {
-    list: vi.fn(async () => ({ complete: true, records: [] as any[] })),
+    list: vi.fn(async () => ({ complete: true, records: [] as ScheduleRecord[] })),
     create: vi.fn(),
     update: vi.fn(),
     resume: vi.fn(),

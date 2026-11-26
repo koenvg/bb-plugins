@@ -47,8 +47,8 @@ interface PiTestContext {
 
 interface PiEquivalenceHarness {
   assembler: DeltaAssembler;
-  translate(event: unknown, context?: PiTestContext): ThreadEvent[];
-  openTurnId(): string;
+  translate: (event: unknown, context?: PiTestContext) => ThreadEvent[];
+  openTurnId: () => string;
 }
 
 function createHarness(options?: {
@@ -85,7 +85,7 @@ function sdkMessage(message: unknown) {
 }
 
 function createPiCustomMessage(args: {
-  content: string | Array<Record<string, unknown>>;
+  content: string | Record<string, unknown>[];
   display?: boolean;
 }) {
   return {

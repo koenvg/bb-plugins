@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
@@ -13,12 +14,12 @@ import {
 
 registerWorkspaceTestLifecycle();
 const child = makeTask({
-  ...tasks[0]!,
+  ...(tasks[0] ?? missingValue("Expected tasks[0]")),
   id: "child",
   key: "TSK-4",
   number: 4,
   title: "Title 4",
-  parentTaskId: tasks[0]!.id,
+  parentTaskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
 });
 const records = [...tasks, child];
 const label = {
@@ -147,15 +148,18 @@ describe("list row menus from the keyboard", () => {
     fireEvent.click(await slot.findByRole("option", { name: "frontend" }));
     await waitFor(() =>
       expect(updates).toContainEqual({
-        taskId: tasks[0]!.id,
+        taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
         labelIds: [label.id],
       }),
     );
     fireEvent.keyDown(slot.getByRole("listbox"), { key: "Escape" });
     await waitFor(() => expect(slot.queryByRole("listbox")).toBeNull());
     await waitFor(() => expect(focusedRowName()).toBe("Open TSK-1: Title 1"));
-    expect(slot.container.querySelector('[data-task-key="TSK-1"]')!.textContent).not.toContain(
-      label.name,
-    );
+    expect(
+      (
+        slot.container.querySelector('[data-task-key="TSK-1"]') ??
+        missingValue("Expected a non-null value")
+      ).textContent,
+    ).not.toContain(label.name);
   });
 });

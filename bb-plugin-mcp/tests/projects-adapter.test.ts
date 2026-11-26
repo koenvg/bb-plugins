@@ -1,3 +1,4 @@
+import type * as RemoteAccess from "../remote-access.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -9,7 +10,7 @@ import { settingsDefinition } from "../config.js";
 import { loopbackFetch, project, provider } from "./fixtures.js";
 
 vi.mock("../remote-access.js", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../remote-access.js")>();
+  const original = await importOriginal<typeof RemoteAccess>();
   return {
     ...original,
     remoteAccess: (options: Parameters<typeof original.remoteAccess>[0]) =>

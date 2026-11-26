@@ -83,10 +83,10 @@ export function normalizeCapture(
   };
 }
 export function createCaptureQueue(options: {
-  inspect(target: CaptureTarget, requestId: string): Promise<unknown>;
-  resolveModel?(target: CaptureTarget, signal: AbortSignal): Promise<Capture["resolvedModel"]>;
-  current?(target: CaptureTarget): boolean;
-  accept(id: string, capture: Capture, target: CaptureTarget): void;
+  inspect: (target: CaptureTarget, requestId: string) => Promise<unknown>;
+  resolveModel?: (target: CaptureTarget, signal: AbortSignal) => Promise<Capture["resolvedModel"]>;
+  current?: (target: CaptureTarget) => boolean;
+  accept: (id: string, capture: Capture, target: CaptureTarget) => void;
   now?: () => number;
   rateMs?: number;
   timeoutMs?: number;
@@ -117,7 +117,8 @@ export function createCaptureQueue(options: {
       if (remaining > 0) await pause(remaining);
       if (disposed) break;
       nextReadAt = now() + (options.rateMs ?? 750);
-      const target = [...queue.values()].find((t) => t.terminal) ?? queue.values().next().value!;
+      const target = [...queue.values()].find((t) => t.terminal) ?? queue.values().next().value;
+      if (!target) break;
       queue.delete(target.id);
       if (!current(target)) continue;
       const startedAt = performance.now();

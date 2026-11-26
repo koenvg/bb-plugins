@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
@@ -69,7 +70,7 @@ async function mount(
   pluginServer(bb);
   const app = await loadPluginApp(pluginApp);
   const slot = renderSlot(
-    app.fileOpeners[0]!,
+    app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
     {
       ...target,
       experimental_lineRange: lineRange,
@@ -82,7 +83,11 @@ async function mount(
       },
     },
   );
-  return { slot, harness, Opener: app.fileOpeners[0]!.component };
+  return {
+    slot,
+    harness,
+    Opener: (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component,
+  };
 }
 function file(
   content: string,

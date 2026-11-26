@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { fireEvent, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -34,7 +35,7 @@ describe("responsive browse markup", () => {
     async (width) => {
       panelSize.width = width;
       const otherTasks = Array.from({ length: 14 }, (_, n) => ({
-        ...tasks[1]!,
+        ...(tasks[1] ?? missingValue("Expected tasks[1]")),
         id: `sample-${n}`,
         key: `TSK-${n + 4}`,
         number: n + 4,
@@ -44,7 +45,7 @@ describe("responsive browse markup", () => {
         .slice(0, 2)
         .map(({ id, key, title, status }) => ({ id, key, title, status }));
       const parent = {
-        ...tasks[0]!,
+        ...(tasks[0] ?? missingValue("Expected tasks[0]")),
         title:
           "Preserve a long ticket title and important browsing context without losing task-owned drafts",
         priority: "high" as const,
@@ -58,7 +59,7 @@ describe("responsive browse markup", () => {
         labelIds: ["label"],
       };
       const child = {
-        ...tasks[2]!,
+        ...(tasks[2] ?? missingValue("Expected tasks[2]")),
         parentTaskId: parent.id,
         title: "Nested task with a long title that still needs readable identity and metadata",
         blockedBy: [

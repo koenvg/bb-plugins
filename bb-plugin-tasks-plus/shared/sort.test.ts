@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import type { Task } from "./contract.js";
 import { sortTasks } from "./sort.js";
@@ -12,7 +13,7 @@ const ULIDS = [
 
 function task(key: string, overrides: Partial<Pick<Task, "priority" | "dueDate">> = {}): Task {
   return makeTask({
-    id: ULIDS[Number(key.split("-")[1]) - 1]!,
+    id: ULIDS[Number(key.split("-")[1]) - 1] ?? missingValue("Expected a non-null value"),
     projectId: ULIDS[0],
     key,
     createdAt: "2026-07-01T00:00:00.000Z",

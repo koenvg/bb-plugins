@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type ViewRow, type ViewState } from "../subagents-contract.js";
+import type { ViewRow, ViewState } from "../subagents-contract.js";
 
 function elapsed(row: ViewRow) {
   const terminal = !["queued", "running", "unknown", "detached"].includes(row.state);
@@ -82,7 +82,11 @@ type Navigation = { kind: "default" | "overview" | "invalid" } | { kind: "root";
 type External =
   | { kind: "settled"; consumed: Navigation }
   | { kind: "waiting"; consumed: { kind: "root"; id: string } };
-type Tabs = { opened: readonly string[]; active: Tab; external: External };
+interface Tabs {
+  opened: readonly string[];
+  active: Tab;
+  external: External;
+}
 type TabEvent =
   | { kind: "observe"; navigation: Navigation; rows: ReadonlyMap<string, ViewRow> }
   | { kind: "open"; id: string }
@@ -105,7 +109,7 @@ function sameNavigation(left: Navigation, right: Navigation) {
 function tabKey(tab: Tab) {
   return tab.kind === "agents"
     ? "agents"
-    : `row-${Array.from(tab.id, (char) => char.codePointAt(0)!.toString(16)).join("-")}`;
+    : `row-${Array.from(tab.id, (char) => (char.codePointAt(0) ?? 0).toString(16)).join("-")}`;
 }
 function transition(tabs: Tabs, event: TabEvent): Tabs {
   if (event.kind === "observe") {
@@ -141,11 +145,12 @@ function transition(tabs: Tabs, event: TabEvent): Tabs {
   if (event.kind === "activate") return { ...tabs, active: event.tab, external };
   const index = tabs.opened.indexOf(event.id);
   if (index < 0) return tabs;
+  const previousTabId = tabs.opened[index - 1];
   const active =
     tabs.active.kind === "row" && tabs.active.id === event.id
-      ? index === 0
+      ? previousTabId === undefined
         ? agentsTab
-        : { kind: "row" as const, id: tabs.opened[index - 1]! }
+        : { kind: "row" as const, id: previousTabId }
       : tabs.active;
   return { opened: tabs.opened.filter((id) => id !== event.id), active, external };
 }
@@ -163,8 +168,8 @@ class ConversationReader extends Component<
   override getSnapshotBeforeUpdate(
     previous: Readonly<{ children: ReactNode; active: boolean }>,
   ): ReadingSnapshot {
-    const reader = this.reader.current!;
-    if (!previous.active) return null;
+    const reader = this.reader.current;
+    if (!previous.active || !reader) return null;
     if (!this.props.active) {
       this.savedScroll = reader.scrollTop;
       return null;
@@ -194,14 +199,16 @@ class ConversationReader extends Component<
     _previousState: unknown,
     snapshot?: ReadingSnapshot,
   ) {
+    const reader = this.reader.current;
+    if (!reader) return;
     if (!previous.active && this.props.active) {
-      this.reader.current!.scrollTop = this.savedScroll;
+      reader.scrollTop = this.savedScroll;
       return;
     }
     if (!this.props.active || !snapshot?.anchor.isConnected) return;
     // Use the actual anchor delta so native scroll anchoring/clamping is not applied twice.
     const shift = snapshot.anchor.getBoundingClientRect().top - snapshot.top;
-    if (shift) this.reader.current!.scrollTop += shift;
+    if (shift) reader.scrollTop += shift;
   }
 
   override render() {
@@ -481,8 +488,10 @@ export const SubagentsView = ({
       close(tab.id);
       return;
     } else return;
+    const target = allTabs[next];
+    if (!target) return;
     event.preventDefault();
-    activate(allTabs[next]!);
+    activate(target);
   }
   function renderTab(tab: Tab) {
     const row = tab.kind === "row" ? rows.get(tab.id) : undefined;

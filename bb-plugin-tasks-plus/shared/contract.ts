@@ -1,3 +1,4 @@
+import type { TaskDurationResult } from "./task-duration.js";
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { TASK_SORTS, TASKS_PAGE_DEFAULT_LIMIT, TASKS_PAGE_MAX_LIMIT } from "./pagination.js";
@@ -185,7 +186,7 @@ export const taskDurationSchema = z.union([
       statisticsEligible: z.literal(false),
     })
     .strict(),
-]) satisfies z.ZodType<import("./task-duration.js").TaskDurationResult>;
+]) satisfies z.ZodType<TaskDurationResult>;
 
 const taskSchema = z
   .object({

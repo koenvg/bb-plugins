@@ -37,9 +37,12 @@ function measures(values: number[]): StatsMeasures {
   if (values.length === 0) return { count: 0, medianMs: null, averageMs: null };
   values.sort((a, b) => a - b);
   const middle = Math.floor(values.length / 2);
+  const upper = values[middle];
+  const lower = values.length % 2 ? upper : values[middle - 1];
+  if (lower === undefined || upper === undefined) throw new Error("Missing midpoint value");
   return {
     count: values.length,
-    medianMs: values.length % 2 ? values[middle]! : (values[middle - 1]! + values[middle]!) / 2,
+    medianMs: values.length % 2 ? upper : (lower + upper) / 2,
     averageMs: values.reduce((total, value) => total + value, 0) / values.length,
   };
 }

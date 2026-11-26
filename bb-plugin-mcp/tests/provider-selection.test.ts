@@ -123,7 +123,7 @@ describe("provider discovery through MCP", () => {
   );
   it.each(["project", "provider"])("rechecks read access after the %s await", async (stage) => {
     const { providers } = await setup();
-    const ready = deferred<void>();
+    const ready = deferred<undefined>();
     if (stage === "project")
       f.list.mockImplementation(async () => {
         await ready.promise;
@@ -139,7 +139,7 @@ describe("provider discovery through MCP", () => {
       .poll(() => (stage === "project" ? f.list.mock.calls.length : providers.mock.calls.length))
       .toBe(1);
     f.change({ owner: "revoked" });
-    ready.resolve();
+    ready.resolve(undefined);
     unavailable(await pending);
     if (stage === "project") expect(providers).not.toHaveBeenCalled();
   });
@@ -147,7 +147,7 @@ describe("provider discovery through MCP", () => {
     "stops after cancellation during the %s await",
     async (stage) => {
       const { providers } = await setup();
-      const ready = deferred<void>();
+      const ready = deferred<undefined>();
       if (stage === "project")
         f.list.mockImplementation(async () => {
           await ready.promise;
@@ -181,12 +181,17 @@ describe("provider discovery through MCP", () => {
       controller.abort();
       await pending;
       await new Promise((resolve) => setTimeout(resolve, 20));
-      ready.resolve();
+      ready.resolve(undefined);
       await expect
         .poll(() =>
           f.logs.some(
-            (entry: any) =>
-              entry.tool === "bb_list_providers" && entry.code === "PROVIDERS_UNAVAILABLE",
+            (entry) =>
+              entry !== null &&
+              typeof entry === "object" &&
+              "tool" in entry &&
+              entry.tool === "bb_list_providers" &&
+              "code" in entry &&
+              entry.code === "PROVIDERS_UNAVAILABLE",
           ),
         )
         .toBe(true);
@@ -419,7 +424,7 @@ describe("explicit provider start", () => {
       const { start, providers, readDefaults, spawn, credential } = await setup({
         limits: { responseWaitMs: 3000, sdkDeadlineMs: 5000 },
       });
-      const ready = deferred<void>();
+      const ready = deferred<undefined>();
       if (stage === "defaults")
         readDefaults.mockImplementation(async () => {
           await ready.promise;
@@ -438,7 +443,7 @@ describe("explicit provider start", () => {
         .toBe(1);
       const realNow = Date.now;
       const now = vi.spyOn(Date, "now").mockImplementation(() => realNow() + 6000);
-      ready.resolve();
+      ready.resolve(undefined);
       const result = await pending;
       now.mockRestore();
       expect(result.structuredContent).toMatchObject({
@@ -460,7 +465,7 @@ describe("explicit provider start", () => {
       const { start, providers, readDefaults, spawn } = await setup({
         limits: { responseWaitMs: 3000 },
       });
-      const ready = deferred<void>();
+      const ready = deferred<undefined>();
       if (stage === "defaults")
         readDefaults.mockImplementation(async () => {
           await ready.promise;
@@ -478,7 +483,7 @@ describe("explicit provider start", () => {
         )
         .toBe(1);
       f.change({ controlEnabled: false });
-      ready.resolve();
+      ready.resolve(undefined);
       expect((await pending).content).toEqual([{ type: "text", text: "OPERATION_UNAVAILABLE" }]);
       f.change({ controlEnabled: true });
       expect((await start({ providerId: "saved" })).structuredContent.state).toBe("failed");
@@ -492,7 +497,7 @@ describe("explicit provider start", () => {
       scope: "bb.read bb.control",
       exp: Math.floor(Date.now() / 1000) + 30,
     });
-    const ready = deferred<void>();
+    const ready = deferred<undefined>();
     if (stage === "defaults")
       readDefaults.mockImplementation(async () => {
         await ready.promise;
@@ -511,7 +516,7 @@ describe("explicit provider start", () => {
       .toBe(1);
     const realNow = Date.now;
     const clock = vi.spyOn(Date, "now").mockImplementation(() => realNow() + 31000);
-    ready.resolve();
+    ready.resolve(undefined);
     expect((await pending).content).toEqual([{ type: "text", text: "OPERATION_UNAVAILABLE" }]);
     clock.mockRestore();
     expect(spawn).not.toHaveBeenCalled();
@@ -523,7 +528,7 @@ describe("explicit provider start", () => {
       const { start, providers, readDefaults, spawn, credential } = await setup({
         limits: { responseWaitMs: 3000 },
       });
-      const ready = deferred<void>();
+      const ready = deferred<undefined>();
       if (stage === "defaults")
         readDefaults.mockImplementation(async () => {
           await ready.promise;
@@ -563,7 +568,7 @@ describe("explicit provider start", () => {
           ? readDefaults.mock.calls[0][0].signal
           : providers.mock.calls[0][0]?.signal;
       await expect.poll(() => readSignal?.aborted).toBe(true);
-      ready.resolve();
+      ready.resolve(undefined);
       expect((await start({ providerId: "saved" })).structuredContent.state).toBe("failed");
       expect(spawn).not.toHaveBeenCalled();
       if (stage === "defaults") expect(providers).not.toHaveBeenCalled();

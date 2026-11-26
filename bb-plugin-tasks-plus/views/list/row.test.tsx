@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -63,7 +64,7 @@ interface Options {
 
 function renderList(tasks: Task[], options: Options = {}) {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: PROJECT_ID },
     {
       rpc: {
@@ -78,7 +79,9 @@ function renderList(tasks: Task[], options: Options = {}) {
         updateTask: (raw) => {
           const input = rpcInput(raw);
           if (options.updateTask) return options.updateTask(input);
-          const current = tasks.find((entry) => entry.id === input.taskId)!;
+          const current =
+            tasks.find((entry) => entry.id === input.taskId) ??
+            missingValue("Expected a non-null value");
           return { ok: true, task: { ...current, ...input } };
         },
       },
@@ -157,7 +160,10 @@ describe("inline row editing", () => {
     );
     await waitFor(() =>
       expect(
-        within(slot.container.querySelector('[data-task-key="TSK-1"]')!).getByRole("button", {
+        within(
+          slot.container.querySelector('[data-task-key="TSK-1"]') ??
+            missingValue("Expected a non-null value"),
+        ).getByRole("button", {
           name: /Change status, currently Done/,
         }),
       ).toBeTruthy(),
@@ -187,7 +193,10 @@ describe("inline row editing", () => {
     );
     await waitFor(() =>
       expect(
-        within(slot.container.querySelector('[data-task-key="TSK-1"]')!).getByRole("button", {
+        within(
+          slot.container.querySelector('[data-task-key="TSK-1"]') ??
+            missingValue("Expected a non-null value"),
+        ).getByRole("button", {
           name: /currently Urgent/,
         }),
       ).toBeTruthy(),
@@ -214,7 +223,10 @@ describe("inline row editing", () => {
     await slot.findByText("Server rejected it");
     await waitFor(() =>
       expect(
-        within(slot.container.querySelector('[data-task-key="TSK-1"]')!).getByRole("button", {
+        within(
+          slot.container.querySelector('[data-task-key="TSK-1"]') ??
+            missingValue("Expected a non-null value"),
+        ).getByRole("button", {
           name: /Change status, currently Todo/,
         }),
       ).toBeTruthy(),

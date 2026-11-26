@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { makeAttachment } from "../test-fixtures.js";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -26,7 +27,10 @@ function observePanel() {
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      constructor(private callback: ResizeObserverCallback) {}
+      private callback: ResizeObserverCallback;
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+      }
       observe(element: Element) {
         callbacks.set(element, this.callback);
       }
@@ -59,7 +63,10 @@ describe("host-controlled Ticket presentation", () => {
       sort: "priority",
       collapsedStatuses: [],
     });
-    const child = { ...tasks[2]!, parentTaskId: tasks[0]!.id };
+    const child = {
+      ...(tasks[2] ?? missingValue("Expected tasks[2]")),
+      parentTaskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
+    };
     const path = `${project.id}?view=list&task=TSK-3`;
     const slot = setup(`${project.id}?view=list`, {
       listTasks: (raw) => ({
@@ -72,7 +79,9 @@ describe("host-controlled Ticket presentation", () => {
     fireEvent.click(slot.getByRole("button", { name: "Collapse subtasks of TSK-1" }));
     fireEvent.click(slot.getByRole("button", { name: "Expand subtasks of TSK-1" }));
     const list = slot.getByRole("region", { name: "Ticket list" });
-    const scroll = list.querySelector<HTMLElement>("[data-list-scroll]")!;
+    const scroll =
+      list.querySelector<HTMLElement>("[data-list-scroll]") ??
+      missingValue("Expected a non-null value");
     Object.defineProperty(scroll, "scrollHeight", { value: 1400 });
     Object.defineProperty(scroll, "clientHeight", { value: 500 });
     scroll.scrollTop = 215;
@@ -123,7 +132,7 @@ describe("host-controlled Ticket presentation", () => {
   });
   it("keeps title, description and saved files when the host unmounts Ticket", async () => {
     const fetch = vi.spyOn(globalThis, "fetch");
-    const file = makeAttachment(tasks[0]!.id);
+    const file = makeAttachment((tasks[0] ?? missingValue("Expected tasks[0]")).id);
     const saved = deferred<unknown>();
     const slot = setup("all?task=TSK-1", {
       listAttachments: () => ({ attachments: [file] }),
@@ -170,7 +179,12 @@ describe("host-controlled Ticket presentation", () => {
     expect(byRole.textContent).toBe("Title 2");
     expect(
       slot.inspection.rpcCalls.filter((c) => c.method === "updateTask").map((c) => c.input),
-    ).toEqual([{ taskId: tasks[0]!.id, description: "Save before changing tickets" }]);
+    ).toEqual([
+      {
+        taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
+        description: "Save before changing tickets",
+      },
+    ]);
   });
 
   it("does not reopen a closed host panel on refresh or steal another pane's focus", async () => {
@@ -197,7 +211,9 @@ describe("host-controlled Ticket presentation", () => {
     const slot = setup("all?task=TSK-1");
     await slot.findByRole("textbox", { name: "Task title" });
     const list = slot.getByRole("region", { name: "Ticket list" });
-    const scroll = list.querySelector<HTMLElement>("[data-list-scroll]")!;
+    const scroll =
+      list.querySelector<HTMLElement>("[data-list-scroll]") ??
+      missingValue("Expected a non-null value");
     scroll.scrollTop = 170;
     fireEvent.scroll(scroll);
     const selected = row(slot, 1);

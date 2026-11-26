@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Editor } from "@tiptap/core";
@@ -32,7 +33,7 @@ function roundTrip(markdown: string): string {
 }
 
 describe("markdown round-trip", () => {
-  const cases: Array<[string, string]> = [
+  const cases: [string, string][] = [
     ["paragraphs", "First paragraph.\n\nSecond paragraph."],
     ["headings", "# Title\n\n## Section\n\n### Subsection"],
     ["marks", "Some **bold**, *italic*, ~~struck~~, and `inline code` text."],
@@ -87,12 +88,20 @@ describe("markdown round-trip", () => {
       "Edit here",
     ].join("\n");
     const onChange = vi.fn();
-    let editor: Editor | null = null;
+    const editorRef: { current: Editor | null } = { current: null };
     render(
-      <TasksEditor value={value} onChange={onChange} onEditorReady={(ready) => (editor = ready)} />,
+      <TasksEditor
+        value={value}
+        onChange={onChange}
+        onEditorReady={(ready) => (editorRef.current = ready)}
+      />,
     );
 
-    editor!.chain().focus("end").insertContent(" elsewhere").run();
+    (editorRef.current ?? missingValue("Expected editor"))
+      .chain()
+      .focus("end")
+      .insertContent(" elsewhere")
+      .run();
 
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(`${value} elsewhere`));
   });
@@ -100,9 +109,13 @@ describe("markdown round-trip", () => {
   it("ignores Markdown table alignment before and after an unrelated edit and reload", async () => {
     const value = "| Item | Owner |\n| :--- | ---: |\n| Parser | Ada |\n\nEdit here";
     const onChange = vi.fn<(markdown: string) => void>();
-    let editor: Editor | null = null;
+    const editorRef: { current: Editor | null } = { current: null };
     const initial = render(
-      <TasksEditor value={value} onChange={onChange} onEditorReady={(ready) => (editor = ready)} />,
+      <TasksEditor
+        value={value}
+        onChange={onChange}
+        onEditorReady={(ready) => (editorRef.current = ready)}
+      />,
     );
     const readTable = ({ getAllByRole }: ReturnType<typeof render>) =>
       [...getAllByRole("columnheader"), ...getAllByRole("cell")].map((cell) => [
@@ -112,14 +125,18 @@ describe("markdown round-trip", () => {
       ]);
     const loadedCells = readTable(initial);
 
-    editor!.chain().focus("end").insertContent(" elsewhere").run();
+    (editorRef.current ?? missingValue("Expected editor"))
+      .chain()
+      .focus("end")
+      .insertContent(" elsewhere")
+      .run();
 
     await waitFor(() =>
       expect(onChange).toHaveBeenLastCalledWith(
         "| Item | Owner |\n| --- | --- |\n| Parser | Ada |\n\nEdit here elsewhere",
       ),
     );
-    const [saved] = onChange.mock.lastCall!;
+    const [saved] = onChange.mock.lastCall ?? missingValue("Expected onChange.mock.lastCall");
     initial.unmount();
     const reloaded = render(<TasksEditor value={saved} onChange={onChange} />);
     const expectedCells = [
@@ -177,7 +194,7 @@ describe("mention extension", () => {
         "Ping [TSK-42](bbtask://TSK-42) and [Review](bbthread://thr_review), see [docs](https://example.com).\n\nEdit here",
     });
     const findMentions = () => {
-      const found: Array<Record<string, unknown>> = [];
+      const found: Record<string, unknown>[] = [];
       editor.state.doc.descendants((node) => {
         if (node.type.name === "taskMention") found.push(node.attrs as Record<string, unknown>);
       });
@@ -210,7 +227,7 @@ describe("mention extension", () => {
   });
 
   it("suggests and inserts mentions from the mentionItems prop", async () => {
-    let instance: Editor | null = null;
+    const instanceRef: { current: Editor | null } = { current: null };
     const onChange = vi.fn();
     const screen = render(
       <TasksEditor
@@ -235,36 +252,44 @@ describe("mention extension", () => {
           )
         }
         onEditorReady={(editor) => {
-          instance = editor;
+          instanceRef.current = editor;
         }}
       />,
     );
-    expect(instance).not.toBeNull();
-    instance!.chain().focus().insertContent("@").run();
+    expect(instanceRef.current).not.toBeNull();
+    (instanceRef.current ?? missingValue("Expected instance"))
+      .chain()
+      .focus()
+      .insertContent("@")
+      .run();
     const option = await screen.findByText("Round-trip review");
-    fireEvent.click(option.closest("button")!);
+    fireEvent.click(option.closest("button") ?? missingValue('Expected option.closest("button")'));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("[TSK-42](bbtask://TSK-42) "));
     expect(screen.container.querySelector('[data-task-mention="TSK-42"]')).toBeTruthy();
   });
 
   it("stays inert without a mentionItems prop", async () => {
-    let instance: Editor | null = null;
+    const instanceRef: { current: Editor | null } = { current: null };
     const screen = render(
       <TasksEditor
         value=""
         onChange={() => undefined}
         onEditorReady={(editor) => {
-          instance = editor;
+          instanceRef.current = editor;
         }}
       />,
     );
-    instance!.chain().focus().insertContent("@").run();
+    (instanceRef.current ?? missingValue("Expected instance"))
+      .chain()
+      .focus()
+      .insertContent("@")
+      .run();
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
   it("offers a Threads section and inserts a thread pill", async () => {
-    let instance: Editor | null = null;
+    const instanceRef: { current: Editor | null } = { current: null };
     const onChange = vi.fn();
     const screen = render(
       <TasksEditor
@@ -286,14 +311,21 @@ describe("mention extension", () => {
           ])
         }
         onEditorReady={(editor) => {
-          instance = editor;
+          instanceRef.current = editor;
         }}
       />,
     );
-    instance!.chain().focus().insertContent("@").run();
+    (instanceRef.current ?? missingValue("Expected instance"))
+      .chain()
+      .focus()
+      .insertContent("@")
+      .run();
     await screen.findByText("Threads");
     expect(screen.getByText("Tasks")).toBeTruthy();
-    fireEvent.click(screen.getByText("Fix login flow").closest("button")!);
+    fireEvent.click(
+      screen.getByText("Fix login flow").closest("button") ??
+        missingValue("Expected a non-null value"),
+    );
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith("[Fix login flow](bbthread://thr_a82u8wp8qq) "),
     );
@@ -332,7 +364,7 @@ describe("thread mention extension", () => {
       />,
     );
     const pill = screen.container.querySelector('[data-thread-mention="thr_a82u8wp8qq"]');
-    fireEvent.click(pill!);
+    fireEvent.click(pill ?? missingValue("Expected pill"));
     expect(onOpenThread).toHaveBeenCalledWith("thr_a82u8wp8qq");
   });
 });
@@ -351,8 +383,8 @@ describe("heading toggle", () => {
       positions.push(offset + 2);
     });
     editor.commands.setTextSelection({
-      from: positions[fromBlock - 1]!,
-      to: positions[toBlock - 1]!,
+      from: positions[fromBlock - 1] ?? missingValue("Expected positions[fromBlock - 1]"),
+      to: positions[toBlock - 1] ?? missingValue("Expected positions[toBlock - 1]"),
     });
   }
 
@@ -410,7 +442,7 @@ describe("TasksEditor component", () => {
       'ul[data-type="taskList"] input[type="checkbox"]',
     );
     expect(checkbox).toBeTruthy();
-    fireEvent.click(checkbox!);
+    fireEvent.click(checkbox ?? missingValue("Expected checkbox"));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("- [x] write tests"));
   });
 
@@ -477,11 +509,17 @@ describe("TasksEditor component", () => {
     },
   ])("preserves $name at the paste boundary", async ({ value, text, shift, html, expected }) => {
     const onChange = vi.fn();
-    let editor: Editor | null = null;
+    const editorRef: { current: Editor | null } = { current: null };
     const screen = render(
-      <TasksEditor value={value} onChange={onChange} onEditorReady={(ready) => (editor = ready)} />,
+      <TasksEditor
+        value={value}
+        onChange={onChange}
+        onEditorReady={(ready) => (editorRef.current = ready)}
+      />,
     );
-    editor!.commands.setTextSelection(editor!.state.doc.content.size - 1);
+    (editorRef.current ?? missingValue("Expected editor")).commands.setTextSelection(
+      (editorRef.current ?? missingValue("Expected editor")).state.doc.content.size - 1,
+    );
     const surface = getEditorSurface(screen.container);
     fireEvent.keyDown(surface, {
       key: shift ? "Shift" : "v",
@@ -501,78 +539,107 @@ describe("TasksEditor component", () => {
   it("routes pasted and dropped files to onAttachFiles instead of inline upload", () => {
     const onAttachFiles = vi.fn();
     const onUploadImage = vi.fn();
-    let editor: Editor | null = null;
+    const editorRef: { current: Editor | null } = { current: null };
     render(
       <TasksEditor
         value=""
         onChange={() => undefined}
         onAttachFiles={onAttachFiles}
         onUploadImage={onUploadImage}
-        onEditorReady={(ready) => (editor = ready)}
+        onEditorReady={(ready) => (editorRef.current = ready)}
       />,
     );
-    const { handlePaste, handleDrop } = editor!.options.editorProps;
+    const { handlePaste, handleDrop } = (editorRef.current ?? missingValue("Expected editor"))
+      .options.editorProps;
     const file = new File(["png"], "shot.png", { type: "image/png" });
 
     const pasteEvent = {
       clipboardData: { files: [file] },
     } as unknown as ClipboardEvent;
-    expect(handlePaste!.call(editor!.view, editor!.view, pasteEvent, null as never)).toBe(true);
+    expect(
+      (handlePaste ?? missingValue("Expected handlePaste")).call(
+        (editorRef.current ?? missingValue("Expected editor")).view,
+        (editorRef.current ?? missingValue("Expected editor")).view,
+        pasteEvent,
+        null as never,
+      ),
+    ).toBe(true);
     expect(onAttachFiles).toHaveBeenCalledWith([file]);
     expect(onUploadImage).not.toHaveBeenCalled();
 
     const textPaste = {
       clipboardData: { files: [] },
     } as unknown as ClipboardEvent;
-    expect(handlePaste!.call(editor!.view, editor!.view, textPaste, null as never)).toBe(false);
+    expect(
+      (handlePaste ?? missingValue("Expected handlePaste")).call(
+        (editorRef.current ?? missingValue("Expected editor")).view,
+        (editorRef.current ?? missingValue("Expected editor")).view,
+        textPaste,
+        null as never,
+      ),
+    ).toBe(false);
 
     const preventDefault = vi.fn();
     const dropEvent = {
       dataTransfer: { files: [file] },
       preventDefault,
     } as unknown as DragEvent;
-    expect(handleDrop!.call(editor!.view, editor!.view, dropEvent, null as never, false)).toBe(
-      true,
-    );
+    expect(
+      (handleDrop ?? missingValue("Expected handleDrop")).call(
+        (editorRef.current ?? missingValue("Expected editor")).view,
+        (editorRef.current ?? missingValue("Expected editor")).view,
+        dropEvent,
+        null as never,
+        false,
+      ),
+    ).toBe(true);
     expect(preventDefault).toHaveBeenCalled();
     expect(onAttachFiles).toHaveBeenCalledTimes(2);
   });
 
   it("replaces external values silently and keeps the caret on an identical local echo", async () => {
     const onChange = vi.fn();
-    let editor: Editor | null = null;
-    const ready = (instance: Editor) => (editor = instance);
+    const editorRef: { current: Editor | null } = { current: null };
+    const ready = (instance: Editor) => (editorRef.current = instance);
     const screen = render(
       <TasksEditor value="original" onChange={onChange} onEditorReady={ready} />,
     );
     screen.rerender(<TasksEditor value="replaced" onChange={onChange} onEditorReady={ready} />);
     await screen.findByText("replaced");
     expect(onChange).not.toHaveBeenCalled();
-    editor!.commands.insertContentAt(9, " locally");
-    editor!.commands.setTextSelection(3);
+    (editorRef.current ?? missingValue("Expected editor")).commands.insertContentAt(9, " locally");
+    (editorRef.current ?? missingValue("Expected editor")).commands.setTextSelection(3);
     await waitFor(() => expect(onChange).toHaveBeenCalledExactlyOnceWith("replaced locally"));
     const surface = getEditorSurface(screen.container);
     screen.rerender(
       <TasksEditor value="replaced locally" onChange={onChange} onEditorReady={ready} />,
     );
     expect(getEditorSurface(screen.container)).toBe(surface);
-    expect(editor!.state.selection.from).toBe(3);
-    expect(editor!.storage.markdown.getMarkdown()).toBe("replaced locally");
+    expect((editorRef.current ?? missingValue("Expected editor")).state.selection.from).toBe(3);
+    expect(
+      (editorRef.current ?? missingValue("Expected editor")).storage.markdown.getMarkdown(),
+    ).toBe("replaced locally");
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it("stays editable when the description is only a single image", async () => {
-    let editor: Editor | null = null;
+    const editorRef: { current: Editor | null } = { current: null };
     render(
       <TasksEditor
         value={"![shot](https://example.com/a.png)"}
         onChange={() => undefined}
-        onEditorReady={(ready) => (editor = ready)}
+        onEditorReady={(ready) => (editorRef.current = ready)}
       />,
     );
-    editor!.chain().focus("end").insertContent("caption").run();
+    (editorRef.current ?? missingValue("Expected editor"))
+      .chain()
+      .focus("end")
+      .insertContent("caption")
+      .run();
     await waitFor(() => {
-      const markdown = editor!.storage.markdown.getMarkdown() as string;
+      const markdown = (
+        editorRef.current ?? missingValue("Expected editor")
+      ).storage.markdown.getMarkdown() as string;
       expect(markdown).toContain("![shot](https://example.com/a.png)");
       expect(markdown).toContain("caption");
     });
@@ -581,32 +648,36 @@ describe("TasksEditor component", () => {
 
 describe("TasksEditor typing", () => {
   it.each([false, true])("keeps multiline typing with Shift=%s", (shiftKey) => {
-    let editor: Editor | null = null;
+    const editorRef: { current: Editor | null } = { current: null };
     const screen = render(
       <TasksEditor
         value="First"
         onChange={() => undefined}
         onEditorReady={(ready) => {
-          editor = ready;
+          editorRef.current = ready;
         }}
       />,
     );
-    editor!.commands.focus("end");
+    (editorRef.current ?? missingValue("Expected editor")).commands.focus("end");
     const surface = getEditorSurface(screen.container);
     expect(surface.getAttribute("enterkeyhint")).toBeNull();
     fireEvent.keyDown(surface, { key: "Enter", shiftKey });
-    editor!.commands.insertContent("Second");
-    const blocks = editor!.getJSON().content!;
+    (editorRef.current ?? missingValue("Expected editor")).commands.insertContent("Second");
+    const blocks =
+      (editorRef.current ?? missingValue("Expected editor")).getJSON().content ??
+      missingValue("Expected a non-null value");
     if (shiftKey) {
       expect(blocks).toHaveLength(1);
-      expect(blocks[0]!.content).toContainEqual({ type: "hardBreak" });
+      expect((blocks[0] ?? missingValue("Expected blocks[0]")).content).toContainEqual({
+        type: "hardBreak",
+      });
     } else {
       expect(blocks).toHaveLength(2);
     }
-    expect(editor!.getText()).toContain("Second");
+    expect((editorRef.current ?? missingValue("Expected editor")).getText()).toContain("Second");
   });
   it("lets the mention popover own Enter while open", async () => {
-    let editor: Editor | null = null;
+    const editorRef: { current: Editor | null } = { current: null };
     const screen = render(
       <TasksEditor
         value=""
@@ -623,11 +694,11 @@ describe("TasksEditor typing", () => {
           ])
         }
         onEditorReady={(ready) => {
-          editor = ready;
+          editorRef.current = ready;
         }}
       />,
     );
-    editor!.chain().focus().insertContent("@").run();
+    (editorRef.current ?? missingValue("Expected editor")).chain().focus().insertContent("@").run();
     await screen.findByText("Pick me");
     fireEvent.keyDown(getEditorSurface(screen.container), { key: "Enter" });
     await waitFor(() =>

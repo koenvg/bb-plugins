@@ -177,7 +177,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
           const clientHostId = usesClientFiles
             ? await resolveClientHostId(bb, domain, input.options.machine, ctx)
             : undefined;
-          const attachSources: Array<{ path: string; bytes: Buffer }> = [];
+          const attachSources: { path: string; bytes: Buffer }[] = [];
           for (const path of attachPaths) {
             attachSources.push({
               path,
@@ -211,7 +211,7 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
             tasksRpcContract.createTask.output.parse(await domain.createTask(created)),
           );
           const attachments: Attachment[] = [];
-          const failedAttachments: Array<{ path: string; error: string }> = [];
+          const failedAttachments: { path: string; error: string }[] = [];
           for (const source of attachSources) {
             try {
               const attachment = await saveAttachmentFromBytes(store.tasks, source.bytes, {
@@ -339,7 +339,9 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
                 { code: "label_ambiguous" },
               );
             }
-            return matches[0]!.id;
+            const [label] = matches;
+            if (!label) throw new Error("Missing matched label");
+            return label.id;
           });
           const limit = input.options.limit;
           const result = tasksRpcContract.listTasks.output.parse(
@@ -419,7 +421,10 @@ export function taskCommands(bb: BbPluginApi, store: TasksApiStore, domain: Task
           const project = await resolveProject(domain, task.projectId);
           const allLabels = await projectLabels(domain, project.id);
           const labelById = new Map(allLabels.map((label) => [label.id, label]));
-          const labels = task.labelIds.map((id) => labelById.get(id)!).filter(Boolean);
+          const labels = task.labelIds.flatMap((id) => {
+            const label = labelById.get(id);
+            return label ? [label] : [];
+          });
           const subtasks = await listAllTasks(
             domain,
             tasksRpcContract.listTasks.input.parse({

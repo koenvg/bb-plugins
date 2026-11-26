@@ -91,7 +91,8 @@ export function boundedValue(value: unknown, bytes: number): boolean {
     const pending: { value: unknown; depth: number }[] = [{ value, depth: 0 }];
     let nodes = 0;
     while (pending.length) {
-      const item = pending.pop()!;
+      const item = pending.pop();
+      if (!item) break;
       if (++nodes > 8192 || item.depth > 20) return false;
       if (item.value && typeof item.value === "object")
         for (const child of Object.values(item.value))

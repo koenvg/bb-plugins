@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { expect, it, vi } from "vitest";
 import { runPiTransientAuthConstruction } from "./rpc-session.js";
 
@@ -5,7 +6,7 @@ it("exhausts the initial construction and eight transient-auth retries determini
   const errors = Array.from({ length: 9 }, (_, index) => new Error(`mismatch ${index + 1}`));
   const attempt = vi.fn(async () => ({
     ok: false as const,
-    error: errors[attempt.mock.calls.length - 1]!,
+    error: errors[attempt.mock.calls.length - 1] ?? missingValue("Expected a non-null value"),
   }));
   const discardFailedAttempt = vi.fn();
   const waitBeforeRetry = vi.fn(async () => undefined);

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -64,7 +65,7 @@ function renderList() {
         threadId: `thr_${taskId}`,
         title: `Agent for ${taskId}`,
         presetName: "Default",
-        execution: executions[taskId]!,
+        execution: executions[taskId] ?? missingValue("Expected executions[taskId]"),
         archive: "unarchived",
       },
     ],
@@ -98,7 +99,8 @@ function renderList() {
 it("summarizes only observed rows as subtasks and status groups collapse and expand", async () => {
   const { slot, observe } = renderList();
   await slot.findByRole("button", { name: /Threads for ALP-1: 1 Idle/ });
-  const headers = slot.container.querySelector(".task-list-columns")!;
+  const headers =
+    slot.container.querySelector(".task-list-columns") ?? missingValue("Expected a non-null value");
   expect([...headers.children].map((cell) => cell.textContent)).toEqual([
     "Task",
     "",
@@ -109,7 +111,10 @@ it("summarizes only observed rows as subtasks and status groups collapse and exp
   expect(slot.queryByText("Child")).toBeNull();
   const summary = () => slot.getByLabelText("Agent activity for listed tasks").textContent;
   expect(summary()).toBe("1 failed · 1 idle");
-  expect(rpcInput(observe.mock.calls.at(-1)![0]).taskIds).toEqual(["other", "parent"]);
+  expect(
+    rpcInput((observe.mock.calls.at(-1) ?? missingValue("Expected observe.mock.calls.at(-1)"))[0])
+      .taskIds,
+  ).toEqual(["other", "parent"]);
   expect(slot.queryByText("Agent activity loading")).toBeNull();
 
   fireEvent.click(slot.getByRole("button", { name: "Expand subtasks of ALP-1" }));

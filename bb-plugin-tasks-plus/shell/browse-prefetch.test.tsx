@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeTask, rpcInput } from "../test-fixtures.js";
@@ -97,7 +98,9 @@ describe("prefetch from the rendered visible order", () => {
     for (const method of ["listAttachments", "listTaskThreads", "listTaskPullRequests"]) {
       const calls = slot.inspection.rpcCalls.filter((call) => call.method === method);
       expect(calls, method).toHaveLength(1);
-      expect(rpcInput(calls[0]!.input).taskId, method).toBe(`task-${selected}`);
+      expect(rpcInput((calls[0] ?? missingValue("Expected calls[0]")).input).taskId, method).toBe(
+        `task-${selected}`,
+      );
     }
   });
 

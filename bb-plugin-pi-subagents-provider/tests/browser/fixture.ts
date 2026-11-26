@@ -1,6 +1,6 @@
 import { test as base, expect } from "@playwright/test";
 
-export const test = base.extend<{ localOnly: void }>({
+export const test = base.extend<{ localOnly: undefined }>({
   localOnly: [
     async ({ context, page, baseURL }, runFixture) => {
       const errors: string[] = [];
@@ -12,7 +12,7 @@ export const test = base.extend<{ localOnly: void }>({
         return route.abort();
       });
       try {
-        await runFixture();
+        await runFixture(undefined);
       } finally {
         expect(errors, "No browser exceptions").toEqual([]);
         expect(external, "No attempted external traffic").toEqual([]);

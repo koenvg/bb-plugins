@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -31,12 +32,19 @@ function ready(text: string): ReadResult {
 }
 async function mount(content = text) {
   const app = await loadPluginApp(plugin);
-  const slot = renderSlot(app.fileOpeners[0]!, props, {
-    rpc: { read_document: () => ready(content) },
-  });
+  const slot = renderSlot(
+    app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
+    props,
+    {
+      rpc: { read_document: () => ready(content) },
+    },
+  );
   if (content === "") await slot.findByText("This file is empty.");
   else await slot.findByRole("article");
-  return { slot, Opener: app.fileOpeners[0]!.component };
+  return {
+    slot,
+    Opener: (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component,
+  };
 }
 afterEach(() => {
   cleanup();
@@ -46,7 +54,8 @@ afterEach(() => {
 describe("local heading navigation", () => {
   it("offers a closed inline disclosure, keyboard outline navigation, and hide/reclaim control", async () => {
     const { slot } = await mount();
-    const disclosure = slot.container.querySelector("details")!;
+    const disclosure =
+      slot.container.querySelector("details") ?? missingValue("Expected a non-null value");
     expect(disclosure).not.toBeNull();
     expect(disclosure.open).toBe(false);
     const user = userEvent.setup();
@@ -56,7 +65,7 @@ describe("local heading navigation", () => {
     // jsdom does not implement native details keyboard default. Browser checks do.
     fireEvent.click(summary);
     const entries = within(disclosure).getAllByRole("link", { name: "日本語 code link" });
-    entries[1]!.focus();
+    (entries[1] ?? missingValue("Expected entries[1]")).focus();
     await user.keyboard("{Enter}");
     expect(document.activeElement).toBe(
       slot.getAllByRole("heading", { name: "日本語 code link" })[1],
@@ -75,7 +84,9 @@ describe("local heading navigation", () => {
     const secondHeadings = within(second.slot.container).getAllByRole("heading");
     expect(new Set([...firstHeadings, ...secondHeadings].map((h) => h.id)).size).toBe(6);
     const link = within(second.slot.container).getByRole("link", { name: "second" });
-    expect(link.getAttribute("href")).toBe(`#${secondHeadings[2]!.id}`);
+    expect(link.getAttribute("href")).toBe(
+      `#${(secondHeadings[2] ?? missingValue("Expected secondHeadings[2]")).id}`,
+    );
     link.focus();
     await userEvent.setup().keyboard("{Enter}");
     expect(document.activeElement).toBe(secondHeadings[2]);
@@ -96,7 +107,7 @@ describe("local heading navigation", () => {
   });
   it("applies the latest initial line intent after load and repeats equal values without a read or model replacement", async () => {
     const app = await loadPluginApp(plugin);
-    const Opener = app.fileOpeners[0]!.component;
+    const Opener = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
     let finish!: (result: ReadResult) => void;
     const initial = { startLineNumber: 2, endLineNumber: 3 };
     const sourceText =
@@ -104,7 +115,7 @@ describe("local heading navigation", () => {
       "long ".repeat(100) +
       "\r\n```\r\n";
     const slot = renderSlot(
-      app.fileOpeners[0]!,
+      app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
       { ...props, experimental_lineRange: initial },
       {
         rpc: {
@@ -121,7 +132,9 @@ describe("local heading navigation", () => {
     expect(slot.inspection.rpcCalls.filter((c) => c.method === "read_document")).toHaveLength(1);
     finish(ready(sourceText));
     const raw = await slot.findByLabelText("Raw Markdown");
-    const line = raw.querySelector<HTMLElement>('[data-source-line="7"]')!;
+    const line =
+      raw.querySelector<HTMLElement>('[data-source-line="7"]') ??
+      missingValue("Expected a non-null value");
     await waitFor(() => expect(document.activeElement).toBe(line));
     expect(raw.textContent).toBe(sourceText);
     expect(raw.querySelectorAll('[data-highlighted="true"]')).toHaveLength(1);
@@ -167,7 +180,11 @@ describe("local heading navigation", () => {
     );
     let result: ReadResult = ready(text);
     const app = await loadPluginApp(plugin);
-    const slot = renderSlot(app.fileOpeners[0]!, props, { rpc: { read_document: () => result } });
+    const slot = renderSlot(
+      app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
+      props,
+      { rpc: { read_document: () => result } },
+    );
     await slot.findByRole("article");
     const panel = slot.getByRole("region", { name: "Markdown Reader" });
     expect(observed).toBe(panel);
@@ -224,10 +241,10 @@ describe("local heading navigation", () => {
   );
   it("targets a replacement source while ignoring the old pending read", async () => {
     const app = await loadPluginApp(plugin);
-    const Opener = app.fileOpeners[0]!.component;
+    const Opener = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
     const finishes: ((result: ReadResult) => void)[] = [];
     const slot = renderSlot(
-      app.fileOpeners[0]!,
+      app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
       { ...props, experimental_lineRange: { startLineNumber: 1, endLineNumber: 1 } },
       {
         rpc: { read_document: () => new Promise<ReadResult>((resolve) => finishes.push(resolve)) },
@@ -240,12 +257,12 @@ describe("local heading navigation", () => {
         experimental_lineRange={{ startLineNumber: 2, endLineNumber: 2 }}
       />,
     );
-    finishes[1]!(ready("Current\nSecond\n"));
+    (finishes[1] ?? missingValue("Expected finishes[1]"))(ready("Current\nSecond\n"));
     const raw = await slot.findByLabelText("Raw Markdown");
     expect(raw.querySelector('[data-highlighted="true"]')?.getAttribute("data-source-line")).toBe(
       "2",
     );
-    finishes[0]!(ready("Wrong source"));
+    (finishes[0] ?? missingValue("Expected finishes[0]"))(ready("Wrong source"));
     await act(async () => {
       await Promise.resolve();
     });
@@ -253,18 +270,21 @@ describe("local heading navigation", () => {
     expect(slot.inspection.rpcCalls.filter((c) => c.method === "read_document")).toHaveLength(2);
     expect(slot.queryByRole("button", { name: "Open in BB preview" })).toBeNull();
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
-    finishes[2]!({ kind: "error", message: "Replacement source read failed" });
+    (finishes[2] ?? missingValue("Expected finishes[2]"))({
+      kind: "error",
+      message: "Replacement source read failed",
+    });
     await slot.findByText("Replacement source read failed");
     fireEvent.click(slot.getByRole("button", { name: "Open in BB preview" }));
     expect(slot.getByText("Bound original")).toBeTruthy();
   });
   it("treats an equal request before the read finishes as the latest intent without refetching", async () => {
     const app = await loadPluginApp(plugin);
-    const Opener = app.fileOpeners[0]!.component;
+    const Opener = (app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]")).component;
     let finish!: (result: ReadResult) => void;
     const request = { startLineNumber: 2, endLineNumber: 2 };
     const slot = renderSlot(
-      app.fileOpeners[0]!,
+      app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
       { ...props, experimental_lineRange: request },
       {
         rpc: {
@@ -304,7 +324,7 @@ describe("local heading navigation", () => {
       const app = await loadPluginApp(plugin);
       const content = prefix + "Text[^1]\r\n\r\n[^1]: Note é.\r\n";
       const slot = renderSlot(
-        app.fileOpeners[0]!,
+        app.fileOpeners[0] ?? missingValue("Expected app.fileOpeners[0]"),
         { ...props, experimental_lineRange: { startLineNumber: 1, endLineNumber: 1 } },
         { rpc: { read_document: () => ready(content) } },
       );
@@ -317,7 +337,8 @@ describe("local heading navigation", () => {
       expect(slot.getByRole("article").textContent).toContain("Note é.");
       if (prefix) {
         expect(slot.getByRole("button", { name: "Outline" })).toBeTruthy();
-        const disclosure = slot.container.querySelector("details")!;
+        const disclosure =
+          slot.container.querySelector("details") ?? missingValue("Expected a non-null value");
         fireEvent.click(within(disclosure).getByText("On this page"));
         expect(
           within(disclosure)

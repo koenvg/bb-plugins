@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PluginCommandContext, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
@@ -36,7 +37,7 @@ function setup() {
   update();
   const commands = snoozeCommands(client);
   const visible = (ctx = context()) =>
-    commands.filter((command) => command.isAvailable!(ctx)).map(({ id }) => id);
+    commands.filter((command) => command.isAvailable?.(ctx)).map(({ id }) => id);
   return { client, owner, update, commands, visible, snooze, wake };
 }
 const SNOOZE_IDS = ["snooze-tomorrow", "snooze-next-week"];
@@ -116,7 +117,9 @@ describe("direct command invocation", () => {
     { controls: null },
   ])("does not mutate when a listed snooze action becomes inapplicable: %j", async (changes) => {
     const { commands, update, snooze, wake } = setup();
-    expect(commands[0]!.isAvailable!(context())).toBe(true);
+    expect((commands[0] ?? missingValue("Expected commands[0]")).isAvailable?.(context())).toBe(
+      true,
+    );
     update(changes);
     for (const command of commands.slice(0, 2)) await command.run(context());
     expect(snooze).not.toHaveBeenCalled();
@@ -131,17 +134,18 @@ describe("direct command invocation", () => {
   });
   it("does not wake a snooze that another client ended, that expired, or that needs input", async () => {
     const { commands, update, snooze, wake } = setup();
-    const command = commands[2]!;
-    for (const changes of <Partial<SnoozeSnapshot>[]>[
+    const command = commands[2] ?? missingValue("Expected commands[2]");
+    const inapplicable: Partial<SnoozeSnapshot>[] = [
       { snoozes: {} },
       { snoozes: { t1: now.getTime() } },
       {
         threads: [thread({ hasPendingInteraction: true })],
         snoozes: { t1: now.getTime() + 100_000 },
       },
-    ]) {
+    ];
+    for (const changes of inapplicable) {
       update({ snoozes: { t1: now.getTime() + 100_000 } });
-      expect(command.isAvailable!(context())).toBe(true);
+      expect(command.isAvailable?.(context())).toBe(true);
       update(changes);
       await command.run(context());
     }
@@ -151,8 +155,10 @@ describe("direct command invocation", () => {
   it("uses invocation focus, never the thread from the availability check", async () => {
     const { commands, update, snooze, wake } = setup();
     update({ threads: [thread(), thread({ id: "t2" })] });
-    expect(commands[0]!.isAvailable!(context("t1"))).toBe(true);
-    await commands[0]!.run(context("t2"));
+    expect((commands[0] ?? missingValue("Expected commands[0]")).isAvailable?.(context("t1"))).toBe(
+      true,
+    );
+    await (commands[0] ?? missingValue("Expected commands[0]")).run(context("t2"));
     expect(snooze).toHaveBeenCalledExactlyOnceWith("t2", new Date(2026, 9, 8, 9).getTime());
     for (const id of [null, "unknown"])
       for (const command of commands) await command.run(context(id));
@@ -162,17 +168,21 @@ describe("direct command invocation", () => {
   it("recomputes Tomorrow at invocation after local midnight", async () => {
     const { commands, snooze } = setup();
     vi.setSystemTime(new Date(2026, 9, 7, 23, 59));
-    expect(commands[0]!.isAvailable!(context())).toBe(true);
+    expect((commands[0] ?? missingValue("Expected commands[0]")).isAvailable?.(context())).toBe(
+      true,
+    );
     vi.setSystemTime(new Date(2026, 9, 8, 0, 1));
-    await commands[0]!.run(context());
+    await (commands[0] ?? missingValue("Expected commands[0]")).run(context());
     expect(snooze).toHaveBeenCalledExactlyOnceWith("t1", new Date(2026, 9, 9, 9).getTime());
   });
   it("does not substitute Tomorrow when Next week disappears on Sunday", async () => {
     const { commands, snooze, wake } = setup();
     vi.setSystemTime(new Date(2026, 9, 10, 23, 59));
-    expect(commands[1]!.isAvailable!(context())).toBe(true);
+    expect((commands[1] ?? missingValue("Expected commands[1]")).isAvailable?.(context())).toBe(
+      true,
+    );
     vi.setSystemTime(new Date(2026, 9, 11, 0, 1));
-    await commands[1]!.run(context());
+    await (commands[1] ?? missingValue("Expected commands[1]")).run(context());
     expect(snooze).not.toHaveBeenCalled();
     expect(wake).not.toHaveBeenCalled();
   });
@@ -185,14 +195,15 @@ describe("direct command invocation", () => {
     ];
     update({ threads: rows });
     expect(visible()).toEqual(SNOOZE_IDS);
-    const retained = client.getSnapshot().controls!;
+    const retained =
+      client.getSnapshot().controls ?? missingValue("Expected client.getSnapshot().controls");
     update({
       threads: rows.map((row) =>
         row.id === "grandchild" ? { ...row, hasPendingInteraction: true } : row,
       ),
     });
     expect(visible()).toEqual([]);
-    await commands[0]!.run(context());
+    await (commands[0] ?? missingValue("Expected commands[0]")).run(context());
     await retained.snooze("t1", now.getTime() + 100_000);
     expect(snooze).not.toHaveBeenCalled();
   });
@@ -206,11 +217,17 @@ describe("direct command invocation", () => {
     };
     update({ threads: rows, ...state });
     expect(visible(context("child"))).toEqual(["wake-now"]);
-    await commands[2]!.run(context("child"));
+    await (commands[2] ?? missingValue("Expected commands[2]")).run(context("child"));
     expect(wake).toHaveBeenCalledExactlyOnceWith("child");
-    update({ ...state, threads: [rows[0]!, { ...rows[1]!, hasPendingInteraction: true }] });
+    update({
+      ...state,
+      threads: [
+        rows[0] ?? missingValue("Expected rows[0]"),
+        { ...(rows[1] ?? missingValue("Expected rows[1]")), hasPendingInteraction: true },
+      ],
+    });
     expect(visible()).toEqual([]);
-    await commands[2]!.run(context());
+    await (commands[2] ?? missingValue("Expected commands[2]")).run(context());
     expect(wake).toHaveBeenCalledOnce();
   });
 });

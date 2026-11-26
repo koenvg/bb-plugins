@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -170,7 +171,11 @@ function baseRpc(
 }
 
 function renderProject(projectId: string) {
-  return renderSlot(app.navPanels[0]!, { subPath: projectId }, { rpc: baseRpc() });
+  return renderSlot(
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+    { subPath: projectId },
+    { rpc: baseRpc() },
+  );
 }
 
 async function selectSort(slot: ReturnType<typeof renderProject>, label: string) {
@@ -180,7 +185,11 @@ async function selectSort(slot: ReturnType<typeof renderProject>, label: string)
 }
 
 it("preserves All tasks section choices through sort, filter, clear and navigation return", async () => {
-  const slot = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc: baseRpc() });
+  const slot = renderSlot(
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+    { subPath: "all" },
+    { rpc: baseRpc() },
+  );
   await slot.findByText("ALP-1");
   fireEvent.click(slot.getByRole("button", { name: "Todo" }));
   await selectSort(slot, "Priority");
@@ -193,12 +202,19 @@ it("preserves All tasks section choices through sort, filter, clear and navigati
   const header = await slot.findByRole("button", { name: "Todo" });
   expect(header.getAttribute("aria-expanded")).toBe("false");
   expect(slot.queryByText("ALP-1")).toBeNull();
-  const saved = JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!).scopes.all;
+  const saved = JSON.parse(
+    window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY) ??
+      missingValue("Expected a non-null value"),
+  ).scopes.all;
   expect(saved.collapsedStatuses).toEqual(["todo"]);
   expect(saved.sort).toBe("priority");
   expect(saved.filters.statuses).toEqual([]);
   slot.lifecycle.unmount();
-  const remount = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc: baseRpc() });
+  const remount = renderSlot(
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+    { subPath: "all" },
+    { rpc: baseRpc() },
+  );
   const byRole = await remount.findByRole("button", { name: "Todo" });
   expect(byRole.getAttribute("aria-expanded")).toBe("false");
   expect(remount.queryByText("ALP-1")).toBeNull();
@@ -207,7 +223,7 @@ it("preserves All tasks section choices through sort, filter, clear and navigati
 
 describe("list filter/sort preference persistence", () => {
   it("restores sort and filters after unmount (navigation / remount)", async () => {
-    const registration = app.navPanels[0]!;
+    const registration = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
     const slot = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await slot.findByText("ALP-1");
 
@@ -238,7 +254,7 @@ describe("list filter/sort preference persistence", () => {
   });
 
   it("keeps project A and project B preferences independent", async () => {
-    const registration = app.navPanels[0]!;
+    const registration = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
     const slotA = renderSlot(registration, { subPath: PROJECT_A }, { rpc: baseRpc() });
     await slotA.findByText("ALP-1");
     await selectSort(slotA, "Priority");
@@ -263,7 +279,7 @@ describe("list filter/sort preference persistence", () => {
   });
 
   it("remembers an explicit clear across remount", async () => {
-    const registration = app.navPanels[0]!;
+    const registration = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
     window.localStorage.setItem(
       LIST_PREFERENCE_STORAGE_KEY,
       JSON.stringify({
@@ -311,7 +327,7 @@ describe("list filter/sort preference persistence", () => {
   });
 
   it("isolates All tasks preference from Active", async () => {
-    const registration = app.navPanels[0]!;
+    const registration = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
     const allSlot = renderSlot(registration, { subPath: "all" }, { rpc: baseRpc() });
     await allSlot.findByText("ALP-1");
     await selectSort(allSlot, "Priority");
@@ -333,7 +349,7 @@ describe("list filter/sort preference persistence", () => {
   });
 
   it("persists priority and label filters and sends resolved label ids", async () => {
-    const registration = app.navPanels[0]!;
+    const registration = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
     const listTasksCalls: Record<string, unknown>[] = [];
     const rpc = baseRpc({}, listTasksCalls);
     const slot = renderSlot(registration, { subPath: PROJECT_A }, { rpc });
@@ -351,7 +367,10 @@ describe("list filter/sort preference persistence", () => {
     pageKeyboardEscape(slot);
 
     await waitFor(() => {
-      const stored = JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!);
+      const stored = JSON.parse(
+        window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      );
       expect(stored.scopes[`project:${PROJECT_A}`].filters.priorities).toEqual(["urgent"]);
       expect(stored.scopes[`project:${PROJECT_A}`].filters.labelNames).toEqual(["Bug"]);
     });
@@ -394,7 +413,11 @@ describe("list filter/sort preference persistence", () => {
     );
     const listTasksCalls: Record<string, unknown>[] = [];
     const rpc = baseRpc({}, listTasksCalls);
-    const slot = renderSlot(app.navPanels[0]!, { subPath: PROJECT_A }, { rpc });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: PROJECT_A },
+      { rpc },
+    );
     await slot.findByRole("button", { name: /^Label/ });
     expect(slot.getByRole("button", { name: /^Label/ }).textContent).toContain("DeletedLabel");
     await waitFor(() => {
@@ -420,7 +443,11 @@ describe("mounted section storage recovery", () => {
       vi.spyOn(Storage.prototype, method).mockImplementation(() => {
         throw new DOMException("Storage is disabled", "SecurityError");
       });
-      const slot = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc: baseRpc() });
+      const slot = renderSlot(
+        app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+        { subPath: "all" },
+        { rpc: baseRpc() },
+      );
       await slot.findByText("ALP-1");
       const header = slot.getByRole("button", { name: "Todo" });
       const count = header.textContent;
@@ -456,7 +483,11 @@ describe("mounted section storage recovery", () => {
     async ({ scopes, doneExpanded }) => {
       const future = JSON.stringify({ version: 99, scopes, futureField: { keep: true } });
       window.localStorage.setItem(LIST_PREFERENCE_STORAGE_KEY, future);
-      const slot = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc: baseRpc() });
+      const slot = renderSlot(
+        app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+        { subPath: "all" },
+        { rpc: baseRpc() },
+      );
       await slot.findByText("ALP-1");
       expect(slot.getByRole("button", { name: "Done" }).getAttribute("aria-expanded")).toBe(
         doneExpanded,
@@ -482,7 +513,11 @@ describe("mounted section storage recovery", () => {
       fireEvent.click(slot.getByRole("button", { name: "Todo" }));
       await slot.findByText("ALP-1");
       slot.lifecycle.unmount();
-      const restored = renderSlot(app.navPanels[0]!, { subPath: "all" }, { rpc: baseRpc() });
+      const restored = renderSlot(
+        app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+        { subPath: "all" },
+        { rpc: baseRpc() },
+      );
       await restored.findByText("ALP-1");
       expect(restored.getByRole("button", { name: "Todo" }).getAttribute("aria-expanded")).toBe(
         "true",
@@ -539,7 +574,11 @@ it("restores complete section, filter and sort preferences for all four scopes f
     },
   ];
   for (const scope of scopes) {
-    const slot = renderSlot(app.navPanels[0]!, { subPath: scope.path }, { rpc: baseRpc() });
+    const slot = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: scope.path },
+      { rpc: baseRpc() },
+    );
     await slot.findByText(scope.row);
     await selectSort(slot, scope.sortName);
     pageKeyboardEscape(slot);
@@ -551,11 +590,15 @@ it("restores complete section, filter and sort preferences for all four scopes f
     slot.lifecycle.unmount();
   }
   const saved = window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY);
-  expect(Object.keys(JSON.parse(saved!).scopes).sort()).toEqual(
+  expect(Object.keys(JSON.parse(saved ?? missingValue("Expected saved")).scopes).sort()).toEqual(
     scopes.map((scope) => scope.key).sort(),
   );
   for (const scope of scopes) {
-    const restored = renderSlot(app.navPanels[0]!, { subPath: scope.path }, { rpc: baseRpc() });
+    const restored = renderSlot(
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
+      { subPath: scope.path },
+      { rpc: baseRpc() },
+    );
     const header = await restored.findByRole("button", { name: scope.name });
     expect(header.getAttribute("aria-expanded")).toBe("false");
     expect(header.textContent).toContain(scope.count);
@@ -563,7 +606,10 @@ it("restores complete section, filter and sort preferences for all four scopes f
     expect(restored.getByRole("button", { name: /Sort/ }).textContent).toContain(scope.sortName);
     expect(restored.getByRole("button", { name: /^Status/ }).textContent).toContain(scope.name);
     expect(
-      JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!).scopes[scope.key],
+      JSON.parse(
+        window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      ).scopes[scope.key],
     ).toEqual({
       filters: { statuses: [scope.status], priorities: [], labelNames: [] },
       sort: scope.sort,

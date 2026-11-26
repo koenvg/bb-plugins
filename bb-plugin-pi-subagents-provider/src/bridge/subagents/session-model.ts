@@ -35,7 +35,12 @@ const factSchema = z.object({
 });
 type Fact = z.infer<typeof factSchema>;
 type Ancestry = { path: string; stat: Stats }[];
-type Launch = { start: string; root: string; file: string; headerId: string };
+interface Launch {
+  start: string;
+  root: string;
+  file: string;
+  headerId: string;
+}
 type SessionModelEvidence =
   | { state: "probing"; launch: Launch }
   | { state: "absent"; launch: Launch; ancestry: Ancestry }
@@ -207,7 +212,14 @@ function parseModel(
     .decode(bytes)
     .split("\n");
   lines.pop();
-  if (lines.length < 2 || lines.length > 2048 || Buffer.byteLength(lines[0]!) > 4096) return;
+  const [header] = lines;
+  if (
+    header === undefined ||
+    lines.length < 2 ||
+    lines.length > 2048 ||
+    Buffer.byteLength(header) > 4096
+  )
+    return;
   let previous: string | null = null;
   let timestamp = route.startedAt;
   let messageTimestamp = route.startedAt;
@@ -309,8 +321,8 @@ export function createSessionModelReader(options: {
   parentFile: string;
   env: NodeJS.ProcessEnv;
   generation: number;
-  current(): boolean;
-  context(): Promise<unknown>;
+  current: () => boolean;
+  context: () => Promise<unknown>;
 }) {
   const base = resolvePiBridgeSessionDir({ env: options.env });
   const parentFile = options.parentFile;

@@ -1,12 +1,12 @@
-import { type PluginContentScriptRegistration } from "@get-bb/plugin-sdk/app";
-import { type ViewRow } from "../subagents-contract.js";
+import type { PluginContentScriptRegistration } from "@get-bb/plugin-sdk/app";
+import type { ViewRow } from "../subagents-contract.js";
 
-type Context = {
+interface Context {
   threadId: string;
   providerId?: string;
   rows: readonly ViewRow[];
   open: (rowId: string | null) => boolean;
-};
+}
 const contexts = new Set<Context>();
 let reconcileMounted: (() => void) | undefined;
 
@@ -52,13 +52,15 @@ function matchHeader(header: HTMLElement, context: Context): string | null | und
     return;
   const label = header.getAttribute("aria-label") ?? "";
   const headerDescriptions = descriptionSpans(header);
+  const [description] = headerDescriptions;
   if (
     header.tagName === "DIV" &&
     card.children.length === 1 &&
     headerDescriptions.length === 1 &&
-    labelMatches(label, "Background agent", headerDescriptions[0]!)
+    description !== undefined &&
+    labelMatches(label, "Background agent", description)
   ) {
-    return matchRoot(headerDescriptions[0]!, context.rows)?.id;
+    return matchRoot(description, context.rows)?.id;
   }
   if (
     header.tagName !== "BUTTON" ||
@@ -85,10 +87,11 @@ function matchHeader(header: HTMLElement, context: Context): string | null | und
   } else {
     if (
       headerDescriptions.length !== 1 ||
-      !labelMatches(label, "Background agents", headerDescriptions[0]!)
+      description === undefined ||
+      !labelMatches(label, "Background agents", description)
     )
       return;
-    if (!matchRoot(headerDescriptions[0]!, context.rows)) return;
+    if (!matchRoot(description, context.rows)) return;
     const countIndicator = Array.from(header.querySelectorAll("span")).find((span) => {
       const text = span.textContent ?? "";
       return /^\+[1-9]\d* more$/.test(text) || (/^[1-9]\d*$/.test(text) && Number(text) >= 2);

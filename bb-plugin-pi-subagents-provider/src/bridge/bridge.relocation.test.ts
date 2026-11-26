@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -140,7 +141,7 @@ export default function (pi) {
       const bytes = readFileSync(relocatedFile, "utf8");
       const forkHeader = z
         .object({ id: z.string(), cwd: z.string(), parentSession: z.string() })
-        .parse(JSON.parse(bytes.split("\n")[0]!));
+        .parse(JSON.parse(bytes.split("\n")[0] ?? missingValue('Expected bytes.split("\\n")[0]')));
       expect(forkHeader.id).not.toBe(header.id);
       expect(forkHeader.cwd).toBe(target);
       expect(realpathSync(forkHeader.parentSession)).toBe(realpathSync(sessionFile));

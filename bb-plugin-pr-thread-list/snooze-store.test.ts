@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSnoozeStore, SNOOZE_MIGRATIONS } from "./snooze-store";
@@ -67,7 +68,7 @@ describe("group membership migration", () => {
   it("preserves old deadlines/read timestamps and upgrades later old-version inserts as singletons", () => {
     const db = new Database(":memory:");
     try {
-      db.exec(SNOOZE_MIGRATIONS[0]!);
+      db.exec(SNOOZE_MIGRATIONS[0] ?? missingValue("Expected SNOOZE_MIGRATIONS[0]"));
       const oldInsert = db.prepare(
         "INSERT INTO snoozes (thread_id, wake_at, snoozed_at) VALUES (?, ?, ?)",
       );

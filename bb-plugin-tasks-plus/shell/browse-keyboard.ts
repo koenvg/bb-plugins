@@ -77,7 +77,8 @@ export function useBrowseShortcuts({
   const move = (delta: -1 | 1) => {
     if (!canMove) return false;
     const target =
-      order.keys[index < 0 ? 0 : Math.max(0, Math.min(order.keys.length - 1, index + delta))]!;
+      order.keys[index < 0 ? 0 : Math.max(0, Math.min(order.keys.length - 1, index + delta))];
+    if (target === undefined) return false;
     requestSelection(target, "row");
     return true;
   };

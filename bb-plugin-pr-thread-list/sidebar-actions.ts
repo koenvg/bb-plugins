@@ -13,16 +13,16 @@ interface NewThreadScope {
 }
 
 export interface ThreadListNavigation {
-  open(threadId: string, options?: { split?: boolean }): void;
-  openNewThread(scope: NewThreadScope): void;
+  open: (threadId: string, options?: { split?: boolean }) => void;
+  openNewThread: (scope: NewThreadScope) => void;
 }
 
 export interface ThreadListActions extends ThreadListNavigation {
-  togglePinned(): Promise<void>;
-  toggleRead(): Promise<void>;
-  rename(title: string): Promise<unknown>;
-  archive(): Promise<void>;
-  requestDelete(): Promise<void>;
+  togglePinned: () => Promise<void>;
+  toggleRead: () => Promise<void>;
+  rename: (title: string) => Promise<unknown>;
+  archive: () => Promise<void>;
+  requestDelete: () => Promise<void>;
 }
 
 export function useThreadListNavigation(): ThreadListNavigation {

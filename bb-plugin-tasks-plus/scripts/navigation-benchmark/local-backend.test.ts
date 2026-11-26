@@ -1,10 +1,12 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { createLocalBackend } from "./local-backend.js";
 const backends: ReturnType<typeof createLocalBackend>[] = [];
 afterEach(async () => {
-  while (backends.length) await backends.pop()!.dispose();
+  while (backends.length)
+    await (backends.pop() ?? missingValue("Expected backends.pop()")).dispose();
 });
 function setup() {
   const backend = createLocalBackend("bbp60-navigation-lab");

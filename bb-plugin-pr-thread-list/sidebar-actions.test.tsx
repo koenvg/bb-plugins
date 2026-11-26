@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { PluginThreadActionTarget } from "@get-bb/plugin-sdk/app";
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
@@ -57,7 +58,7 @@ it.each(["missing", "disabled"])("does not invoke %s native delete actions", asy
 
 it("delegates deletion to the row-bound host action, not a direct SDK mutation", async () => {
   const run = vi.fn(async () => {});
-  const resolve = vi.fn((_target: import("@get-bb/plugin-sdk/app").PluginThreadActionTarget) => [
+  const resolve = vi.fn((_target: PluginThreadActionTarget) => [
     {
       key: "bb--core/delete",
       pluginId: "bb--core",

@@ -75,11 +75,11 @@ export interface InteractionUiRequest {
   };
 }
 
-export type RuntimeInteractionUiResponse = {
+export interface RuntimeInteractionUiResponse {
   id: string | number;
   result?: unknown;
   error?: { message?: string };
-};
+}
 
 export function resolveExtensionUiResponseFields(
   request: PiExtensionUiRequest,

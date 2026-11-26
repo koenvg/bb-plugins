@@ -1,10 +1,11 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore } from "./api";
 import plugin from "./server";
 import { type Task, tasksRpcContract } from "./shared/contract";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
   while (disposers.length) await disposers.pop()?.();
 });
@@ -24,12 +25,18 @@ async function fixture() {
       inside,
     );
     expect(result, result.stderr).toMatchObject({ exitCode: 0 });
-    return tasksRpcContract.getTask.output.parse({ task: JSON.parse(result.stdout!).task }).task!;
+    return (
+      tasksRpcContract.getTask.output.parse({
+        task: JSON.parse(result.stdout ?? missingValue("Expected result.stdout")).task,
+      }).task ?? missingValue("Expected a non-null value")
+    );
   };
   const list = async (filter: "--blocked" | "--ready") => {
     const result = await cli(["list", "--project", "CRT", filter, "--json"]);
     expect(result, result.stderr).toMatchObject({ exitCode: 0 });
-    return (JSON.parse(result.stdout!) as { tasks: Task[] }).tasks;
+    return (
+      JSON.parse(result.stdout ?? missingValue("Expected result.stdout")) as { tasks: Task[] }
+    ).tasks;
   };
   return { ...host, store, project, cli, create, list, get };
 }
@@ -110,9 +117,10 @@ describe("creator attribution without dependency policy", () => {
     ]);
     const result = await f.list("--ready");
     expect(result.map((task) => task.id).sort()).toEqual([ready.id, blocker.id].sort());
-    const source = tasksRpcContract.getTask.output.parse(
-      await f.harness.callRpc("getTask", { taskId: blocker.id }),
-    ).task!;
+    const source =
+      tasksRpcContract.getTask.output.parse(
+        await f.harness.callRpc("getTask", { taskId: blocker.id }),
+      ).task ?? missingValue("Expected blocker task");
     expect(source).toMatchObject({
       blockedBy: [],
       blocks: [{ id: dependent.id }],

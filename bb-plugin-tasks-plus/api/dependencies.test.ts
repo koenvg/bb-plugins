@@ -5,7 +5,7 @@ import type { TaskStatus } from "../db";
 import type { TasksRpcContract } from "../shared/contract";
 import { createStore, registerTasksApi } from ".";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
   while (disposers.length > 0) await disposers.pop()?.();

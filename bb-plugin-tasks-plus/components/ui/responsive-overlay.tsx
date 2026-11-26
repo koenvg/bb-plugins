@@ -119,7 +119,7 @@ export function useResponsiveOverlayBehavior() {
 export function useResponsiveRoot(
   controlledOpen: boolean | undefined,
   controlledOnChange: ((open: boolean) => void) | undefined,
-  defaultOpen: boolean = false,
+  defaultOpen = false,
 ): ResponsiveOverlayContextValue {
   const { presentation } = useResponsiveOverlayBehavior();
   const isCompactViewport = presentation === "drawer";
@@ -378,15 +378,15 @@ const PERSISTENT_DRAWER_FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
-type PersistentDrawerStackEntry = {
+interface PersistentDrawerStackEntry {
   panel: () => HTMLElement | null;
   requestClose: () => void;
-};
+}
 
-type PersistentDrawerStack = {
+interface PersistentDrawerStack {
   entries: PersistentDrawerStackEntry[];
   handleKeyDown: (event: KeyboardEvent) => void;
-};
+}
 
 const persistentDrawerStacks = new WeakMap<Document, PersistentDrawerStack>();
 
@@ -563,14 +563,14 @@ export function usePersistentOverlayFocus({
   }, [onAfterCloseAutoFocus, onBeforeCloseAutoFocus, onCloseAutoFocus, open]);
 }
 
-type PersistentDrawerDrag = {
+interface PersistentDrawerDrag {
   pointerId: number;
   startY: number;
   lastY: number;
   lastTimeMs: number;
   velocityY: number;
   height: number;
-};
+}
 
 export const PersistentResponsiveDrawerShell = ({
   open,

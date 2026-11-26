@@ -61,7 +61,7 @@ function main(args) {
   const toolchain = localToolchain(root);
   const env = { ...process.env };
   for (const name of ["BB_CLI", "BB_CLI_DIR", "BB_CLI_REEXEC", "BB_APP_VERSION"]) {
-    delete env[name];
+    Reflect.deleteProperty(env, name);
   }
   const data = mkdtempSync(join(tmpdir(), "mcp-local-bb-"));
   env.BB_DATA_DIR = data;

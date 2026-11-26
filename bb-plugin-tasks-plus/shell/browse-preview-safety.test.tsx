@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { makeAttachment } from "../test-fixtures.js";
 import { StrictMode } from "react";
 import { act, fireEvent, waitFor } from "@testing-library/react";
@@ -28,7 +29,7 @@ describe("retained preview safety", () => {
             ? tasks.find((task) => task.key === rpcInput(raw).taskKey)
             : refreshed
               ? {
-                  ...tasks[0]!,
+                  ...(tasks[0] ?? missingValue("Expected tasks[0]")),
                   title: "Remote title",
                   description: "Remote description",
                   updatedAt: "2026-12-01T00:00:00Z",
@@ -42,7 +43,9 @@ describe("retained preview safety", () => {
     fireEvent.input(title);
     await edit(slot, "Local description");
     refreshed = true;
-    await slot.behavior.emitRealtime("tasks:changed", { taskId: tasks[0]!.id });
+    await slot.behavior.emitRealtime("tasks:changed", {
+      taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
+    });
     await waitFor(() =>
       expect(
         slot.inspection.rpcCalls.filter(
@@ -71,7 +74,9 @@ describe("retained preview safety", () => {
     fireEvent.click(row(slot, 2));
     await acceptNavigation(slot);
     await select(slot, 3);
-    await slot.behavior.emitRealtime("tasks:changed", { taskId: tasks[1]!.id });
+    await slot.behavior.emitRealtime("tasks:changed", {
+      taskId: (tasks[1] ?? missingValue("Expected tasks[1]")).id,
+    });
     await act(async () => old.resolve({ task: { ...tasks[1], description: "Obsolete B" } }));
     expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 3");
     expect(slot.container.textContent).not.toContain("Obsolete B");
@@ -102,7 +107,7 @@ describe("retained preview safety", () => {
   });
 
   it("saves a warm origin without causing a nested route barrier, then reads its saved data on return", async () => {
-    let current = tasks[0]!;
+    let current = tasks[0] ?? missingValue("Expected tasks[0]");
     const slot = setup("all", {
       getTaskByKey: (raw) => ({ task: rpcInput(raw).taskKey === current.key ? current : tasks[1] }),
       updateTask: (raw) => {
@@ -129,7 +134,7 @@ describe("retained preview safety", () => {
 
   it("preserves saved descriptions and task files through A-B-A navigation", async () => {
     const records = tasks.map((task) => ({ ...task }));
-    const file = makeAttachment(records[0]!.id);
+    const file = makeAttachment((records[0] ?? missingValue("Expected records[0]")).id);
     const writes: Record<string, unknown>[] = [];
     const slot = setup("all?task=TSK-1", {
       getTaskByKey: (raw) => ({ task: records.find((t) => t.key === rpcInput(raw).taskKey) }),
@@ -139,7 +144,8 @@ describe("retained preview safety", () => {
       updateTask: (raw) => {
         const input = rpcInput(raw);
         writes.push(input);
-        const task = records.find((t) => t.id === input.taskId)!;
+        const task =
+          records.find((t) => t.id === input.taskId) ?? missingValue("Expected a non-null value");
         Object.assign(task, input);
         return { ok: true, task };
       },
@@ -154,7 +160,9 @@ describe("retained preview safety", () => {
     expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved A");
     expect(slot.getByText("a.txt")).toBeTruthy();
-    expect(writes).toMatchObject([{ taskId: records[0]!.id, description: "Saved A" }]);
+    expect(writes).toMatchObject([
+      { taskId: (records[0] ?? missingValue("Expected records[0]")).id, description: "Saved A" },
+    ]);
     expect(
       slot.inspection.rpcCalls.filter((c) => ["createComment", "delegate"].includes(c.method)),
     ).toEqual([]);
@@ -164,8 +172,11 @@ describe("retained preview safety", () => {
     const slot = setup("all?task=TSK-1");
     await slot.findByRole("textbox", { name: "Task title" });
     expect(slot.inspection.experimental_panelCalls).toHaveLength(0);
-    const outlet = slot.getByRole("region", { name: "Selected ticket" }).parentElement!
-      .parentElement!;
+    const outlet =
+      (
+        slot.getByRole("region", { name: "Selected ticket" }).parentElement ??
+        missingValue("Expected a non-null value")
+      ).parentElement ?? missingValue("Expected a non-null value");
     outlet.style.display = "none";
     fireEvent.click(row(slot, 2));
     expect(slot.inspection.experimental_panelCalls).toHaveLength(1);

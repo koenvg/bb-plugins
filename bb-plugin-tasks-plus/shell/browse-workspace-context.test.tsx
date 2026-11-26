@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { makeAttachment } from "../test-fixtures.js";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -23,8 +24,8 @@ const prompt = "Select a ticket to view and edit";
 
 describe("removal combined with context transitions", () => {
   it("reconciles absent selection after another parent's accepted collapse replaces a failed removal request", async () => {
-    const parent = tasks[1]!;
-    const child = { ...tasks[2]!, parentTaskId: parent.id };
+    const parent = tasks[1] ?? missingValue("Expected tasks[1]");
+    const child = { ...(tasks[2] ?? missingValue("Expected tasks[2]")), parentTaskId: parent.id };
     storeExpandedTasks("all", new Set([parent.id]), new Set([parent.id]));
     let removed = false;
     let canSave = false;
@@ -65,8 +66,8 @@ describe("removal combined with context transitions", () => {
   });
 
   it("preserves the latest explicit selection over removal and pending collapse", async () => {
-    const parent = tasks[1]!;
-    const child = { ...tasks[2]!, parentTaskId: parent.id };
+    const parent = tasks[1] ?? missingValue("Expected tasks[1]");
+    const child = { ...(tasks[2] ?? missingValue("Expected tasks[2]")), parentTaskId: parent.id };
     storeExpandedTasks("all", new Set([parent.id]), new Set([parent.id]));
     let removed = false;
     const saved = deferred<unknown>();
@@ -122,7 +123,7 @@ describe("removal combined with context transitions", () => {
     let removed = false;
     let canSave = false;
     const writes: Record<string, unknown>[] = [];
-    const origin = { ...tasks[0]! };
+    const origin = { ...(tasks[0] ?? missingValue("Expected tasks[0]")) };
     const file = makeAttachment(origin.id, "origin.txt");
     const slot = setup("all", {
       getTaskByKey: (raw) => ({
@@ -146,7 +147,9 @@ describe("removal combined with context transitions", () => {
     });
     await slot.findByRole("button", { name: "Open TSK-1: Title 1" });
     const list = slot.getByRole("region", { name: "Ticket list" });
-    const scroll = list.querySelector<HTMLElement>("[data-list-scroll]")!;
+    const scroll =
+      list.querySelector<HTMLElement>("[data-list-scroll]") ??
+      missingValue("Expected a non-null value");
     Object.defineProperty(scroll, "scrollHeight", { value: 1400 });
     Object.defineProperty(scroll, "clientHeight", { value: 500 });
     scroll.scrollTop = 170;
@@ -158,7 +161,9 @@ describe("removal combined with context transitions", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     await slot.findByRole("alert");
     slot.getByRole("region", { name: "Selected ticket" }).focus();
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement ?? missingValue("Expected document.activeElement"), {
+      key: "Escape",
+    });
     await waitFor(() => expect(writes).toHaveLength(2));
     expect(slot.getByRole("textbox", { name: "Task title" })).toBe(title);
     expect(slot.getByRole("button", { name: "Retry save" })).toBeTruthy();
@@ -172,7 +177,9 @@ describe("removal combined with context transitions", () => {
     expect(writes).toHaveLength(3);
     expect(
       writes.every(
-        (input) => input.taskId === tasks[0]!.id && input.description === "Origin description",
+        (input) =>
+          input.taskId === (tasks[0] ?? missingValue("Expected tasks[0]")).id &&
+          input.description === "Origin description",
       ),
     ).toBe(true);
     await acceptNavigation(slot);
@@ -184,7 +191,9 @@ describe("removal combined with context transitions", () => {
     expect(slot.container.textContent).not.toContain("Origin description");
     expect(slot.queryByText("origin.txt")).toBeNull();
     slot.getByRole("region", { name: "Selected ticket" }).focus();
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement ?? missingValue("Expected document.activeElement"), {
+      key: "Escape",
+    });
     removed = false;
     await slot.behavior.emitRealtime("tasks:changed", {});
     await select(slot, 1);

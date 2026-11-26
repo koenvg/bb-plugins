@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import type { Task } from "../../shared/contract.js";
 import {
@@ -67,7 +68,10 @@ describe("applyEdit / editedTasks", () => {
       task({ id: "T2", status: "done", position: 1024 }),
     ];
     let entries = beginEdit(empty, "T1", { status: "done" }, 1);
-    entries = settleSuccess(entries, "T1", { status: "done" }, 1, { ...tasks[0]!, status: "done" });
+    entries = settleSuccess(entries, "T1", { status: "done" }, 1, {
+      ...(tasks[0] ?? missingValue("Expected tasks[0]")),
+      status: "done",
+    });
     expect(editedTasks(tasks, entries).map((task) => task.id)).toEqual(["T2", "T1"]);
   });
 });

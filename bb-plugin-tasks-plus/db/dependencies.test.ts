@@ -1,8 +1,9 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { createTasksStore, TaskDependencyError, type TaskStatus } from ".";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
   while (disposers.length > 0) await disposers.pop()?.();
@@ -271,7 +272,7 @@ describe("task dependency list filters", () => {
     const ready = [task("Ready 1"), task("Ready 2")];
     for (const item of blocked) store.addTaskDependency(blocker.id, item.id);
     const doneBlocker = task("Done blocker", "done");
-    store.addTaskDependency(doneBlocker.id, ready[1]!.id);
+    store.addTaskDependency(doneBlocker.id, (ready[1] ?? missingValue("Expected ready[1]")).id);
 
     const collect = (dependency: "ready" | "blocked") => {
       const keys: string[] = [];

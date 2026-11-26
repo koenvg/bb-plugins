@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { StrictMode } from "react";
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -33,7 +34,7 @@ describe("session data bindings", () => {
       </TasksRefreshProvider>
     );
     const slot = renderSlot(
-      { ...app.navPanels[0]!, component },
+      { ...(app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")), component },
       { subPath: "" },
       {
         rpc: {
@@ -58,7 +59,7 @@ describe("session data bindings", () => {
       </TasksRefreshProvider>
     );
     const slot = renderSlot(
-      { ...app.navPanels[0]!, component },
+      { ...(app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")), component },
       { subPath: "" },
       {
         rpc: {
@@ -82,7 +83,10 @@ describe("session data bindings", () => {
         </TaskDataProvider>
       </TasksRefreshProvider>
     );
-    const registration = { ...app.navPanels[0]!, component };
+    const registration = {
+      ...(app.navPanels[0] ?? missingValue("Expected app.navPanels[0]")),
+      component,
+    };
     const first = renderSlot(
       registration,
       { subPath: "" },

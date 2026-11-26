@@ -213,7 +213,7 @@ it.each(["provider", "config"] as const)(
   "blocks combined dispatch after control revocation during %s",
   async (stage) => {
     const { start, providers, readConfig, spawn } = await setup();
-    const ready = deferred<void>();
+    const ready = deferred<undefined>();
     if (stage === "provider")
       providers.mockImplementation(async () => {
         await ready.promise;
@@ -228,7 +228,7 @@ it.each(["provider", "config"] as const)(
     const pending = await start(selection);
     expect(pending.structuredContent.state).toBe("pending");
     f.change({ controlEnabled: false });
-    ready.resolve();
+    ready.resolve(undefined);
     await expect
       .poll(() =>
         f.host.bb.storage

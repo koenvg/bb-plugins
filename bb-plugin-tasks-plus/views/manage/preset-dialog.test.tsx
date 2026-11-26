@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -68,7 +69,7 @@ describe("savePresetDraft", () => {
   } as const;
 
   function captureRpc() {
-    const calls: Array<{ method: string; input: unknown }> = [];
+    const calls: { method: string; input: unknown }[] = [];
     const rpc = {
       call: (method: string, input: unknown) => {
         calls.push({ method, input });
@@ -93,8 +94,8 @@ describe("savePresetDraft", () => {
     const { calls, rpc } = captureRpc();
     await savePresetDraft(rpc, null, draft);
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.method).toBe("createPreset");
-    expect(calls[0]!.input).toMatchObject({
+    expect((calls[0] ?? missingValue("Expected calls[0]")).method).toBe("createPreset");
+    expect((calls[0] ?? missingValue("Expected calls[0]")).input).toMatchObject({
       environmentKind: "new-worktree",
       baseBranch: "main",
       machineId: "mach_1",
@@ -107,8 +108,8 @@ describe("savePresetDraft", () => {
       ...draft,
       environmentKind: "project-default",
     });
-    expect(calls[0]!.method).toBe("updatePreset");
-    expect(calls[0]!.input).toMatchObject({
+    expect((calls[0] ?? missingValue("Expected calls[0]")).method).toBe("updatePreset");
+    expect((calls[0] ?? missingValue("Expected calls[0]")).input).toMatchObject({
       presetId: presetRow().id,
       environmentKind: "project-default",
       baseBranch: null,
@@ -123,7 +124,7 @@ describe("savePresetDraft", () => {
       baseBranch: "",
       machineId: "",
     });
-    expect(calls[0]!.input).toMatchObject({
+    expect((calls[0] ?? missingValue("Expected calls[0]")).input).toMatchObject({
       environmentKind: "new-worktree",
       baseBranch: null,
       machineId: null,
@@ -134,7 +135,7 @@ describe("savePresetDraft", () => {
 describe("PresetDialog environment section", () => {
   function renderManagePresets(presets: unknown[], rpcOverrides: Record<string, unknown> = {}) {
     return renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "manage" },
       {
         rpc: {
@@ -188,7 +189,7 @@ describe("PresetDialog environment section", () => {
   it.each(["fast", "priority"])(
     "saves the host picker selection with tier %s",
     async (serviceTier) => {
-      const updates: Array<Record<string, unknown>> = [];
+      const updates: Record<string, unknown>[] = [];
       const slot = renderManagePresets([presetRow()], {
         updatePreset: (raw: unknown) => {
           const input = rpcInput(raw);

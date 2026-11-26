@@ -2,7 +2,7 @@
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
 import { createRoot } from "react-dom/client";
 import { SubagentsView } from "../src/ui/subagents-view.js";
-import { type ViewState } from "../src/subagents-contract.js";
+import type { ViewState } from "../src/subagents-contract.js";
 import "../src/ui/subagents.css";
 installTestPluginRuntime();
 const base = {
@@ -140,7 +140,9 @@ const state: ViewState = {
     },
   ],
 };
-const root = createRoot(document.getElementById("root")!);
+const container = document.getElementById("root");
+if (!container) throw new Error("Missing viewer preview root");
+const root = createRoot(container);
 function render(next: ViewState | undefined, loading = false, error?: string) {
   root.render(<SubagentsView state={next} loading={loading} error={error} />);
 }

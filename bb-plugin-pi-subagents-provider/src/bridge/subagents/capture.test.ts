@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { expect, it, vi } from "vitest";
 import { createCaptureQueue, normalizeCapture, type CaptureTarget } from "./capture.js";
 const target = (id = "run") => ({
@@ -74,7 +75,9 @@ it("times out unavailable captures without accepting a late replacement payload"
     q.enqueue(target());
     await vi.advanceTimersByTimeAsync(21);
     await q.drain();
-    expect(accepted.mock.calls[0]![1].status).toBe("timeout");
+    expect(
+      (accepted.mock.calls[0] ?? missingValue("Expected accepted.mock.calls[0]"))[1].status,
+    ).toBe("timeout");
     q.dispose();
   } finally {
     vi.useRealTimers();
@@ -121,8 +124,12 @@ it("retains supported inspection tool metadata without inferring a background mo
     10,
   );
   expect(bounded.messages).toHaveLength(20);
-  expect(bounded.messages!.every((m) => m.name === "bash" && m.isError)).toBe(true);
-  expect(bounded.truncated!.messages).toBe(8);
+  expect(
+    (bounded.messages ?? missingValue("Expected bounded.messages")).every(
+      (m) => m.name === "bash" && m.isError,
+    ),
+  ).toBe(true);
+  expect((bounded.truncated ?? missingValue("Expected bounded.truncated")).messages).toBe(8);
 });
 
 it.each(["throw", "timeout", "absent"])(
@@ -229,7 +236,9 @@ it("keeps optional work inside the remaining outer deadline", async () => {
     q.enqueue(target());
     await vi.advanceTimersByTimeAsync(51);
     expect(accepted).toHaveBeenCalledTimes(1);
-    expect(accepted.mock.calls[0]![1]).toMatchObject({ status: "captured", finalOutput: "answer" });
+    expect(
+      (accepted.mock.calls[0] ?? missingValue("Expected accepted.mock.calls[0]"))[1],
+    ).toMatchObject({ status: "captured", finalOutput: "answer" });
     expect(signal?.aborted).toBe(true);
     q.dispose();
   } finally {
@@ -278,7 +287,11 @@ it("preserves the eight-entry cap, terminal priority, coalescing and 750 ms spac
       "6",
       "7",
     ]);
-    expect(reads.slice(1).every((r, i) => r.at - reads[i]!.at >= 750)).toBe(true);
+    expect(
+      reads
+        .slice(1)
+        .every((r, i) => r.at - (reads[i] ?? missingValue("Expected reads[i]")).at >= 750),
+    ).toBe(true);
     expect(accepted.filter((r) => r.status === "not-captured")).toEqual([
       { id: "dropped", status: "not-captured" },
       { id: "0", status: "not-captured" },

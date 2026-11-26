@@ -121,8 +121,8 @@ interface BubbleAction {
   id: string;
   label: string;
   icon: IconSvgElement;
-  isActive(editor: Editor): boolean;
-  run(chain: ChainedCommands): ChainedCommands;
+  isActive: (editor: Editor) => boolean;
+  run: (chain: ChainedCommands) => ChainedCommands;
 }
 
 const BUBBLE_ACTIONS: BubbleAction[] = [
@@ -186,7 +186,7 @@ const BUBBLE_ACTIONS: BubbleAction[] = [
 
 interface TasksEditorProps {
   value: string;
-  onChange(markdown: string): void;
+  onChange: (markdown: string) => void;
   placeholder?: string;
   variant?: "doc" | "compact";
   onUploadImage?: (file: File) => Promise<{ url: string; attachmentId: string }>;

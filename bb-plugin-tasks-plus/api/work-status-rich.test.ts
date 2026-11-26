@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { mockPrStatusRpc } from "../test-fixtures.js";
 import { afterEach, expect, it, vi } from "vitest";
@@ -31,7 +32,7 @@ function clearSummary(overrides: Record<string, unknown> = {}) {
 it("reports Ready through public RPC and presentation only with explicit complete fresh producer evidence", async () => {
   const { read } = setup({ thr_a: clearSummary() });
   const result = await read();
-  const pr = result.pullRequests.items[0]!;
+  const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
   expect(pr).toMatchObject({
     details: "available",
     rich: { readiness: "ready" },
@@ -42,7 +43,9 @@ it("reports Ready through public RPC and presentation only with explicit complet
 it("reads a summary without a waiting count from an older producer", async () => {
   const { read } = setup({ thr_a: clearSummary() });
   const result = await read();
-  expect(result.pullRequests.items[0]!.details).toBe("available");
+  expect(
+    (result.pullRequests.items[0] ?? missingValue("Expected task or pull request")).details,
+  ).toBe("available");
 });
 
 it("shows a check waiting for the user instead of Ready", async () => {
@@ -61,7 +64,7 @@ it("shows a check waiting for the user instead of Ready", async () => {
     }),
   });
   const result = await read();
-  const pr = result.pullRequests.items[0]!;
+  const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
   expect(pr.details).toBe("available");
   expect(pr.rich?.conditions).toContain("checks_waiting");
   expect(primaryBucket(pr).label).toBe("Checks waiting for you");
@@ -92,7 +95,11 @@ it("withholds Ready from fresh metadata when the current environment PR associat
       },
     ],
   });
-  expect(primaryBucket(result.pullRequests.items[0]!).label).not.toContain("Ready");
+  expect(
+    primaryBucket(
+      result.pullRequests.items[0] ?? missingValue("Expected result.pullRequests.items[0]"),
+    ).label,
+  ).not.toContain("Ready");
   expect(store.tasks.getTask(task.id)?.status).toBe("in_review");
   expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
   expect(harness.realtimeSignals).toEqual([]);
@@ -108,7 +115,7 @@ it("retains a known conflict when current association uncertainty suppresses Rea
     },
   );
   const result = await read();
-  const pr = result.pullRequests.items[0]!;
+  const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
   expect(pr).toMatchObject({
     details: "incomplete",
     detailsReason: "association_unavailable",
@@ -129,7 +136,7 @@ it.each(["merged", "closed"] as const)(
       },
     );
     const result = await read();
-    const pr = result.pullRequests.items[0]!;
+    const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
     expect(pr).toMatchObject({
       state,
       details: "available",
@@ -175,7 +182,7 @@ it.each([
   async (overrides, reason) => {
     const { read } = setup({ thr_a: clearSummary(overrides) });
     const result = await read();
-    const pr = result.pullRequests.items[0]!;
+    const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
     expect(pr).toMatchObject({ details: "incomplete", detailsReason: reason });
     expect(primaryBucket(pr).label).not.toContain("Ready");
   },
@@ -205,7 +212,7 @@ it.each([
   async (overrides, label) => {
     const { read } = setup({ thr_a: clearSummary(overrides) });
     const result = await read();
-    const pr = result.pullRequests.items[0]!;
+    const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
     expect(primaryBucket(pr).label).toBe(label);
     expect(pr.rich?.readiness).not.toBe("ready");
     if (label === "Conflicts" && "blockers" in overrides)
@@ -232,7 +239,7 @@ it.each([
     thr_a: clearSummary({ mergeQueue: { position: 2, state } }),
   });
   const result = await read();
-  const pr = result.pullRequests.items[0]!;
+  const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
   expect(pr).toMatchObject({
     details: "available",
     rich: { queue: { state, position: 2 } },
@@ -255,7 +262,7 @@ it.each([
   async (queue, label) => {
     const { read } = setup({ thr_a: clearSummary({ mergeQueue: queue }) });
     const result = await read();
-    const pr = result.pullRequests.items[0]!;
+    const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
     expect(pr).toMatchObject({
       details: "incomplete",
       detailsReason: "unsupported_queue",
@@ -318,7 +325,11 @@ it.each([
     const { read } = setup({ thr_a: clearSummary({ blockers }) });
     const result = await read();
     expect(result.pullRequests.items).toHaveLength(1);
-    expect(primaryBucket(result.pullRequests.items[0]!).label).toBe(label);
+    expect(
+      primaryBucket(
+        result.pullRequests.items[0] ?? missingValue("Expected result.pullRequests.items[0]"),
+      ).label,
+    ).toBe(label);
     expect(result.pullRequests.items[0]?.rich?.conditions).toEqual(
       expect.arrayContaining(blockers),
     );
@@ -335,7 +346,7 @@ it.each(["draft", "merged", "closed"] as const)(
       }),
     });
     const result = await read();
-    const pr = result.pullRequests.items[0]!;
+    const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
     expect(primaryBucket(pr).label).toBe(
       state === "draft" ? "Draft, conflicts" : state === "merged" ? "Merged" : "Closed",
     );
@@ -360,7 +371,7 @@ it.each([false, true])(
         : {},
     );
     const result = await read();
-    const pr = result.pullRequests.items[0]!;
+    const pr = result.pullRequests.items[0] ?? missingValue("Expected task or pull request");
     expect(pr.threadIds).toEqual(expect.arrayContaining(["thr_a", "thr_b"]));
     expect(pr.details).not.toBe("available");
     expect(primaryBucket(pr).label).not.toContain("Ready");
@@ -472,7 +483,7 @@ function setup(
         taskIds: [task.id],
         ...(refresh ? { refresh } : {}),
       }),
-    ).byTaskId[task.id]!;
+    ).byTaskId[task.id] ?? missingValue("Expected a non-null value");
   return { read, store, task, harness, plugins, getMetadata, host };
 }
 

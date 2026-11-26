@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -23,7 +24,7 @@ describe("Manage folders", () => {
 
   function renderFolders(overrides: Record<string, unknown> = {}) {
     return renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: "manage" },
       {
         rpc: {
@@ -44,7 +45,7 @@ describe("Manage folders", () => {
   it.each(["button", "Enter"])(
     "keeps the rename editor and draft after a rejected save and closes it after retry via %s",
     async (submitWith) => {
-      const renameCalls: Array<Record<string, unknown>> = [];
+      const renameCalls: Record<string, unknown>[] = [];
       const slot = renderFolders({
         renameFolder: async (raw: unknown) => {
           const input = rpcInput(raw);
@@ -82,7 +83,7 @@ describe("Manage folders", () => {
   );
 
   it("deletes a folder after naming what the delete unfiles", async () => {
-    const deleteCalls: Array<Record<string, unknown>> = [];
+    const deleteCalls: Record<string, unknown>[] = [];
     const slot = renderFolders({
       deleteFolder: (input: Record<string, unknown>) => {
         deleteCalls.push(input);
@@ -107,7 +108,7 @@ describe("Manage folders", () => {
     const projectsLoaded = new Promise<void>((resolve) => {
       releaseProjects = resolve;
     });
-    const deleteCalls: Array<Record<string, unknown>> = [];
+    const deleteCalls: Record<string, unknown>[] = [];
     const slot = renderFolders({
       listProjects: async () => {
         await projectsLoaded;
@@ -132,7 +133,7 @@ describe("Manage folders", () => {
     fireEvent.click(confirm);
     expect(deleteCalls).toHaveLength(0);
 
-    releaseProjects!();
+    (releaseProjects ?? missingValue("Expected releaseProjects"))();
     await slot.findByText("1 project and 1 subfolder move to the top level. No tasks are deleted.");
     await waitFor(() =>
       expect(slot.getByRole("button", { name: "Delete folder" })).toHaveProperty("disabled", false),
@@ -155,7 +156,7 @@ describe("Manage folders", () => {
 
   it("blocks deleting on stale rows after a refresh fails", async () => {
     let projectsUnavailable = false;
-    const deleteCalls: Array<Record<string, unknown>> = [];
+    const deleteCalls: Record<string, unknown>[] = [];
     const slot = renderFolders({
       listProjects: () => {
         if (projectsUnavailable) throw new Error("projects unavailable");

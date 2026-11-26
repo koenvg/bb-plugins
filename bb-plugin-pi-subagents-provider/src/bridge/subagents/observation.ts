@@ -1,25 +1,25 @@
-import {
-  type DeltaBackgroundTaskShape,
-  type ThreadDelta,
+import type {
+  DeltaBackgroundTaskShape,
+  ThreadDelta,
 } from "@get-bb/plugin-sdk-runtime/provider-bridge";
 import { isDeepStrictEqual } from "node:util";
 import { parseStatusReceipt, SNAPSHOT_PREFIX, boundedJson, type RunNode } from "./protocol.js";
 import { reconcileRunTrees, type RetainedRun } from "./run-reconciliation.js";
 import { createCaptureQueue, type CaptureTarget } from "./capture.js";
-import { createViewStore } from "./view-store.js";
+import type { createViewStore } from "./view-store.js";
 import type { Capture } from "../../subagents-contract.js";
 import { describeObservedActivity } from "../../observed-activity.js";
 
 export interface ObservationOptions {
   sessionFile: string;
   generation: number;
-  reconcile(): Promise<unknown>;
-  emit(deltas: readonly ThreadDelta[]): void;
-  canAttachNativeItem?(): boolean;
+  reconcile: () => Promise<unknown>;
+  emit: (deltas: readonly ThreadDelta[]) => void;
+  canAttachNativeItem?: () => boolean;
   view?: ReturnType<typeof createViewStore>;
-  inspect?(target: CaptureTarget, requestId: string): Promise<unknown>;
-  resolveModel?(target: CaptureTarget, signal: AbortSignal): Promise<Capture["resolvedModel"]>;
-  current?(target: CaptureTarget): boolean;
+  inspect?: (target: CaptureTarget, requestId: string) => Promise<unknown>;
+  resolveModel?: (target: CaptureTarget, signal: AbortSignal) => Promise<Capture["resolvedModel"]>;
+  current?: (target: CaptureTarget) => boolean;
   now?: () => number;
   schedule?: (callback: () => void, delayMs: number) => () => void;
 }
@@ -36,7 +36,7 @@ function schedule(callback: () => void, delayMs: number): () => void {
   timer.unref();
   return () => clearTimeout(timer);
 }
-function outcome(node: RunNode): Pick<DeltaBackgroundTaskShape, "status" | "taskStatus"> {
+function outcome(node: RunNode): Required<Pick<DeltaBackgroundTaskShape, "status" | "taskStatus">> {
   if (node.state === "complete") return { status: "completed", taskStatus: "completed" };
   if (node.state === "failed" || node.state === "rejected")
     return { status: "failed", taskStatus: "failed" };
@@ -182,7 +182,7 @@ export function createSubagentObservation(options: ObservationOptions) {
             options.emit([
               active
                 ? { kind: "item.progress", key: key(id), snapshot: next, flush: true }
-                : { kind: "item.close", key: key(id), item: next, status: next.status! },
+                : { kind: "item.close", key: key(id), item: next, status: outcome(node).status },
             ]);
           }
           runs.set(id, { node, covered, shape: next, opened, settled: !active });
@@ -197,7 +197,10 @@ export function createSubagentObservation(options: ObservationOptions) {
           const targets =
             view?.background(
               owner(),
-              facts.map((f) => (runs.get(f.id)?.settled ? runs.get(f.id)!.node : f.node)),
+              facts.map((f) => {
+                const run = runs.get(f.id);
+                return run?.settled ? run.node : f.node;
+              }),
               facts.some((f) => !f.covered) ||
                 snap.omitted.runs > 0 ||
                 snap.omitted.children > 0 ||

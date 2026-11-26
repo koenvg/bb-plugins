@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import { thread } from "./fixtures";
 import { activeSnoozes, snoozePresets, snoozesToEnd, wakeLabel } from "./snooze-model";
@@ -32,8 +33,8 @@ describe("snoozePresets", () => {
   it("keeps 9:00 local time across a daylight saving change", () => {
     const [tomorrow] = snoozePresets(at(2026, 10, 24));
 
-    expect(new Date(tomorrow!.wakeAt).getHours()).toBe(9);
-    expect(new Date(tomorrow!.wakeAt).getDate()).toBe(25);
+    expect(new Date((tomorrow ?? missingValue("Expected tomorrow")).wakeAt).getHours()).toBe(9);
+    expect(new Date((tomorrow ?? missingValue("Expected tomorrow")).wakeAt).getDate()).toBe(25);
   });
 });
 

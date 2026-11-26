@@ -1,3 +1,5 @@
+import type * as CodexSpeed from "@koenvg/pi-openai-codex-speed";
+import { fail as missingValue } from "node:assert/strict";
 import {
   createAssistantMessageEventStream,
   normalizeContext,
@@ -13,7 +15,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CODEX_SPEED_SOURCE } from "./codex-speed-source.js";
 
-let speed: typeof import("@koenvg/pi-openai-codex-speed");
+let speed: typeof CodexSpeed;
 let directory: string;
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "bb-generated-speed-"));
@@ -94,8 +96,12 @@ function fixture() {
         apiKey: requestToken,
         onPayload,
       });
-      const options = captured!;
-      const result = await options.onPayload!.call(options, { model: "gpt-5.5" }, model);
+      const options = captured ?? missingValue("Expected captured");
+      const result = await (options.onPayload ?? missingValue("Expected options.onPayload")).call(
+        options,
+        { model: "gpt-5.5" },
+        model,
+      );
       dispatched.push(result);
       return result;
     },
@@ -304,7 +310,8 @@ describe("generated speed controller at the native payload boundary", () => {
     await f.controller.select(model, "fast");
     f.advance(300001);
     const native = f.controller.decorate(
-      builtinProviders().find((provider) => provider.id === "openai-codex")!,
+      builtinProviders().find((provider) => provider.id === "openai-codex") ??
+        missingValue("Expected a non-null value"),
     );
     const requests: unknown[] = [];
     const request = () =>

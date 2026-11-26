@@ -68,8 +68,10 @@ for (const width of [390, 960])
       const afterTheme = await page.evaluate(() => {
         document.documentElement.dataset.theme =
           document.documentElement.dataset.theme === "light" ? "dark" : "light";
-        const prose = document.querySelector<HTMLElement>(".mr-prose")!;
-        const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+        const prose = document.querySelector(".mr-prose");
+        const dialog = document.querySelector('[role="dialog"]');
+        if (!prose) throw new Error("Missing preview prose after theme change");
+        if (!dialog) throw new Error("Missing preview dialog after theme change");
         return {
           color: getComputedStyle(prose).color,
           background: getComputedStyle(dialog).backgroundColor,

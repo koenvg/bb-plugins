@@ -5,7 +5,7 @@ import { createStore } from "../api";
 import type { TaskStatus } from "../db";
 import plugin from "../server";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
   while (disposers.length > 0) await disposers.pop()?.();

@@ -24,8 +24,9 @@ const CONDITIONS = [
   { key: "queue_merging", label: "Queued, merging", rank: 7.5 },
 ] as const;
 export function currentConditions(pr: WorkPr): string[] {
+  const { rich } = pr;
   if (
-    !pr.rich ||
+    !rich ||
     !["available", "incomplete"].includes(pr.details) ||
     !["open", "draft"].includes(pr.state)
   )
@@ -33,22 +34,20 @@ export function currentConditions(pr: WorkPr): string[] {
   if (
     pr.state === "open" &&
     pr.details === "available" &&
-    pr.rich.readiness === "ready" &&
-    pr.rich.conditions.length === 0 &&
-    !pr.rich.queue &&
-    pr.rich.checks.failed === 0 &&
-    !pr.rich.checks.waiting &&
-    pr.rich.checks.running === 0 &&
-    pr.rich.checks.cancelled === 0 &&
-    pr.rich.checks.failedNames.length === 0 &&
-    pr.rich.reviewers.pending === 0 &&
-    pr.rich.reviewers.changesRequested === 0 &&
-    pr.rich.reviewers.pendingNames.length === 0
+    rich.readiness === "ready" &&
+    rich.conditions.length === 0 &&
+    !rich.queue &&
+    rich.checks.failed === 0 &&
+    !rich.checks.waiting &&
+    rich.checks.running === 0 &&
+    rich.checks.cancelled === 0 &&
+    rich.checks.failedNames.length === 0 &&
+    rich.reviewers.pending === 0 &&
+    rich.reviewers.changesRequested === 0 &&
+    rich.reviewers.pendingNames.length === 0
   )
     return ["Ready to merge"];
-  return CONDITIONS.filter(({ key }) => pr.rich!.conditions.includes(key)).map(
-    ({ label }) => label,
-  );
+  return CONDITIONS.filter(({ key }) => rich.conditions.includes(key)).map(({ label }) => label);
 }
 export function qualityLabel(pr: WorkPr): string {
   return {
@@ -63,7 +62,7 @@ export function primaryBucket(pr: WorkPr) {
   const rank = condition
     ? condition === "Ready to merge"
       ? 8
-      : CONDITIONS.find((c) => c.label === condition)!.rank
+      : (CONDITIONS.find((c) => c.label === condition)?.rank ?? 10)
     : pr.state === "unknown"
       ? 9
       : pr.state === "open"

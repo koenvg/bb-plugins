@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -102,10 +103,10 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
   );
   children.push(child);
   let stderr = "";
-  child.stderr!.on("data", (chunk) => {
+  (child.stderr ?? missingValue("Expected child.stderr")).on("data", (chunk) => {
     stderr += String(chunk);
   });
-  for (const stream of [child.stdout!]) {
+  for (const stream of [child.stdout ?? missingValue("Expected child.stdout")]) {
     let pending = "";
     stream.on("data", (chunk) => {
       pending += String(chunk);
@@ -121,7 +122,10 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
   async function waitFor(predicate: (message: Record<string, unknown>) => boolean) {
     for (let attempt = 0; attempt < 500; attempt++) {
       const index = messages.findIndex(predicate);
-      if (index >= 0) return messages.splice(index, 1)[0]!;
+      if (index >= 0)
+        return (
+          messages.splice(index, 1)[0] ?? missingValue("Expected messages.splice(index, 1)[0]")
+        );
       if (child.exitCode !== null) throw new Error(`Pi exited: ${stderr}`);
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -129,7 +133,9 @@ async function startPi(projectTrust = false, runtime = process.execPath) {
   }
   async function rpc(type: string, fields: Record<string, unknown> = {}) {
     const id = `rpc-${++nextId}`;
-    child.stdin!.write(JSON.stringify({ id, type, ...fields }) + "\n");
+    (child.stdin ?? missingValue("Expected child.stdin")).write(
+      JSON.stringify({ id, type, ...fields }) + "\n",
+    );
     const reply = await waitFor((message) => message.type === "response" && message.id === id);
     expect(reply.success, JSON.stringify(reply)).toBe(true);
     return reply.data as Record<string, unknown>;
@@ -274,16 +280,22 @@ it("ignores late tool results from a replaced session", async () => {
   const old = await start();
   const oldResult = old.tool.execute();
   const shutdownError = expect(oldResult).rejects.toThrow("Pi session shut down");
-  const oldId = replies.find((message) => message.kind === "tool-call")!.id;
+  const oldId = (
+    replies.find((message) => message.kind === "tool-call") ??
+    missingValue("Expected a non-null value")
+  ).id;
   await old.shutdown();
   await shutdownError;
   replies.length = 0;
   const current = await start();
   const currentResult = current.tool.execute();
-  const currentId = replies.find((message) => message.kind === "tool-call")!.id;
+  const currentId = (
+    replies.find((message) => message.kind === "tool-call") ??
+    missingValue("Expected a non-null value")
+  ).id;
   expect(readers).toHaveLength(1);
   const sendResult = (id: unknown, text: string) =>
-    readers[0]!.emit(
+    (readers[0] ?? missingValue("Expected readers[0]")).emit(
       "data",
       Buffer.from(
         JSON.stringify({ kind: "tool-result", id, content: [{ type: "text", text }] }) + "\n",

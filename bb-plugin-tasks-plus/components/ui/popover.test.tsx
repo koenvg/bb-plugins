@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { useRef, useState } from "react";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -74,7 +75,9 @@ for (const isCompact of [false, true]) {
         else fireEvent.click(close);
         await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
         await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-        expect(onClose.mock.calls[0]![0].cancelable).toBe(true);
+        expect(
+          (onClose.mock.calls[0] ?? missingValue("Expected onClose.mock.calls[0]"))[0].cancelable,
+        ).toBe(true);
         expect(document.activeElement).toBe(trigger);
       },
     );
@@ -164,7 +167,11 @@ describe("compact close before content realization", () => {
     expect(panel.querySelector("[data-responsive-drawer-placeholder]")).not.toBeNull();
     expect(document.activeElement).toBe(panel);
     if (method === "Escape") fireEvent.keyDown(panel, { key: "Escape" });
-    else fireEvent.click(document.querySelector("[data-persistent-drawer-backdrop]")!);
+    else
+      fireEvent.click(
+        document.querySelector("[data-persistent-drawer-backdrop]") ??
+          missingValue("Expected a non-null value"),
+      );
     expect(view.queryByRole("dialog")).toBeNull();
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(trigger);

@@ -73,7 +73,8 @@ export function createTaskPreviews(
           // but must not make the retained-data budget grow.
           const victim =
             [...retained.keys()].find((candidate) => !listeners.has(candidate)) ??
-            retained.keys().next().value!;
+            retained.keys().next().value;
+          if (victim === undefined) break;
           drop(victim);
         }
       }
@@ -86,8 +87,10 @@ export function createTaskPreviews(
       invalidated = new Set();
       invalidatedChanges.set(changeId, invalidated);
       // Eviction permits an extra read for an unusually late duplicate, never stale reuse.
-      if (invalidatedChanges.size > TASK_PREVIEW_ENTRIES)
-        invalidatedChanges.delete(invalidatedChanges.keys().next().value!);
+      if (invalidatedChanges.size > TASK_PREVIEW_ENTRIES) {
+        const oldest = invalidatedChanges.keys().next();
+        if (!oldest.done) invalidatedChanges.delete(oldest.value);
+      }
     }
     queued = [];
     for (const key of keys) {
@@ -186,7 +189,8 @@ export function createTaskPreviews(
     if (disposed) return;
     synchronize();
     while (queued.length && speculative.size < TASK_PREVIEW_SPECULATION) {
-      const key = queued.shift()!;
+      const key = queued.shift();
+      if (key === undefined) break;
       // Already-issued foreground reads are shared without consuming a new slot.
       if (!requests.has(key) && !read(key).current) void load(key, true);
     }

@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect } from "@playwright/test";
 import { remoteOrigin } from "./fixture-origin";
 import { crc32, deflateSync } from "node:zlib";
@@ -55,10 +56,11 @@ for (const width of [1280, 390]) {
     await trigger.scrollIntoViewIfNeeded();
     const inlineBounds = await trigger.getByRole("img").boundingBox();
     const background = () =>
-      page.evaluate(() => ({
-        window: scrollY,
-        attachment: document.querySelector(".attachment-preview-body")!.scrollTop,
-      }));
+      page.evaluate(() => {
+        const body = document.querySelector(".attachment-preview-body");
+        if (!body) throw new Error("Missing attachment preview body");
+        return { window: scrollY, attachment: body.scrollTop };
+      });
     const before = await background();
     await page.screenshot({ path: info.outputPath(`tall-image-inline-${width}.png`) });
     await trigger.click();
@@ -68,13 +70,22 @@ for (const width of [1280, 390]) {
     await expect(image).toHaveJSProperty("naturalWidth", 1200);
     await expect(image).toHaveJSProperty("naturalHeight", 2400);
     const bounds = await image.boundingBox();
-    expect(bounds!.width).toBe(width === 1280 ? 1200 : 324);
-    expect(bounds!.width).toBeLessThanOrEqual(1200);
-    if (width === 1280) expect(bounds!.width).toBeGreaterThan(inlineBounds!.width);
-    expect(bounds!.height / bounds!.width).toBeCloseTo(2, 2);
+    expect((bounds ?? missingValue("Expected bounds")).width).toBe(width === 1280 ? 1200 : 324);
+    expect((bounds ?? missingValue("Expected bounds")).width).toBeLessThanOrEqual(1200);
+    if (width === 1280)
+      expect((bounds ?? missingValue("Expected bounds")).width).toBeGreaterThan(
+        (inlineBounds ?? missingValue("Expected inlineBounds")).width,
+      );
+    expect(
+      (bounds ?? missingValue("Expected bounds")).height /
+        (bounds ?? missingValue("Expected bounds")).width,
+    ).toBeCloseTo(2, 2);
     const viewerBounds = await viewer.boundingBox();
-    expect(viewerBounds!.y).toBeGreaterThanOrEqual(0);
-    expect(viewerBounds!.y + viewerBounds!.height).toBeLessThanOrEqual(500);
+    expect((viewerBounds ?? missingValue("Expected viewerBounds")).y).toBeGreaterThanOrEqual(0);
+    expect(
+      (viewerBounds ?? missingValue("Expected viewerBounds")).y +
+        (viewerBounds ?? missingValue("Expected viewerBounds")).height,
+    ).toBeLessThanOrEqual(500);
     const scroll = () =>
       viewer.evaluate((element) => ({
         top: element.scrollTop,
@@ -82,16 +93,13 @@ for (const width of [1280, 390]) {
         client: element.clientHeight,
       }));
     const scrollEnd = () =>
-      page.evaluate(
-        () =>
-          new Promise<void>((resolve) =>
-            document
-              .querySelector(".mr-image-dialog")!
-              .addEventListener("scrollend", () => resolve(), {
-                once: true,
-              }),
-          ),
-      );
+      page.evaluate(() => {
+        const dialog = document.querySelector(".mr-image-dialog");
+        if (!dialog) throw new Error("Missing image dialog");
+        return new Promise<void>((resolve) => {
+          dialog.addEventListener("scrollend", () => resolve(), { once: true });
+        });
+      });
     const initial = await scroll();
     expect(initial.height).toBeGreaterThan(initial.client);
     expect(initial.top).toBe(0);
@@ -105,7 +113,11 @@ for (const width of [1280, 390]) {
     await Promise.all([scrollEnd(), page.keyboard.press("PageUp")]);
     const result2 = await scroll();
     expect(result2.top).toBe(0);
-    await page.mouse.move(bounds!.x + bounds!.width / 2, 350);
+    await page.mouse.move(
+      (bounds ?? missingValue("Expected bounds")).x +
+        (bounds ?? missingValue("Expected bounds")).width / 2,
+      350,
+    );
     await Promise.all([scrollEnd(), page.mouse.wheel(0, 10000)]);
     await expect
       .poll(async () => {
@@ -116,13 +128,25 @@ for (const width of [1280, 390]) {
     const result3 = await scroll();
     expect(result3.top).toBeGreaterThan(100);
     const bottom = await image.boundingBox();
-    expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(viewerBounds!.y + viewerBounds!.height);
-    expect(bottom!.y + bottom!.height).toBeGreaterThan(400);
+    expect(
+      (bottom ?? missingValue("Expected bottom")).y +
+        (bottom ?? missingValue("Expected bottom")).height,
+    ).toBeLessThanOrEqual(
+      (viewerBounds ?? missingValue("Expected viewerBounds")).y +
+        (viewerBounds ?? missingValue("Expected viewerBounds")).height,
+    );
+    expect(
+      (bottom ?? missingValue("Expected bottom")).y +
+        (bottom ?? missingValue("Expected bottom")).height,
+    ).toBeGreaterThan(400);
     await expect(close).toBeInViewport({ ratio: 1 });
-    expect((await close.boundingBox())!.y).toBeCloseTo(closeBounds!.y, 0);
+    expect(
+      ((await close.boundingBox()) ?? missingValue("Expected (await close.boundingBox())")).y,
+    ).toBeCloseTo((closeBounds ?? missingValue("Expected closeBounds")).y, 0);
     await page.screenshot({ path: info.outputPath(`tall-image-bottom-${width}.png`) });
     expect(await background()).toEqual(before);
-    const stickyClose = (await close.boundingBox())!;
+    const stickyClose =
+      (await close.boundingBox()) ?? missingValue("Expected (await close.boundingBox())");
     await page.mouse.click(
       stickyClose.x + stickyClose.width / 2,
       stickyClose.y + stickyClose.height / 2,

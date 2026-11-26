@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, within, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -19,7 +20,7 @@ describe("native Ticket tab", () => {
     const tab = ticketRegistration;
     expect(tab?.title).toBe("Ticket");
     const page = setup("all", {}, { nativeTab: false });
-    const ticket = renderSlot(tab!, { subPath: "all" });
+    const ticket = renderSlot(tab ?? missingValue("Expected tab"), { subPath: "all" });
     await page.findByRole("button", { name: "Open TSK-1: Title 1" });
     fireEvent.click(row(page, 1));
     await acceptNavigation(page);
@@ -73,9 +74,10 @@ describe("native Ticket tab", () => {
     await within(ticket.container).findByRole("textbox", {
       name: "Task title",
     });
-    const status = within(ticket.container).getAllByRole("button", {
-      name: "Todo",
-    })[0]!;
+    const status =
+      within(ticket.container).getAllByRole("button", {
+        name: "Todo",
+      })[0] ?? missingValue("Expected a non-null value");
     status.focus();
     fireEvent.keyDown(status, { key: "Enter" });
     expect(page.getByRole("menu")).toBeTruthy();

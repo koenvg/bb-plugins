@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect, type Page } from "@playwright/test";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { createStore, registerTasksApi } from "../../api";
@@ -23,7 +24,7 @@ async function setup(page: Page) {
     title: "Second card",
     status: "todo",
   });
-  const requests: Array<{ method: string; input: unknown }> = [];
+  const requests: { method: string; input: unknown }[] = [];
   const rows = () =>
     db
       .prepare<[], TaskStatusTransition>(`SELECT id, task_id AS taskId,
@@ -31,7 +32,8 @@ async function setup(page: Page) {
     FROM task_status_transitions ORDER BY id`)
       .all();
   await page.route("**/__board_rpc/*", async (route) => {
-    const method = route.request().url().split("/").at(-1)!;
+    const method =
+      route.request().url().split("/").at(-1) ?? missingValue("Expected a non-null value");
     const input: unknown = route.request().postDataJSON();
     requests.push({ method, input });
     try {
@@ -76,8 +78,10 @@ test("production board property edits, reorder and status retries persist only a
       await expect.poll(() => f.store.tasks.getTask(f.first.id)?.priority).toBe("urgent");
       expect(f.rows()).toEqual([]);
     }
-    const start = (await second.boundingBox())!;
-    const target = (await first.boundingBox())!;
+    const start =
+      (await second.boundingBox()) ?? missingValue("Expected (await second.boundingBox())");
+    const target =
+      (await first.boundingBox()) ?? missingValue("Expected (await first.boundingBox())");
     await page.mouse.move(start.x + 40, start.y + 15);
     await page.mouse.down();
     await page.mouse.move(target.x + 40, target.y + 2, { steps: 10 });
@@ -104,10 +108,12 @@ test("production board property edits, reorder and status retries persist only a
         taskId: f.first.id,
         fromStatus: "todo",
         toStatus: "done",
-        changedAt: committed[0]!.changedAt,
+        changedAt: (committed[0] ?? missingValue("Expected committed[0]")).changedAt,
       },
     ]);
-    expect(committed[0]!.changedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect((committed[0] ?? missingValue("Expected committed[0]")).changedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
     const moves = f.requests.filter((request) => request.method === "boardMove").length;
     await status(page, "HIS-1", "First card", "Done (current)");
     await expect
@@ -156,7 +162,7 @@ test("production board restores failed SQL moves and persists only the successfu
         taskId: f.first.id,
         fromStatus: "todo",
         toStatus: "done",
-        changedAt: rows[0]!.changedAt,
+        changedAt: (rows[0] ?? missingValue("Expected rows[0]")).changedAt,
       },
     ]);
     expect(f.store.tasks.getTask(f.first.id)?.status).toBe("done");

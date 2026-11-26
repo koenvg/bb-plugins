@@ -60,7 +60,10 @@ export class PiSessionChannel {
     return this.speedControl;
   }
 
-  constructor(private readonly send: (message: Record<string, unknown>) => void) {}
+  private readonly send: (message: Record<string, unknown>) => void;
+  constructor(send: (message: Record<string, unknown>) => void) {
+    this.send = send;
+  }
 
   handle(message: Record<string, unknown>): void {
     if (this.disposedError) return;

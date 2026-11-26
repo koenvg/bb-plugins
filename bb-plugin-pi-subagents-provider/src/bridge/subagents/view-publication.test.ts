@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { createViewStore } from "./view-store.js";
 import { restoreViewHistory } from "../../view-history.js";
@@ -14,11 +15,9 @@ it("publishes all twenty useful emoji capture summaries inside the complete JSON
     () => 1,
   );
   for (let i = 0; i < 20; i++) {
-    const target = view.background(
-      owner,
-      [{ ...node, id: `run-${i}`, state: "complete" }],
-      false,
-    )[0]!;
+    const target =
+      view.background(owner, [{ ...node, id: `run-${i}`, state: "complete" }], false)[0] ??
+      missingValue("Expected a non-null value");
     view.captureIfCurrent(target, {
       status: "captured",
       capturedAt: 1,
@@ -31,7 +30,7 @@ it("publishes all twenty useful emoji capture summaries inside the complete JSON
       })),
     });
   }
-  const last = states.at(-1)!;
+  const last = states.at(-1) ?? missingValue("Expected states.at(-1)");
   expect(last.rows).toHaveLength(20);
   expect(last.omitted).toBe(0);
   expect(
@@ -53,27 +52,37 @@ it("keeps legacy-readable exact boundary and escape-heavy history but fits its r
     () => {},
     () => 1,
   );
-  const target = view.background(owner, [{ ...node, state: "complete" }], false)[0]!;
+  const target =
+    view.background(owner, [{ ...node, state: "complete" }], false)[0] ??
+    missingValue("Expected a non-null value");
   const state = view.snapshot();
-  state.rows[0]!.capture = { status: "captured", capturedAt: 1, finalOutput: "" };
+  (state.rows[0] ?? missingValue("Expected state.rows[0]")).capture = {
+    status: "captured",
+    capturedAt: 1,
+    finalOutput: "",
+  };
   const rows = Array.from({ length: 11 }, (_, i) => ({
-    ...state.rows[0]!,
+    ...(state.rows[0] ?? missingValue("Expected state.rows[0]")),
     id: `${target.id}-${i}`,
     capture: { status: "captured" as const, capturedAt: 1, finalOutput: "x".repeat(5500) },
   }));
   const exact = { ...state, rows };
-  rows[0]!.capture.finalOutput += "x".repeat(65536 - Buffer.byteLength(JSON.stringify(exact)));
+  (rows[0] ?? missingValue("Expected rows[0]")).capture.finalOutput += "x".repeat(
+    65536 - Buffer.byteLength(JSON.stringify(exact)),
+  );
   expect(Buffer.byteLength(JSON.stringify(exact))).toBe(65536);
   expect(boundedValue(exact, VIEW_BYTES)).toBe(true);
   expect(restoreViewHistory([exact])).toEqual(exact);
-  rows[0]!.capture.finalOutput += "x";
+  (rows[0] ?? missingValue("Expected rows[0]")).capture.finalOutput += "x";
   expect(Buffer.byteLength(JSON.stringify(exact))).toBe(65537);
   expect(boundedValue(exact, VIEW_BYTES)).toBe(false);
-  const replay = restoreViewHistory([exact])!;
+  const replay =
+    restoreViewHistory([exact]) ?? missingValue("Expected restoreViewHistory([exact])");
   expect(replay.rows).toHaveLength(11);
   expect(Buffer.byteLength(JSON.stringify(replay))).toBeLessThanOrEqual(65536);
   for (const row of rows) row.capture.finalOutput = '\u0000"\\😀'.repeat(1000);
-  const escaped = restoreViewHistory([{ ...exact, rows }])!;
+  const escaped =
+    restoreViewHistory([{ ...exact, rows }]) ?? missingValue("Expected a non-null value");
   expect(escaped.rows).toHaveLength(11);
   expect(Buffer.byteLength(JSON.stringify(escaped))).toBeLessThanOrEqual(65536);
   expect(JSON.stringify(escaped)).not.toMatch(
@@ -97,11 +106,23 @@ it("uses a fixed progress deadline without starvation and flushes terminal and l
   expect(states).toHaveLength(1);
   vi.advanceTimersByTime(10);
   expect(states).toHaveLength(2);
-  expect(states[1]!.rows[0]!.label).toBe("progress-9");
-  const target = view.background(owner, [{ ...node, state: "complete" }], false)[0]!;
+  expect(
+    (
+      (states[1] ?? missingValue("Expected states[1]")).rows[0] ??
+      missingValue("Expected a non-null value")
+    ).label,
+  ).toBe("progress-9");
+  const target =
+    view.background(owner, [{ ...node, state: "complete" }], false)[0] ??
+    missingValue("Expected a non-null value");
   expect(states).toHaveLength(3);
   view.captureIfCurrent(target, { status: "captured", capturedAt: 2, finalOutput: "final answer" });
-  expect(states.at(-1)!.rows[0]!.capture?.finalOutput).toBe("final answer");
+  expect(
+    (
+      (states.at(-1) ?? missingValue("Expected states.at(-1)")).rows[0] ??
+      missingValue("Expected a non-null value")
+    ).capture?.finalOutput,
+  ).toBe("final answer");
   expect(states).toHaveLength(4);
   view.captureIfCurrent(target, { status: "captured", capturedAt: 2, finalOutput: "final answer" });
   vi.advanceTimersByTime(1000);
@@ -150,7 +171,12 @@ it("retries an identical receipt after a thrown publication instead of rememberi
   reject = false;
   view.background(owner, [{ ...node, state: "complete" }], false);
   expect(states).toHaveLength(1);
-  expect(states[0]!.rows[0]!.state).toBe("complete");
+  expect(
+    (
+      (states[0] ?? missingValue("Expected states[0]")).rows[0] ??
+      missingValue("Expected a non-null value")
+    ).state,
+  ).toBe("complete");
 });
 
 it("does not revive budget-omitted messages or empty task and output excerpts during history merges", () => {
@@ -160,7 +186,7 @@ it("does not revive budget-omitted messages or empty task and output excerpts du
   );
   view.background(owner, [{ ...node, state: "complete" }], false);
   const newer = view.snapshot();
-  newer.rows[0]!.capture = {
+  (newer.rows[0] ?? missingValue("Expected newer.rows[0]")).capture = {
     status: "captured",
     capturedAt: 2,
     task: "",
@@ -169,12 +195,17 @@ it("does not revive budget-omitted messages or empty task and output excerpts du
     truncated: { task: true, finalOutput: true, messages: 2 },
   };
   const older = structuredClone(newer);
-  older.rows[0]!.capture = {
+  (older.rows[0] ?? missingValue("Expected older.rows[0]")).capture = {
     status: "captured",
     capturedAt: 1,
     task: "old task",
     finalOutput: "old output",
     messages: [{ role: "assistant", kind: "text", text: "old message" }],
   };
-  expect(restoreViewHistory([newer, older])!.rows[0]!.capture).toEqual(newer.rows[0]!.capture);
+  expect(
+    (
+      (restoreViewHistory([newer, older]) ?? missingValue("Expected a non-null value")).rows[0] ??
+      missingValue("Expected a non-null value")
+    ).capture,
+  ).toEqual((newer.rows[0] ?? missingValue("Expected newer.rows[0]")).capture);
 });

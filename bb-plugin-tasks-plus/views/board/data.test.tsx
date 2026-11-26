@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -67,7 +68,11 @@ it("keeps unfinished resource reads through a task-status update", async () => {
       },
     },
   );
-  const output = () => JSON.parse(slot.container.querySelector("output")!.textContent!);
+  const output = () =>
+    JSON.parse(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent ?? missingValue("Expected a non-null value"),
+    );
   await waitFor(() =>
     expect(slot.rpcCalls.filter((call) => call.method === "listTaskThreads")).toHaveLength(1),
   );
@@ -109,7 +114,11 @@ it("rejects an attachment response overtaken by a real attachment change", async
       },
     },
   );
-  const output = () => JSON.parse(slot.container.querySelector("output")!.textContent!);
+  const output = () =>
+    JSON.parse(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent ?? missingValue("Expected a non-null value"),
+    );
   await waitFor(() => expect(reads).toBe(1));
   await slot.behavior.emitRealtime("tasks:changed", {
     taskId: first.id,
@@ -147,7 +156,11 @@ it("does not publish old tracker inventory or counts after a tracker switch", as
       },
     },
   );
-  const output = () => JSON.parse(slot.container.querySelector("output")!.textContent!);
+  const output = () =>
+    JSON.parse(
+      (slot.container.querySelector("output") ?? missingValue("Expected a non-null value"))
+        .textContent ?? missingValue("Expected a non-null value"),
+    );
   await waitFor(() => expect(output().tasks).toEqual([first.key]));
   fireEvent.click(slot.getByRole("button", { name: "Switch tracker" }));
   expect(output().tasks).toBeUndefined();

@@ -74,7 +74,9 @@ const FixtureReader = ({ index = 0 }: { index?: number }) => {
 };
 // The reader's host icons need the public SDK runtime even in this direct-render fixture.
 installTestPluginRuntime();
-createRoot(document.getElementById("root")!).render(
+const root = document.getElementById("root");
+if (!root) throw new Error("Missing preview root");
+createRoot(root).render(
   <div className="fixture-layout">
     <aside className="fixture-outside" aria-label="Host style sentinel">
       <h2>Outside the reader</h2>

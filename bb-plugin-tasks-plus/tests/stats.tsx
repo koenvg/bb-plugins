@@ -31,7 +31,7 @@ const Fixture = () => {
     let frame: number;
     const followHostNavigation = () => {
       for (; nextCall < slot.navigateCalls.length; nextCall++) {
-        const call = slot.navigateCalls[nextCall]!;
+        const call = requireFixture(slot.navigateCalls[nextCall], "slot.navigateCalls[nextCall]");
         if (call.method === "toPluginPanel" && call.path === "tasks")
           setSubPath(call.options?.subPath ?? "");
       }
@@ -109,3 +109,8 @@ const slot = renderSlot(
       : rpc,
   },
 );
+
+function requireFixture<T>(value: T | null | undefined, label: string): T {
+  if (value == null) throw new Error(`Missing fixture value: ${label}`);
+  return value;
+}

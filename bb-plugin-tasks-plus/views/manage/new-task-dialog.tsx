@@ -390,7 +390,7 @@ export const NewTaskDialog = ({
                       ))}
                     </span>
                     {selectedLabels.length === 1
-                      ? selectedLabels[0]!.name
+                      ? selectedLabels[0]?.name
                       : `${selectedLabels.length} labels`}
                   </>
                 )}

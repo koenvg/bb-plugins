@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import { project, thread } from "./fixtures";
 import { visibleItems, type ListOptions } from "./list-model";
@@ -457,9 +458,13 @@ describe("visibleItems", () => {
           hasPendingInteraction: true,
         }),
       ];
-      expect(tabFor(rows[0]!, null, threadsWithActiveDescendant(rows).has("parent"))).toBe(
-        "inflight",
-      );
+      expect(
+        tabFor(
+          rows[0] ?? missingValue("Expected rows[0]"),
+          null,
+          threadsWithActiveDescendant(rows).has("parent"),
+        ),
+      ).toBe("inflight");
       expect(titles(visibleItems(rows, [project], [], { ...defaults, tab: "attention" }))).toEqual([
         "Parent",
         "Asks",

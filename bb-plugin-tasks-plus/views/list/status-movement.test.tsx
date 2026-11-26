@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -119,7 +120,9 @@ function fixture(projectId: string | null, status: Task["status"] = "backlog") {
       const byKey = new Map([...tasks.slice(1), saved].map((task) => [task.key, task]));
       await act(async () =>
         finishRefresh({
-          tasks: expected.map((key) => structuredClone(byKey.get(key)!)),
+          tasks: expected.map((key) =>
+            structuredClone(byKey.get(key) ?? missingValue("Expected byKey.get(key)")),
+          ),
           nextCursor: null,
         }),
       );
@@ -129,7 +132,9 @@ function fixture(projectId: string | null, status: Task["status"] = "backlog") {
 
 async function changeStatus(f: ReturnType<typeof fixture>) {
   await f.slot.findByRole("button", { name: "Open A-1: Task 1" });
-  const row = f.slot.container.querySelector<HTMLElement>('[data-task-key="A-1"]')!;
+  const row =
+    f.slot.container.querySelector<HTMLElement>('[data-task-key="A-1"]') ??
+    missingValue("Expected a non-null value");
   fireEvent.pointerDown(within(row).getByRole("button", { name: /Change status/ }), {
     button: 0,
     ctrlKey: false,
@@ -192,7 +197,9 @@ it("restores row focus without scrolling when the status menu closes", async () 
   const f = fixture(null);
   const focus = vi.spyOn(HTMLElement.prototype, "focus");
   await f.slot.findByText("A-1");
-  const row = f.slot.container.querySelector<HTMLElement>('[data-task-key="A-1"]')!;
+  const row =
+    f.slot.container.querySelector<HTMLElement>('[data-task-key="A-1"]') ??
+    missingValue("Expected a non-null value");
   fireEvent.pointerDown(within(row).getByRole("button", { name: /Change status/ }), {
     button: 0,
     ctrlKey: false,

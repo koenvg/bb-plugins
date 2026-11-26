@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { makeThreadResponse, makeQueueEntry } from "@get-bb/plugin-sdk/testing";
 import { fixture, loopbackFetch } from "./fixtures.js";
@@ -72,7 +73,7 @@ async function poll(operationId: string, credential?: string) {
     ).json()
   ).result;
 }
-function unavailable(reply: any) {
+function unavailable(reply: { structuredContent?: unknown }) {
   expect(reply).toMatchObject({
     isError: true,
     content: [{ type: "text", text: "OPERATION_UNAVAILABLE" }],
@@ -212,7 +213,8 @@ it("exposes only the planned tools and marks stop as a write", async () => {
       "bb_start_thread",
       "bb_stop_thread",
     ]);
-    const stop = tools.find((t) => t.name === "bb_stop_thread")!;
+    const stop =
+      tools.find((t) => t.name === "bb_stop_thread") ?? missingValue("Expected a non-null value");
     expect(stop.annotations).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true,

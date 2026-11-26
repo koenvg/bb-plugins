@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect, type Page } from "@playwright/test";
 import { makeTask, makeAttachment } from "../../test-fixtures";
 import { tasksRpcContract, type Task, type TaskThread } from "../../shared/contract";
@@ -9,8 +10,8 @@ interface RequestRecord {
 declare global {
   interface Window {
     boardFixture: {
-      emitRealtime(channel: string, payload: unknown): Promise<void>;
-      setRealtimeConnectionState(state: "connected" | "reconnecting"): Promise<void>;
+      emitRealtime: (channel: string, payload: unknown) => Promise<void>;
+      setRealtimeConnectionState: (state: "connected" | "reconnecting") => Promise<void>;
     };
   }
 }
@@ -44,8 +45,8 @@ async function setup(page: Page) {
       presetName: "Fixture agent",
       title: "Fixture work",
       liveStatus: "working",
-      attachedAt: tasks[0]!.createdAt,
-      updatedAt: tasks[0]!.createdAt,
+      attachedAt: (tasks[0] ?? missingValue("Expected tasks[0]")).createdAt,
+      updatedAt: (tasks[0] ?? missingValue("Expected tasks[0]")).createdAt,
     },
   ];
   const attachments = [makeAttachment("task-1")];
@@ -55,11 +56,12 @@ async function setup(page: Page) {
       projectId: "project-1",
       name: "frontend",
       color: "blue",
-      createdAt: tasks[0]!.createdAt,
+      createdAt: (tasks[0] ?? missingValue("Expected tasks[0]")).createdAt,
     },
   ];
   await page.route("**/__board_rpc/*", async (route) => {
-    const method = route.request().url().split("/").at(-1)!;
+    const method =
+      route.request().url().split("/").at(-1) ?? missingValue("Expected a non-null value");
     const input = route.request().postDataJSON() as Record<string, unknown>;
     requests.push({ method, input });
     let result: unknown;
@@ -99,7 +101,9 @@ async function setup(page: Page) {
           });
           break;
         }
-        const task = tasks.find((task) => task.id === input.taskId)!;
+        const task =
+          tasks.find((task) => task.id === input.taskId) ??
+          missingValue("Expected a non-null value");
         task.status = input.status as Task["status"];
         tasks.splice(tasks.indexOf(task), 1);
         const after = tasks.findIndex((task) => task.id === input.afterTaskId);
@@ -180,7 +184,7 @@ test("status edit moves the card without reloading unrelated board resources", a
   await expect(card.getByLabel("1 attachments")).toBeVisible();
   await expect(card).toContainText("frontend");
 
-  fixture.tasks[2]!.status = "done";
+  (fixture.tasks[2] ?? missingValue("Expected fixture.tasks[2]")).status = "done";
   await emit(page, "tasks:changed", { taskId: "child-1", projectId: "project-1" });
   await expect(card).toContainText("1/1");
   expect(fixture.counts().attachments).toBe(after.attachments);
@@ -191,10 +195,10 @@ test("real resource events, refresh, reconnect and tracker switches update the b
 }) => {
   const fixture = await setup(page);
   const card = page.getByRole("button", { name: "Open TSK-1: First card" });
-  fixture.threads[0]!.liveStatus = "idle";
+  (fixture.threads[0] ?? missingValue("Expected fixture.threads[0]")).liveStatus = "idle";
   await emit(page, "threads:changed", { taskId: "task-1" });
   await expect(card).not.toContainText("Fixture agent");
-  fixture.threads[0]!.liveStatus = "working";
+  (fixture.threads[0] ?? missingValue("Expected fixture.threads[0]")).liveStatus = "working";
   await emit(page, "threads:changed", { taskId: "task-1" });
   await expect(card).toContainText("Fixture agent");
 
@@ -212,15 +216,15 @@ test("real resource events, refresh, reconnect and tracker switches update the b
     resource: "attachments",
   });
   await expect(card.getByLabel(/attachments/)).toHaveCount(0);
-  fixture.labels[0]!.name = "renamed";
+  (fixture.labels[0] ?? missingValue("Expected fixture.labels[0]")).name = "renamed";
   await emit(page, "projects:changed", { projectId: "project-1" });
   await expect(card).toContainText("renamed");
 
   for (const action of ["refresh", "reconnect"]) {
     const before = fixture.counts();
     fixture.attachments.push(makeAttachment("task-1"));
-    fixture.threads[0]!.presetName = action;
-    fixture.labels[0]!.name = action;
+    (fixture.threads[0] ?? missingValue("Expected fixture.threads[0]")).presetName = action;
+    (fixture.labels[0] ?? missingValue("Expected fixture.labels[0]")).name = action;
     if (action === "refresh") await page.getByRole("button", { name: "Refresh tasks" }).click();
     else {
       await page.evaluate(() => window.boardFixture.setRealtimeConnectionState("reconnecting"));
@@ -253,8 +257,10 @@ test("drag ordering survives task refresh and failed moves restore the card", as
     todo
       .locator("[data-task-key]")
       .evaluateAll((cards) => cards.map((card) => card.getAttribute("data-task-key")));
-  const start = (await second.boundingBox())!;
-  const target = (await first.boundingBox())!;
+  const start =
+    (await second.boundingBox()) ?? missingValue("Expected (await second.boundingBox())");
+  const target =
+    (await first.boundingBox()) ?? missingValue("Expected (await first.boundingBox())");
   await page.mouse.move(start.x + 40, start.y + 15);
   await page.mouse.down();
   await page.mouse.move(target.x + 40, target.y + 2, { steps: 10 });

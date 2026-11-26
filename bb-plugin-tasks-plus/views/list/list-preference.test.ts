@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   DEFAULT_LIST_PREFERENCE,
@@ -152,7 +153,10 @@ describe("loadListPreference / storeListPreference", () => {
       collapsedStatuses: [],
     });
 
-    const stored = JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!);
+    const stored = JSON.parse(
+      window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY) ??
+        missingValue("Expected a non-null value"),
+    );
     expect(stored.version).toBe(LIST_PREFERENCE_VERSION);
     expect(Object.keys(stored.scopes).sort()).toEqual(["all", "project:p1"]);
   });
@@ -297,7 +301,12 @@ describe("section preference recovery", () => {
     storeListPreference("all", loadListPreference("all"));
     expect(loadListPreference("all")).toEqual(expected);
     expect(loadListPreference("active")).toEqual({ ...legacy, collapsedStatuses: [] });
-    expect(JSON.parse(window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY)!).version).toBe(1);
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(LIST_PREFERENCE_STORAGE_KEY) ??
+          missingValue("Expected a non-null value"),
+      ).version,
+    ).toBe(1);
   });
 
   it.each(

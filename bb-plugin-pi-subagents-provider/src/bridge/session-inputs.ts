@@ -21,7 +21,10 @@ export class PiSessionInputs {
   private autoRetryInProgress = false;
   private terminalSteerSettlement: Promise<void> | null = null;
 
-  constructor(private readonly readStreaming: () => Promise<boolean> | null) {}
+  private readonly readStreaming: () => Promise<boolean> | null;
+  constructor(readStreaming: () => Promise<boolean> | null) {
+    this.readStreaming = readStreaming;
+  }
 
   track(queue: PiInputQueue): TrackedSessionInput {
     let resolvePromise: () => void = () => undefined;

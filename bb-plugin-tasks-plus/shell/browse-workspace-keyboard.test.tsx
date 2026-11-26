@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { rpcInput } from "../test-fixtures.js";
@@ -65,9 +66,12 @@ describe("browse keyboard selection", () => {
       collapsedStatuses: [],
     });
     const records = [
-      { ...tasks[0]!, status: "done", priority: "urgent" },
-      { ...tasks[1]!, priority: "high" },
-      { ...tasks[2]!, parentTaskId: tasks[0]!.id },
+      { ...(tasks[0] ?? missingValue("Expected tasks[0]")), status: "done", priority: "urgent" },
+      { ...(tasks[1] ?? missingValue("Expected tasks[1]")), priority: "high" },
+      {
+        ...(tasks[2] ?? missingValue("Expected tasks[2]")),
+        parentTaskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
+      },
     ];
     const slot = setup(`${project.id}?view=list`, {
       listTasks: (raw) => ({

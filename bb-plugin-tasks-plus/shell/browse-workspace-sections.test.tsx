@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { loadListPreference, storeListPreference } from "../views/list/list-preference.js";
@@ -16,16 +17,19 @@ import {
 } from "./browse-workspace.test-support.js";
 
 registerWorkspaceTestLifecycle();
-const parent = { ...tasks[0]!, status: "done" as const };
-const child = { ...tasks[1]!, parentTaskId: parent.id };
-const records = [parent, child, tasks[2]!];
+const parent = { ...(tasks[0] ?? missingValue("Expected tasks[0]")), status: "done" as const };
+const child = { ...(tasks[1] ?? missingValue("Expected tasks[1]")), parentTaskId: parent.id };
+const records = [parent, child, tasks[2] ?? missingValue("Expected tasks[2]")];
 const nestedRpc = (raw: unknown) => ({
   tasks: rpcInput(raw).parentTaskId ? [] : records,
   nextCursor: null,
 });
 
 const sectionHeader = (slot: ReturnType<typeof setup>, name: string) =>
-  within(slot.container.querySelector<HTMLElement>("[data-list-scroll]")!).getByRole("button", {
+  within(
+    slot.container.querySelector<HTMLElement>("[data-list-scroll]") ??
+      missingValue("Expected a non-null value"),
+  ).getByRole("button", {
     name,
   });
 for (const scope of ["all", "active", project.id]) {
@@ -213,7 +217,12 @@ it("consumes canceled header focus before later reconciliation regains browse ow
     expect(document.activeElement).toBe(sort);
     refreshedTasks = [
       ...tasks,
-      { ...tasks[2]!, id: "01HZZZZZZZZZZZZZZZZZZZZZT4", key: "TSK-4", number: 4 },
+      {
+        ...(tasks[2] ?? missingValue("Expected tasks[2]")),
+        id: "01HZZZZZZZZZZZZZZZZZZZZZT4",
+        key: "TSK-4",
+        number: 4,
+      },
     ];
     await slot.behavior.emitRealtime("tasks:changed", {});
     await waitFor(() => expect(header.textContent).toContain("4"));
@@ -283,7 +292,7 @@ it("hides a filtered matching child with its dimmed parent without changing coun
       tasks: rpcInput(raw).parentTaskId
         ? []
         : rpcInput(raw).statuses
-          ? [child, tasks[2]!]
+          ? [child, tasks[2] ?? missingValue("Expected tasks[2]")]
           : records,
       nextCursor: null,
     }),

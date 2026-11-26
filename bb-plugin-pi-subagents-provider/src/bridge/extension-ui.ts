@@ -38,9 +38,9 @@ export interface HandleExtensionUiRequestArgs {
 }
 
 export interface ExtensionUiCoordinator {
-  handle(args: HandleExtensionUiRequestArgs): void;
-  handleRuntimeResponse(response: RuntimeInteractionUiResponse): boolean;
-  cancelPendingForScope(scope: object): void;
+  handle: (args: HandleExtensionUiRequestArgs) => void;
+  handleRuntimeResponse: (response: RuntimeInteractionUiResponse) => boolean;
+  cancelPendingForScope: (scope: object) => void;
 }
 
 function rawMethod(request: Record<string, unknown>): unknown {

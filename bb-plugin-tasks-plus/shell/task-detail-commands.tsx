@@ -19,14 +19,17 @@ export type TaskDetailAction =
   | "back";
 type Action = (() => void) | { run: () => void; isAvailable: () => boolean };
 type Actions = Partial<Record<TaskDetailAction, Action | null>>;
-type Registration = { taskKey: string; actions: Actions };
-type Session = {
+interface Registration {
+  taskKey: string;
+  actions: Actions;
+}
+interface Session {
   taskKey: string;
   rootRef: RefObject<HTMLElement | null>;
   loadedKey: string | null;
   registrations: Set<Registration>;
   activationFrame: number | null;
-};
+}
 
 const sessions = new Set<Session>();
 const TaskCommandContext = createContext<Session | null>(null);
@@ -51,8 +54,8 @@ function resolve(action: TaskDetailAction): { session: Session; handler: () => v
   const eligible = [...sessions].filter(
     (session) => session.loadedKey === session.taskKey && isShown(session.rootRef.current),
   );
-  if (eligible.length !== 1) return null;
-  const session = eligible[0]!;
+  const [session] = eligible;
+  if (!session || eligible.length !== 1) return null;
   const handlers = [...session.registrations]
     .filter((entry) => entry.taskKey === session.taskKey)
     .flatMap((entry) => {
@@ -61,7 +64,8 @@ function resolve(action: TaskDetailAction): { session: Session; handler: () => v
       if (typeof handler === "function") return [handler];
       return handler.isAvailable() ? [handler.run] : [];
     });
-  return handlers.length === 1 ? { session, handler: handlers[0]! } : null;
+  const [handler] = handlers;
+  return handlers.length === 1 ? { session, handler } : null;
 }
 
 export function canRunTaskDetailAction(action: TaskDetailAction): boolean {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { createStore, registerTasksApi } from "../../api";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
@@ -23,7 +24,7 @@ describe("NewTaskDialog", () => {
       registerTasksApi(host.bb, store);
       const calls: Record<string, unknown>[] = [];
       const slot = renderSlot(
-        app.navPanels[0]!,
+        app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
         { subPath: PROJECT_ID },
         {
           rpc: {
@@ -84,9 +85,9 @@ describe("NewTaskDialog", () => {
       metaKey: false,
     },
   ])("submits exactly once for $name", async ({ field, ctrlKey, metaKey }) => {
-    const createCalls: Array<Record<string, unknown>> = [];
+    const createCalls: Record<string, unknown>[] = [];
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: PROJECT_ID },
       {
         rpc: {
@@ -119,9 +120,9 @@ describe("NewTaskDialog", () => {
   });
 
   it("creates a task in the route's project with column defaults and navigates to it", async () => {
-    const createCalls: Array<Record<string, unknown>> = [];
+    const createCalls: Record<string, unknown>[] = [];
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: PROJECT_ID },
       {
         rpc: {
@@ -164,9 +165,9 @@ describe("NewTaskDialog", () => {
   });
 
   it("keeps the dialog open and clears the draft when Create more is on", async () => {
-    const createCalls: Array<Record<string, unknown>> = [];
+    const createCalls: Record<string, unknown>[] = [];
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: PROJECT_ID },
       {
         rpc: {
@@ -196,7 +197,7 @@ describe("NewTaskDialog", () => {
 
   it("surfaces domain errors returned by createTask", async () => {
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: PROJECT_ID },
       {
         rpc: {
@@ -226,9 +227,9 @@ describe("NewTaskDialog", () => {
   });
 
   it("offers a compact create-label action when the query matches no label", async () => {
-    const createLabelCalls: Array<Record<string, unknown>> = [];
+    const createLabelCalls: Record<string, unknown>[] = [];
     const slot = renderSlot(
-      app.navPanels[0]!,
+      app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
       { subPath: PROJECT_ID },
       {
         rpc: {

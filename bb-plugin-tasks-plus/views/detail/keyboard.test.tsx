@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -94,7 +95,7 @@ function render(
   } = {},
 ) {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: `task/${taskKey}` },
     {
       rpc: {
@@ -186,7 +187,7 @@ describe("task detail property keys", () => {
     fireEvent.keyDown(window, { key: "s" });
     const menus = await slot.findAllByRole("menu");
     expect(menus).toHaveLength(1);
-    expect(menus[0]!.textContent).toContain("In Review");
+    expect((menus[0] ?? missingValue("Expected menus[0]")).textContent).toContain("In Review");
   });
 
   it("opens one priority menu on p", async () => {
@@ -195,7 +196,7 @@ describe("task detail property keys", () => {
     fireEvent.keyDown(window, { key: "p" });
     const menus = await slot.findAllByRole("menu");
     expect(menus).toHaveLength(1);
-    expect(menus[0]!.textContent).toContain("Urgent");
+    expect((menus[0] ?? missingValue("Expected menus[0]")).textContent).toContain("Urgent");
   });
 
   it("opens the labels picker on l", async () => {
@@ -225,7 +226,7 @@ describe("task detail property keys", () => {
     const [dispatchButton] = await slot.findAllByRole("button", {
       name: "Default env",
     });
-    fireEvent.click(dispatchButton!);
+    fireEvent.click(dispatchButton ?? missingValue("Expected dispatchButton"));
     await slot.findAllByText("Dispatching…");
     fireEvent.keyDown(window, { key: "d" });
     finish({ ok: true });
@@ -250,9 +251,9 @@ describe("task detail comment key", () => {
     fireEvent.keyDown(window, { key: "m" });
     expect(document.activeElement).toBe(focus);
     expect(slot.queryByRole("region", { name: "Activity" })).toBeNull();
-    const description = slot.container.querySelector<HTMLElement>(
-      '.tiptap[contenteditable="true"]',
-    )!;
+    const description =
+      slot.container.querySelector<HTMLElement>('.tiptap[contenteditable="true"]') ??
+      missingValue("Expected a non-null value");
     description.focus();
     fireEvent.keyDown(description, { key: "c" });
     expect(slot.queryByRole("dialog")).toBeNull();
@@ -270,7 +271,7 @@ describe("Markdown dialog in the full Tasks app", () => {
       }));
       const attachment: Attachment = {
         id: "attachment-generic",
-        taskId: TASKS[0]!.id,
+        taskId: (TASKS[0] ?? missingValue("Expected TASKS[0]")).id,
         fileName: "investigation.MD",
         mime: "application/octet-stream",
         sizeBytes: 14,
@@ -288,7 +289,7 @@ describe("Markdown dialog in the full Tasks app", () => {
       vi.stubGlobal("fetch", fetch);
       const calls: string[] = [];
       const updates: Record<string, unknown>[] = [];
-      let saved = { ...TASKS[0]! };
+      let saved = { ...(TASKS[0] ?? missingValue("Expected TASKS[0]")) };
       let finishSave!: () => void;
       const saveGate = new Promise<void>((resolve) => {
         finishSave = resolve;
@@ -305,9 +306,9 @@ describe("Markdown dialog in the full Tasks app", () => {
         },
       });
       await ready(slot, "1 / 3");
-      const description = slot.container.querySelector<HTMLElement>(
-        '.tiptap[contenteditable="true"]',
-      )!;
+      const description =
+        slot.container.querySelector<HTMLElement>('.tiptap[contenteditable="true"]') ??
+        missingValue("Expected a non-null value");
       const title = slot.getByRole("textbox", { name: "Task title" });
       const status = slot.getAllByRole("button", { name: "Todo" });
       const priority = slot.getAllByRole("button", { name: "No priority" });
@@ -320,14 +321,20 @@ describe("Markdown dialog in the full Tasks app", () => {
       await waitFor(() => {
         expect(updates).toEqual(
           expect.arrayContaining([
-            expect.objectContaining({ taskId: TASKS[0]!.id, title: "Edited investigation title" }),
-            expect.objectContaining({ taskId: TASKS[0]!.id, description: "Unfinished task draft" }),
+            expect.objectContaining({
+              taskId: (TASKS[0] ?? missingValue("Expected TASKS[0]")).id,
+              title: "Edited investigation title",
+            }),
+            expect.objectContaining({
+              taskId: (TASKS[0] ?? missingValue("Expected TASKS[0]")).id,
+              description: "Unfinished task draft",
+            }),
           ]),
         );
       });
-      const scroll = description.closest<HTMLElement>(
-        '[class*="overflow-y-auto"], [class*="overflow-auto"]',
-      )!;
+      const scroll =
+        description.closest<HTMLElement>('[class*="overflow-y-auto"], [class*="overflow-auto"]') ??
+        missingValue("Expected a non-null value");
       if (!scroll) throw new Error("Task scroll region is missing");
       scroll.scrollTop = 170;
       const expectTaskUnchanged = () => {
@@ -378,7 +385,7 @@ describe("Markdown dialog in the full Tasks app", () => {
       });
       await waitFor(() =>
         expect(updates).toContainEqual({
-          taskId: TASKS[0]!.id,
+          taskId: (TASKS[0] ?? missingValue("Expected TASKS[0]")).id,
           description: "Continued task draft",
         }),
       );
@@ -394,7 +401,7 @@ describe("Markdown dialog in the full Tasks app", () => {
     "settles asynchronous removal before closing a concurrently opened preview, success=%s",
     async (success) => {
       const attachment: Attachment = {
-        ...makeAttachment(TASKS[0]!.id, "pending.md"),
+        ...makeAttachment((TASKS[0] ?? missingValue("Expected TASKS[0]")).id, "pending.md"),
         mime: "application/octet-stream",
       };
       const attachments = [attachment];

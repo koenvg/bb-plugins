@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, expect, it, vi } from "vitest";
 import { makeThreadResponse, makeQueueEntry } from "@get-bb/plugin-sdk/testing";
 import { fixture, loopbackFetch } from "./fixtures.js";
@@ -64,7 +65,7 @@ async function poll(operationId: string, credential?: string) {
     ).json()
   ).result;
 }
-function unavailable(reply: any) {
+function unavailable(reply: { structuredContent?: unknown }) {
   expect(reply).toMatchObject({
     isError: true,
     content: [{ type: "text", text: "OPERATION_UNAVAILABLE" }],
@@ -172,18 +173,19 @@ it("advertises a strict text-only write with costs and leaves pending approvals 
   const client = await f.client();
   try {
     const tools = (await client.listTools()).tools;
-    const tool = tools.find((t) => t.name === "bb_send_message")!;
+    const tool =
+      tools.find((t) => t.name === "bb_send_message") ?? missingValue("Expected a non-null value");
     expect(tool.annotations).toEqual({
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     });
-    expect(Object.keys(tool.inputSchema.properties!)).toEqual([
-      "threadId",
-      "message",
-      "operationKey",
-    ]);
+    expect(
+      Object.keys(
+        tool.inputSchema.properties ?? missingValue("Expected tool.inputSchema.properties"),
+      ),
+    ).toEqual(["threadId", "message", "operationKey"]);
     expect(tool.inputSchema.additionalProperties).toBe(false);
     expect(tool.description).toMatch(/code.*external actions.*provider costs/);
     expect(tool.description).toMatch(/Pending approvals remain in BB/);

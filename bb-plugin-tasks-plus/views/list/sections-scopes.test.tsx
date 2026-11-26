@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -83,16 +84,26 @@ const rows = (slot: ReturnType<typeof renderSlot>) =>
 
 it("keeps four section choices independent through scope transitions and remount, with no settled order from the prior scope", async () => {
   const report = vi.fn<(scope: string, order: VisibleTaskOrder) => void>();
-  const slot = renderSlot({ component: List }, { scope: scopes[0]!, report }, { rpc });
+  const slot = renderSlot(
+    { component: List },
+    { scope: scopes[0] ?? missingValue("Expected scopes[0]"), report },
+    { rpc },
+  );
   await slot.findByText("ALP-1");
   fireEvent.click(slot.getByRole("button", { name: "Todo" }));
-  slot.lifecycle.rerender(<List scope={scopes[1]!} report={report} />);
+  slot.lifecycle.rerender(
+    <List scope={scopes[1] ?? missingValue("Expected scopes[1]")} report={report} />,
+  );
   await slot.findByText("ALP-1");
   fireEvent.click(slot.getByRole("button", { name: "In Progress" }));
-  slot.lifecycle.rerender(<List scope={scopes[2]!} report={report} />);
+  slot.lifecycle.rerender(
+    <List scope={scopes[2] ?? missingValue("Expected scopes[2]")} report={report} />,
+  );
   await slot.findByText("ALP-1");
   fireEvent.click(slot.getByRole("button", { name: "Done" }));
-  slot.lifecycle.rerender(<List scope={scopes[3]!} report={report} />);
+  slot.lifecycle.rerender(
+    <List scope={scopes[3] ?? missingValue("Expected scopes[3]")} report={report} />,
+  );
   await slot.findByText("BET-1");
   // An explicit expanded choice in B differs from all three other scopes.
   fireEvent.click(slot.getByRole("button", { name: "Todo" }));

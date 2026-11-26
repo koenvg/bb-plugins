@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
@@ -183,8 +184,13 @@ it("shares thread reads across sequential visible chunks, retains every associat
   for (const id of ["thr_shared", "thr_unreadable"])
     expect(get.mock.calls.filter(([input]) => input.threadId === id)).toHaveLength(1);
   for (const task of tasks) {
-    expect(latest!.get(task.id)!.threads).toHaveLength(2);
-    expect(latest!.get(task.id)).toMatchObject({
+    expect(
+      (
+        (latest ?? missingValue("Expected latest")).get(task.id) ??
+        missingValue("Expected a non-null value")
+      ).threads,
+    ).toHaveLength(2);
+    expect((latest ?? missingValue("Expected latest")).get(task.id)).toMatchObject({
       availability: "available",
       threads: expect.arrayContaining([
         {
@@ -207,13 +213,33 @@ it("shares thread reads across sequential visible chunks, retains every associat
   status = "idle";
   unreadable = false;
   fireEvent.click(slot.getByText("Refresh"));
-  await waitFor(() => expect(latest!.get(tasks[500]!.id)!.threads[0]!.execution).toBe("idle"));
+  await waitFor(() =>
+    expect(
+      (
+        (
+          (latest ?? missingValue("Expected latest")).get(
+            (tasks[500] ?? missingValue("Expected tasks[500]")).id,
+          ) ?? missingValue("Expected a non-null value")
+        ).threads[0] ?? missingValue("Expected a non-null value")
+      ).execution,
+    ).toBe("idle"),
+  );
   expect(get).toHaveBeenCalledTimes(4);
   for (const id of ["thr_shared", "thr_unreadable"])
     expect(get.mock.calls.filter(([input]) => input.threadId === id)).toHaveLength(2);
   for (const task of tasks) {
-    expect(latest!.get(task.id)!.threads).toHaveLength(2);
-    expect(latest!.get(task.id)!.threads).toEqual(
+    expect(
+      (
+        (latest ?? missingValue("Expected latest")).get(task.id) ??
+        missingValue("Expected a non-null value")
+      ).threads,
+    ).toHaveLength(2);
+    expect(
+      (
+        (latest ?? missingValue("Expected latest")).get(task.id) ??
+        missingValue("Expected a non-null value")
+      ).threads,
+    ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ threadId: "thr_shared", execution: "idle" }),
         expect.objectContaining({
@@ -307,7 +333,9 @@ it("updates archived failure, unarchive and confirmed deletion through the mount
   expect(control().textContent).not.toContain("archived");
   expect(get).toHaveBeenCalledTimes(4);
   expect(store.tasks.listTaskThreads(task.id)).toEqual(before);
-  expect(store.tasks.getTask(task.id)!.status).toBe("in_review");
+  expect(
+    (store.tasks.getTask(task.id) ?? missingValue("Expected store.tasks.getTask(task.id)")).status,
+  ).toBe("in_review");
   expect(
     harness.inspection.sdk.calls.every((call) =>
       ["threads.get", "plugins.list"].includes(call.path),
@@ -370,7 +398,7 @@ it("shares settled environment successes, absence and failures across 501 sequen
         presetName: "Worker",
         liveStatus: "completed",
       });
-  const before = store.tasks.listTaskThreads(tasks[0]!.id);
+  const before = store.tasks.listTaskThreads((tasks[0] ?? missingValue("Expected tasks[0]")).id);
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
   const Probe = () => {
@@ -396,7 +424,7 @@ it("shares settled environment successes, absence and failures across 501 sequen
   expect(pullRequest).toHaveBeenCalledTimes(3);
   expect(get).toHaveBeenCalledTimes(4);
   for (const task of tasks)
-    expect(latest!.get(task.id)).toMatchObject({
+    expect((latest ?? missingValue("Expected latest")).get(task.id)).toMatchObject({
       pullRequests: {
         availability: "partial",
         items: [
@@ -414,7 +442,11 @@ it("shares settled environment successes, absence and failures across 501 sequen
   fireEvent.click(slot.getByText("Refresh PRs"));
   await waitFor(() => expect(pullRequest).toHaveBeenCalledTimes(6));
   await waitFor(() =>
-    expect(latest!.get(tasks[500]!.id)).toMatchObject({
+    expect(
+      (latest ?? missingValue("Expected latest")).get(
+        (tasks[500] ?? missingValue("Expected tasks[500]")).id,
+      ),
+    ).toMatchObject({
       pullRequests: {
         availability: "available",
         items: expect.arrayContaining([
@@ -432,10 +464,23 @@ it("shares settled environment successes, absence and failures across 501 sequen
       },
     }),
   );
-  for (const task of tasks) expect(latest!.get(task.id)!.pullRequests.items).toHaveLength(2);
+  for (const task of tasks)
+    expect(
+      (
+        (latest ?? missingValue("Expected latest")).get(task.id) ??
+        missingValue("Expected a non-null value")
+      ).pullRequests.items,
+    ).toHaveLength(2);
   expect(get).toHaveBeenCalledTimes(8);
-  expect(store.tasks.listTaskThreads(tasks[0]!.id)).toEqual(before);
-  expect(store.tasks.getTask(tasks[0]!.id)!.status).toBe("in_review");
+  expect(store.tasks.listTaskThreads((tasks[0] ?? missingValue("Expected tasks[0]")).id)).toEqual(
+    before,
+  );
+  expect(
+    (
+      store.tasks.getTask((tasks[0] ?? missingValue("Expected tasks[0]")).id) ??
+      missingValue("Expected a non-null value")
+    ).status,
+  ).toBe("in_review");
   expect(
     harness.inspection.sdk.calls.every((call) =>
       ["threads.get", "plugins.callRpc", "plugins.list"].includes(call.path),
@@ -496,7 +541,9 @@ it("keeps work metadata stable after a status edit and refreshes it for a thread
       },
     },
   );
-  const row = () => slot.container.querySelector<HTMLElement>(`[data-task-key="${task.key}"]`)!;
+  const row = () =>
+    slot.container.querySelector<HTMLElement>(`[data-task-key="${task.key}"]`) ??
+    missingValue("Expected a non-null value");
   const statusControl = (label: string) =>
     within(row()).getByRole("button", { name: `Change status, currently ${label}` });
   let signalIndex = 0;
@@ -624,10 +671,11 @@ it("keeps remaining work metadata without rereads when a status filter removes a
   const metadataReadsBeforeEdit = workStatusInputs.length;
   const threadReadsBeforeEdit = get.mock.calls.length;
   const removedRow = () =>
-    slot.container.querySelector<HTMLElement>(`[data-task-key="${removed.key}"]`)!;
-  const removedStatus = removedRow().querySelector<HTMLButtonElement>(
-    '[aria-label="Change status, currently Todo"]',
-  )!;
+    slot.container.querySelector<HTMLElement>(`[data-task-key="${removed.key}"]`) ??
+    missingValue("Expected a non-null value");
+  const removedStatus =
+    removedRow().querySelector<HTMLButtonElement>('[aria-label="Change status, currently Todo"]') ??
+    missingValue("Expected a non-null value");
   fireEvent.pointerDown(removedStatus, { button: 0, ctrlKey: false });
   fireEvent.click(await slot.findByRole("menuitem", { name: /Done/ }));
   await waitFor(() =>

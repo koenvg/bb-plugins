@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "../server";
@@ -105,7 +106,7 @@ describe("single-image HTTP transport", () => {
     async ({ target, root, path }) => {
       const { harness, resolve, get } = setup();
       const result = await resolve(target);
-      const image = result.destinations[0]!;
+      const image = result.destinations[0] ?? missingValue("Expected result.destinations[0]");
       expect(image.kind).toBe("image");
       if (image.kind !== "image") throw new Error("Image missing");
       expect(image).not.toHaveProperty("expiresAtMs");
@@ -136,11 +137,16 @@ describe("single-image HTTP transport", () => {
 
   it("rejects modified, missing and plain-file tokens without any file read", async () => {
     const { harness, resolve, get } = setup();
-    const image = (await resolve(sources[0]!.target)).destinations[0]!;
+    const image =
+      (await resolve((sources[0] ?? missingValue("Expected sources[0]")).target)).destinations[0] ??
+      missingValue("Expected a non-null value");
     if (image.kind !== "image") throw new Error("Image missing");
-    const asset = new URL(image.url, "http://plugin.test").searchParams.get("asset")!;
+    const asset =
+      new URL(image.url, "http://plugin.test").searchParams.get("asset") ??
+      missingValue("Expected a non-null value");
     const modified = Buffer.from(asset, "base64url");
-    modified[modified.length - 1] = modified[modified.length - 1]! ^ 1;
+    modified[modified.length - 1] =
+      (modified[modified.length - 1] ?? missingValue("Expected modified[modified.length - 1]")) ^ 1;
     for (const query of [
       "",
       "?asset=picture.png",
@@ -157,7 +163,10 @@ describe("single-image HTTP transport", () => {
     "does not issue access for %s",
     async (url) => {
       const { harness, resolve } = setup();
-      expect((await resolve(sources[1]!.target, url)).destinations[0]?.kind).toBe("rejected");
+      expect(
+        (await resolve((sources[1] ?? missingValue("Expected sources[1]")).target, url))
+          .destinations[0]?.kind,
+      ).toBe("rejected");
       expect(harness.inspection.sdk.callsTo("files.read")).toHaveLength(0);
       expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
     },
@@ -165,7 +174,9 @@ describe("single-image HTTP transport", () => {
 
   it("retains host-side symlink confinement and reports a readable failure without exposing paths", async () => {
     const { harness, resolve, get, fail } = setup();
-    const image = (await resolve(sources[0]!.target)).destinations[0]!;
+    const image =
+      (await resolve((sources[0] ?? missingValue("Expected sources[0]")).target)).destinations[0] ??
+      missingValue("Expected a non-null value");
     if (image.kind !== "image") throw new Error("Image missing");
     fail();
     const response = await get(image.url);
@@ -178,7 +189,9 @@ describe("single-image HTTP transport", () => {
 
   it("invalidates old URLs on reload and gives Refresh a usable new URL", async () => {
     const { harness, resolve } = setup();
-    const old = (await resolve(sources[0]!.target)).destinations[0]!;
+    const old =
+      (await resolve((sources[0] ?? missingValue("Expected sources[0]")).target)).destinations[0] ??
+      missingValue("Expected a non-null value");
     if (old.kind !== "image") throw new Error("Image missing");
     const replacement = await harness.lifecycle.reload(plugin);
     disposers.push(() => replacement.harness.lifecycle.dispose());
@@ -186,12 +199,13 @@ describe("single-image HTTP transport", () => {
     expect((await replacement.harness.behavior.fetchHttp("GET", `/image${oldQuery}`)).status).toBe(
       404,
     );
-    const fresh = destinationsResultSchema.parse(
-      await replacement.harness.behavior.callRpc("resolve_destinations", {
-        target: sources[0]!.target,
-        requests: [{ url: "picture.png", image: true }],
-      }),
-    ).destinations[0]!;
+    const fresh =
+      destinationsResultSchema.parse(
+        await replacement.harness.behavior.callRpc("resolve_destinations", {
+          target: (sources[0] ?? missingValue("Expected sources[0]")).target,
+          requests: [{ url: "picture.png", image: true }],
+        }),
+      ).destinations[0] ?? missingValue("Expected a non-null value");
     if (fresh.kind !== "image") throw new Error("Image missing");
     const freshQuery = new URL(fresh.url, "http://plugin.test").search;
     expect(

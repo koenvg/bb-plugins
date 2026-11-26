@@ -7,7 +7,7 @@ import { isRemoteProject } from "./project-access.js";
 import { hasAccess, hasControl, providerSummarySchema } from "./control.js";
 import type { Identity } from "./auth.js";
 
-export type StartSource = {
+export interface StartSource {
   defaults: BbPluginApi["sdk"]["projects"]["defaultExecutionOptions"];
   listProviders: BbPluginApi["sdk"]["providers"]["list"];
   systemConfig: BbPluginApi["sdk"]["system"]["config"];
@@ -17,10 +17,10 @@ export type StartSource = {
   stop: BbPluginApi["sdk"]["threads"]["stop"];
   queue: BbPluginApi["sdk"]["threads"]["queuedMessages"]["list"];
   interactions: BbPluginApi["sdk"]["threads"]["interactions"]["list"];
-};
+}
 type Database = ReturnType<BbPluginApi["storage"]["database"]>;
 type State = "pending" | "accepted" | "failed" | "unknown";
-type RecordRow = {
+interface RecordRow {
   id: string;
   issuer: string;
   owner: string;
@@ -40,7 +40,7 @@ type RecordRow = {
   updated: number;
   generation: string;
   resolved: number | null;
-};
+}
 export const operationMigration = `CREATE TABLE operations (
   id TEXT PRIMARY KEY, issuer TEXT NOT NULL, owner TEXT NOT NULL, tool TEXT NOT NULL,
   key TEXT NOT NULL, hash TEXT NOT NULL, project TEXT NOT NULL, thread TEXT,
@@ -228,7 +228,7 @@ export function operationControl(options: {
         thread.deletedAt !== null
       )
         throw new Error("OPERATION_UNAVAILABLE");
-      return thread;
+      return { ...thread, projectId: thread.projectId };
     } finally {
       signal.removeEventListener("abort", abort);
     }
@@ -297,24 +297,25 @@ export function operationControl(options: {
     });
     try {
       requireAccess(identity, row.project, true);
-      if (activeReads > 6) return;
+      const threadId = row.thread;
+      if (threadId === null || activeReads > 6) return;
       activeReads += 2;
       const [queue, interactions] = await Promise.race([
         Promise.all([
           Promise.resolve()
-            .then(() => source.queue({ threadId: row.thread!, signal }))
+            .then(() => source.queue({ threadId, signal }))
             .finally(() => {
               activeReads--;
             }),
           Promise.resolve()
-            .then(() => source.interactions({ threadId: row.thread!, signal }))
+            .then(() => source.interactions({ threadId, signal }))
             .finally(() => {
               activeReads--;
             }),
         ]),
         cancelled,
       ]);
-      const thread = await lookupThread(identity, row.thread!, row.project, true, signal);
+      const thread = await lookupThread(identity, threadId, row.project, true, signal);
       // Save selected observations only. Stop acknowledgement survives failed reads.
       if (signal.aborted || closed) return;
       db.prepare(
@@ -439,14 +440,15 @@ export function operationControl(options: {
             ? await resolveEnvironment(input.workspace, readSignal())
             : null;
           checkDispatch();
-          dispatched = true;
           if (isStart) {
+            if (!execution || environment === null) throw new Error();
+            dispatched = true;
             const thread = await source.spawn({
-              ...execution!,
+              ...execution,
               projectId: project,
               prompt: input.prompt,
               ...(input.title === undefined ? {} : { title: input.title }),
-              environment: environment!,
+              environment,
               visibility: "visible",
               pluginMetadata: { operationId: row.id },
             });
@@ -459,6 +461,7 @@ export function operationControl(options: {
               throw new Error();
             finish(row.id, "accepted", null, thread.id);
           } else if ("message" in input) {
+            dispatched = true;
             const sent = await source.send({
               threadId: input.threadId,
               mode: "auto",
@@ -475,6 +478,7 @@ export function operationControl(options: {
               throw new Error();
             finish(row.id, "accepted", null, input.threadId, sent.delivery, waitingOn);
           } else {
+            dispatched = true;
             const stopped = await source.stop({ threadId: input.threadId });
             if (!stopped || stopped.ok !== true) throw new Error();
             finish(row.id, "accepted", null, input.threadId);
@@ -624,7 +628,7 @@ export function operationControl(options: {
       if (summaries.length && !page.length) throw new Error("SUMMARY_TOO_LARGE");
       return {
         operations: page,
-        nextCursor: summaries.length > page.length ? page.at(-1)!.operationId : null,
+        nextCursor: summaries.length > page.length ? (page.at(-1)?.operationId ?? null) : null,
       };
     },
     activate() {
@@ -704,7 +708,7 @@ export function operationControl(options: {
               true,
               AbortSignal.any([signal, AbortSignal.timeout(limits.responseWaitMs)]),
             );
-            return result(await submit(identity, input, thread.projectId!, signal, started));
+            return result(await submit(identity, input, thread.projectId, signal, started));
           } catch (error) {
             onFailure("bb_send_message");
             const code =
@@ -738,7 +742,7 @@ export function operationControl(options: {
               true,
               AbortSignal.any([signal, AbortSignal.timeout(limits.responseWaitMs)]),
             );
-            return result(await submit(identity, input, thread.projectId!, signal, started));
+            return result(await submit(identity, input, thread.projectId, signal, started));
           } catch (error) {
             onFailure("bb_stop_thread");
             const code =

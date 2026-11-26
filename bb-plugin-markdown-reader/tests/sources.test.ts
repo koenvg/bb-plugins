@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { createSourceReader, type ReaderTarget, type SourceAdapter } from "../source";
 
@@ -210,8 +211,14 @@ describe("all live source identities", () => {
         vi.mocked(adapter.read).mockRejectedValue(new Error(message));
         expect(await reader.read(target)).toEqual({ kind: "error", message });
         expect(adapter.read).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(adapter.read).mock.calls[0]![0].hostId).toBe("remote");
-        expect(vi.mocked(adapter.read).mock.calls[0]![0].rootPath).toBeTruthy();
+        expect(
+          (vi.mocked(adapter.read).mock.calls[0] ?? missingValue("Expected a non-null value"))[0]
+            .hostId,
+        ).toBe("remote");
+        expect(
+          (vi.mocked(adapter.read).mock.calls[0] ?? missingValue("Expected a non-null value"))[0]
+            .rootPath,
+        ).toBeTruthy();
       }
     },
   );
@@ -331,7 +338,10 @@ describe("all live source identities", () => {
       (
         await reader.read({
           ...targets[1],
-          source: { ...targets[1]!.source, experimental_hostId: "remote" },
+          source: {
+            ...(targets[1] ?? missingValue("Expected targets[1]")).source,
+            experimental_hostId: "remote",
+          },
         })
       ).kind,
     ).toBe("error");
@@ -355,21 +365,21 @@ describe("all live source identities", () => {
     ).toBe("error");
     expect(adapter.read).not.toHaveBeenCalled();
   });
-  it.each([targets[0]!, targets[1]!])(
-    "rejects a mismatched resolved environment for $source.kind",
-    async (target) => {
-      const { reader, adapter } = setup();
-      vi.mocked(adapter.environment).mockResolvedValue({
-        id: "other-env",
-        projectId: "project",
-        hostId: "remote",
-        path: "/work",
-        status: "ready",
-      });
-      expect((await reader.read(target)).kind).toBe("error");
-      expect(adapter.read).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    targets[0] ?? missingValue("Expected targets[0]"),
+    targets[1] ?? missingValue("Expected targets[1]"),
+  ])("rejects a mismatched resolved environment for $source.kind", async (target) => {
+    const { reader, adapter } = setup();
+    vi.mocked(adapter.environment).mockResolvedValue({
+      id: "other-env",
+      projectId: "project",
+      hostId: "remote",
+      path: "/work",
+      status: "ready",
+    });
+    expect((await reader.read(target)).kind).toBe("error");
+    expect(adapter.read).not.toHaveBeenCalled();
+  });
   it("preserves valid replacement characters, BOM, Unicode, CRLF and the caller's target unchanged", async () => {
     const { reader, adapter } = setup();
     const text = "\ufeff# 日本語\r\n\r\nActual \ufffd and é  \r\n";
@@ -379,7 +389,7 @@ describe("all live source identities", () => {
       sha256: "hash",
       sizeBytes: new TextEncoder().encode(text).length,
     });
-    const target = structuredClone(targets[2]!);
+    const target = structuredClone(targets[2] ?? missingValue("Expected targets[2]"));
     const result = await reader.read(target);
     expect(result).toMatchObject({ kind: "ready", snapshot: { text } });
     expect(Object.isFrozen(target)).toBe(false);
@@ -465,13 +475,15 @@ describe("bare file names missing at the source root", () => {
 
   it("does not search for a path that names a directory", async () => {
     const { reader, findByName } = setupMissing(["other/note.md"]);
-    expect((await reader.read(targets[0]!)).kind).toBe("error");
+    expect((await reader.read(targets[0] ?? missingValue("Expected targets[0]"))).kind).toBe(
+      "error",
+    );
     expect(findByName).not.toHaveBeenCalled();
   });
 });
 
 describe("workspace paths missing from the workspace", () => {
-  const workspace = targets[0]!;
+  const workspace = targets[0] ?? missingValue("Expected targets[0]");
   const missing = Object.assign(new Error("HTTP 404: Path does not exist: /work/reports/note.md"), {
     status: 404,
   });

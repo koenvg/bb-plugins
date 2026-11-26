@@ -1,12 +1,13 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { createStore } from ".";
 import { tasksRpcContract, type TaskStatus } from "../shared/contract.js";
 import plugin from "../server";
 
-const disposers: Array<() => Promise<void>> = [];
+const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  while (disposers.length) await disposers.pop()!();
+  while (disposers.length) await (disposers.pop() ?? missingValue("Expected disposers.pop()"))();
 });
 
 async function setup() {
@@ -89,7 +90,7 @@ describe("public getTaskStats RPC", () => {
     const history = f.store.tasks.listTaskStatusTransitions(review.id);
     f.db
       .prepare("UPDATE task_status_transitions SET changed_at = ? WHERE id = ?")
-      .run(new Date(100).toISOString(), history[1]!.id);
+      .run(new Date(100).toISOString(), (history[1] ?? missingValue("Expected history[1]")).id);
     f.task(f.alpha.id, "Zero", ["in_progress", "done"], 0);
     f.task(f.beta.id, "Interrupted", ["in_progress", "todo", "in_progress", "done"], 200);
     f.task(f.beta.id, "Canceled", ["in_progress", "canceled"], 500);

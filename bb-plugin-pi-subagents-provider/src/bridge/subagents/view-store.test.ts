@@ -1,3 +1,5 @@
+import type { RunNode } from "./protocol.js";
+import { fail as missingValue } from "node:assert/strict";
 import { expect, it } from "vitest";
 import { createViewStore } from "./view-store.js";
 import { parseViewState } from "../../subagents-contract.js";
@@ -33,10 +35,18 @@ it("preserves both maximum-length activity fields and legacy version-1 activity"
   expect(parseViewState(state)).toEqual(state);
   const withActivity = (value: string) => ({
     ...state,
-    rows: [{ ...state.rows[0]!, activity: value }],
+    rows: [{ ...(state.rows[0] ?? missingValue("Expected state.rows[0]")), activity: value }],
   });
-  expect(parseViewState(withActivity("bash"))?.rows[0]!.activity).toBe("bash");
-  expect(parseViewState(withActivity("x".repeat(384)))?.rows[0]!.activity).toHaveLength(384);
+  expect(
+    (parseViewState(withActivity("bash"))?.rows[0] ?? missingValue("Expected a non-null value"))
+      .activity,
+  ).toBe("bash");
+  expect(
+    (
+      parseViewState(withActivity("x".repeat(384)))?.rows[0] ??
+      missingValue("Expected a non-null value")
+    ).activity,
+  ).toHaveLength(384);
   expect(parseViewState(withActivity("x".repeat(385)))).toBeUndefined();
 });
 it("keeps parent-scoped steps, canonical nested identities and known outcomes on capture errors", () => {
@@ -72,8 +82,15 @@ it("keeps parent-scoped steps, canonical nested identities and known outcomes on
   expect(v.snapshot().rows).toHaveLength(4);
   expect(new Set(v.snapshot().rows.map((r) => r.id)).size).toBe(4);
   expect(targets.find((t) => t.childId === "step:0" && t.asyncId === "child")).toBeDefined();
-  v.capture(targets[0]!.id, { status: "timeout", capturedAt: 10, reason: "No reply" });
-  expect(v.snapshot().rows.find((r) => r.runId === "root")!.state).toBe("complete");
+  v.capture((targets[0] ?? missingValue("Expected targets[0]")).id, {
+    status: "timeout",
+    capturedAt: 10,
+    reason: "No reply",
+  });
+  expect(
+    (v.snapshot().rows.find((r) => r.runId === "root") ?? missingValue("Expected a non-null value"))
+      .state,
+  ).toBe("complete");
   expect(v.snapshot().rows.find((r) => r.runId === "child")).toMatchObject({
     state: "running",
     activity: "Last observed activity: Needs attention · Reported tool: bash",
@@ -90,7 +107,7 @@ it("foreground partial/final rows use published indices, not positions, and pres
     results: [{ index: 4, agent: "a", task: "task", finalOutput: "answer", exitCode: 0 }],
   };
   v.foreground(owner, details, false);
-  const id = v.snapshot().rows[0]!.id;
+  const id = (v.snapshot().rows[0] ?? missingValue("Expected v.snapshot().rows[0]")).id;
   v.foreground(owner, details, true);
   expect(v.snapshot().rows).toHaveLength(1);
   expect(v.snapshot().rows[0]).toMatchObject({
@@ -99,7 +116,9 @@ it("foreground partial/final rows use published indices, not positions, and pres
     capture: { finalOutput: "answer" },
   });
   v.dispose(owner, "exit");
-  expect(v.snapshot().rows[0]!.capture?.finalOutput).toBe("answer");
+  expect(
+    (v.snapshot().rows[0] ?? missingValue("Expected v.snapshot().rows[0]")).capture?.finalOutput,
+  ).toBe("answer");
 });
 it("coalesces equal snapshots, preserves capture time on failure and stays within the state budget", () => {
   let clock = 1;
@@ -113,9 +132,19 @@ it("coalesces equal snapshots, preserves capture time on failure and stays withi
   clock = 2;
   v.background(owner, [node], false);
   expect(states).toHaveLength(1);
-  v.capture(targets[0]!.id, { status: "captured", capturedAt: 1, finalOutput: "answer" });
-  v.capture(targets[0]!.id, { status: "timeout", capturedAt: 2, reason: "No reply" });
-  expect(v.snapshot().rows[0]!.capture).toMatchObject({
+  v.capture((targets[0] ?? missingValue("Expected targets[0]")).id, {
+    status: "captured",
+    capturedAt: 1,
+    finalOutput: "answer",
+  });
+  v.capture((targets[0] ?? missingValue("Expected targets[0]")).id, {
+    status: "timeout",
+    capturedAt: 2,
+    reason: "No reply",
+  });
+  expect(
+    (v.snapshot().rows[0] ?? missingValue("Expected v.snapshot().rows[0]")).capture,
+  ).toMatchObject({
     capturedAt: 1,
     attemptedAt: 2,
     finalOutput: "answer",
@@ -148,9 +177,10 @@ it("does not guess the owner of materialized inner workflow lanes with repeated 
       ],
     },
   ] as const;
-  const targets = v.background(owner, roots as unknown as import("./protocol.js").RunNode[], false);
+  const targets = v.background(owner, roots as unknown as RunNode[], false);
   expect(targets.filter((t) => t.childId === "same-key")).toHaveLength(1);
-  const outerTarget = targets.find((t) => t.childId === "same-key")!;
+  const outerTarget =
+    targets.find((t) => t.childId === "same-key") ?? missingValue("Expected a non-null value");
   v.capture(outerTarget.id, {
     status: "captured",
     capturedAt: 1,
@@ -189,17 +219,21 @@ it("preserves foreground enrichment when newer detail lacks it, and isolates ses
     ],
   };
   v.foreground(owner, details, true);
-  const id = v.snapshot().rows[0]!.id;
+  const id = (v.snapshot().rows[0] ?? missingValue("Expected v.snapshot().rows[0]")).id;
   const model = { provider: "child-provider", model: "child-model", capturedAt: 2 };
   clock = 10;
   v.foreground(owner, { ...details, results: [{ index: 0, agent: "a", exitCode: 0 }] }, true);
-  expect(v.snapshot().rows[0]!.capture).toMatchObject({
+  expect(
+    (v.snapshot().rows[0] ?? missingValue("Expected v.snapshot().rows[0]")).capture,
+  ).toMatchObject({
     resolvedModel: model,
     capturedAt: 10,
     finalOutput: "answer",
   });
   v.capture(id, { status: "timeout", capturedAt: 12 });
-  expect(v.snapshot().rows[0]!.capture).toMatchObject({
+  expect(
+    (v.snapshot().rows[0] ?? missingValue("Expected v.snapshot().rows[0]")).capture,
+  ).toMatchObject({
     resolvedModel: model,
     capturedAt: 10,
     attemptedAt: 12,
@@ -211,7 +245,12 @@ it("preserves foreground enrichment when newer detail lacks it, and isolates ses
     true,
   );
   expect(
-    v.snapshot().rows.find((r) => r.sessionId === "other")!.capture!.resolvedModel,
+    (
+      (
+        v.snapshot().rows.find((r) => r.sessionId === "other") ??
+        missingValue("Expected a non-null value")
+      ).capture ?? missingValue("Expected a non-null value")
+    ).resolvedModel,
   ).toBeUndefined();
 });
 
@@ -226,14 +265,16 @@ it("rejects late captures for the same row ID in a newer generation and retains 
     label: "reader",
     state: "complete" as const,
   };
-  const old = view.background(owner, [node], false)[0]!;
+  const old = view.background(owner, [node], false)[0] ?? missingValue("Expected a non-null value");
   view.background({ ...owner, generation: 2 }, [node], false);
   view.captureIfCurrent(old, {
     status: "captured",
     capturedAt: 1,
     resolvedModel: { provider: "old", model: "old", capturedAt: 1 },
   });
-  expect(view.snapshot().rows[0]!.capture).toBeUndefined();
+  expect(
+    (view.snapshot().rows[0] ?? missingValue("Expected view.snapshot().rows[0]")).capture,
+  ).toBeUndefined();
   const target = { ...old, generation: 2 };
   const model = { provider: "new", model: "new", capturedAt: 8 };
   view.captureIfCurrent(target, {
@@ -243,7 +284,9 @@ it("rejects late captures for the same row ID in a newer generation and retains 
     finalOutput: "answer",
   });
   view.captureIfCurrent(target, { status: "timeout", capturedAt: 20 });
-  expect(view.snapshot().rows[0]!.capture).toMatchObject({
+  expect(
+    (view.snapshot().rows[0] ?? missingValue("Expected view.snapshot().rows[0]")).capture,
+  ).toMatchObject({
     resolvedModel: model,
     capturedAt: 10,
     attemptedAt: 20,

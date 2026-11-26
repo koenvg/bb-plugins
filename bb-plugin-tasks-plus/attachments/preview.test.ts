@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
@@ -20,7 +21,10 @@ function setup() {
   const route = vi.spyOn(bb.http, "route");
   registerAttachments(bb, store);
   const root = dirname(
-    database.prepare<[], { file: string }>("PRAGMA database_list").all()[0]!.file,
+    (
+      database.prepare<[], { file: string }>("PRAGMA database_list").all()[0] ??
+      missingValue("Expected a non-null value")
+    ).file,
   );
   return { bb, harness, store, task, root, route };
 }

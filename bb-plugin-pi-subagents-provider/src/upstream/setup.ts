@@ -24,9 +24,9 @@ export interface ScheduleRecord {
   workingDirectory?: { type: string; path?: string };
 }
 export interface SetupPorts {
-  sources(projectId: string): Promise<{ complete: boolean; records: SourceRecord[] }>;
-  inspect(path: string): Promise<SourceInspection>;
-  schedules(projectId: string): Promise<{ complete: boolean; records: ScheduleRecord[] }>;
+  sources: (projectId: string) => Promise<{ complete: boolean; records: SourceRecord[] }>;
+  inspect: (path: string) => Promise<SourceInspection>;
+  schedules: (projectId: string) => Promise<{ complete: boolean; records: ScheduleRecord[] }>;
 }
 interface Plan {
   projectId: string;

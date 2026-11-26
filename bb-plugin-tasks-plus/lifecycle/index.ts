@@ -1,5 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { type TasksApiStore } from "../api";
+import type { TasksApiStore } from "../api";
 import type { TaskThread, TaskThreadLiveStatus } from "../db";
 import { publishThreadsChanged } from "../delegate";
 import { errorMessage } from "../shared/errors";

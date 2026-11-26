@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import type Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
@@ -203,9 +204,15 @@ describe("lifecycle SQL scope", () => {
             expect(f.store.tasks.getTaskThreadByThreadId(task.id, "thr_shared")?.liveStatus).toBe(
               expected,
             );
-            expect(f.store.tasks.getTask(task.id)!.status).toBe("backlog");
+            expect(
+              (f.store.tasks.getTask(task.id) ?? missingValue("Expected a non-null value")).status,
+            ).toBe("backlog");
           }
-          expect(f.store.tasks.getTaskThread(f.mappings[count]!.id)?.liveStatus).toBe("working");
+          expect(
+            f.store.tasks.getTaskThread(
+              (f.mappings[count] ?? missingValue("Expected f.mappings[count]")).id,
+            )?.liveStatus,
+          ).toBe("working");
         };
         await transition("active", "working", 0);
         await transition("idle", "idle", 3);
@@ -246,7 +253,10 @@ describe("lifecycle SQL scope", () => {
           thread: makeThreadResponse({ id: "thr_worker_0", status, deletedAt }),
         });
         expect(f.queries).toHaveLength(statements);
-        expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)?.liveStatus).toBe(expected);
+        expect(
+          f.store.tasks.getTaskThread((f.mappings[0] ?? missingValue("Expected f.mappings[0]")).id)
+            ?.liveStatus,
+        ).toBe(expected);
       } finally {
         await f.dispose();
       }
@@ -258,15 +268,22 @@ describe("lifecycle SQL scope", () => {
     try {
       await registerLifecycle(f.bb, f.store);
       for (const status of ["todo", "in_progress", "in_review", "done", "canceled"] as const) {
-        f.store.tasks.updateTask(f.tasks[0]!.id, { status });
+        f.store.tasks.updateTask((f.tasks[0] ?? missingValue("Expected f.tasks[0]")).id, {
+          status,
+        });
         f.queries.length = 0;
         await f.harness.emitThreadEvent("thread.idle", {
           thread: makeThreadResponse({ id: "thr_worker_0", status: "idle" }),
           lastAssistantText: null,
         });
         expect(f.queries).toHaveLength(status === "todo" ? 4 : 1);
-        expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)?.liveStatus).toBe("idle");
-        expect(f.store.tasks.getTask(f.tasks[0]!.id)?.status).toBe(status);
+        expect(
+          f.store.tasks.getTaskThread((f.mappings[0] ?? missingValue("Expected f.mappings[0]")).id)
+            ?.liveStatus,
+        ).toBe("idle");
+        expect(
+          f.store.tasks.getTask((f.tasks[0] ?? missingValue("Expected f.tasks[0]")).id)?.status,
+        ).toBe(status);
       }
     } finally {
       await f.dispose();
@@ -293,8 +310,10 @@ describe("lifecycle SQL scope", () => {
           row.detail.includes("USING INDEX idx_task_threads_thread (thread_id=?)"),
         ),
       ).toBe(true);
-      f.store.tasks.deleteTask(f.tasks[0]!.id);
-      expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)).toBeUndefined();
+      f.store.tasks.deleteTask((f.tasks[0] ?? missingValue("Expected f.tasks[0]")).id);
+      expect(
+        f.store.tasks.getTaskThread((f.mappings[0] ?? missingValue("Expected f.mappings[0]")).id),
+      ).toBeUndefined();
       await registerLifecycle(f.bb, f.store);
       f.queries.length = 0;
       await emitAllEvents(f, "thr_worker_0");

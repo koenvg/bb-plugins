@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -36,10 +37,10 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-const tasksPanel = app.navPanels[0]!;
+const tasksPanel = app.navPanels[0] ?? missingValue("Expected app.navPanels[0]");
 const sidebarBadge = {
   component: function Badge() {
-    const badge = tasksPanel.experimental_useBadge!();
+    const badge = (tasksPanel.experimental_useBadge ?? missingValue("Expected a non-null value"))();
     return badge ? <output aria-label={badge.label}>{badge.count}</output> : null;
   },
 };

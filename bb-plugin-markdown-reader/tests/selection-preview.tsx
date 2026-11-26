@@ -30,11 +30,11 @@ const text =
   "# Heading\n\nSelected prose.\n\n| Left | Right |\n| --- | --- |\n| Table cell | value |\n\n```ts\nconst answer = 42;\n```\n";
 const app = await loadPluginApp(pluginApp);
 let reads = 0;
-const panel = document.getElementById("root")!;
+const panel = requireFixture(document.getElementById("root"), 'document.getElementById("root")');
 panel.className = "fixture-panel";
 panel.style.cssText = `width:${Number(params.get("width")) || 760}px;height:90vh`;
 const slot = renderSlot(
-  app.fileOpeners[0]!,
+  requireFixture(app.fileOpeners[0], "app.fileOpeners[0]"),
   { ...target, Original: () => <p>Original fixture</p> },
   {
     composer: {
@@ -76,7 +76,7 @@ panel.append(slot.container);
 Object.assign(window, {
   selectionFixture: slot,
   revealSelectionLines: (startLineNumber: number | null, endLineNumber: number | null) => {
-    const Opener = app.fileOpeners[0]!.component;
+    const Opener = requireFixture(app.fileOpeners[0], "app.fileOpeners[0]").component;
     slot.lifecycle.rerender(
       <Opener
         {...target}
@@ -90,7 +90,7 @@ Object.assign(window, {
     );
   },
   changeSelectionFile: () => {
-    const Opener = app.fileOpeners[0]!.component;
+    const Opener = requireFixture(app.fileOpeners[0], "app.fileOpeners[0]").component;
     slot.lifecycle.rerender(
       <Opener {...target} path="changed.md" Original={() => <p>Changed Original</p>} />,
     );
@@ -98,7 +98,7 @@ Object.assign(window, {
 });
 if (params.has("two")) {
   const second = renderSlot(
-    app.fileOpeners[0]!,
+    requireFixture(app.fileOpeners[0], "app.fileOpeners[0]"),
     { ...target, Original: () => <p>Second Original</p> },
     {
       composer: { scope: { kind: "thread", threadId: "second" } },
@@ -127,4 +127,9 @@ if (params.has("two")) {
   nextPanel.append(second.container);
   panel.after(nextPanel);
   Object.assign(window, { secondSelectionFixture: second });
+}
+
+function requireFixture<T>(value: T | null | undefined, label: string): T {
+  if (value == null) throw new Error(`Missing fixture value: ${label}`);
+  return value;
 }

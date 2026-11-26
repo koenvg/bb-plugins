@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { TASK_STATUSES } from "../shared/contract.js";
@@ -19,7 +20,7 @@ import {
 registerWorkspaceTestLifecycle();
 const TasksPage = panel.component;
 const records = TASK_STATUSES.map((status, index) => ({
-  ...tasks[0]!,
+  ...(tasks[0] ?? missingValue("Expected tasks[0]")),
   id: `scroll-task-${index}`,
   key: `TSK-${index + 1}`,
   number: index + 1,
@@ -41,7 +42,8 @@ const scopeKey = listScrollScopeKey({
   sort: "manual",
 });
 const scrollContainer = (page: ReturnType<typeof setup>) =>
-  page.container.querySelector<HTMLDivElement>("[data-list-scroll]")!;
+  page.container.querySelector<HTMLDivElement>("[data-list-scroll]") ??
+  missingValue("Expected a non-null value");
 let viewportHeight = 100;
 beforeEach(() => {
   viewportHeight = 100;

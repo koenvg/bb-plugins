@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./fixtures.js";
@@ -59,7 +60,7 @@ async function start(credential: string, changes: object = {}) {
 async function poll(operationId: string, credential?: string) {
   return (await call("bb_get_operation", { operationId }, credential)).body.result;
 }
-function unavailable(result: any) {
+function unavailable(result: { structuredContent?: unknown }) {
   expect(result).toMatchObject({
     isError: true,
     content: [{ type: "text", text: "OPERATION_UNAVAILABLE" }],
@@ -91,7 +92,10 @@ describe("authenticated start safety", () => {
       });
       expect(tools[4].description).toMatch(/external actions.*provider costs/);
       expect(
-        tools.find((tool) => tool.name === "bb_get_operation")!.annotations?.readOnlyHint,
+        (
+          tools.find((tool) => tool.name === "bb_get_operation") ??
+          missingValue("Expected a non-null value")
+        ).annotations?.readOnlyHint,
       ).toBe(true);
     } finally {
       await client.close();

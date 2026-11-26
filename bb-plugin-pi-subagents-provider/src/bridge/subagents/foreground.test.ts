@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { expect, it } from "vitest";
 import { foregroundRows } from "./foreground.js";
 import { rowSchema } from "../../subagents-contract.js";
@@ -53,23 +54,24 @@ it.each([
     'Last observed activity: "' + "x".repeat(160) + '" · Reported tool: ' + "界".repeat(160),
   ],
 ])("bounds foreground state and tool independently for %s", (activityState, expected) => {
-  const row = foregroundRows(
-    owner,
-    {
-      mode: "single",
-      runId: "bounded",
-      results: [
-        {
-          index: 0,
-          agent: "reader",
-          progressSummary: { activityState },
-          progress: { currentTool: "界".repeat(200) },
-        },
-      ],
-    },
-    false,
-    1,
-  )[0]!;
+  const row =
+    foregroundRows(
+      owner,
+      {
+        mode: "single",
+        runId: "bounded",
+        results: [
+          {
+            index: 0,
+            agent: "reader",
+            progressSummary: { activityState },
+            progress: { currentTool: "界".repeat(200) },
+          },
+        ],
+      },
+      false,
+      1,
+    )[0] ?? missingValue("Expected a non-null value");
   expect(row.activity).toBe(expected);
   expect(rowSchema.parse(row)).toMatchObject({ state: "running", activity: expected });
 });
@@ -132,7 +134,12 @@ it("discloses structured transcript and recent-output text clipping and entry lo
       { index: 0, agent: "a", messages: [{ role: "assistant", content: "x".repeat(1200) }] },
     ],
   };
-  expect(foregroundRows(owner, common, false, 1)[0]!.capture!.messages![0]).toMatchObject({
+  expect(
+    ((
+      (foregroundRows(owner, common, false, 1)[0] ?? missingValue("Expected a non-null value"))
+        .capture ?? missingValue("Expected a non-null value")
+    ).messages ?? missingValue("Expected a non-null value"))[0],
+  ).toMatchObject({
     textTruncated: true,
   });
   const fallback = {
@@ -145,68 +152,73 @@ it("discloses structured transcript and recent-output text clipping and entry lo
       },
     ],
   };
-  const capture = foregroundRows(owner, fallback, false, 1)[0]!.capture!;
+  const capture =
+    (foregroundRows(owner, fallback, false, 1)[0] ?? missingValue("Expected a non-null value"))
+      .capture ?? missingValue("Expected a non-null value");
   expect(capture.messages).toHaveLength(10);
-  expect(capture.messages![0]).toMatchObject({ textTruncated: true });
-  expect(capture.truncated!.messages).toBe(2);
+  expect((capture.messages ?? missingValue("Expected capture.messages"))[0]).toMatchObject({
+    textTruncated: true,
+  });
+  expect((capture.truncated ?? missingValue("Expected capture.truncated")).messages).toBe(2);
 });
 
 it("preserves mixed block order and captures only the child's latest assistant model pair", () => {
-  const capture = foregroundRows(
-    owner,
-    {
-      mode: "single",
-      runId: "r",
-      model: "parent-model",
-      results: [
-        {
-          index: 0,
-          agent: "a",
-          model: "requested-model",
-          exitCode: 0,
-          messages: [
-            {
-              role: "assistant",
-              provider: "old-provider",
-              model: "old-model",
-              content: [
-                { type: "text", text: "before" },
-                { type: "toolCall", name: "bash", arguments: { command: "pwd" } },
-                { type: "text", text: "after" },
-              ],
-            },
-            {
-              role: "toolResult",
-              toolName: "bash",
-              isError: true,
-              content: [{ type: "text", text: "denied" }],
-            },
-            {
-              role: "assistant",
-              provider: "child-provider",
-              model: "child-model",
-              content: "finished",
-            },
-            {
-              role: "user",
-              provider: "parent-provider",
-              model: "parent-model",
-              content: "ignored model",
-            },
-          ],
-        },
-      ],
-    },
-    true,
-    42,
-  )[0]!;
+  const capture =
+    foregroundRows(
+      owner,
+      {
+        mode: "single",
+        runId: "r",
+        model: "parent-model",
+        results: [
+          {
+            index: 0,
+            agent: "a",
+            model: "requested-model",
+            exitCode: 0,
+            messages: [
+              {
+                role: "assistant",
+                provider: "old-provider",
+                model: "old-model",
+                content: [
+                  { type: "text", text: "before" },
+                  { type: "toolCall", name: "bash", arguments: { command: "pwd" } },
+                  { type: "text", text: "after" },
+                ],
+              },
+              {
+                role: "toolResult",
+                toolName: "bash",
+                isError: true,
+                content: [{ type: "text", text: "denied" }],
+              },
+              {
+                role: "assistant",
+                provider: "child-provider",
+                model: "child-model",
+                content: "finished",
+              },
+              {
+                role: "user",
+                provider: "parent-provider",
+                model: "parent-model",
+                content: "ignored model",
+              },
+            ],
+          },
+        ],
+      },
+      true,
+      42,
+    )[0] ?? missingValue("Expected a non-null value");
   expect(capture.state).toBe("complete");
-  expect(capture.capture!.resolvedModel).toEqual({
+  expect((capture.capture ?? missingValue("Expected capture.capture")).resolvedModel).toEqual({
     provider: "child-provider",
     model: "child-model",
     capturedAt: 42,
   });
-  expect(capture.capture!.messages).toMatchObject([
+  expect((capture.capture ?? missingValue("Expected capture.capture")).messages).toMatchObject([
     { kind: "text", text: "before" },
     { kind: "toolCall", name: "bash", text: '{"command":"pwd"}' },
     { kind: "text", text: "after" },
@@ -217,17 +229,19 @@ it("preserves mixed block order and captures only the child's latest assistant m
 });
 it("bounds entries after expansion, retains clipping, and never infers missing model data", () => {
   const capture = (messages: unknown[]) =>
-    foregroundRows(
-      owner,
-      {
-        mode: "single",
-        runId: "r",
-        model: "parent-model",
-        results: [{ index: 0, agent: "a", model: "requested-model", messages }],
-      },
-      true,
-      42,
-    )[0]!.capture!;
+    (
+      foregroundRows(
+        owner,
+        {
+          mode: "single",
+          runId: "r",
+          model: "parent-model",
+          results: [{ index: 0, agent: "a", model: "requested-model", messages }],
+        },
+        true,
+        42,
+      )[0] ?? missingValue("Expected a non-null value")
+    ).capture ?? missingValue("Expected a non-null value");
   const expanded = capture([
     {
       role: "assistant",
@@ -238,9 +252,18 @@ it("bounds entries after expansion, retains clipping, and never infers missing m
     },
   ]);
   expect(expanded.messages).toHaveLength(20);
-  expect(expanded.messages![0]!.text).toMatch(/^5:/);
-  expect(expanded.messages!.every((m) => m.text.length === 1000 && m.textTruncated)).toBe(true);
-  expect(expanded.truncated!.messages).toBe(5);
+  expect(
+    (
+      (expanded.messages ?? missingValue("Expected expanded.messages"))[0] ??
+      missingValue("Expected a non-null value")
+    ).text,
+  ).toMatch(/^5:/);
+  expect(
+    (expanded.messages ?? missingValue("Expected expanded.messages")).every(
+      (m) => m.text.length === 1000 && m.textTruncated,
+    ),
+  ).toBe(true);
+  expect((expanded.truncated ?? missingValue("Expected expanded.truncated")).messages).toBe(5);
   expect(expanded.resolvedModel).toBeUndefined();
   for (const fields of [
     { model: "alias" },

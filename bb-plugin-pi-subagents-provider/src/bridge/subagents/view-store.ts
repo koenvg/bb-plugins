@@ -9,8 +9,8 @@ import {
   type ViewRow,
   type ViewState,
 } from "../../subagents-contract.js";
-import { type CaptureTarget } from "./capture.js";
-import { type RunNode } from "./protocol.js";
+import type { CaptureTarget } from "./capture.js";
+import type { RunNode } from "./protocol.js";
 import { foregroundRows } from "./foreground.js";
 export interface ViewOwner {
   sessionId: string;

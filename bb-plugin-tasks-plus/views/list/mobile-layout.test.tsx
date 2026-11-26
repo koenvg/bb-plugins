@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { fail as missingValue } from "node:assert/strict";
 import { cleanup, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -72,7 +73,7 @@ const workerThread: TaskThread = {
 
 function renderList(rich = false) {
   return renderSlot(
-    app.navPanels[0]!,
+    app.navPanels[0] ?? missingValue("Expected app.navPanels[0]"),
     { subPath: PROJECT_ID },
     {
       rpc: {
@@ -172,7 +173,7 @@ describe("responsive list structure", () => {
           project: {
             id: busyTask.projectId,
             name: "BB plugins",
-            prefix: taskKey.split("-")[0]!,
+            prefix: taskKey.split("-")[0] ?? missingValue('Expected taskKey.split("-")[0]'),
             nextTaskNumber: 2,
             color: "blue",
             folderId: null,
@@ -190,12 +191,22 @@ describe("responsive list structure", () => {
         },
       );
       const keyText = slot.getByText(taskKey);
-      const key = keyText.parentElement!;
+      const key = keyText.parentElement ?? missingValue("Expected keyText.parentElement");
       expect(keyText.getAttribute("title")).toBe(taskKey);
       const progress = slot.getByTitle("Subtasks done");
-      expect(key.parentElement!.contains(progress)).toBe(false);
-      expect(key.parentElement!.contains(slot.getByText(busyTask.title))).toBe(true);
-      expect(key.parentElement!.classList.contains("task-list-identity")).toBe(true);
+      expect(
+        (key.parentElement ?? missingValue("Expected key.parentElement")).contains(progress),
+      ).toBe(false);
+      expect(
+        (key.parentElement ?? missingValue("Expected key.parentElement")).contains(
+          slot.getByText(busyTask.title),
+        ),
+      ).toBe(true);
+      expect(
+        (key.parentElement ?? missingValue("Expected key.parentElement")).classList.contains(
+          "task-list-identity",
+        ),
+      ).toBe(true);
       expect(
         key.compareDocumentPosition(slot.getByText(busyTask.title)) &
           Node.DOCUMENT_POSITION_FOLLOWING,
@@ -223,7 +234,9 @@ describe("responsive list structure", () => {
   it("renders exactly one status and one priority editor per row with full metadata", async () => {
     const slot = renderList();
     await slot.findByText("TSK-1");
-    const row = slot.container.querySelector('[data-task-key="TSK-1"]')!;
+    const row =
+      slot.container.querySelector('[data-task-key="TSK-1"]') ??
+      missingValue("Expected a non-null value");
     expect(
       within(row as HTMLElement).getAllByRole("button", {
         name: /Change status, currently/,
@@ -242,8 +255,12 @@ describe("responsive list structure", () => {
       name: /Threads for TSK-1/,
     });
     expect(summary.className).toContain("z-10");
-    expect(summary.parentElement!.className).toContain("flex-wrap");
-    const row = slot.container.querySelector('[data-task-key="TSK-1"]')!;
+    expect(
+      (summary.parentElement ?? missingValue("Expected summary.parentElement")).className,
+    ).toContain("flex-wrap");
+    const row =
+      slot.container.querySelector('[data-task-key="TSK-1"]') ??
+      missingValue("Expected a non-null value");
     expect(row.className).toContain("task-list-row");
     expect(row.className).not.toContain("@md:h-[34px]");
     expect(slot.getByText(busyTask.title).className).toContain("task-list-title");

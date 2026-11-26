@@ -80,7 +80,7 @@ function railProps(linkedBbProjectId: string | null) {
 
 describe("dispatch target rail control", () => {
   it("links a discovered bb project", async () => {
-    const updateCalls: Array<Record<string, unknown>> = [];
+    const updateCalls: Record<string, unknown>[] = [];
     const slot = renderSlot({ component: RailHarness }, railProps(null), {
       rpc: {
         listBbProjects: () => ({
@@ -109,7 +109,7 @@ describe("dispatch target rail control", () => {
   });
 
   it("shows the linked bb project's name and unlinks it", async () => {
-    const updateCalls: Array<Record<string, unknown>> = [];
+    const updateCalls: Record<string, unknown>[] = [];
     const slot = renderSlot({ component: RailHarness }, railProps(BB_PROJECT_ID), {
       rpc: {
         listBbProjects: () => ({

@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { createStore, registerTasksApi } from "./api";
 import { registerTasksCli } from "./cli";
@@ -35,7 +36,7 @@ export function mentionWrapper(
     project.name,
     displayName(task.status),
     displayName(task.priority),
-    task.dueDate!,
+    task.dueDate ?? missingValue("Missing fixture value"),
     label.name,
     subtask.key,
     subtask.title,

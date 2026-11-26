@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { test, expect } from "@playwright/test";
 
 test("selection formatting survives menu hide, reappearance and React cleanup", async ({
@@ -20,7 +21,8 @@ test("selection formatting survives menu hide, reappearance and React cleanup", 
   await expect
     .poll(() => page.evaluate(() => window.getSelection()?.toString()))
     .toBe("Alpha beta");
-  const box = (await toolbar.boundingBox())!;
+  const box =
+    (await toolbar.boundingBox()) ?? missingValue("Expected (await toolbar.boundingBox())");
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(1200);

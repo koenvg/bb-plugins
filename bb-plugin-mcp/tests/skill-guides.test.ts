@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -50,7 +51,10 @@ it("resolves every guide and section with a relocated installation and separate 
       { id: "mcp", rootDir: installedRoot },
     ],
   };
-  const mcpRoot = listing.plugins.find((plugin) => plugin.id === "mcp")!.rootDir;
+  const mcpRoot = (
+    listing.plugins.find((plugin) => plugin.id === "mcp") ??
+    missingValue("Expected a non-null value")
+  ).rootDir;
   const exportedSkill = readFileSync(join(exportedRoot, "SKILL.md"), "utf8");
   const references = [...exportedSkill.matchAll(/`\$MCP_ROOT\/([^`]+)`/g)].map((match) => match[1]);
   expect(references).toEqual(expectedReferences);

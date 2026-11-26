@@ -1,3 +1,4 @@
+import { fail as missingValue } from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import {
   chmod,
@@ -73,7 +74,7 @@ async function fixture(existing = false) {
         timestamp: started + 1,
       },
     },
-  ];
+  ] satisfies [object, object, object];
   const save = async (data = entries.map((e) => JSON.stringify(e)).join("\n") + "\n") => {
     await mkdir(join(root, "run-0"), { recursive: true, mode: 0o700 });
     await writeFile(file, data, { mode: 0o600 });
@@ -262,7 +263,18 @@ it.each([
 ])("keeps %s ineligible through actual event projection", async (scenario) => {
   const h = await fixture();
   const start = { ...h.start } as Record<string, unknown>;
-  const complete = structuredClone(h.complete) as Record<string, any>;
+  const complete: Omit<typeof h.complete, "results"> & {
+    isNested?: boolean;
+    nestedRoute?: typeof h.start.nestedRoute;
+    sessionFile?: string;
+    results: (Omit<(typeof h.complete.results)[number], "sessionFile"> & {
+      sessionFile?: string;
+      runner?: { type: string };
+      placement?: { machine: string };
+    })[];
+  } = structuredClone(h.complete);
+  const [result] = complete.results;
+  if (!result) throw new Error("Missing completion result in fixture");
   if (scenario === "missing-route") delete start.nestedRoute;
   if (scenario === "inherited-route")
     start.nestedRoute = {
@@ -281,18 +293,18 @@ it.each([
   if (scenario === "header-owner-not-file") start.sessionId = h.context.sessionId;
   if (scenario === "workflow") start.parentWorkflowRunId = "workflow";
   if (scenario === "nested") complete.isNested = true;
-  if (scenario === "external") complete.results[0].runner = { type: "external-cli" };
-  if (scenario === "remote") complete.results[0].placement = { machine: "remote" };
+  if (scenario === "external") result.runner = { type: "external-cli" };
+  if (scenario === "remote") result.placement = { machine: "remote" };
   if (scenario === "revival") start.sessionRoot = join(h.base, "parent");
   if (scenario === "fallback-only") {
     complete.sessionFile = h.file;
-    delete complete.results[0].sessionFile;
+    delete result.sessionFile;
   }
-  if (scenario === "wrong-path") complete.results[0].sessionPath = join(h.base, "other.jsonl");
-  if (scenario === "wrong-index") complete.results[0].index = 1;
-  if (scenario === "fork") complete.results[0].context = "fork";
+  if (scenario === "wrong-path") result.sessionPath = join(h.base, "other.jsonl");
+  if (scenario === "wrong-index") result.index = 1;
+  if (scenario === "fork") result.context = "fork";
   if (scenario === "failed") complete.success = false;
-  if (scenario === "multiple") complete.results.push({ ...complete.results[0] });
+  if (scenario === "multiple") complete.results.push({ ...result });
   if (scenario === "completion-racing-probe") {
     const probe = h.emit("subagent:async-started", start);
     await h.emit("subagent:async-complete", complete);
@@ -384,8 +396,15 @@ it.each([
   "no-assistant",
 ])("fails closed for %s session data", async (scenario) => {
   const h = await readyFixture();
-  const entries = structuredClone(h.entries) as Record<string, any>[];
-  const last = entries[2]!;
+  const [session, selection, assistant] = structuredClone(h.entries);
+  const header: typeof session & { extra?: string } = session;
+  const last = {
+    ...assistant,
+    parentId: assistant.parentId as string | null,
+    extra: undefined as unknown,
+    message: { ...assistant.message, content: assistant.message.content as unknown[] },
+  };
+  const entries: Record<string, unknown>[] = [header, selection, last];
   let bytes: string | Buffer | undefined;
   if (scenario === "truncated") bytes = entries.map((e) => JSON.stringify(e)).join("\n");
   if (scenario === "json") bytes = "{invalid}\n";
@@ -397,14 +416,15 @@ it.each([
     for (let i = 0; i < 25; i++) value = { value };
     last.extra = value;
   }
-  if (scenario === "header-version") entries[0]!.version = 2;
-  if (scenario === "header-parent") entries[0]!.parentSession = "/foreign";
-  if (scenario === "header-id") entries[0]!.id = h.context.sessionId;
-  if (scenario === "header-oversize") entries[0]!.extra = "x".repeat(4096);
-  if (scenario === "record-oversize") last.message.content[0].text = "x".repeat(64 * 1024);
+  if (scenario === "header-version") header.version = 2;
+  if (scenario === "header-parent") header.parentSession = "/foreign";
+  if (scenario === "header-id") header.id = h.context.sessionId;
+  if (scenario === "header-oversize") header.extra = "x".repeat(4096);
+  if (scenario === "record-oversize")
+    last.message.content = [{ type: "text", text: "x".repeat(64 * 1024) }];
   if (scenario === "file-oversize") bytes = "x".repeat(512 * 1024 + 1) + "\n";
   if (scenario === "record-count") bytes = "{}\n".repeat(2049);
-  if (scenario === "duplicate-id") last.id = entries[1]!.id;
+  if (scenario === "duplicate-id") last.id = selection.id;
   if (scenario === "missing-parent") last.parentId = "missing";
   if (scenario === "branch") last.parentId = null;
   if (scenario === "missing-reference")
@@ -416,7 +436,7 @@ it.each([
       targetId: "missing",
     });
   if (scenario === "timestamp") last.timestamp = new Date(h.complete.timestamp + 1).toISOString();
-  if (scenario === "inherited") entries[0]!.timestamp = "2000-01-01T00:00:00.000Z";
+  if (scenario === "inherited") header.timestamp = "2000-01-01T00:00:00.000Z";
   if (scenario === "unknown-type") last.type = "unsupported";
   if (scenario === "assistant-shape") last.message.content = [null];
   if (scenario.startsWith("assistant-") && scenario !== "assistant-shape")
@@ -435,9 +455,12 @@ it.each([
 });
 it("uses only the latest completed assistant, ignoring later selection, usage and responseModel", async () => {
   const h = await readyFixture();
-  const entries = structuredClone(h.entries) as Record<string, any>[];
-  const last = entries[2]!;
-  last.message.responseModel = "not-the-model-field";
+  const [header, selection, assistant] = structuredClone(h.entries);
+  const last = {
+    ...assistant,
+    message: { ...assistant.message, responseModel: "not-the-model-field" },
+  };
+  const entries: Record<string, unknown>[] = [header, selection, last];
   entries.push({
     ...last,
     id: "latest",
@@ -533,7 +556,13 @@ it("keeps one operation gate occupied after logical timeout, including absence p
   await h.emit("subagent:async-complete", {
     ...h.complete,
     runId: secondId,
-    results: [{ ...h.complete.results[0]!, sessionFile: secondFile, sessionPath: secondFile }],
+    results: [
+      {
+        ...(h.complete.results[0] ?? missingValue("Expected h.complete.results[0]")),
+        sessionFile: secondFile,
+        sessionPath: secondFile,
+      },
+    ],
   });
   expect(h.ready).toEqual([asyncId]);
 });
@@ -640,7 +669,13 @@ it.each(["unknown-completion", "foreign-duplicate", "saturated-reuse"])(
         await h.emit("subagent:async-complete", {
           ...h.complete,
           runId: `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`,
-          results: [{ ...h.complete.results[0]!, sessionFile: "/other", sessionPath: "/other" }],
+          results: [
+            {
+              ...(h.complete.results[0] ?? missingValue("Expected h.complete.results[0]")),
+              sessionFile: "/other",
+              sessionPath: "/other",
+            },
+          ],
         });
     }
     let release!: () => void;
@@ -684,8 +719,8 @@ it.each([false, true])(
     if (truncated) expect(model).toBeUndefined();
     else {
       expect(model).toMatchObject({ provider: "child-provider", model: "child-actual" });
-      expect(model!.capturedAt).toBeGreaterThanOrEqual(started);
-      expect(model!.capturedAt).toBeLessThanOrEqual(Date.now());
+      expect((model ?? missingValue("Expected model")).capturedAt).toBeGreaterThanOrEqual(started);
+      expect((model ?? missingValue("Expected model")).capturedAt).toBeLessThanOrEqual(Date.now());
     }
     expect(await readFile(h.file)).toEqual(before);
     expect(await stat(h.file)).toMatchObject({
