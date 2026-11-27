@@ -19,6 +19,7 @@ import {
   verifyWorkspaceAlias,
 } from "./identity-storage.js";
 import type { IdentityBatch } from "./identity-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -29,7 +30,7 @@ afterEach(async () => {
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp19-identity-"));
-  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   fixtures.push({ root, db });
   initializeHistory(db, "2026-10-01T00:00:00.000Z");
   initializeIdentityStorage(db);
@@ -128,7 +129,7 @@ it("excludes conflicting evidence, untrusted claims and malformed captures", asy
   acceptIdentityBatch(db, batch());
   reconcileIdentity(db, signal());
   expect(identityView(db).threads[0]?.events).toBe(1);
-  acceptIdentityBatch(db, batch(2, [{ ...batch().rows[0]!, threadId: "thr_b" }]));
+  acceptIdentityBatch(db, batch(2, [{ ...batch().rows[0], threadId: "thr_b" }]));
   reconcileIdentity(db, signal());
   expect(identityView(db).threads).toEqual([]);
   expect(identityView(db).grades.find((r) => r.grade === "ambiguous")?.events).toBe(2);
@@ -147,7 +148,7 @@ it("requires all contiguous batches, rejects host changes and keeps incomplete e
     ...batch(),
     offset: 1,
     total: 2,
-    rows: [{ ...batch().rows[0]!, providerIdentity: "provider-b" }],
+    rows: [{ ...batch().rows[0], providerIdentity: "provider-b" }],
   });
   reconcileIdentity(db, signal());
   expect(identityView(db).threads[0]?.totalTokens).toBe(3);
@@ -159,7 +160,7 @@ it("retains different hosts, paths and confirmed filesystem aliases without chan
   capture(a.db, 1, { providerSessionKey: null });
   capture(b.db, 1);
   acceptIdentityBatch(a.db, batch());
-  acceptIdentityBatch(b.db, batch(1, [{ ...batch().rows[0]!, threadId: "thr_b" }], "host_b"));
+  acceptIdentityBatch(b.db, batch(1, [{ ...batch().rows[0], threadId: "thr_b" }], "host_b"));
   const actual = join(a.root, "workspace");
   const alias = join(a.root, "alias");
   await mkdir(actual);
@@ -187,10 +188,12 @@ it("keeps replay ownership and conflict exclusions and bounds unchanged reads", 
     if (n === 1) {
       capture(db, n);
     }
-    const confirmation = parseCompact(
-      JSON.stringify({ version: 1, eventId: captureId(n), sessionId: "pi-id", entryId: "entry" }),
-      true,
-    )!;
+    const confirmation = requireFixtureValue(
+      parseCompact(
+        JSON.stringify({ version: 1, eventId: captureId(n), sessionId: "pi-id", entryId: "entry" }),
+        true,
+      ),
+    );
     db.transaction(() => projectCompactRecord(db, confirmation));
   }
   acceptIdentityBatch(db, batch());
@@ -203,10 +206,17 @@ it("keeps replay ownership and conflict exclusions and bounds unchanged reads", 
   db.transaction(() =>
     projectCompactRecord(
       db,
-      parseCompact(
-        JSON.stringify({ version: 1, eventId: captureId(2), sessionId: "pi-id", entryId: "entry" }),
-        true,
-      )!,
+      requireFixtureValue(
+        parseCompact(
+          JSON.stringify({
+            version: 1,
+            eventId: captureId(2),
+            sessionId: "pi-id",
+            entryId: "entry",
+          }),
+          true,
+        ),
+      ),
     ),
   );
   reconcileIdentity(db, signal());
@@ -247,7 +257,7 @@ it("rolls back canceled reconciliation and quarantines overlapping evidence batc
   expect(() => reconcileIdentity(db, controller.signal)).toThrow();
   expect(identityView(db).threads).toEqual([]);
   expect(() =>
-    acceptIdentityBatch(db, batch(1, [{ ...batch().rows[0]!, threadId: "thr_b" }])),
+    acceptIdentityBatch(db, batch(1, [{ ...batch().rows[0], threadId: "thr_b" }])),
   ).toThrow();
 });
 it("does not hide a later conflicting import behind a candidate limit", async () => {
@@ -278,7 +288,7 @@ it("keeps durable evidence and scalar identity after the detail payload is remov
   acceptIdentityBatch(db, batch());
   reconcileIdentity(db, signal());
   db.prepare("DELETE FROM usage_events").run();
-  const reopened = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const reopened = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   try {
     reconcileIdentity(reopened, signal());
     expect(identityView(reopened).threads[0]?.totalTokens).toBe(3);
@@ -301,28 +311,30 @@ it("does not restart 1000 usage rows for unchanged or title-only catalog generat
   const { db } = await fixture();
   db.transaction(() => {
     for (let n = 1; n <= 1000; n += 1) {
-      const record = parseCompact(
-        JSON.stringify({
-          version: 1,
-          eventId: captureId(n),
-          provenance: "observed",
-          occurredAt: "2026-10-01T00:00:00.000Z",
-          sessionId: "pi-id",
-          workspace: "/original",
-          providerSessionKey: "provider-a.jsonl",
-          claimedThreadId: null,
-          provider: "openai-codex",
-          model: "gpt-5",
-          inputTokens: 1,
-          outputTokens: 2,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-          reasoningTokens: 1,
-          totalTokens: 3,
-          capturedCost: null,
-        }),
-        false,
-      )!;
+      const record = requireFixtureValue(
+        parseCompact(
+          JSON.stringify({
+            version: 1,
+            eventId: captureId(n),
+            provenance: "observed",
+            occurredAt: "2026-10-01T00:00:00.000Z",
+            sessionId: "pi-id",
+            workspace: "/original",
+            providerSessionKey: "provider-a.jsonl",
+            claimedThreadId: null,
+            provider: "openai-codex",
+            model: "gpt-5",
+            inputTokens: 1,
+            outputTokens: 2,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            reasoningTokens: 1,
+            totalTokens: 3,
+            capturedCost: null,
+          }),
+          false,
+        ),
+      );
       projectCompactRecord(db, record);
     }
   });
@@ -337,7 +349,7 @@ it("does not restart 1000 usage rows for unchanged or title-only catalog generat
   for (let generation = 2; generation <= 7; generation += 1) {
     acceptIdentityBatch(
       db,
-      batch(generation, [{ ...batch().rows[0]!, title: generation === 7 ? "New title" : "A" }]),
+      batch(generation, [{ ...batch().rows[0], title: generation === 7 ? "New title" : "A" }]),
     );
     reconcileIdentity(db, signal());
     expect(identityView(db).backlog).toBe(false);
@@ -345,13 +357,13 @@ it("does not restart 1000 usage rows for unchanged or title-only catalog generat
     expect(db.prepare("SELECT revision FROM identity_receipt").get()).toMatchObject({ revision });
   }
   expect(identityView(db).threads[0]?.label).toBe("New title");
-  acceptIdentityBatch(db, batch(8, [{ ...batch().rows[0]!, threadId: "thr_conflict" }]));
+  acceptIdentityBatch(db, batch(8, [{ ...batch().rows[0], threadId: "thr_conflict" }]));
   reconcileIdentity(db, signal());
   expect(identityView(db).backlog).toBe(true);
   expect(identityView(db).threads).toEqual([]);
   // Identical fresh catalogs must let real conflict work finish across cache intervals.
   for (let generation = 9; generation <= 13; generation += 1) {
-    acceptIdentityBatch(db, batch(generation, [{ ...batch().rows[0]!, threadId: "thr_conflict" }]));
+    acceptIdentityBatch(db, batch(generation, [{ ...batch().rows[0], threadId: "thr_conflict" }]));
     reconcileIdentity(db, signal());
   }
   expect(identityView(db).backlog).toBe(false);
@@ -371,7 +383,7 @@ it("does not replace a resumable delivery with a partial newer catalog heartbeat
     ...batch(),
     offset: 1,
     total: 2,
-    rows: [{ ...batch().rows[0]!, providerIdentity: "provider-b" }],
+    rows: [{ ...batch().rows[0], providerIdentity: "provider-b" }],
   });
   reconcileIdentity(db, signal());
   expect(identityView(db).threads[0]?.totalTokens).toBe(3);

@@ -3,6 +3,7 @@ import { patchIdentity } from "./patch-identity";
 import { gitPatch } from "./pr-files";
 import type { ReviewFile } from "./pr-files";
 import { fileIdentities, viewedSummary } from "./viewed-marks";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const PATCH = "@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep";
 
@@ -11,7 +12,7 @@ function file(path: string, patch: string | null = PATCH): ReviewFile {
 }
 
 function identityOf(reviewFile: ReviewFile): string {
-  return patchIdentity(gitPatch(reviewFile)!);
+  return patchIdentity(requireFixtureValue(gitPatch(reviewFile)));
 }
 
 describe("fileIdentities", () => {

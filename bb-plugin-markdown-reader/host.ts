@@ -12,7 +12,8 @@ async function findByName(rootPath: string, name: string): Promise<string[]> {
   const pending = [""];
   let visited = 0;
   while (pending.length && matches.length < MAX_MATCHES && visited++ < MAX_DIRECTORIES) {
-    const relative = pending.shift()!;
+    const relative = pending.shift();
+    if (relative === undefined) break;
     const entries = await readdir(join(rootPath, relative), { withFileTypes: true }).catch(
       () => [],
     );

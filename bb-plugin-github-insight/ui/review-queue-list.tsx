@@ -313,7 +313,7 @@ const ActionError = ({ message }: { message: string }) => {
   );
 };
 
-const FilteredEmpty = ({ showAll }: { showAll(): void }) => {
+const FilteredEmpty = ({ showAll }: { showAll: () => void }) => {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
       No pull requests match this filter
@@ -335,7 +335,7 @@ const AgentFilter = ({
 }: {
   section: QueueSection;
   active: ActiveAgentState | null;
-  onChange(state: ActiveAgentState | null): void;
+  onChange: (state: ActiveAgentState | null) => void;
 }) => {
   const shown = ACTIVE_AGENT_STATES.map((state) => ({
     state,
@@ -372,10 +372,10 @@ const AgentFilter = ({
 };
 
 interface CardHandlers {
-  busy(pr: LinkedQueuePr): boolean;
-  selected(pr: LinkedQueuePr): boolean;
-  mark(pr: LinkedQueuePr, reviewed: boolean): void;
-  archive(pr: LinkedQueuePr, threadId: string): void;
+  busy: (pr: LinkedQueuePr) => boolean;
+  selected: (pr: LinkedQueuePr) => boolean;
+  mark: (pr: LinkedQueuePr, reviewed: boolean) => void;
+  archive: (pr: LinkedQueuePr, threadId: string) => void;
 }
 
 interface QueueSectionViewProps {
@@ -713,7 +713,7 @@ const RowActions = ({ pr, actions }: { pr: LinkedQueuePr; actions: CardHandlers 
   );
 };
 
-const ThreadStatusButton = ({ state, onClick }: { state: AgentState; onClick(): void }) => {
+const ThreadStatusButton = ({ state, onClick }: { state: AgentState; onClick: () => void }) => {
   const agent = AGENT[state];
   return (
     <PillButton
@@ -737,7 +737,7 @@ const PillButton = ({
 }: {
   toneClass: string;
   leading: ReactNode;
-  onClick(): void;
+  onClick: () => void;
   children: ReactNode;
 }) => {
   return (

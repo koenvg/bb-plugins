@@ -8,9 +8,11 @@ import { createQuotaHostEntry } from "../../plugin/host.js";
 import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../../plugin/server.js";
 import { hostContract } from "../../quota/contract.js";
+import type { ImportCommand } from "./import-contract.js";
 import { openHistoryDatabase } from "../storage/history-storage.js";
 import { execFileSync } from "node:child_process";
 import { chartData } from "../calendar/calendar-chart-data.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -40,7 +42,7 @@ async function fixture() {
   const harness = experimental_createHostEntryHarness(entry, {
     experimental_paths: paths,
   });
-  const input = (command: any) => ({
+  const input = (command: ImportCommand) => ({
     hostId: "host-a",
     command,
     knownWorkspaces: [workspace],
@@ -217,15 +219,17 @@ it("opens status without setup, supports import-only storage, persists reload an
       knownWorkspaces: [f.workspace],
       signal: new AbortController().signal,
     };
-    const saved = await history.controlImport!({ action: "status" }, context);
+    const saved = await history.controlImport({ action: "status" }, context);
     expect(saved.generation?.state).toBe("stopped");
     expect(saved.generation?.bytes).toBe(0);
     let view = saved;
     for (let i = 0; i < 10 && view.generation?.state === "stopped"; i += 1) {
-      view = await history.controlImport!({ action: "resume" }, context);
+      view = await history.controlImport({ action: "resume" }, context);
     }
     expect(view.generation?.state).toBe("completed");
-    const db = (await openHistoryDatabase(join(f.paths.dataDir, "history/usage-v1.sqlite"), true))!;
+    const db = requireFixtureValue(
+      await openHistoryDatabase(join(f.paths.dataDir, "history/usage-v1.sqlite"), true),
+    );
     try {
       expect(db.prepare("SELECT total_tokens FROM workspace_totals").get()).toEqual({
         total_tokens: 2,
@@ -249,7 +253,7 @@ it("leaves newer schemas untouched and quota usable", async () => {
   try {
     await mkdir(join(f.paths.dataDir, "history"), { recursive: true });
     const path = join(f.paths.dataDir, "history/usage-v1.sqlite");
-    const db = (await openHistoryDatabase(path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(path));
     db.exec("PRAGMA user_version=99");
     db.close();
     const before = await readFile(path);
@@ -276,8 +280,8 @@ it("cancels queued work before dispatch and releases lifecycle-aborted leases", 
       dataDir: f.paths.dataDir,
       signal: new AbortController().signal,
     };
-    const start = f.history.controlImport!({ action: "start" }, ctx);
-    const cancel = f.history.controlImport!({ action: "cancel" }, ctx);
+    const start = f.history.controlImport({ action: "start" }, ctx);
+    const cancel = f.history.controlImport({ action: "cancel" }, ctx);
     expect((await start).reason).toBe("selection-changed");
     await cancel;
     expect(f.reads()).toBe(0);

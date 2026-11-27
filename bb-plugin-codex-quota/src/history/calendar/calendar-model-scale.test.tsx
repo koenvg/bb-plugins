@@ -6,6 +6,7 @@ import { CalendarValues } from "./calendar-view.js";
 import { chartData } from "./calendar-chart-data.js";
 import { capturedSubtotal } from "./calendar-model-costs.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const query = {
   startDate: "2026-09-01",
@@ -49,7 +50,7 @@ it("recovers a minimum positive model price and removes its marker after filteri
   }
   const original = structuredClone(view);
   const data = chartData(view.days, "cost");
-  const tiny = data.models.find((model) => model.label === "Tiny")!;
+  const tiny = requireFixtureValue(data.models.find((model) => model.label === "Tiny"));
   expect(data.rows[15].modelFacts[tiny.key]).toBe(5e-324);
   expect(data.rows[15].modelHeights[tiny.key]).toBe(0);
   const page = render(<CalendarValues view={view} metric="cost" />);

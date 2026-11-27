@@ -28,7 +28,10 @@ const revisionSchema = z.union([
   presentRevisionSchema,
 ]);
 export type TextRevision = z.infer<typeof revisionSchema>;
-export type TextRevisionPair = { old: TextRevision; new: TextRevision };
+export interface TextRevisionPair {
+  old: TextRevision;
+  new: TextRevision;
+}
 const textSideSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("absent") }).strict(),
   z
@@ -56,11 +59,11 @@ export type ContextFailure = Extract<TextContextResult, { kind: "error" }>;
 
 export class ContextError extends Error {
   override name = "ContextError";
-  constructor(
-    readonly code: ContextFailure["code"],
-    message: string,
-  ) {
+  readonly code: ContextFailure["code"];
+
+  constructor(code: ContextFailure["code"], message: string) {
     super(message);
+    this.code = code;
   }
 }
 export function contextFailure(error: unknown): ContextFailure {
@@ -106,13 +109,14 @@ export function textRevisions(basis: ChangesBasis, file: ChangedFile): TextRevis
         : side === "before" && target.kind !== "uncommitted"
           ? basis.mergeBaseRef
           : basis.headSha;
-    if (!imageShaSchema.safeParse(sha).success) {
+    const revisionSha = imageShaSchema.safeParse(sha);
+    if (!revisionSha.success) {
       throw new ContextError("stale", "Context revision unavailable. Refresh changes.");
     }
     return {
       kind: "commit",
       path,
-      sha: sha!,
+      sha: revisionSha.data,
       side: target.kind === "commit" && side === "before" ? "old" : "new",
     };
   };
@@ -245,7 +249,7 @@ export function validatePatch(
   while (i < rows.length) {
     const headerIndex = i;
     i += 1;
-    const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@[^\n]*\n$/.exec(rows[headerIndex]!);
+    const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@[^\n]*\n$/.exec(rows[headerIndex]);
     if (!match) {
       mismatch();
     }
@@ -271,11 +275,11 @@ export function validatePatch(
     newIndex = newStart;
     let usedOld = 0;
     let usedNew = 0;
-    while (i < rows.length && !rows[i]!.startsWith("@@ ")) {
-      const row = rows[i]!;
+    while (i < rows.length && !rows[i].startsWith("@@ ")) {
+      const row = rows[i];
       i += 1;
       const sign = row[0];
-      if (![" ", "-", "+"].includes(sign!) || !row.endsWith("\n")) {
+      if (![" ", "-", "+"].includes(sign) || !row.endsWith("\n")) {
         mismatch();
       }
       let text = row.slice(1);

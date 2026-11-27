@@ -27,6 +27,7 @@ import { readCoverage } from "../collection/history-coverage.js";
 import { legacyUsage } from "./fixtures/legacy-usage.js";
 import type { z } from "zod";
 import type { usageRecordSchema } from "../collection/usage-record.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 type UsageRecord = z.infer<typeof usageRecordSchema>;
 
@@ -105,7 +106,7 @@ async function fixture() {
   const directory = join(root, "history");
   const path = join(directory, "usage-v1.sqlite");
   await mkdir(directory);
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   await writeFile(
     join(directory, "collector-control-v1.json"),
     JSON.stringify({
@@ -146,7 +147,7 @@ it("upgrades collector-only version 1 to schema 5 and resumes bounded ownership 
   expect(first.storage).toBe("compatible");
   expect(first.collection?.backlog).toBe(true);
   expect(f.reads()).toBe(0);
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
   } finally {
@@ -155,7 +156,7 @@ it("upgrades collector-only version 1 to schema 5 and resumes bounded ownership 
   const reopened = f.make();
   await reopened.read(f.context);
   await reopened.read(f.context);
-  const stored = (await openHistoryDatabase(f.path))!;
+  const stored = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     expect(
       readCalendarTotals(stored, {
@@ -242,7 +243,7 @@ test.each([1, 2, 3])(
     f.db.exec(`PRAGMA user_version=${version}`);
     f.db.close();
     const context = { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] };
-    const status = await f.make().controlImport!({ action: "status" }, context);
+    const status = await f.make().controlImport({ action: "status" }, context);
     expect(status.reason).toBe("ok");
     expect(status.configuration).toEqual(configuration);
     expect(status.generation).toMatchObject({
@@ -258,7 +259,7 @@ test.each([1, 2, 3])(
     const view = await reopened.read(f.context);
     expect(view.writer).toBe("unconfirmed");
     expect(f.reads()).toBe(0);
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     try {
       expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
       expect(
@@ -309,7 +310,7 @@ test.each(["newer", "wal"] as const)(
     const control = await readFile(join(f.directory, "collector-control-v1.json"));
     const factory = (await import("./history-storage.js")).loadHistoryStorage;
     let opens = 0;
-    const real = (await factory())!;
+    const real = requireFixtureValue(await factory());
     const host = createHostHistory({
       storage: async () => (path, readonly) => {
         opens += 1;
@@ -320,7 +321,7 @@ test.each(["newer", "wal"] as const)(
     });
     const ready = await host.read(f.context);
     expect(ready.storage).toBe(kind === "newer" ? "incompatible" : "unavailable");
-    const status = await host.controlImport!(
+    const status = await host.controlImport(
       { action: "status" },
       { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] },
     );
@@ -427,7 +428,7 @@ it("resolves late verified attribution for compact-only rows and removes numeric
   expect(view.collection?.attribution?.threads).toMatchObject([
     { threadId: "thr_owned", totalTokens: 5, events: 1 },
   ]);
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     const report = readCalendarTotals(db, {
       start: "2026-08-01T00:00:00Z",
@@ -447,7 +448,7 @@ it("resolves late verified attribution for compact-only rows and removes numeric
   const expired = await f.make().read({ ...f.context, identities });
   expect(expired.collection?.attribution?.threads).toEqual([]);
   expect(expired.writer).toBe("observed");
-  const stored = (await openHistoryDatabase(f.path))!;
+  const stored = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     expect(stored.prepare("SELECT count(*) AS n FROM identity_usage").get()).toEqual({ n: 0 });
     expect(stored.prepare("SELECT count(*) AS n FROM usage_expired").get()).toEqual({ n: 1 });
@@ -506,7 +507,7 @@ test.each(
     f.db.exec(`PRAGMA user_version=${version}`);
     f.db.close();
     await f.make().read(f.context);
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     try {
       const imported = {
         ...original,
@@ -597,7 +598,7 @@ it("does not start transcript work while a version-1 ownership backfill is incom
   });
   expect(
     (
-      await host.controlImport!(
+      await host.controlImport(
         {
           action: "configure",
           configuration: { bbRoot: source, ordinaryRoots: [], workspaces: [workspace] },
@@ -606,10 +607,10 @@ it("does not start transcript work while a version-1 ownership backfill is incom
       )
     ).reason,
   ).toBe("ok");
-  const start = await host.controlImport!({ action: "start" }, context);
+  const start = await host.controlImport({ action: "start" }, context);
   expect(start.reason).toBe("metadata-incomplete");
   expect(f.reads()).toBe(0);
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     expect(db.prepare("SELECT backfill_done FROM history_retention WHERE id=1").get()).toEqual({
       backfill_done: 0,
@@ -632,7 +633,9 @@ test.each(["foreign-table", "partial-history"] as const)(
     f.db.close();
     const { readFile } = await import("node:fs/promises");
     const before = await readFile(f.path);
-    const real = (await (await import("./history-storage.js")).loadHistoryStorage())!;
+    const real = requireFixtureValue(
+      await (await import("./history-storage.js")).loadHistoryStorage(),
+    );
     const opens: boolean[] = [];
     const host = createHostHistory({
       storage: async () => (path, readonly) => {
@@ -647,7 +650,7 @@ test.each(["foreign-table", "partial-history"] as const)(
       reason: "storage-incompatible",
     });
     expect(
-      await host.controlImport!(
+      await host.controlImport(
         { action: "status" },
         { ...f.context, hostId: "host-one", knownWorkspaces: [] },
       ),
@@ -694,12 +697,14 @@ it("rebuilds only retained observed collector records, not imported records or u
   expect(recovered.collection?.workspaces).toEqual([
     { workspace: "/original", totalTokens: 5, events: 1 },
   ]);
-  const status = await f.make().controlImport!(
-    { action: "status" },
-    { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] },
-  );
+  const status = await f
+    .make()
+    .controlImport(
+      { action: "status" },
+      { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] },
+    );
   expect(status.reason).toBe("not-configured");
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     expect(db.prepare("SELECT event_id,provenance FROM usage_compact").all()).toEqual([
       { event_id: observed.eventId, provenance: "observed" },
@@ -738,14 +743,14 @@ it("expires import-only storage on status and readiness checks without capture c
   expect(view.health?.compactFrom).toBe("2026-09-22T00:00:00.000Z");
   expect(
     (
-      await history.controlImport!(
+      await history.controlImport(
         { action: "status" },
         { ...f.context, hostId: "host-one", knownWorkspaces: [] },
       )
     ).reason,
   ).toBe("not-configured");
   expect(reads).toBe(0);
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     expect(db.prepare("SELECT count(*) AS n FROM usage_compact").get()).toEqual({ n: 0 });
     expect(db.prepare("SELECT count(*) AS n FROM identity_usage").get()).toEqual({ n: 0 });
@@ -802,10 +807,12 @@ test.each(
     expect((await f.make().read(f.context)).storage, damage).toBe("incompatible");
     expect(
       (
-        await f.make().controlImport!(
-          { action: "status" },
-          { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] },
-        )
+        await f
+          .make()
+          .controlImport(
+            { action: "status" },
+            { ...f.context, hostId: "host-one", knownWorkspaces: ["/original"] },
+          )
       ).reason,
       damage,
     ).toBe("storage-incompatible");
@@ -837,7 +844,9 @@ test.each(["absent", "empty"])(
       const { readFile, readdir } = await import("node:fs/promises");
       const before = await readFile(f.path);
       const files = await readdir(f.directory);
-      const real = (await (await import("./history-storage.js")).loadHistoryStorage())!;
+      const real = requireFixtureValue(
+        await (await import("./history-storage.js")).loadHistoryStorage(),
+      );
       let opens = 0;
       const history = createHostHistory({
         storage: async () => (path, readonly) => {
@@ -849,7 +858,7 @@ test.each(["absent", "empty"])(
       expect((await history.read(f.context)).storage, layout).toBe("unavailable");
       expect(
         (
-          await history.controlImport!(
+          await history.controlImport(
             { action: "status" },
             { ...f.context, hostId: "host-one", knownWorkspaces: [] },
           )

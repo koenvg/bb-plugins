@@ -146,7 +146,11 @@ const ResizeHandle = ({ outline, controls }: { outline: OutlineWidth; controls: 
 };
 
 function renderedWidth(handle: HTMLElement): number {
-  return handle.parentElement!.getBoundingClientRect().width;
+  const parent = handle.parentElement;
+  if (!parent) {
+    throw new Error("Outline resize handle has no parent.");
+  }
+  return parent.getBoundingClientRect().width;
 }
 
 const ROW =

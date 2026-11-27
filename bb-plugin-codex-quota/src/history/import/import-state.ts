@@ -3,13 +3,13 @@ import type { HistoryDatabase } from "../storage/history-storage.js";
 import type { RootProof } from "./import-source.js";
 import type { ImportConfiguration, ImportDiagnostic, ImportView } from "./import-contract.js";
 
-export type Frozen = {
+export interface Frozen {
   roots: RootProof[];
   workspaces: { recorded: string; resolved: string; identity: string }[];
   catalog: number;
   includeUncertain?: boolean;
-};
-export type Generation = {
+}
+export interface Generation {
   id: string;
   state: "stopped" | "completed" | "canceled";
   start_at: string;
@@ -23,8 +23,8 @@ export type Generation = {
   replayed: number;
   omissions: number;
   diagnostics: string;
-};
-export type Candidate = {
+}
+export interface Candidate {
   generation: string;
   path: string;
   root: number;
@@ -37,14 +37,14 @@ export type Candidate = {
   session: string | null;
   workspace: string | null;
   parent: string | null;
-};
-export type ImportOptions = {
+}
+export interface ImportOptions {
   signal: AbortSignal;
   now?: () => number;
   bytes?: number;
   rows?: number;
   bodyRead?: () => void;
-};
+}
 export function initializeImport(db: HistoryDatabase) {
   db.exec(`
  CREATE TABLE IF NOT EXISTS import_config (host TEXT PRIMARY KEY,configuration TEXT NOT NULL);
@@ -90,34 +90,35 @@ export function importStatus(
   return {
     reason: reason === "ok" && !configuration ? "not-configured" : reason,
     configuration,
-    generation: g
-      ? {
-          id: g.id,
-          state: g.state,
-          startAt: g.start_at,
-          endAt: g.end_at,
-          workspaces: (JSON.parse(g.frozen) as Frozen).workspaces.map((w) => w.recorded),
-          sourceRoots: (JSON.parse(g.frozen) as Frozen).roots.map((r) => r.resolved),
-          candidates: counts!.candidates,
-          finished: counts!.finished ?? 0,
-          bytes: g.bytes,
-          records: g.records,
-          replayed: g.replayed,
-          omissions: g.omissions,
-          ...((JSON.parse(g.frozen) as Frozen).includeUncertain
-            ? {
-                includeUncertain: true,
-                uncertainRecords: (
-                  db
-                    .prepare("SELECT count(*) AS n FROM usage_uncertain WHERE generation=?")
-                    .get(g.id) as { n: number }
-                ).n,
-              }
-            : {}),
-          coverage: "partial",
-          diagnostics: JSON.parse(g.diagnostics),
-        }
-      : null,
+    generation:
+      g && counts
+        ? {
+            id: g.id,
+            state: g.state,
+            startAt: g.start_at,
+            endAt: g.end_at,
+            workspaces: (JSON.parse(g.frozen) as Frozen).workspaces.map((w) => w.recorded),
+            sourceRoots: (JSON.parse(g.frozen) as Frozen).roots.map((r) => r.resolved),
+            candidates: counts.candidates,
+            finished: counts.finished ?? 0,
+            bytes: g.bytes,
+            records: g.records,
+            replayed: g.replayed,
+            omissions: g.omissions,
+            ...((JSON.parse(g.frozen) as Frozen).includeUncertain
+              ? {
+                  includeUncertain: true,
+                  uncertainRecords: (
+                    db
+                      .prepare("SELECT count(*) AS n FROM usage_uncertain WHERE generation=?")
+                      .get(g.id) as { n: number }
+                  ).n,
+                }
+              : {}),
+            coverage: "partial",
+            diagnostics: JSON.parse(g.diagnostics),
+          }
+        : null,
   };
 }
 export function diagnostic(db: HistoryDatabase, g: Generation, code: ImportDiagnostic, n = 1) {

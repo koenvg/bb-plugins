@@ -223,10 +223,10 @@ describe("observed output collector", () => {
       ...Array.from({ length: 3000 }, (_, i) => delta(i + 1, epoch + 2100, "abcd", "live_a")),
       ...Array.from({ length: 3000 }, (_, i) => delta(i + 1, epoch + 2100, "abcd", "live_b")),
     );
-    s.collector.observe(rows[0]!, undefined);
-    s.collector.observe({ ...rows[0]!, updatedAt: epoch + 2100 });
-    s.collector.observe(rows[1]!, 3000);
-    s.collector.observe(rows[2]!, 3000);
+    s.collector.observe(rows[0], undefined);
+    s.collector.observe({ ...rows[0], updatedAt: epoch + 2100 });
+    s.collector.observe(rows[1], 3000);
+    s.collector.observe(rows[2], 3000);
     await step();
     const reads = s.fake.harness.callsTo("threads.events.list").slice(before);
     expect(reads).toHaveLength(20);
@@ -465,7 +465,7 @@ describe("observed output collector", () => {
     const rows = Array.from({ length: 501 }, (_, i) =>
       thread(`thr_${i}`, i === 500 ? { status: "active" } : {}),
     );
-    const target = rows[500]!;
+    const target = rows[500];
     const s = setup(rows, [delta(1, epoch + 100, "abcd", target.id)]);
     await step(3000);
     expect(s.collector.snapshot()).toMatchObject({
@@ -612,7 +612,7 @@ describe("observed output collector", () => {
     expect(s.collector.snapshot().totalBytes).toBe(80);
     expect(s.collector.snapshot().backlog).toBe(1);
     expect(s.fake.harness.callsTo("threads.list").length - discoveryBefore).toBeLessThanOrEqual(1);
-    expect(starts.every((at, i) => i === 0 || at - starts[i - 1]! >= 1000)).toBe(true);
+    expect(starts.every((at, i) => i === 0 || at - starts[i - 1] >= 1000)).toBe(true);
   });
 
   it("shares a rolling-second start limit across adjacent invocations after a delayed page", async () => {

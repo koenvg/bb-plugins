@@ -3,6 +3,7 @@ import fixture from "../test/fixtures/review-queue.json";
 import trackedFixture from "../test/fixtures/review-queue-tracked.json";
 import { parseGithubRepo, parseReviewQueue } from "./review-queue";
 import type { QueueList, QueuePr } from "./review-queue";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const NOW = Date.parse("2026-10-02T10:00:00Z");
 const DAY = 24 * 3_600_000;
@@ -12,7 +13,7 @@ function prs(list: QueueList): QueuePr[] {
 }
 
 function byNumber(list: QueueList, number: number): QueuePr {
-  return prs(list).find((pr) => pr.number === number)!;
+  return requireFixtureValue(prs(list).find((pr) => pr.number === number));
 }
 
 describe("parseGithubRepo", () => {
@@ -230,7 +231,7 @@ describe("parseReviewQueue with tracked PRs", () => {
   });
 
   it("reports a tracked PR that the response leaves out as gone", () => {
-    expect(parseReviewQueue([fixture], [refs[0]!], NOW).gone).toEqual([refs[0]]);
+    expect(parseReviewQueue([fixture], [refs[0]], NOW).gone).toEqual([refs[0]]);
   });
 
   it("reads the same PRs when the tracked PRs come in a separate batch response", () => {
@@ -267,7 +268,7 @@ describe("parseReviewQueue activity on tracked PRs", () => {
         },
       },
     };
-    return parseReviewQueue([response], [ref], NOW).tracked[0]!.activity;
+    return parseReviewQueue([response], [ref], NOW).tracked[0].activity;
   }
 
   function review(

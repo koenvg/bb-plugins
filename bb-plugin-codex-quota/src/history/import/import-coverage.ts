@@ -1,7 +1,7 @@
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import type { HistoryScope } from "../collection/history-coverage.js";
 
-type Progress = {
+interface Progress {
   state: string;
   records: number;
   replayed: number;
@@ -9,7 +9,7 @@ type Progress = {
   workspaces: string | null;
   unknown: number;
   diagnostics: string;
-};
+}
 /** Consume the import ledger committed with discovery/read/cancel progress.
  * No transcript access and no second coverage authority. Unlocated omissions
  * affect every scope; known frozen workspaces constrain other import evidence. */

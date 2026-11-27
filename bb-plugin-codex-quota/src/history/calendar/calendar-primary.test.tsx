@@ -5,6 +5,7 @@ import { CalendarReportPanel } from "./calendar-panel.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
 import type { CalendarQuery } from "./calendar-contract.js";
 import { QuotaDashboard } from "../../quota/quota-view.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 afterEach(cleanup);
@@ -112,7 +113,9 @@ it("gives both native dropdowns inset, centred decorative arrows without changin
     for (const token of ["appearance-none", "h-9", "pr-8", "py-0"]) {
       expect(select.classList.contains(token)).toBe(true);
     }
-    const arrow = select.parentElement!.querySelector('svg[aria-hidden="true"]')!;
+    const arrow = requireFixtureValue(
+      requireFixtureValue(select.parentElement).querySelector('svg[aria-hidden="true"]'),
+    );
     expect(arrow).not.toBeNull();
     for (const token of [
       "pointer-events-none",
@@ -127,7 +130,7 @@ it("gives both native dropdowns inset, centred decorative arrows without changin
     }
     expect(arrow.getAttribute("focusable")).toBe("false");
   }
-  expect(host.parentElement!.classList.contains("@[32rem]:w-44")).toBe(true);
+  expect(requireFixtureValue(host.parentElement).classList.contains("@[32rem]:w-44")).toBe(true);
   fireEvent.change(host, { target: { value: "host_b" } });
   expect(onHostChange).toHaveBeenCalledWith("host_b");
   fireEvent.change(metric, { target: { value: "cost" } });

@@ -6,11 +6,14 @@ import { renderSidebarSlot as renderSlot } from "../bb-plugin-pr-thread-list/sid
 import { project, thread } from "../bb-plugin-pr-thread-list/fixtures";
 import { cancelPrPanelRequest } from "./pr-panel-navigation";
 import { forgetInsights } from "./ui/pr-availability";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const insightApp = await loadPluginApp(() => import("./app"));
 const sidebarApp = await loadPluginApp(() => import("../bb-plugin-pr-thread-list/app"));
-const banner = insightApp.composerCustomizations.find((entry) => entry.id === "pr-insight")!
-  .banners![0]!;
+const banner = requireFixtureValue(
+  requireFixtureValue(insightApp.composerCustomizations.find((entry) => entry.id === "pr-insight"))
+    .banners,
+)[0];
 afterEach(() => {
   cleanup();
   forgetInsights();
@@ -44,7 +47,7 @@ function mountSidebar(activeThreadId: string) {
     error: null,
   };
   const slot = renderSlot(
-    sidebarApp.threadLists[0]!,
+    sidebarApp.threadLists[0],
     {
       activeThreadId,
       activeProjectId: "p1",

@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { QuotaDashboard } from "../src/quota/quota-view.js";
 import { HistoryReadinessPanel } from "../src/history/history-view.js";
 import type { ImportView } from "../src/history/import/import-contract.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 const view: ImportView = {
   reason: "ok",
@@ -30,7 +31,7 @@ const view: ImportView = {
     diagnostics: ["unresolved-ancestry", "oversize-record"],
   },
 };
-createRoot(document.getElementById("root")!).render(
+createRoot(requireFixtureValue(document.getElementById("root"))).render(
   <QuotaDashboard
     now={Date.now()}
     selectedHostId="synthetic-host"

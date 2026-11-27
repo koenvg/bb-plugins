@@ -46,11 +46,11 @@ type Kv = BbPluginApi["storage"]["kv"];
 
 class ChangesUnavailableError extends Error {
   override name = "ChangesUnavailableError";
-  constructor(
-    message: string,
-    readonly noGit = false,
-  ) {
+  readonly noGit: boolean;
+
+  constructor(message: string, noGit = false) {
     super(message);
+    this.noGit = noGit;
   }
 }
 
@@ -244,7 +244,7 @@ async function getImage(
         : side === "before" && target.kind !== "uncommitted"
           ? basis.mergeBaseRef
           : basis.headSha;
-    if (!live && !imageShaSchema.safeParse(sha).success) {
+    if (!live && (sha === null || !imageShaSchema.safeParse(sha).success)) {
       return imageError("stale", "Image revision unavailable. Refresh changes.");
     }
     const response = await sdk.plugins.callRpc<GitFileSide>({
@@ -259,7 +259,7 @@ async function getImage(
             ? { target: "uncommitted" as const, side: "new" as const }
             : {
                 target: "commit" as const,
-                sha: sha!,
+                sha,
                 side:
                   target.kind === "commit" && side === "before"
                     ? ("old" as const)
@@ -321,9 +321,10 @@ async function getChanges(
       kind: "ok",
       environmentId,
       query,
-      imageBasis: stable
-        ? { environmentId, headSha: headSha!, mergeBaseRef: diff.mergeBaseRef ?? null, target }
-        : null,
+      imageBasis:
+        stable && headSha !== null
+          ? { environmentId, headSha, mergeBaseRef: diff.mergeBaseRef ?? null, target }
+          : null,
       files: diff.files.map(
         ({ path, previousPath, additions, deletions, binary, loadMode, changeKind, origin }) => ({
           path,
@@ -453,10 +454,10 @@ function createViewedMarksKv(kv: Kv) {
     ): Promise<UpdateViewedResult> {
       const key = keyOf(threadId, target);
       return inOrder(key, async () => {
-        const marks: Record<string, string> = { ...(await read(key)), ...set };
-        for (const path of remove) {
-          delete marks[path];
-        }
+        const removed = new Set(remove);
+        const marks = Object.fromEntries(
+          Object.entries({ ...(await read(key)), ...set }).filter(([path]) => !removed.has(path)),
+        );
         if (Object.keys(marks).length === 0) {
           await kv.delete(key);
         } else {
@@ -496,7 +497,19 @@ export default async function plugin(bb: BbPluginApi) {
             : side === "before" && target.kind !== "uncommitted"
               ? basis.mergeBaseRef
               : basis.headSha;
-        if (!live && !imageShaSchema.safeParse(sha).success) {
+        const revision = live
+          ? { kind: "working-tree" as const }
+          : sha === null
+            ? null
+            : {
+                kind: "commit" as const,
+                sha,
+                firstParent: target.kind === "commit" && side === "before",
+              };
+        if (
+          !revision ||
+          (revision.kind === "commit" && !imageShaSchema.safeParse(revision.sha).success)
+        ) {
           return videoError("stale", "Video revision unavailable. Refresh changes.");
         }
         const result = await host.call(
@@ -504,13 +517,7 @@ export default async function plugin(bb: BbPluginApi) {
           {
             root: environment.path,
             path,
-            revision: live
-              ? { kind: "working-tree" }
-              : {
-                  kind: "commit",
-                  sha: sha!,
-                  firstParent: target.kind === "commit" && side === "before",
-                },
+            revision,
           },
           { hostId: environment.hostId, timeoutMs: 25_000 },
         );

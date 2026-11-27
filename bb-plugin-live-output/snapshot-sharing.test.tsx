@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk
 import app from "./app";
 import type { OutputSnapshot } from "./contract";
 import "./chart-test-support";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 let slots: RenderedSlot[] = [];
 let fixture: HTMLElement;
@@ -56,8 +57,8 @@ async function setup(handler: () => OutputSnapshot | Promise<OutputSnapshot>) {
     const options = { rpc: { snapshot: handler }, realtimeConnectionState: "connected" as const };
     const slot =
       kind === "page"
-        ? renderSlot(captured.navPanels[0]!, { subPath: "" }, options)
-        : renderSlot(captured.appOverlays[0]!, {}, options);
+        ? renderSlot(captured.navPanels[0], { subPath: "" }, options)
+        : renderSlot(captured.appOverlays[0], {}, options);
     slots.push(slot);
     return slot;
   }
@@ -143,12 +144,14 @@ it("shares failures and recovery while preserving per-slot connection state and 
   const page = mount("page");
   let footer = mount("footer");
   await flush();
-  const path = page.getByRole("img").querySelector("path")!.getAttribute("d");
+  const path = requireFixtureValue(page.getByRole("img").querySelector("path")).getAttribute("d");
   fail = true;
   await tick();
   expect(handler).toHaveBeenCalledTimes(2);
   expect(page.getByRole("status").textContent).toBe("Disconnected");
-  expect(page.getByRole("img").querySelector("path")!.getAttribute("d")).toBe(path);
+  expect(requireFixtureValue(page.getByRole("img").querySelector("path")).getAttribute("d")).toBe(
+    path,
+  );
   expect(fixture.textContent).toContain("— tok/s");
   unmount(footer);
   footer = mount("footer");
@@ -189,11 +192,11 @@ it("discards old in-flight results and cached data after last-consumer teardown 
   expect(handler).toHaveBeenCalledTimes(2);
   expect(next.getByRole("status").textContent).toBe("Starting");
   await act(async () => {
-    releases[0]!(snapshot(400));
+    releases[0](snapshot(400));
   });
   expect(next.getByRole("status").textContent).toBe("Starting");
   await act(async () => {
-    releases[1]!(snapshot(40));
+    releases[1](snapshot(40));
   });
   expect(next.getByLabelText("Current rate").textContent).toBe("10est. tokens/s");
   unmount(next);
@@ -261,7 +264,7 @@ it("keeps the page poll alive when the host footer disappears and reuses it when
   const page = mount("page");
   mount("footer");
   await flush();
-  const button = fixture.querySelector("button")!;
+  const button = requireFixtureValue(fixture.querySelector("button"));
   await act(async () => {
     button.remove();
   });
@@ -270,7 +273,7 @@ it("keeps the page poll alive when the host footer disappears and reuses it when
   expect(handler).toHaveBeenCalledTimes(2);
   expect(page.getByRole("status").textContent).toBe("Live");
   await act(async () => {
-    fixture.firstElementChild!.append(button);
+    requireFixtureValue(fixture.firstElementChild).append(button);
   });
   expect(handler).toHaveBeenCalledTimes(2);
   expect(fixture.textContent).toContain("10 tok/s");

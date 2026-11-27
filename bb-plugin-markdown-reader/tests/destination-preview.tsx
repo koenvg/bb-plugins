@@ -5,6 +5,7 @@ import type { ReaderTarget } from "../source";
 import type { DestinationResult, DestinationRequest } from "../destination-types";
 import "../app.css";
 import "./preview.css";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const params = new URLSearchParams(location.search);
 const source = params.get("source") ?? "workspace";
@@ -40,11 +41,11 @@ const text =
 let reads = 0,
   resolutions = 0;
 document.documentElement.dataset.theme = params.get("theme") ?? "light";
-document.getElementById("root")!.style.cssText =
+requireFixtureValue(document.getElementById("root")).style.cssText =
   `width:${Number(params.get("width")) || 760}px;max-width:100%;height:850px`;
 const app = await loadPluginApp(pluginApp);
 const slot = renderSlot(
-  app.fileOpeners[0]!,
+  app.fileOpeners[0],
   { ...target, Original: () => <p>Bound Original fixture</p> },
   {
     rpc: {
@@ -103,10 +104,10 @@ const slot = renderSlot(
   },
 );
 if (params.get("panel") === "viewport") {
-  document.getElementById("root")!.style.height = "100dvh";
+  requireFixtureValue(document.getElementById("root")).style.height = "100dvh";
   slot.container.style.height = "100%";
 }
-document.getElementById("root")!.append(slot.container);
+requireFixtureValue(document.getElementById("root")).append(slot.container);
 Object.assign(window, {
   destinationFixture: {
     inspection: slot.inspection,

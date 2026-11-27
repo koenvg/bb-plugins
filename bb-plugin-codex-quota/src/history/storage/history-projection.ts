@@ -18,7 +18,11 @@ import { initializeImport } from "../import/import-state.js";
 type CompactRecord = NonNullable<ReturnType<typeof parseCompact>>;
 type EventRow = CompactRow;
 type UsageRecord = Extract<CompactRecord, { workspace: string }>;
-type ConfirmedUsage = { eventId: string; record: UsageRecord; accepted: boolean };
+interface ConfirmedUsage {
+  eventId: string;
+  record: UsageRecord;
+  accepted: boolean;
+}
 export function initializeWriterObservation(db: HistoryDatabase) {
   db.exec(`CREATE TABLE IF NOT EXISTS history_writer_observation (id INTEGER PRIMARY KEY CHECK(id=1), observed INTEGER NOT NULL);
     CREATE TRIGGER IF NOT EXISTS history_live_writer AFTER INSERT ON usage_events WHEN json_extract(new.payload,'$.provenance')='observed' BEGIN UPDATE history_writer_observation SET observed=1 WHERE id=1; END;`);
@@ -26,8 +30,15 @@ export function initializeWriterObservation(db: HistoryDatabase) {
     "INSERT OR IGNORE INTO history_writer_observation SELECT 1,CASE WHEN observed_events>0 THEN 1 ELSE 0 END FROM history_counters WHERE id=1",
   ).run();
 }
-type Binding = { session_id: string; entry_id: string };
-type Owner = { event_id: string; evidence: string; conflicted: number };
+interface Binding {
+  session_id: string;
+  entry_id: string;
+}
+interface Owner {
+  event_id: string;
+  evidence: string;
+  conflicted: number;
+}
 
 export function initializeHistory(db: HistoryDatabase, firstObservedAt: string, collector = true) {
   const version = (db.prepare("PRAGMA user_version").get() as { user_version: number })
@@ -229,7 +240,10 @@ export function projectCompactRecord(db: HistoryDatabase, record: CompactRecord)
     db.prepare(
       "UPDATE history_counters SET observed_events=observed_events+1,unconfirmed_events=unconfirmed_events+1 WHERE id=1",
     ).run();
-    const row = eventRow(db, record.eventId)!;
+    const row = eventRow(db, record.eventId);
+    if (!row) {
+      throw new Error("New history event could not be read.");
+    }
     if (accepted) {
       adjustWorkspace(db, row, 1);
     }

@@ -7,6 +7,7 @@ import {
   renderSlot,
 } from "@get-bb/plugin-sdk/testing/app";
 import appDefinition from "./app.js";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const components = vi.hoisted(() => ({ electric: vi.fn(), glow: vi.fn() }));
 vi.mock("./effects/react-bits/ElectricBorder.js", () => ({
@@ -47,20 +48,22 @@ describe("SDK settings delivery to native speed decorations", () => {
         <textarea>Preserve this draft</textarea>
         <button aria-label="Provider, model and reasoning"><span title="Codex (${mode} mode)">Model</span></button>
       </form></div></div>`;
-          const frame = document.querySelector<HTMLElement>("[data-follow-up-composer]")!;
+          const frame = requireFixtureValue(
+            document.querySelector<HTMLElement>("[data-follow-up-composer]"),
+          );
           frame.getBoundingClientRect = () => new DOMRect(20, 20, 700, 250);
-          const input = document.querySelector("textarea")!;
+          const input = requireFixtureValue(document.querySelector("textarea"));
           const app = await loadPluginApp(appDefinition);
           const scripts = await mountPluginContentScripts(app, { pluginId: "compose-chat" });
           const slot = renderSlot(
-            app.appOverlays[0]!,
+            app.appOverlays[0],
             {},
             { settings: { speedBorder: effect, electricMotion: false } },
           );
           try {
             const spy = effect === "Electric" ? components.electric : components.glow;
             await waitFor(() => expect(spy).toHaveBeenCalled());
-            const props = spy.mock.lastCall![0];
+            const props = requireFixtureValue(spy.mock.lastCall)[0];
             const factor = mode === "Fast" ? 0.75 : 1;
             const color =
               theme === "light"
@@ -111,8 +114,8 @@ describe("SDK settings delivery to native speed decorations", () => {
             await waitFor(() =>
               expect(
                 effect === "Electric"
-                  ? spy.mock.lastCall![0].color
-                  : spy.mock.lastCall![0].colors[0],
+                  ? requireFixtureValue(spy.mock.lastCall)[0].color
+                  : requireFixtureValue(spy.mock.lastCall)[0].colors[0],
               ).toBe(switchedColor),
             );
             expect(document.querySelector("textarea")).toBe(input);
@@ -129,11 +132,12 @@ describe("SDK settings delivery to native speed decorations", () => {
   it("honors Off from the SDK settings hook", async () => {
     document.body.innerHTML =
       '<div data-app-composer><div data-follow-up-composer><form data-promptbox><button aria-label="Provider, model and reasoning"><span title="Codex (Ultrafast mode)">Model</span></button></form></div></div>';
-    document.querySelector<HTMLElement>("[data-follow-up-composer]")!.getBoundingClientRect = () =>
-      new DOMRect(20, 20, 700, 250);
+    requireFixtureValue(
+      document.querySelector<HTMLElement>("[data-follow-up-composer]"),
+    ).getBoundingClientRect = () => new DOMRect(20, 20, 700, 250);
     const app = await loadPluginApp(appDefinition);
     const scripts = await mountPluginContentScripts(app, { pluginId: "compose-chat" });
-    const slot = renderSlot(app.appOverlays[0]!, {}, { settings: { speedBorder: "Off" } });
+    const slot = renderSlot(app.appOverlays[0], {}, { settings: { speedBorder: "Off" } });
     expect(components.electric).not.toHaveBeenCalled();
     expect(components.glow).not.toHaveBeenCalled();
     expect(document.querySelector(".compose-speed-layer")).toBeNull();

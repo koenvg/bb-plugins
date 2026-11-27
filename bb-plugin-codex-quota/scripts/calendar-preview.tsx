@@ -11,6 +11,7 @@ import type { MachineReports } from "../src/machines/machines-contract.js";
 import { accountsFixture, quotaFixture } from "../src/machines/machines.test-support.js";
 import { importUnavailable } from "../src/history/import/import-contract.js";
 import { latestStart, shiftDate } from "../src/history/calendar/calendar-time.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 const state = new URLSearchParams(location.search).get("state") ?? "partial";
 const now = Date.parse("2026-10-01T12:00:00Z");
@@ -451,7 +452,7 @@ const options = {
 };
 const app = await loadPluginApp(() => import("../src/plugin/app.js"));
 const owner = renderSlot(
-  app.appOverlays.find((item) => item.id === "quota-refresh")!,
+  requireFixtureValue(app.appOverlays.find((item) => item.id === "quota-refresh")),
   {},
   options,
 );
@@ -460,10 +461,10 @@ function show(settings: boolean) {
   page?.lifecycle.unmount();
   page?.container.remove();
   page = settings
-    ? renderSlot(app.settingsSections[0]!, {}, options)
-    : renderSlot(app.navPanels[0]!, { subPath: "" }, options);
+    ? renderSlot(app.settingsSections[0], {}, options)
+    : renderSlot(app.navPanels[0], { subPath: "" }, options);
   page.container.setAttribute("data-bb-plugin", "codex-quota");
-  document.getElementById("root")!.append(page.container);
+  requireFixtureValue(document.getElementById("root")).append(page.container);
 }
 const controls = document.createElement("nav");
 controls.setAttribute("aria-label", "Synthetic fixture controls");

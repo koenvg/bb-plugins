@@ -173,8 +173,8 @@ describe("renderMarkdown", () => {
 
     expect(result).toEqual({ ok: true, html: github.body });
     expect(github.requests).toHaveLength(1);
-    expect(github.requests[0]!.url).toBe("https://api.github.com/markdown");
-    expect(JSON.parse(String(github.requests[0]!.body))).toEqual({
+    expect(github.requests[0].url).toBe("https://api.github.com/markdown");
+    expect(JSON.parse(String(github.requests[0].body))).toEqual({
       text: "<img src=x>",
       mode: "gfm",
       context: "octo/app",

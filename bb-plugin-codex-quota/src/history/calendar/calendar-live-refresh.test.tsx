@@ -21,7 +21,7 @@ it("refreshes the visible graph on its own cadence without adding account owners
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
   const f = await dashboardFixture();
-  f.data.accounts[0]!.quota = { state: "unavailable", reason: "auth-required", snapshot: null };
+  f.data.accounts[0].quota = { state: "unavailable", reason: "auth-required", snapshot: null };
   const page = f.page();
   const settings = f.settings();
   await flush();

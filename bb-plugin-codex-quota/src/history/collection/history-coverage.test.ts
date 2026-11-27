@@ -6,6 +6,7 @@ import { openHistoryDatabase } from "../storage/history-storage.js";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory, recordPause } from "../storage/history-projection.js";
 import { recordCoverage, readCoverage } from "./history-coverage.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -16,7 +17,7 @@ afterEach(async () => {
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp23-coverage-"));
-  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   fixtures.push({ root, db });
   initializeHistory(db, "2026-09-01T00:00:00.000Z");
   return db;

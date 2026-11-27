@@ -1,7 +1,11 @@
 import { test, expect, viewport, capture, noOverflow, jsonEvidence, sizes } from "./fixtures.js";
 import type { Page } from "@playwright/test";
 import type { CalendarSnapshot } from "../../src/history/calendar/calendar-contract.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
+type NativeUsageWindow = typeof window & {
+  nativeUsageFixture: { calls: unknown[]; reports: CalendarSnapshot[] };
+};
 async function recorded(page: Page, expected: string) {
   const table = page.getByRole("table", { name: "Daily recorded usage", exact: true });
   await expect(table).toHaveCount(1);
@@ -33,10 +37,14 @@ for (const width of sizes) {
     await viewport(page, width);
     await page.goto("/native-usage.html");
     await recorded(page, "900");
-    const calls = await page.evaluate(() => (window as any).nativeUsageFixture.calls.length);
+    const calls = await page.evaluate(
+      () => (window as NativeUsageWindow).nativeUsageFixture.calls.length,
+    );
     await page.getByRole("button", { name: "Estimated cost", exact: true }).click();
     await recorded(page, "$0.06");
-    expect(await page.evaluate(() => (window as any).nativeUsageFixture.calls.length)).toBe(calls);
+    expect(
+      await page.evaluate(() => (window as NativeUsageWindow).nativeUsageFixture.calls.length),
+    ).toBe(calls);
     await capture(page, info, `native-all-${width}`);
     await page.getByRole("button", { name: "Previous 30 days", exact: true }).click();
     const subtotal = page.getByLabel("Recorded token subtotal", { exact: true });
@@ -45,7 +53,7 @@ for (const width of sizes) {
     await expect(subtotal).not.toHaveAttribute("title");
     await unobserved(page, "Partial, coverage gaps");
     const reports: CalendarSnapshot[] = await page.evaluate(
-      () => (window as any).nativeUsageFixture.reports,
+      () => (window as NativeUsageWindow).nativeUsageFixture.reports,
     );
     const previousReports = reports.filter((report) => report.query.startDate === "2026-08-03");
     await jsonEvidence(info, "unobserved-backend-reports.json", previousReports);
@@ -86,7 +94,7 @@ for (const width of sizes) {
     await jsonEvidence(
       info,
       "backend-reports.json",
-      await page.evaluate(() => (window as any).nativeUsageFixture),
+      await page.evaluate(() => (window as NativeUsageWindow).nativeUsageFixture),
     );
   });
 
@@ -101,7 +109,7 @@ for (const width of sizes) {
     await recorded(page, "900");
     const after = await panel.boundingBox();
     expect(after?.y).toBe(before?.y);
-    expect(after!.height).toBeGreaterThanOrEqual(280);
+    expect(requireFixtureValue(after).height).toBeGreaterThanOrEqual(280);
     await jsonEvidence(info, "loading-layout.json", { before, after });
   });
 

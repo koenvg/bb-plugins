@@ -6,14 +6,18 @@ import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, LocalCommitsAhead, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 type Methods = Pick<
   typeof rpcContract,
   "getInsight" | "refresh" | "runPrAction" | "localCommitsAhead" | "getTimeline"
 >;
 const app = await loadPluginApp(() => import("../app"));
-const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
-const banner = app.composerCustomizations.find((entry) => entry.id === "pr-insight")!.banners![0]!;
+const tab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
+const banner = requireFixtureValue(
+  requireFixtureValue(app.composerCustomizations.find((entry) => entry.id === "pr-insight"))
+    .banners,
+)[0];
 
 const HEAD = "head-a";
 const behind: PrInsight = {
@@ -104,7 +108,7 @@ describe("Update branch", () => {
     fireEvent.click(await view.findByRole("button", { name: "Update branch" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
-    expect(run.mock.calls[0]![0]).toMatchObject({ action: "update-merge", expectedHeadOid: HEAD });
+    expect(run.mock.calls[0][0]).toMatchObject({ action: "update-merge", expectedHeadOid: HEAD });
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
@@ -127,7 +131,7 @@ describe("Update branch", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Update with rebase" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
-    expect(run.mock.calls[0]![0]).toMatchObject({ action: "update-rebase", expectedHeadOid: HEAD });
+    expect(run.mock.calls[0][0]).toMatchObject({ action: "update-rebase", expectedHeadOid: HEAD });
   });
 
   it("does not rebase when the user cancels", async () => {
@@ -168,8 +172,8 @@ describe("Update branch", () => {
     fireEvent.click(toggle);
     fireEvent.click(toggle);
     fireEvent.click(toggle);
-    await act(async () => answers[1]!({ kind: "count", count: 0 }));
-    await act(async () => answers[0]!({ kind: "count", count: 3 }));
+    await act(async () => answers[1]({ kind: "count", count: 0 }));
+    await act(async () => answers[0]({ kind: "count", count: 3 }));
 
     expect(view.queryByText("3 unpushed commits. Push first.")).toBeNull();
     expect(

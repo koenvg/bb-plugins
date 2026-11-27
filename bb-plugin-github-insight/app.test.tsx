@@ -12,9 +12,10 @@ import requiredChecksPage from "./test/fixtures/pr-cli-14583-overview-required-c
 import { postIntent, useCommandIntent } from "./ui/command-intents";
 import { GITHUB_COMMANDS } from "./ui/commands";
 import { forgetInsights } from "./ui/pr-availability";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("./app"));
-const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const prTab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
 
 afterEach(() => {
   cleanup();
@@ -261,7 +262,7 @@ describe("PR tab", () => {
   it("shows a pending code owner team with its labels", async () => {
     const slot = renderTab(insight);
 
-    const row = (await slot.findByText("ai-governance (team)")).closest("li")!;
+    const row = requireFixtureValue((await slot.findByText("ai-governance (team)")).closest("li"));
     expect(within(row).getByText("Pending")).toBeTruthy();
     expect(within(row).getByText("code owner")).toBeTruthy();
   });
@@ -269,7 +270,7 @@ describe("PR tab", () => {
   it("shows an approved user without the code owner label", async () => {
     const slot = renderTab(insight);
 
-    const row = (await slot.findByText("alice")).closest("li")!;
+    const row = requireFixtureValue((await slot.findByText("alice")).closest("li"));
     expect(within(row).getByText("Approved")).toBeTruthy();
     expect(within(row).queryByText("code owner")).toBeNull();
   });
@@ -297,7 +298,9 @@ describe("PR tab", () => {
       ok({ ...emptyInsight, checks: [check("UI Review", "waiting"), check("lint", "passed")] }),
     );
 
-    const row = (await slot.findByRole("link", { name: "UI Review" })).closest("li")!;
+    const row = requireFixtureValue(
+      (await slot.findByRole("link", { name: "UI Review" })).closest("li"),
+    );
     expect(slot.getAllByTestId("check-group-heading").map((h) => h.textContent)).toEqual([
       "1 waiting",
       "1 passed",
@@ -317,7 +320,9 @@ describe("PR tab", () => {
   it("collapses passed and skipped checks until the user expands them", async () => {
     const slot = renderTab(insight);
 
-    const collapsed = (await slot.findByText("2 passed, 1 skipped")).closest("details")!;
+    const collapsed = requireFixtureValue(
+      (await slot.findByText("2 passed, 1 skipped")).closest("details"),
+    );
     expect(collapsed.open).toBe(false);
 
     fireEvent.click(within(collapsed).getByText("2 passed, 1 skipped"));
@@ -329,7 +334,9 @@ describe("PR tab", () => {
     const slot = renderTab(insight);
     fireEvent.click(await slot.findByRole("button", { name: /1 check failed/ }));
 
-    const row = (await slot.findByRole("link", { name: "a11y-test" })).closest("li")!;
+    const row = requireFixtureValue(
+      (await slot.findByRole("link", { name: "a11y-test" })).closest("li"),
+    );
     expect(within(row).getByText(".github:4092")).toBeTruthy();
     expect(within(row).queryByTestId("check-reason")).toBeNull();
     expect(within(row).getAllByText(/Process completed with exit code 1\./)).toHaveLength(1);
@@ -338,7 +345,7 @@ describe("PR tab", () => {
   it("keeps the link of a cancelled check without reason text", async () => {
     const slot = renderTab(insight);
 
-    const row = (await slot.findByRole("link", { name: "e2e" })).closest("li")!;
+    const row = requireFixtureValue((await slot.findByRole("link", { name: "e2e" })).closest("li"));
     expect(within(row).queryByTestId("check-reason")).toBeNull();
   });
 
@@ -719,9 +726,13 @@ describe("PR tab enqueue", () => {
   });
 });
 
-const banner = app.composerCustomizations
-  .find((customization) => customization.id === "pr-insight")!
-  .banners!.find((entry) => entry.id === "merge-blockers")!;
+const banner = requireFixtureValue(
+  requireFixtureValue(
+    requireFixtureValue(
+      app.composerCustomizations.find((customization) => customization.id === "pr-insight"),
+    ).banners,
+  ).find((entry) => entry.id === "merge-blockers"),
+);
 
 function renderBanner(
   result: InsightResult | (() => InsightResult),
@@ -942,9 +953,9 @@ describe("Composer banner merge action", () => {
       const pullRequest = page.data.repository.pullRequest;
       pullRequest.mergeStateStatus = mergeStateStatus;
       pullRequest.isMergeQueueEnabled = isMergeQueueEnabled;
-      const contexts = pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts;
+      const contexts = pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts;
       const cancelled = {
-        ...contexts.nodes[0]!,
+        ...contexts.nodes[0],
         name: "CI",
         conclusion: "CANCELLED",
         isRequired,

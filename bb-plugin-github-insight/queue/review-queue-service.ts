@@ -63,20 +63,20 @@ export interface QueueThread {
 }
 
 export interface ReviewQueueServiceDeps {
-  primaryHostId(): Promise<string | null>;
-  fetchReviewQueue(hostId: string, tracked: PullRequestRef[]): Promise<FetchedQueue>;
-  scanTeamPrs(hostId: string, request: TeamScanRequest): Promise<TeamScan>;
-  listProjects(): Promise<QueueProject[]>;
-  listThreads(): Promise<QueueThread[]>;
-  listReviewThreads(): Promise<QueueThread[]>;
-  readPluginMetadata(threadId: string): Promise<unknown>;
-  spawnReviewThread(pr: ReviewPr, request: NewThreadRequest): Promise<string>;
-  archiveThread(threadId: string): Promise<void>;
-  resolveEnvironmentPr(environmentId: string): Promise<PrResolution>;
+  primaryHostId: () => Promise<string | null>;
+  fetchReviewQueue: (hostId: string, tracked: PullRequestRef[]) => Promise<FetchedQueue>;
+  scanTeamPrs: (hostId: string, request: TeamScanRequest) => Promise<TeamScan>;
+  listProjects: () => Promise<QueueProject[]>;
+  listThreads: () => Promise<QueueThread[]>;
+  listReviewThreads: () => Promise<QueueThread[]>;
+  readPluginMetadata: (threadId: string) => Promise<unknown>;
+  spawnReviewThread: (pr: ReviewPr, request: NewThreadRequest) => Promise<string>;
+  archiveThread: (threadId: string) => Promise<void>;
+  resolveEnvironmentPr: (environmentId: string) => Promise<PrResolution>;
   kv: Pick<PluginKvStorage, "get" | "set" | "delete" | "list">;
-  publish(result: LoadedReviewQueue): void;
-  warn(message: string): void;
-  now(): number;
+  publish: (result: LoadedReviewQueue) => void;
+  warn: (message: string) => void;
+  now: () => number;
 }
 
 interface StartedReview {
@@ -312,20 +312,29 @@ export function createReviewQueueService(deps: ReviewQueueServiceDeps) {
 
   async function threadsByPr(reviews: StartedReview[]): Promise<Map<string, QueueThread>> {
     const threads = (await deps.listThreads())
-      .filter((thread) => thread.archivedAt === null && thread.environmentId !== null)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+      .flatMap((thread) =>
+        thread.archivedAt === null && thread.environmentId !== null
+          ? [{ thread, environmentId: thread.environmentId }]
+          : [],
+      )
+      .sort((a, b) => b.thread.updatedAt - a.thread.updatedAt);
     const resolutions = new Map<string, Promise<PrResolution>>();
     const resolve = (environmentId: string) => {
-      if (!resolutions.has(environmentId)) {
-        resolutions.set(
-          environmentId,
-          deps.resolveEnvironmentPr(environmentId).catch((): PrResolution => ({ kind: "no_pr" })),
-        );
+      const cached = resolutions.get(environmentId);
+      if (cached) {
+        return cached;
       }
-      return resolutions.get(environmentId)!;
+      const resolution = deps
+        .resolveEnvironmentPr(environmentId)
+        .catch((): PrResolution => ({ kind: "no_pr" }));
+      resolutions.set(environmentId, resolution);
+      return resolution;
     };
     const linked = await Promise.all(
-      threads.map(async (thread) => ({ thread, resolution: await resolve(thread.environmentId!) })),
+      threads.map(async ({ thread, environmentId }) => ({
+        thread,
+        resolution: await resolve(environmentId),
+      })),
     );
     const links = [
       ...linked.flatMap(({ thread, resolution }) =>

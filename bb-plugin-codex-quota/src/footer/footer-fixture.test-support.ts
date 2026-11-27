@@ -1,3 +1,5 @@
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
+
 // Bounded BB 0.44.0 DOM fixture, checked in Arc at desktop and 375px on 2026-09-30.
 // Native footer registration supplies the quota item; all other identities were observed live.
 export function footerFixture() {
@@ -21,8 +23,14 @@ export function footerFixture() {
   document.body.append(sidebar);
   return {
     sidebar,
-    row: sidebar.querySelector<HTMLElement>('[data-sidebar-navigation-item="codex-quota/quota"]')!,
-    item: sidebar.querySelector<HTMLElement>('[data-footer-item="plugin:codex-quota/quota"]')!,
-    button: sidebar.querySelector<HTMLButtonElement>('button[aria-label="Codex quota"]')!,
+    row: requireFixtureValue(
+      sidebar.querySelector<HTMLElement>('[data-sidebar-navigation-item="codex-quota/quota"]'),
+    ),
+    item: requireFixtureValue(
+      sidebar.querySelector<HTMLElement>('[data-footer-item="plugin:codex-quota/quota"]'),
+    ),
+    button: requireFixtureValue(
+      sidebar.querySelector<HTMLButtonElement>('button[aria-label="Codex quota"]'),
+    ),
   };
 }

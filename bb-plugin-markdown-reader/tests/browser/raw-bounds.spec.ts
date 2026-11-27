@@ -30,9 +30,14 @@ test("newline-dense Raw keeps bounded DOM, exact text, inclusive reveal and repe
   ]);
   const bounds = await first.evaluate((element) => {
     const target = element.getBoundingClientRect();
-    const panel = element.closest(".markdown-reader")!;
+    const panel = element.closest(".markdown-reader");
+    if (panel == null)
+      throw new Error('Missing browser fixture value: element.closest(".markdown-reader")');
     const reader = panel.getBoundingClientRect();
-    const toolbar = panel.querySelector(".mr-toolbar")!.getBoundingClientRect();
+    const element2 = panel.querySelector(".mr-toolbar");
+    if (element2 == null)
+      throw new Error('Missing browser fixture value: panel.querySelector(".mr-toolbar")');
+    const toolbar = element2.getBoundingClientRect();
     return { visible: target.top >= toolbar.bottom && target.bottom <= reader.bottom };
   });
   expect(bounds).toEqual({ visible: true });
@@ -53,18 +58,28 @@ test("newline-dense Raw keeps bounded DOM, exact text, inclusive reveal and repe
     ...bounds,
   });
   await capture(page, info, "dense-raw-range");
-  const scrollBeforeClear = await raw.evaluate((element) => ({
-    reader: element.closest(".markdown-reader")!.scrollTop,
-    page: window.scrollY,
-  }));
+  const scrollBeforeClear = await raw.evaluate((element) => {
+    const ancestor = element.closest(".markdown-reader");
+    if (ancestor == null)
+      throw new Error('Missing browser fixture value: element.closest(".markdown-reader")');
+    return {
+      reader: ancestor.scrollTop,
+      page: window.scrollY,
+    };
+  });
   await page.evaluate(() => window.revealSelectionLines(null, null));
   await expect(raw).toBeFocused();
   await expect(raw.locator('[data-highlighted="true"]')).toHaveCount(0);
   expect(
-    await raw.evaluate((element) => ({
-      reader: element.closest(".markdown-reader")!.scrollTop,
-      page: window.scrollY,
-    })),
+    await raw.evaluate((element) => {
+      const ancestor2 = element.closest(".markdown-reader");
+      if (ancestor2 == null)
+        throw new Error('Missing browser fixture value: element.closest(".markdown-reader")');
+      return {
+        reader: ancestor2.scrollTop,
+        page: window.scrollY,
+      };
+    }),
   ).toEqual(scrollBeforeClear);
   expect(await raw.textContent()).toBe(source);
 });
@@ -88,13 +103,15 @@ for (const requested of [false, true]) {
     }
     const raw = page.getByLabel("Raw Markdown");
     await raw.evaluate((root) => {
-      const text = root.textContent!;
+      const text = root.textContent;
       const boundary = (offset: number): [Node, number] => {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         let node = walker.nextNode();
         while (node) {
-          if (offset <= node.textContent!.length) return [node, offset];
-          offset -= node.textContent!.length;
+          const text = node.textContent;
+          if (text === null) throw new Error("Missing fixture text");
+          if (offset <= text.length) return [node, offset];
+          offset -= text.length;
           node = walker.nextNode();
         }
         throw new Error("Selection offset outside source");
@@ -102,8 +119,10 @@ for (const requested of [false, true]) {
       const range = document.createRange();
       range.setStart(...boundary(text.indexOf("alpha")));
       range.setEnd(...boundary(text.indexOf("  beta")));
-      window.getSelection()!.removeAllRanges();
-      window.getSelection()!.addRange(range);
+      const selection = window.getSelection();
+      if (!selection) throw new Error("Missing browser fixture selection");
+      selection.removeAllRanges();
+      selection.addRange(range);
     });
     const button = page.getByRole("button", { name: "Add to chat" });
     await button.click();
@@ -143,18 +162,29 @@ for (const activation of ["Enter", "Space"] as const) {
     await page.getByLabel("Raw Markdown").evaluate((root) => {
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       let node = walker.nextNode();
-      while (node && !node.textContent!.includes("alpha")) node = walker.nextNode();
+      while (node && !node.textContent?.includes("alpha")) node = walker.nextNode();
       if (!node) throw new Error("Missing source text");
       const range = document.createRange();
-      range.setStart(node, node.textContent!.indexOf("alpha"));
+      const text = node.textContent;
+      if (text == null) throw new Error("Missing browser fixture value: node.textContent");
+      range.setStart(node, text.indexOf("alpha"));
       range.collapse(true);
-      window.getSelection()!.removeAllRanges();
-      window.getSelection()!.addRange(range);
+      const selection = window.getSelection();
+      if (!selection) throw new Error("Missing browser fixture selection");
+      selection.removeAllRanges();
+      selection.addRange(range);
     });
     await page.keyboard.down("Shift");
     for (let index = 0; index < 8; index++) await page.keyboard.press("ArrowRight");
     await page.keyboard.up("Shift");
-    expect(await page.evaluate(() => window.getSelection()!.toString())).toBe("alpha **");
+    expect(
+      await page.evaluate(() => {
+        const selection = window.getSelection();
+        if (selection == null)
+          throw new Error("Missing browser fixture value: window.getSelection()");
+        return selection.toString();
+      }),
+    ).toBe("alpha **");
     const button = page.getByRole("button", { name: "Add to chat" });
     await button.waitFor();
     for (let index = 0; index < 10; index++) {

@@ -19,11 +19,11 @@ it("projects all supplied seconds without recomputing their raw or smooth facts"
   expect(smooth.history.points[1]).toEqual({ second: 1, value: 10, observation: "measured" });
   expect(smooth.history.points[300]).toEqual({ second: 300, value: 15, observation: "measured" });
   expect(smooth.history.points[599]?.second).toBe(599);
-  expect([smooth.peak, smooth.maximum, smooth.rate(input.samples[0]!)]).toEqual([15, 20, 10]);
+  expect([smooth.peak, smooth.maximum, smooth.rate(input.samples[0])]).toEqual([15, 20, 10]);
   const raw = projectOutputRates(input, { window: 1, unit: "tokens" });
-  expect([raw.peak, raw.maximum, raw.rate(input.samples[300]!)]).toEqual([30, 36, 30]);
+  expect([raw.peak, raw.maximum, raw.rate(input.samples[300])]).toEqual([30, 36, 30]);
   const bytes = projectOutputRates(input, { window: 1, unit: "bytes" });
-  expect([bytes.peak, bytes.maximum, bytes.rate(input.samples[300]!)]).toEqual([120, 144, 120]);
+  expect([bytes.peak, bytes.maximum, bytes.rate(input.samples[300])]).toEqual([120, 144, 120]);
   expect(projectOutputRates(input, { window: 30, unit: "bytes" }).maximum).toBe(80);
 });
 it("preserves fractional rates, measured zero and collector fixed-divisor startup values", () => {

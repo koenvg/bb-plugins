@@ -49,13 +49,20 @@ export const UsageTooltip = ({
     }
   }, [pinned]);
   const recorded = recordedValue(day, metric);
-  const projection = modelView ? null : chartData([day], metric);
-  const modelSeries = modelView?.series ?? projection!.models;
-  const modelValues = modelView?.values ?? projection!.rows[0].modelFacts;
-  const costFacts =
-    modelView?.costFacts ??
-    projection?.rows[0].costFacts ??
-    (metric === "cost" ? chartData([day], metric).rows[0].costFacts : {});
+  const fallback = () => {
+    const projection = chartData([day], metric);
+    return {
+      series: projection.models,
+      values: projection.rows[0].modelFacts,
+      costFacts: projection.rows[0].costFacts,
+    };
+  };
+  const {
+    series: modelSeries,
+    values: modelValues,
+    costFacts: projectedCosts,
+  } = modelView ?? fallback();
+  const costFacts = projectedCosts ?? (metric === "cost" ? fallback().costFacts : {});
   const positiveModels = modelSeries.filter((series) => (modelValues[series.key] ?? 0) > 0);
   const tokens = metric === "tokens" && recorded !== null ? tokenCountText(recorded) : null;
   const value = tokens?.readable ?? displayValue(day, metric);

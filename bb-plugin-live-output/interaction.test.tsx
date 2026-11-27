@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk
 import app from "./app";
 import type { OutputSnapshot } from "./contract";
 import { readout, queryReadout, move, leave } from "./chart-test-support";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 let page: RenderedSlot | undefined;
 afterEach(() => {
@@ -36,7 +37,7 @@ const snapshot = (): OutputSnapshot => ({
 async function mount() {
   const captured = await loadPluginApp(app);
   page = renderSlot(
-    captured.navPanels[0]!,
+    captured.navPanels[0],
     { subPath: "" },
     {
       rpc: { snapshot },
@@ -175,20 +176,20 @@ it("limits the outside Escape listener to a visible tooltip and removes it on di
   expect(keyListeners()).toHaveLength(0);
   move(chart, { clientX: 480 });
   expect(keyListeners()).toHaveLength(1);
-  const first = keyListeners()[0]![1];
+  const first = keyListeners()[0][1];
   fireEvent.keyDown(document.body, { key: "Escape" });
   expect(queryReadout()).toBeNull();
   expect(
     remove.mock.calls.some(([type, listener]) => type === "keydown" && listener === first),
   ).toBe(true);
   move(chart, { clientX: 480 });
-  const second = keyListeners().at(-1)![1];
+  const second = requireFixtureValue(keyListeners().at(-1))[1];
   leave(chart);
   expect(
     remove.mock.calls.some(([type, listener]) => type === "keydown" && listener === second),
   ).toBe(true);
   move(chart, { clientX: 480 });
-  const last = keyListeners().at(-1)![1];
+  const last = requireFixtureValue(keyListeners().at(-1))[1];
   view.lifecycle.unmount();
   page = undefined;
   expect(
@@ -220,7 +221,7 @@ it.each([283, 403, 960, 1920])(
     expect(chart.getAttribute("viewBox")).toBe("0 0 960 240");
     move(chart, { clientX: width / 4 });
     expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:02:30.000Z");
-    const marker = chart.querySelector("circle")!;
+    const marker = requireFixtureValue(chart.querySelector("circle"));
     expect(Number(marker.getAttribute("cx"))).toBe(240.4);
     expect(Number(marker.getAttribute("cy"))).toBe(110);
     expect(readout().style.pointerEvents).toBe("none");

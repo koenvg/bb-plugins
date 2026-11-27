@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { HistoryReadinessPanel } from "../history-view.js";
 import type { HistoryReadiness } from "../history-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 afterEach(cleanup);
 const missing: HistoryReadiness = {
@@ -34,7 +35,11 @@ const selection = { hostId: "host_a", generation: 1 };
 it("does no installation on mount/disclosure; explicit install, repair, pause and resume show honest state", async () => {
   const control = vi.fn(async ({ action }) => ({
     ...installed,
-    collection: { ...installed.collection!, enabled: action !== "pause", pauseCount: 1 },
+    collection: {
+      ...requireFixtureValue(installed.collection),
+      enabled: action !== "pause",
+      pauseCount: 1,
+    },
   }));
   render(
     <HistoryReadinessPanel selection={selection} read={async () => missing} control={control} />,

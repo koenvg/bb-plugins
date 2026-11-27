@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { createHostHistory } from "../history-host.js";
 import { openHistoryDatabase } from "../storage/history-storage.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 const now = () => Date.UTC(2026, 9, 1);
@@ -80,10 +81,10 @@ it("installs explicitly, repairs without reset, preserves settings/events, recor
   const resumed = await f.history.control("resume", f.context);
   expect(resumed.collection).toMatchObject({
     enabled: true,
-    firstObservedAt: installed.collection!.firstObservedAt,
+    firstObservedAt: requireFixtureValue(installed.collection).firstObservedAt,
     pauseCount: 1,
   });
-  expect(resumed.collection!.workspaces).toEqual([
+  expect(requireFixtureValue(resumed.collection).workspaces).toEqual([
     { workspace: "/shared/work", totalTokens: 6, events: 1 },
   ]);
 });
@@ -114,7 +115,9 @@ it("persists transactions and unchanged-source progress, bounds backlog, exclude
       )
       .join(""),
   );
-  expect((await f.history.read(f.context)).collection!.workspaces[0]).toMatchObject({
+  expect(
+    requireFixtureValue((await f.history.read(f.context)).collection).workspaces[0],
+  ).toMatchObject({
     totalTokens: 12,
     events: 2,
   });
@@ -122,18 +125,26 @@ it("persists transactions and unchanged-source progress, bounds backlog, exclude
   await f.history.read(f.context);
   expect(f.reads()).toBe(before);
   const reload = createHostHistory({ agentDir: () => f.agent, now });
-  expect((await reload.read(f.context)).collection!.workspaces[0].totalTokens).toBe(12);
+  expect(
+    requireFixtureValue((await reload.read(f.context)).collection).workspaces[0].totalTokens,
+  ).toBe(12);
   const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"), true);
   expect(
-    JSON.stringify(db!.prepare("SELECT payload FROM usage_events LIMIT 1").get()),
+    JSON.stringify(
+      requireFixtureValue(db).prepare("SELECT payload FROM usage_events LIMIT 1").get(),
+    ),
   ).not.toContain("sentinel");
-  db!.close();
+  requireFixtureValue(db).close();
   // truncation and replay
   await writeFile(f.log, line(ids[0]));
-  expect((await f.history.read(f.context)).collection!.workspaces[0].totalTokens).toBe(12);
+  expect(
+    requireFixtureValue((await f.history.read(f.context)).collection).workspaces[0].totalTokens,
+  ).toBe(12);
   await writeFile(f.log + ".new", line(ids[2]));
   await rename(f.log + ".new", f.log);
-  expect((await f.history.read(f.context)).collection!.workspaces[0].totalTokens).toBe(12);
+  expect(
+    requireFixtureValue((await f.history.read(f.context)).collection).workspaces[0].totalTokens,
+  ).toBe(12);
 });
 it("does not activate after cancellation or overwrite unsupported storage", async () => {
   const f = await fixture();
@@ -143,8 +154,8 @@ it("does not activate after cancellation or overwrite unsupported storage", asyn
   await mkdir(join(f.dataDir, "history"), { recursive: true });
   const path = join(f.dataDir, "history/usage-v1.sqlite");
   const db = await openHistoryDatabase(path);
-  db!.exec("PRAGMA user_version = 99");
-  db!.close();
+  requireFixtureValue(db).exec("PRAGMA user_version = 99");
+  requireFixtureValue(db).close();
   const before = await readFile(path);
   expect(await f.history.control("install", f.context)).toMatchObject({
     reason: "storage-incompatible",
@@ -167,12 +178,14 @@ it("handles oversized and partial UTF-8 lines without storing body fragments or 
     f.log,
     JSON.stringify(event("00000000-0000-4000-8000-000000000010")).slice(0, -1),
   );
-  expect((await f.history.read(f.context)).collection!.backlog).toBe(true);
+  expect(requireFixtureValue((await f.history.read(f.context)).collection).backlog).toBe(true);
   const reads = f.reads();
   await f.history.read(f.context);
   expect(f.reads()).toBe(reads);
   await appendFile(f.log, "}\n");
-  expect((await f.history.read(f.context)).collection!.workspaces[0].totalTokens).toBe(12);
+  expect(
+    requireFixtureValue((await f.history.read(f.context)).collection).workspaces[0].totalTokens,
+  ).toBe(12);
 });
 it("keeps identical paths on different hosts separate and never uses claims as per-thread totals", async () => {
   const a = await fixture();
@@ -180,8 +193,10 @@ it("keeps identical paths on different hosts separate and never uses claims as p
   await a.history.control("install", a.context);
   await b.history.control("install", b.context);
   await writeFile(a.log, line("00000000-0000-4000-8000-000000000011"));
-  expect((await a.history.read(a.context)).collection!.workspaces[0].totalTokens).toBe(6);
-  expect((await b.history.read(b.context)).collection!.workspaces).toEqual([]);
+  expect(
+    requireFixtureValue((await a.history.read(a.context)).collection).workspaces[0].totalTokens,
+  ).toBe(6);
+  expect(requireFixtureValue((await b.history.read(b.context)).collection).workspaces).toEqual([]);
 });
 it("fails closed on lost control after pause, including repair and reinstall", async () => {
   const f = await fixture();
@@ -212,7 +227,7 @@ it("keeps first capture ownership on lower-UUID replay and excludes conflicting 
   await f.history.read(f.context);
   await appendFile(f.log, line(replay));
   await appendFile(confirmations, confirmation(replay));
-  expect((await f.history.read(f.context)).collection!.workspaces).toEqual([
+  expect(requireFixtureValue((await f.history.read(f.context)).collection).workspaces).toEqual([
     { workspace: "/shared/work", totalTokens: 6, events: 1 },
   ]);
   await appendFile(
@@ -225,20 +240,22 @@ it("keeps first capture ownership on lower-UUID replay and excludes conflicting 
   expect(result.collection).toMatchObject({ workspaces: [], conflictingEntries: 1 });
   const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"), true);
   expect(
-    db!
+    requireFixtureValue(db)
       .prepare("SELECT event_id FROM usage_entry_owners WHERE session_id=? AND entry_id=?")
       .get("session", "same-entry"),
   ).toMatchObject({ event_id: first });
   expect(
     JSON.parse(
       (
-        db!.prepare("SELECT payload FROM usage_events WHERE event_id=?").get(first) as {
+        requireFixtureValue(db)
+          .prepare("SELECT payload FROM usage_events WHERE event_id=?")
+          .get(first) as {
           payload: string;
         }
       ).payload,
     ),
   ).toMatchObject({ workspace: "/shared/work", totalTokens: 6, capturedCost: null });
-  db!.close();
+  requireFixtureValue(db).close();
   const reload = createHostHistory({ agentDir: () => f.agent, now });
   expect((await reload.read(f.context)).collection).toMatchObject({
     workspaces: [],
@@ -251,7 +268,7 @@ it("reads persisted bounded projections after reload without rescanning detailed
   await writeFile(f.log, line("00000000-0000-4000-8000-000000000014"));
   await f.history.read(f.context);
   const { loadHistoryStorage } = await import("../storage/history-storage.js");
-  const factory = (await loadHistoryStorage())!;
+  const factory = requireFixtureValue(await loadHistoryStorage());
   const sql: string[] = [];
   const reload = createHostHistory({
     agentDir: () => f.agent,
@@ -267,6 +284,8 @@ it("reads persisted bounded projections after reload without rescanning detailed
       };
     },
   });
-  expect((await reload.read(f.context)).collection!.workspaces[0].totalTokens).toBe(6);
+  expect(
+    requireFixtureValue((await reload.read(f.context)).collection).workspaces[0].totalTokens,
+  ).toBe(6);
   expect(sql.filter((query) => /^SELECT.*usage_(events|confirmations)/s.test(query))).toEqual([]);
 });

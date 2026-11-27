@@ -7,13 +7,13 @@ export type AccountsApi = (input: {
   refresh: boolean;
   includeActivity: boolean;
 }) => Promise<unknown>;
-type State = {
+interface State {
   data: MachineAccounts | null;
   loading: boolean;
   failed: boolean;
   now: number;
   owners: number;
-};
+}
 /** One app-window owner for account refresh; footer and icon subscribers are passive. */
 export class MachineAccountsStore {
   private state: State = { data: null, loading: false, failed: false, now: Date.now(), owners: 0 };
@@ -160,16 +160,14 @@ export function footerAllowance(data: MachineAccounts | null, now: number, activ
     return { view: empty, known: false, label: "—" };
   }
   const views = data.accounts.map((account) => visibleView(account.quota, now));
-  const candidates = views.filter(
-    (view) =>
-      (view.state === "fresh" || view.state === "stale") &&
-      view.snapshot?.bindingRemainingPercent !== null &&
-      view.snapshot !== null,
-  );
-  const fresh = candidates.filter((view) => view.state === "fresh");
-  const lowest = candidates.sort(
-    (a, b) => a.snapshot!.bindingRemainingPercent! - b.snapshot!.bindingRemainingPercent!,
-  )[0];
+  const candidates = views.flatMap((view) => {
+    const remaining = view.snapshot?.bindingRemainingPercent;
+    return (view.state === "fresh" || view.state === "stale") && remaining != null
+      ? [{ view, remaining }]
+      : [];
+  });
+  const fresh = candidates.filter(({ view }) => view.state === "fresh");
+  const lowest = candidates.sort((a, b) => a.remaining - b.remaining)[0];
   if (!lowest) {
     return { view: empty, known: false, label: "—" };
   }
@@ -178,5 +176,5 @@ export function footerAllowance(data: MachineAccounts | null, now: number, activ
     data.machines.some((machine) => machine.status !== "connected") ||
     fresh.length !== views.length ||
     data.accounts.some((account) => account.identity === "unknown");
-  return { view: lowest, known, label: `${lowest.snapshot!.bindingRemainingPercent}%` };
+  return { view: lowest.view, known, label: `${lowest.remaining}%` };
 }

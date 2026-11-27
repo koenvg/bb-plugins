@@ -13,17 +13,20 @@ import { ImportPanel } from "./import/import-view.js";
 import type { ImportCommand } from "./import/import-contract.js";
 import { IdentityTotals } from "./identity/identity-view.js";
 
-type Selection = { hostId: string | null; generation: number };
-type Props = {
-  importCall?(input: HistoryRequest & { command: ImportCommand }): Promise<unknown>;
+interface Selection {
+  hostId: string | null;
+  generation: number;
+}
+interface Props {
+  importCall?: (input: HistoryRequest & { command: ImportCommand }) => Promise<unknown>;
   onOpenThread?: (threadId: string) => void;
   selection: Selection;
   selectionPending?: boolean;
   selectionRevision?: number;
-  isActive?(): boolean;
-  read(input: HistoryRequest): Promise<unknown>;
-  control?(input: CollectorRequest): Promise<unknown>;
-};
+  isActive?: () => boolean;
+  read: (input: HistoryRequest) => Promise<unknown>;
+  control?: (input: CollectorRequest) => Promise<unknown>;
+}
 const reasonText: Record<HistoryReadiness["reason"], string> = {
   ok: "History storage and collector asset are compatible. Writer activation is not confirmed.",
   "not-configured": "History not configured on this host.",
@@ -124,7 +127,7 @@ export const HistoryReadinessPanel = ({
     setAcknowledgment(null);
     setControlling(key);
     void Promise.resolve()
-      .then(() => (valid() ? controlRef.current!(input) : null))
+      .then(() => (valid() ? controlRef.current?.(input) : null))
       .then((value) => {
         if (!valid()) {
           return;
@@ -175,11 +178,11 @@ export const HistoryReadinessPanel = ({
           ? "Changing selected host. History readiness is pending."
           : !selection.hostId
             ? reasonText["no-selection"]
-            : loading
+            : !current
               ? "Checking selected-host history readiness…"
-              : current!.reason === "ok" && current!.writer === "observed"
+              : current.reason === "ok" && current.writer === "observed"
                 ? "History storage and collector asset are compatible. Coverage is partial."
-                : reasonText[current!.reason]}
+                : reasonText[current.reason]}
       </p>
       {current && (
         <div className="mt-3 text-muted-foreground">

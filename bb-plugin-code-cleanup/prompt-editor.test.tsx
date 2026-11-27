@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { PluginSettingsSectionProps } from "@get-bb/plugin-sdk/app";
 import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, screen, fireEvent } from "@testing-library/react";
@@ -23,7 +24,7 @@ const state = (projectId: string, prompt: string | null = source): ProjectState 
 });
 async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>> = {}) {
   const app = await loadPluginApp(() => import("./app"));
-  return renderSlot<{}, SettingsContract>(
+  return renderSlot<PluginSettingsSectionProps, SettingsContract>(
     app.settingsSections[0],
     {},
     {

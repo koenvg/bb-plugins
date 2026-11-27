@@ -133,7 +133,10 @@ export async function header(
     }
   }
 }
-type Entry = { parent_entry: string | null; event_id: string | null };
+interface Entry {
+  parent_entry: string | null;
+  event_id: string | null;
+}
 function projectEntry(db: HistoryDatabase, g: Generation, f: Frozen, c: Candidate, value: unknown) {
   const parsed = entryIdentity(value);
   if (!parsed.success) {
@@ -141,7 +144,11 @@ function projectEntry(db: HistoryDatabase, g: Generation, f: Frozen, c: Candidat
     return;
   }
   const e = parsed.data;
-  const usage = importedUsage(value, c.session!, c.workspace!, c.provider ? c.name : null);
+  if (c.session === null || c.workspace === null) {
+    diagnostic(db, g, "invalid-record");
+    return;
+  }
+  const usage = importedUsage(value, c.session, c.workspace, c.provider ? c.name : null);
   const uncertainty = f.includeUncertain ? uncertainCandidate(db, g.id, c.path) : undefined;
   if (uncertainty) {
     if (usage.kind === "usage") {
@@ -261,7 +268,10 @@ export async function slice(
 ) {
   let source: Awaited<ReturnType<typeof confinedFile>> | undefined;
   try {
-    source = await confinedFile(f.roots[c.root], c.name, JSON.parse(c.stamp!));
+    if (c.stamp === null) {
+      throw new Error("Import source stamp unavailable");
+    }
+    source = await confinedFile(f.roots[c.root], c.name, JSON.parse(c.stamp));
     await validateFrozen(f);
     await revalidateFile(source.file, f.roots[c.root], c.name, source.stamp);
     o.signal.throwIfAborted();
@@ -269,10 +279,10 @@ export async function slice(
       const parent = db
         .prepare("SELECT * FROM import_candidates WHERE generation=? AND path=? AND state='done'")
         .get(g.id, c.parent) as Candidate | undefined;
-      if (!parent) {
+      if (!parent || parent.stamp === null) {
         throw new Error("Import parent unavailable");
       }
-      const p = await confinedFile(f.roots[parent.root], parent.name, JSON.parse(parent.stamp!));
+      const p = await confinedFile(f.roots[parent.root], parent.name, JSON.parse(parent.stamp));
       try {
         await revalidateFile(p.file, f.roots[parent.root], parent.name, p.stamp);
       } finally {
@@ -329,6 +339,7 @@ export async function slice(
     }
     await revalidateFile(source.file, f.roots[c.root], c.name, source.stamp);
     o.signal.throwIfAborted();
+    const size = source.stamp.size;
     db.transaction(() => {
       for (const op of operations) {
         o.signal.throwIfAborted();
@@ -341,7 +352,7 @@ export async function slice(
       c.offset += at;
       db.prepare(
         "UPDATE import_candidates SET offset=?,dropping=?,state=? WHERE generation=? AND path=?",
-      ).run(c.offset, c.dropping, c.offset === source!.stamp.size ? "done" : "ready", g.id, c.path);
+      ).run(c.offset, c.dropping, c.offset === size ? "done" : "ready", g.id, c.path);
       db.prepare("UPDATE import_generations SET bytes=?,records=?,replayed=? WHERE id=?").run(
         g.bytes,
         g.records,

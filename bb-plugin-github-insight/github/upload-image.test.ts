@@ -89,8 +89,8 @@ describe("uploadImage", () => {
 
     await upload("shot.png", deps);
 
-    expect(sent[0]!.url.searchParams.get("name")).toBe("shot.jpg");
-    expect(sent[0]!.url.searchParams.get("content_type")).toBe("image/jpeg");
+    expect(sent[0].url.searchParams.get("name")).toBe("shot.jpg");
+    expect(sent[0].url.searchParams.get("content_type")).toBe("image/jpeg");
   });
 
   it("names GitHub's validation errors", async () => {

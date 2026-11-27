@@ -31,7 +31,7 @@ export function projectOutputRates(history: RateHistory | null, mode: RateMode):
       history.samples.some(
         (point, index) =>
           !Number.isInteger(point.second) ||
-          point.second !== history.samples[0]!.second + index ||
+          point.second !== history.samples[0].second + index ||
           !Number.isFinite(point.rawBytesPerSecond) ||
           point.rawBytesPerSecond < 0 ||
           !Number.isFinite(point.smoothBytesPerSecond) ||

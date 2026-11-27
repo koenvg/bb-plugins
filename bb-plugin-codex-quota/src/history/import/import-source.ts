@@ -3,11 +3,11 @@ import { lstat, open, realpath } from "node:fs/promises";
 import { basename, dirname, normalize, join } from "node:path";
 import type { FileHandle } from "node:fs/promises";
 
-export type RootProof = {
+export interface RootProof {
   configured: string;
   resolved: string;
   identity: string;
-};
+}
 export const identity = (s: { dev: number; ino: number }) => `${s.dev}:${s.ino}`;
 export async function proveRoot(configured: string): Promise<RootProof> {
   const resolved = await realpath(configured);
@@ -27,7 +27,11 @@ export async function revalidateRoot(root: RootProof) {
     throw new Error("Import root changed");
   }
 }
-export type SourceStamp = { identity: string; size: number; stamp: string };
+export interface SourceStamp {
+  identity: string;
+  size: number;
+  stamp: string;
+}
 export const sourceStamp = (s: {
   dev: number;
   ino: number;

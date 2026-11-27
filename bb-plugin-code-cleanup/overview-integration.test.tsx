@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { PluginSettingsSectionProps } from "@get-bb/plugin-sdk/app";
 import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, within } from "@testing-library/react";
@@ -8,12 +9,13 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import type { ProjectState, ProjectSummary, PromptResult, SettingsContract } from "./rpc";
 import plugin from "./server";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
-const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
+const hosts: ReturnType<typeof createFakePluginHost>["harness"][] = [];
 afterEach(async () => {
   cleanup();
   while (hosts.length) {
-    await hosts.pop()!.lifecycle.dispose();
+    await requireFixtureValue(hosts.pop()).lifecycle.dispose();
   }
 });
 const choices = [
@@ -75,7 +77,11 @@ async function setup() {
 }
 async function mount(handlers: PluginRpcTestHandlers<SettingsContract>) {
   const app = await loadPluginApp(() => import("./app"));
-  const view = renderSlot<{}, SettingsContract>(app.settingsSections[0], {}, { rpc: handlers });
+  const view = renderSlot<PluginSettingsSectionProps, SettingsContract>(
+    app.settingsSections[0],
+    {},
+    { rpc: handlers },
+  );
   const ui = within(view.container);
   return {
     view,
@@ -83,7 +89,11 @@ async function mount(handlers: PluginRpcTestHandlers<SettingsContract>) {
     toggle: (name: string) =>
       ui.getByRole("switch", { name: `Enable Code Cleanup for ${name}` }) as HTMLButtonElement,
     row: (name: string) =>
-      within(ui.getByRole("button", { name: `Edit prompt for ${name}` }).closest("tr")!),
+      within(
+        requireFixtureValue(
+          ui.getByRole("button", { name: `Edit prompt for ${name}` }).closest("tr"),
+        ),
+      ),
     mutations: () => view.inspection.rpcCalls.filter((c) => c.method.startsWith("set")),
   };
 }
@@ -101,7 +111,7 @@ async function notify(
   client: Awaited<ReturnType<typeof mount>>,
   server: Awaited<ReturnType<typeof setup>>,
 ) {
-  const signal = server.host.harness.inspection.realtimeSignals.at(-1)!;
+  const signal = requireFixtureValue(server.host.harness.inspection.realtimeSignals.at(-1));
   await client.view.behavior.emitRealtime(signal.channel, signal.payload);
 }
 async function cli(server: Awaited<ReturnType<typeof setup>>, args: string[]) {
@@ -150,12 +160,12 @@ describe("registered-host overview integration", () => {
 
   it("serializes row writes before editor opening and preserves prompts/unrelated rows", async () => {
     const server = await setup();
-    const gate = deferred<void>();
+    const gate = deferred<undefined>();
     const client = await mount({
       ...server.handlers,
       setEnablement: async (input) => {
         await gate.promise;
-        return server.handlers.setEnablement!(input);
+        return server.handlers.setEnablement(input);
       },
     });
     await client.ui.findByRole("table");
@@ -170,7 +180,7 @@ describe("registered-host overview integration", () => {
     expect(client.mutations()).toEqual([
       { method: "setEnablement", input: { projectId: "proj_a", enabledOverride: false } },
     ]);
-    await act(async () => gate.resolve());
+    await act(async () => gate.resolve(undefined));
     await client.ui.findByText("Saved settings for Alpha.");
     expect(await server.call("getProject", { projectId: "proj_a" })).toMatchObject({
       enabled: false,
@@ -193,12 +203,12 @@ describe("registered-host overview integration", () => {
 
   it("blocks row writes during an editor save and updates the saved source only after confirmation", async () => {
     const server = await setup();
-    const gate = deferred<void>();
+    const gate = deferred<undefined>();
     const client = await mount({
       ...server.handlers,
       setPrompt: async (input) => {
         await gate.promise;
-        return server.handlers.setPrompt!(input);
+        return server.handlers.setPrompt(input);
       },
     });
     await client.ui.findByRole("table");
@@ -213,7 +223,7 @@ describe("registered-host overview integration", () => {
         input: { projectId: "proj_b", prompt: draft.value, expectedPrompt: null },
       },
     ]);
-    await act(async () => gate.resolve());
+    await act(async () => gate.resolve(undefined));
     expect(client.ui.queryByRole("dialog")).toBeNull();
     expect(client.row("Beta").getByText("Custom")).toBeTruthy();
     expect(client.toggle("Alpha").disabled).toBe(false);
@@ -275,12 +285,12 @@ describe("registered-host overview integration", () => {
 
   it("lets reconnect replace an in-flight summary read without a late rollback", async () => {
     const server = await setup();
-    const gate = deferred<void>();
+    const gate = deferred<undefined>();
     let reads = 0;
     const client = await mount({
       ...server.handlers,
       listProjectSummaries: async (input) => {
-        const result = await server.handlers.listProjectSummaries!(input);
+        const result = await server.handlers.listProjectSummaries(input);
         if ((reads += 1) === 2) {
           await gate.promise;
         }
@@ -294,7 +304,7 @@ describe("registered-host overview integration", () => {
     await cli(server, ["disable", "--project", "proj_a"]);
     await client.view.behavior.setRealtimeConnectionState("connected");
     expect(client.toggle("Alpha").getAttribute("aria-checked")).toBe("false");
-    await act(async () => gate.resolve());
+    await act(async () => gate.resolve(undefined));
     expect(client.toggle("Alpha").getAttribute("aria-checked")).toBe("false");
     expect(client.mutations()).toEqual([]);
   });
@@ -303,12 +313,12 @@ describe("registered-host overview integration", () => {
     "ignores an obsolete host read that later %ss after a confirmed mutation",
     async (outcome) => {
       const server = await setup();
-      const gate = deferred<void>();
+      const gate = deferred<undefined>();
       let reads = 0;
       const client = await mount({
         ...server.handlers,
         listProjectSummaries: async (input) => {
-          const result = await server.handlers.listProjectSummaries!(input);
+          const result = await server.handlers.listProjectSummaries(input);
           if ((reads += 1) === 2) {
             await gate.promise;
           }
@@ -321,7 +331,9 @@ describe("registered-host overview integration", () => {
       await userEvent.click(client.toggle("Alpha"));
       await client.ui.findByText("Saved settings for Alpha.");
       await act(async () =>
-        outcome === "resolve" ? gate.resolve() : gate.reject(new Error("obsolete failure")),
+        outcome === "resolve"
+          ? gate.resolve(undefined)
+          : gate.reject(new Error("obsolete failure")),
       );
       expect(client.toggle("Alpha").getAttribute("aria-checked")).toBe("false");
       expect(client.ui.queryByText(/Last saved values are shown/)).toBeNull();
@@ -337,7 +349,7 @@ describe("registered-host overview integration", () => {
     async (outcome) => {
       const server = await setup();
       const summaryGate = deferred<ProjectSummary[]>();
-      const writeGate = deferred<void>();
+      const writeGate = deferred<undefined>();
       let summaryCalls = 0;
       const client = await mount({
         ...server.handlers,
@@ -346,12 +358,12 @@ describe("registered-host overview integration", () => {
           if (summaryCalls === 2) {
             return summaryGate.promise;
           }
-          return server.handlers.listProjectSummaries!(input);
+          return server.handlers.listProjectSummaries(input);
         },
         setPrompt: async (input) => {
           await writeGate.promise;
           if (outcome === "conflicting Save") {
-            return server.handlers.setPrompt!(input);
+            return server.handlers.setPrompt(input);
           }
           throw new Error("write transport failed");
         },
@@ -384,7 +396,7 @@ describe("registered-host overview integration", () => {
       }
       expect(client.ui.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
       await act(async () => {
-        writeGate.resolve();
+        writeGate.resolve(undefined);
       });
       await client.ui.findByText(
         outcome === "conflicting Save" ? /Prompt conflict/ : /write transport failed/,

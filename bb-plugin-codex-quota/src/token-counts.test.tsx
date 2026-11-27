@@ -9,6 +9,7 @@ import {
   calendarSnapshot,
 } from "./history/calendar/calendar-test-support.js";
 import type { CalendarQuery } from "./history/calendar/calendar-contract.js";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 const query: CalendarQuery = {
@@ -183,7 +184,7 @@ it.each(["unknown", "observed-inactivity"] as const)(
   "preserves %s token tooltip values",
   (state) => {
     render(<UsageTooltip day={calendarEmptySnapshot(query, state).days[0]} metric="tokens" />);
-    const value = screen.getByRole("tooltip").querySelector("dd")!;
+    const value = requireFixtureValue(screen.getByRole("tooltip").querySelector("dd"));
     expect(value.textContent).toBe(state === "unknown" ? "Unavailable" : "0");
     expect(value.getAttribute("title")).toBe(state === "unknown" ? null : "0 tokens");
   },

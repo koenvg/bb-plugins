@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { ActivityCache } from "./activity-cache.js";
 import { normalizeActivity } from "./activity.js";
 import type { ActivityRead } from "./activity-contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const time = Date.UTC(2026, 3, 23, 12);
-const snapshot = normalizeActivity({ stats: { lifetime_tokens: 12 } }, time)!;
+const snapshot = requireFixtureValue(normalizeActivity({ stats: { lifetime_tokens: 12 } }, time));
 const ok = async (): Promise<ActivityRead> => ({ status: "ok", snapshot });
 const same = async () => "a";
 function deferred<T>() {

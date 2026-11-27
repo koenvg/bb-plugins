@@ -4,6 +4,7 @@ import type { CalendarQuery } from "./calendar-contract.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
 import { chartData } from "./calendar-chart-data.js";
 import type { CapturedSubtotal } from "./calendar-model-costs.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const query: CalendarQuery = {
   startDate: "2026-09-01",
@@ -108,7 +109,10 @@ it("suppresses every monetary stack on unsafe daily totals while preserving toke
     state: "unavailable",
     reason: "unsafe-sum",
   };
-  value.modelCosts!.named.push({ model: "B", money: { ...value.modelCosts!.named[0].money } });
+  requireFixtureValue(value.modelCosts).named.push({
+    model: "B",
+    money: { ...requireFixtureValue(value.modelCosts).named[0].money },
+  });
   const parsed = calendarDaySchema.parse(value);
   const cost = chartData([parsed], "cost");
   expect(cost.rows[0].value).toBe(null);
@@ -124,22 +128,28 @@ it("suppresses every monetary stack on unsafe daily totals while preserving toke
 it("accepts regrouping roundoff but does not force equality or accept a changed subtotal", () => {
   const value = day(0.1 + 0.2);
   value.money.records = value.money.pricedRecords = 2;
-  value.modelCosts!.named = [
-    { model: "A", money: { ...value.modelCosts!.named[0].money, capturedCost: 0.1 } },
-    { model: "B", money: { ...value.modelCosts!.named[0].money, capturedCost: 0.2 } },
+  requireFixtureValue(value.modelCosts).named = [
+    {
+      model: "A",
+      money: { ...requireFixtureValue(value.modelCosts).named[0].money, capturedCost: 0.1 },
+    },
+    {
+      model: "B",
+      money: { ...requireFixtureValue(value.modelCosts).named[0].money, capturedCost: 0.2 },
+    },
   ];
   value.money.capturedCost = 0.3;
   const parsed = calendarDaySchema.parse(value);
   expect(parsed.money.capturedCost).toBe(0.3);
   expect(chartData([parsed], "cost").rows[0].modelFacts).toEqual({ c0: 0.1, c1: 0.2 });
-  value.modelCosts!.named[1].money.capturedCost = 0.21;
+  requireFixtureValue(value.modelCosts).named[1].money.capturedCost = 0.21;
   expect(calendarDaySchema.safeParse(value).success).toBe(false);
 });
 it.each([
   [
     "record counts",
     (value: ReturnType<typeof day>) => {
-      value.modelCosts!.named[0].money.records = 2;
+      requireFixtureValue(value.modelCosts).named[0].money.records = 2;
     },
   ],
   [
@@ -151,44 +161,47 @@ it.each([
   [
     "dollar sum",
     (value: ReturnType<typeof day>) => {
-      value.modelCosts!.named[0].money.capturedCost = 5;
+      requireFixtureValue(value.modelCosts).named[0].money.capturedCost = 5;
     },
   ],
   [
     "duplicate names",
     (value: ReturnType<typeof day>) => {
-      value.modelCosts!.named.push(value.modelCosts!.named[0]);
+      requireFixtureValue(value.modelCosts).named.push(
+        requireFixtureValue(value.modelCosts).named[0],
+      );
     },
   ],
   [
     "nonfinite price",
     (value: ReturnType<typeof day>) => {
-      value.modelCosts!.named[0].money.capturedCost = Infinity;
+      requireFixtureValue(value.modelCosts).named[0].money.capturedCost = Infinity;
     },
   ],
   [
     "unsafe price",
     (value: ReturnType<typeof day>) => {
-      value.modelCosts!.named[0].money.capturedCost = Number.MAX_SAFE_INTEGER + 1;
+      requireFixtureValue(value.modelCosts).named[0].money.capturedCost =
+        Number.MAX_SAFE_INTEGER + 1;
     },
   ],
   [
     "invalid model",
     (value: ReturnType<typeof day>) => {
-      value.modelCosts!.named[0].model = "\n";
+      requireFixtureValue(value.modelCosts).named[0].model = "\n";
     },
   ],
   [
     "entity denominator",
     (value: ReturnType<typeof day>) => {
-      Object.assign(value.modelCosts!.named[0].money, { pricedEntities: 1 });
+      Object.assign(requireFixtureValue(value.modelCosts).named[0].money, { pricedEntities: 1 });
     },
   ],
   [
     "subnormal mismatch",
     (value: ReturnType<typeof day>) => {
       value.money.capturedCost = Number.MIN_VALUE;
-      value.modelCosts!.named[0].money.capturedCost = Number.MIN_VALUE * 2;
+      requireFixtureValue(value.modelCosts).named[0].money.capturedCost = Number.MIN_VALUE * 2;
     },
   ],
 ] as const)("rejects malformed partitions at the report boundary: %s", (_name, mutate) => {

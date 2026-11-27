@@ -12,7 +12,7 @@ import { createHistoryMaintenance } from "./history-maintenance.js";
 import type { HistoryDependencies, HistoryReadContext } from "./history-maintenance.js";
 import { abortable } from "../activity/activity-cancellation.js";
 import { prepareHostReport } from "./report-preparation-host.js";
-import { hostPreparationSchema } from "./report-preparation-contract.js";
+import type { hostPreparationSchema } from "./report-preparation-contract.js";
 import type { z } from "zod";
 import { maintenanceUnavailable } from "./collector-maintenance-contract.js";
 import type { RepairResult } from "./collector-maintenance-contract.js";
@@ -20,17 +20,17 @@ import type { RepairResult } from "./collector-maintenance-contract.js";
 export type { HistoryReadContext } from "./history-maintenance.js";
 
 export interface HostHistory {
-  read(context: HistoryReadContext): Promise<HistoryReadiness>;
-  repairExisting(context: HistoryReadContext): Promise<RepairResult>;
-  report(query: CalendarQuery, context: HistoryReadContext): Promise<CalendarReport>;
-  prepare?(context: HistoryReadContext): Promise<z.infer<typeof hostPreparationSchema>>;
-  control(
+  read: (context: HistoryReadContext) => Promise<HistoryReadiness>;
+  repairExisting: (context: HistoryReadContext) => Promise<RepairResult>;
+  report: (query: CalendarQuery, context: HistoryReadContext) => Promise<CalendarReport>;
+  prepare?: (context: HistoryReadContext) => Promise<z.infer<typeof hostPreparationSchema>>;
+  control: (
     action: CollectorAction,
     context: HistoryReadContext,
     confirmation?: LegacyConfirmation,
-  ): Promise<HistoryReadiness>;
-  controlImport(command: ImportCommand, context: ImportContext): Promise<ImportView>;
-  dispose(): void;
+  ) => Promise<HistoryReadiness>;
+  controlImport: (command: ImportCommand, context: ImportContext) => Promise<ImportView>;
+  dispose: () => void;
 }
 
 /** Own the history queue, cancellation and import epochs, not the caller. */

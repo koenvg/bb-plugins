@@ -4,6 +4,7 @@ import { historyReadinessSchema } from "../history-contract.js";
 import type { IdentityBatch } from "./identity-contract.js";
 import { hostPreparationSchema, preparationUnavailable } from "../report-preparation-contract.js";
 import type { Preparation } from "../report-preparation-contract.js";
+import type { SqlValue } from "../storage/history-storage.js";
 
 export function createIdentityHistoryCall(
   bb: BbPluginApi,
@@ -24,7 +25,7 @@ export function createIdentityHistoryCall(
       exec: (sql) => {
         db.exec(sql);
       },
-      prepare: (sql) => db.prepare<import("../storage/history-storage.js").SqlValue[]>(sql),
+      prepare: (sql) => db.prepare<SqlValue[]>(sql),
       transaction: (work) => db.transaction(work)(),
       close: () => {},
     };

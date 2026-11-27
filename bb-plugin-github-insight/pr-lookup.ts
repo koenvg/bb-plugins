@@ -46,7 +46,7 @@ interface StoredLookup {
 export interface PrLookupDeps {
   sdk: Pick<BbPluginApi["sdk"], "threads" | "environments" | "plugins">;
   pause: RateLimitPause;
-  readRateLimitReset(hostId: string): Promise<number | null>;
+  readRateLimitReset: (hostId: string) => Promise<number | null>;
 }
 
 export function createPrLookup({ sdk, pause, readRateLimitReset }: PrLookupDeps) {

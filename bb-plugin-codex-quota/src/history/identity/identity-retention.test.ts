@@ -8,6 +8,7 @@ import { openHistoryDatabase } from "../storage/history-storage.js";
 import type { HistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory } from "../storage/history-projection.js";
 import { initializeIdentityStorage, acceptIdentityBatch } from "./identity-storage.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -18,7 +19,7 @@ afterEach(async () => {
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp147-retention-"));
-  const db = (await openHistoryDatabase(join(root, "discovery.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "discovery.sqlite")));
   fixtures.push({ root, db });
   return db;
 }

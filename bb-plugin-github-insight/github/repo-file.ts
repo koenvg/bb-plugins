@@ -13,7 +13,11 @@ const contentsSchema = z.object({
   content: z.string(),
 });
 const blobSchema = z.object({ encoding: z.literal("base64"), content: z.string() });
-type GhOptions = { signal: AbortSignal; maxBuffer: number; timeout: number };
+interface GhOptions {
+  signal: AbortSignal;
+  maxBuffer: number;
+  timeout: number;
+}
 type RepoFileRead =
   | { ok: true; bytes: Buffer }
   | { ok: false; code: "too_large" | "auth" | "missing" | "read" };

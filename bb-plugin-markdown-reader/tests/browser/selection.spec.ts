@@ -1,5 +1,6 @@
 import type { RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { test, expect, capture } from "./fixture";
+import type { Locator } from "@playwright/test";
 test.use({ launchOptions: { args: ["--blink-settings=caretBrowsingEnabled=true"] } });
 
 declare global {
@@ -17,9 +18,14 @@ test("Preview selection appends a quote to the associated draft and preserves it
   await page.getByText("Selected prose.", { exact: true }).waitFor();
   await page.getByText("Selected prose.", { exact: true }).evaluate((element) => {
     const range = document.createRange();
-    range.setStart(element.firstChild!, 0);
-    range.setEnd(element.firstChild!, 8);
-    const selection = window.getSelection()!;
+    const firstChild2 = element.firstChild;
+    if (firstChild2 == null) throw new Error("Missing browser fixture value: element.firstChild");
+    range.setStart(firstChild2, 0);
+    const firstChild3 = element.firstChild;
+    if (firstChild3 == null) throw new Error("Missing browser fixture value: element.firstChild");
+    range.setEnd(firstChild3, 8);
+    const selection = window.getSelection();
+    if (selection == null) throw new Error("Missing browser fixture value: window.getSelection()");
     selection.removeAllRanges();
     selection.addRange(range);
   });
@@ -59,10 +65,16 @@ test("Raw selection preserves indentation and blank lines without adding the nex
   await page.getByLabel("Raw Markdown").evaluate((root) => {
     const spans = root.querySelectorAll("[data-source-line]");
     const range = document.createRange();
-    range.setStart(spans[2]!.firstChild!, 0);
-    range.setEnd(spans[4]!.firstChild!, 0);
-    window.getSelection()!.removeAllRanges();
-    window.getSelection()!.addRange(range);
+    const firstChild4 = spans[2].firstChild;
+    if (firstChild4 == null) throw new Error("Missing browser fixture value: spans[2]!.firstChild");
+    range.setStart(firstChild4, 0);
+    const firstChild5 = spans[4].firstChild;
+    if (firstChild5 == null) throw new Error("Missing browser fixture value: spans[4]!.firstChild");
+    range.setEnd(firstChild5, 0);
+    const selection = window.getSelection();
+    if (!selection) throw new Error("Missing browser fixture selection");
+    selection.removeAllRanges();
+    selection.addRange(range);
   });
   await page.getByRole("button", { name: "Add to chat" }).click();
   expect(await page.evaluate(() => window.selectionFixture.inspection.composer.text)).toBe(
@@ -70,12 +82,14 @@ test("Raw selection preserves indentation and blank lines without adding the nex
   );
 });
 
-async function selectVisible(locator: import("@playwright/test").Locator) {
+async function selectVisible(locator: Locator) {
   await locator.evaluate((element) => {
     const range = document.createRange();
     range.selectNodeContents(element);
-    window.getSelection()!.removeAllRanges();
-    window.getSelection()!.addRange(range);
+    const selection = window.getSelection();
+    if (!selection) throw new Error("Missing browser fixture selection");
+    selection.removeAllRanges();
+    selection.addRange(range);
   });
 }
 for (const [label, selector, excerpt] of [
@@ -99,12 +113,19 @@ test("a partial wrapped Raw line remains a single source line", async ({ page })
   await page.getByRole("button", { name: "Raw", exact: true }).click();
   const line = page.locator('[data-source-line="3"]');
   await line.evaluate((element) => {
-    element.parentElement!.style.fontSize = "32px";
+    const parentElement2 = element.parentElement;
+    if (parentElement2 == null)
+      throw new Error("Missing browser fixture value: element.parentElement");
+    parentElement2.style.fontSize = "32px";
     const range = document.createRange();
-    range.setStart(element.firstChild!, 2);
-    range.setEnd(element.firstChild!, 15);
-    window.getSelection()!.removeAllRanges();
-    window.getSelection()!.addRange(range);
+    const text = element.firstChild;
+    if (!text) throw new Error("Missing fixture text node");
+    range.setStart(text, 2);
+    range.setEnd(text, 15);
+    const selection = window.getSelection();
+    if (!selection) throw new Error("Missing browser fixture selection");
+    selection.removeAllRanges();
+    selection.addRange(range);
     if (range.getClientRects().length < 2) throw new Error("Expected a wrapped source selection");
   });
   await page.getByRole("button", { name: "Add to chat" }).click();
@@ -128,7 +149,13 @@ for (const dismissal of [
     await content.waitFor();
     await selectVisible(content);
     await page.getByRole("button", { name: "Add to chat" }).waitFor();
-    if (dismissal === "clear") await page.evaluate(() => window.getSelection()!.removeAllRanges());
+    if (dismissal === "clear")
+      await page.evaluate(() => {
+        const selection = window.getSelection();
+        if (selection == null)
+          throw new Error("Missing browser fixture value: window.getSelection()");
+        return selection.removeAllRanges();
+      });
     if (dismissal === "Escape") await page.keyboard.press("Escape");
     if (dismissal === "outside") await page.locator(".mr-filename").click();
     if (dismissal === "scroll") await page.locator(".markdown-reader").dispatchEvent("scroll");
@@ -161,7 +188,14 @@ test("failed refresh leaves copyable stale content without an action and permits
   await page.getByRole("button", { name: "Refresh" }).click();
   await page.getByText("Refresh failed. Showing stale snapshot.").waitFor();
   await selectVisible(content);
-  expect(await page.evaluate(() => window.getSelection()!.toString())).toBe("Selected prose.");
+  expect(
+    await page.evaluate(() => {
+      const selection = window.getSelection();
+      if (selection == null)
+        throw new Error("Missing browser fixture value: window.getSelection()");
+      return selection.toString();
+    }),
+  ).toBe("Selected prose.");
   await expect(page.getByRole("button", { name: "Add to chat" })).toHaveCount(0);
   await page.getByRole("button", { name: "Retry" }).click();
   await page.getByText("Refresh failed. Showing stale snapshot.").waitFor();
@@ -183,10 +217,28 @@ test("rejects whitespace, outline, controls and cross-document selections", asyn
   await expect(page.getByRole("button", { name: "Add to chat" })).toHaveCount(0);
   await page.evaluate(() => {
     const range = document.createRange();
-    range.setStart(document.querySelector(".mr-filename")!.firstChild!, 0);
-    range.setEnd(document.querySelector(".mr-prose p")!.firstChild!, 3);
-    window.getSelection()!.removeAllRanges();
-    window.getSelection()!.addRange(range);
+    const element2 = document.querySelector(".mr-filename");
+    if (element2 == null)
+      throw new Error('Missing browser fixture value: document.querySelector(".mr-filename")');
+    const firstChild8 = element2.firstChild;
+    if (firstChild8 == null)
+      throw new Error(
+        'Missing browser fixture value: document.querySelector(".mr-filename")!.firstChild',
+      );
+    range.setStart(firstChild8, 0);
+    const element3 = document.querySelector(".mr-prose p");
+    if (element3 == null)
+      throw new Error('Missing browser fixture value: document.querySelector(".mr-prose p")');
+    const firstChild9 = element3.firstChild;
+    if (firstChild9 == null)
+      throw new Error(
+        'Missing browser fixture value: document.querySelector(".mr-prose p")!.firstChild',
+      );
+    range.setEnd(firstChild9, 3);
+    const selection = window.getSelection();
+    if (!selection) throw new Error("Missing browser fixture selection");
+    selection.removeAllRanges();
+    selection.addRange(range);
   });
   await expect(page.getByRole("button", { name: "Add to chat" })).toHaveCount(0);
 });
@@ -243,15 +295,27 @@ for (const activation of ["Enter", "Space"] as const) {
     await content.waitFor();
     await content.evaluate((element) => {
       const range = document.createRange();
-      range.setStart(element.firstChild!, 0);
+      const firstChild10 = element.firstChild;
+      if (firstChild10 == null)
+        throw new Error("Missing browser fixture value: element.firstChild");
+      range.setStart(firstChild10, 0);
       range.collapse(true);
-      window.getSelection()!.removeAllRanges();
-      window.getSelection()!.addRange(range);
+      const selection = window.getSelection();
+      if (!selection) throw new Error("Missing browser fixture selection");
+      selection.removeAllRanges();
+      selection.addRange(range);
     });
     await page.keyboard.down("Shift");
     for (let index = 0; index < 8; index++) await page.keyboard.press("ArrowRight");
     await page.keyboard.up("Shift");
-    expect(await page.evaluate(() => window.getSelection()!.toString())).toBe("Selected");
+    expect(
+      await page.evaluate(() => {
+        const selection = window.getSelection();
+        if (selection == null)
+          throw new Error("Missing browser fixture value: window.getSelection()");
+        return selection.toString();
+      }),
+    ).toBe("Selected");
     const button = page.getByRole("button", { name: "Add to chat" });
     await button.waitFor();
     // Tab must reach the action without a shortcut or pointer activation.
@@ -295,27 +359,42 @@ for (const [width, theme] of [
     await button.waitFor();
     expect(await content.boundingBox()).toEqual(before);
     const geometry = await button.evaluate((element) => {
-      const menu = element.parentElement!.getBoundingClientRect();
-      const reader = element.closest(".markdown-reader")!.getBoundingClientRect();
+      const parentElement3 = element.parentElement;
+      if (parentElement3 == null)
+        throw new Error("Missing browser fixture value: element.parentElement");
+      const menu = parentElement3.getBoundingClientRect();
+      const ancestor = element.closest(".markdown-reader");
+      if (ancestor == null)
+        throw new Error('Missing browser fixture value: element.closest(".markdown-reader")');
+      const reader = ancestor.getBoundingClientRect();
+      const ancestor2 = element.closest(".markdown-reader");
+      if (ancestor2 == null)
+        throw new Error('Missing browser fixture value: element.closest(".markdown-reader")');
       return {
         inside:
           menu.left >= reader.left &&
           menu.right <= reader.right &&
           menu.top >= reader.top &&
           menu.bottom <= reader.bottom,
-        overflow:
-          element.closest(".markdown-reader")!.scrollWidth >
-          element.closest(".markdown-reader")!.clientWidth,
+        overflow: ancestor2.scrollWidth > ancestor2.clientWidth,
       };
     });
     expect(geometry).toEqual({ inside: true, overflow: false });
-    const color = await button.evaluate(
-      (element) => getComputedStyle(element.parentElement!).backgroundColor,
-    );
+    const color = await button.evaluate((element) => {
+      const parentElement4 = element.parentElement;
+      if (parentElement4 == null)
+        throw new Error("Missing browser fixture value: element.parentElement");
+      return getComputedStyle(parentElement4).backgroundColor;
+    });
     await capture(page, info, `selection-${width}-${theme}`);
     await page.evaluate(() => (document.documentElement.dataset.theme = "custom"));
     expect(
-      await button.evaluate((element) => getComputedStyle(element.parentElement!).backgroundColor),
+      await button.evaluate((element) => {
+        const parentElement5 = element.parentElement;
+        if (parentElement5 == null)
+          throw new Error("Missing browser fixture value: element.parentElement");
+        return getComputedStyle(parentElement5).backgroundColor;
+      }),
     ).not.toBe(color);
     // Pointer focus changes must not discard the captured text.
     await button.click();
@@ -332,7 +411,14 @@ test.describe("coarse pointer", () => {
     await content.waitFor();
     await selectVisible(content);
     expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-    expect(await page.evaluate(() => window.getSelection()!.toString())).toBe("Selected prose.");
+    expect(
+      await page.evaluate(() => {
+        const selection = window.getSelection();
+        if (selection == null)
+          throw new Error("Missing browser fixture value: window.getSelection()");
+        return selection.toString();
+      }),
+    ).toBe("Selected prose.");
     await expect(page.getByRole("button", { name: "Add to chat" })).toHaveCount(0);
   });
 });

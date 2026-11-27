@@ -21,6 +21,8 @@ import type {
 import { patchIdentity } from "../core/patch-identity";
 import type { GetViewedResult, UpdateViewedResult } from "../core/viewed-files";
 import { OUTLINE_WIDTH_KEY } from "./use-outline-width";
+import type { VideoWireResult } from "../core/video-content";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
@@ -55,7 +57,7 @@ vi.mock("@pierre/diffs/react", () => ({
         const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
         if (!root.firstChild && renderCustomHeader === undefined) {
           root.innerHTML = "<div data-diffs-header><div data-title></div></div>";
-          root.querySelector("[data-title]")!.textContent = fileDiff.name;
+          requireFixtureValue(root.querySelector("[data-title]")).textContent = fileDiff.name;
         }
         options.onPostRender?.(element);
       }}
@@ -108,7 +110,11 @@ vi.mock("@pierre/diffs/react", () => ({
 }));
 
 class VisibleAtOnce {
-  constructor(private readonly callback: IntersectionObserverCallback) {}
+  private readonly callback: IntersectionObserverCallback;
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+  }
   observe(target: Element) {
     this.callback(
       [{ isIntersecting: true, target } as IntersectionObserverEntry],
@@ -125,7 +131,9 @@ beforeAll(() => {
 afterEach(cleanup);
 
 const app = await loadPluginApp(() => import("../app"));
-const changesTab = app.threadPanelActions.find((action) => action.id === "changes")!;
+const changesTab = requireFixtureValue(
+  app.threadPanelActions.find((action) => action.id === "changes"),
+);
 
 const PATCH_A =
   "diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,3 +1,3 @@\n keep\n-old\n+new\n keep\n";
@@ -168,9 +176,7 @@ const A_ONLY = changes([file("src/a.ts", { additions: 34, deletions: 5 })]);
 let nextThread = 0;
 
 interface Handlers {
-  getVideo?: () =>
-    | import("../core/video-content").VideoWireResult
-    | Promise<import("../core/video-content").VideoWireResult>;
+  getVideo?: () => VideoWireResult | Promise<VideoWireResult>;
   getImage?: (input: { side: "before" | "after" }) => ImageWireResult | Promise<ImageWireResult>;
   getTextContext?: (
     input: Omit<Snapshot, "generation">,
@@ -545,7 +551,7 @@ describe("Changes tab", () => {
 });
 
 describe("shared diff header", () => {
-  const fileDiff = parsePatchFiles(PATCH_A, undefined, true)[0]!.files[0]!;
+  const fileDiff = parsePatchFiles(PATCH_A, undefined, true)[0].files[0];
 
   it("renders only custom content and keeps sticky, wrap, and controlled collapse", () => {
     const screen = render(
@@ -1075,7 +1081,7 @@ describe("inline comments", () => {
     await addComment(slot, "+ additions 3", "two");
 
     fireEvent.click(
-      within(slot.getAllByRole("article", { name: "Pending comment" })[0]!).getByRole("button", {
+      within(slot.getAllByRole("article", { name: "Pending comment" })[0]).getByRole("button", {
         name: "Remove",
       }),
     );
@@ -1195,7 +1201,9 @@ describe("Viewed files", () => {
   const VIEWED_A: GetViewedResult = { kind: "ok", marks: { "src/a.ts": patchIdentity(PATCH_A) } };
 
   function diffOf(slot: Slot, path = "src/a.ts") {
-    return slot.getAllByTestId("file-diff").find((diff) => diff.dataset.path === path)!;
+    return requireFixtureValue(
+      slot.getAllByTestId("file-diff").find((diff) => diff.dataset.path === path),
+    );
   }
 
   function checkbox(slot: Slot, path = "src/a.ts") {
@@ -1503,10 +1511,9 @@ describe("file outline", () => {
     expect(within(lib).getByText("ui")).toBeTruthy();
     expect(within(lib).getByText("lib")).toBeTruthy();
     expect(
-      files
-        .getByRole("button", { name: /^a\.ts/ })
-        .closest("li")!
-        .querySelectorAll("[data-indent-guide]"),
+      requireFixtureValue(
+        files.getByRole("button", { name: /^a\.ts/ }).closest("li"),
+      ).querySelectorAll("[data-indent-guide]"),
     ).toHaveLength(2);
   });
 
@@ -1642,9 +1649,10 @@ describe("file outline", () => {
       const { slot, width } = await renderHandle();
 
       expect(width()).toBe(320);
-      expect(slot.getByRole("navigation", { name: "Files" }).parentElement!.style.width).toBe(
-        "320px",
-      );
+      expect(
+        requireFixtureValue(slot.getByRole("navigation", { name: "Files" }).parentElement).style
+          .width,
+      ).toBe("320px");
     });
 
     it("drags wider and saves the width on release", async () => {
@@ -1748,7 +1756,11 @@ describe("file outline", () => {
     let resizeCallbacks: ResizeObserverCallback[] = [];
 
     class FakeResizeObserver {
-      constructor(private readonly callback: ResizeObserverCallback) {}
+      private readonly callback: ResizeObserverCallback;
+
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+      }
       observe() {
         resizeCallbacks.push(this.callback);
       }
@@ -1805,16 +1817,18 @@ describe("file outline", () => {
             if (section === this) {
               break;
             }
-            top += heights.get(section.dataset.path!) ?? 0;
+            top += heights.get(requireFixtureValue(section.dataset.path)) ?? 0;
           }
-          return rect(top, heights.get(this.dataset.path!) ?? 0);
+          return rect(top, heights.get(requireFixtureValue(this.dataset.path)) ?? 0);
         }
         const nav = this.closest<HTMLElement>("nav");
         if (this.tagName === "NAV") {
           return rect(0, NAV_HEIGHT);
         }
         if (nav !== null && this.tagName === "BUTTON") {
-          const index = Array.from(nav.querySelectorAll("li")).indexOf(this.closest("li")!);
+          const index = Array.from(nav.querySelectorAll("li")).indexOf(
+            requireFixtureValue(this.closest("li")),
+          );
           return rect(index * ROW_HEIGHT - nav.scrollTop, ROW_HEIGHT);
         }
         return rect(0, 0);
@@ -1831,7 +1845,9 @@ describe("file outline", () => {
       const slot = renderTab({ getChanges: () => changes(paths.map((path) => file(path))) });
       await slot.findAllByTestId("file-diff");
       layOut(Object.fromEntries(paths.map((path) => [path, 500])));
-      const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+      const area = requireFixtureValue(
+        slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]"),
+      );
       return Object.assign(slot, { area });
     }
 
@@ -1894,7 +1910,9 @@ describe("file outline", () => {
       });
       await slot.findAllByTestId("file-diff");
       layOut({ "a.ts": 500, "b.ts": 500, "c.ts": 500 });
-      const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+      const area = requireFixtureValue(
+        slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]"),
+      );
       fireEvent.click(row(slot, "c.ts"));
 
       fireEvent.change(slot.getByRole("combobox", { name: "Diff target" }), {

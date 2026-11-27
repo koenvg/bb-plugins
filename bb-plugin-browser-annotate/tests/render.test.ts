@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { planCrop } from "../lib/geometry";
 import { drawAnnotation, OUTLINE_DARK, OUTLINE_LIGHT } from "../lib/render";
 import type { DrawingContext } from "../lib/render";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 function fakeContext() {
   const calls: { op: string; args: unknown[]; style?: unknown; lineWidth?: number }[] = [];
@@ -56,13 +57,13 @@ describe("drawAnnotation", () => {
       [OUTLINE_DARK, lineWidth],
       [OUTLINE_LIGHT, lineWidth],
     ]);
-    expect(strokes[0]!.args).toEqual([
+    expect(strokes[0].args).toEqual([
       plan.box.x - lineWidth / 2,
       plan.box.y - lineWidth / 2,
       plan.box.width + lineWidth,
       plan.box.height + lineWidth,
     ]);
-    expect(strokes[1]!.args).toEqual([
+    expect(strokes[1].args).toEqual([
       plan.box.x - lineWidth * 1.5,
       plan.box.y - lineWidth * 1.5,
       plan.box.width + lineWidth * 3,
@@ -78,8 +79,8 @@ describe("drawAnnotation", () => {
 
     const fills = calls.filter((call) => call.op === "fillRect");
     expect(fills.map((fill) => fill.style)).toEqual([OUTLINE_LIGHT, OUTLINE_DARK]);
-    const [, y, , height] = fills[0]!.args as number[];
-    expect(y! + height!).toBeLessThanOrEqual(plan.box.y - 4);
-    expect(calls.find((call) => call.op === "fillText")!.args[0]).toBe("12");
+    const [, y, , height] = fills[0].args as number[];
+    expect(y + height).toBeLessThanOrEqual(plan.box.y - 4);
+    expect(requireFixtureValue(calls.find((call) => call.op === "fillText")).args[0]).toBe("12");
   });
 });

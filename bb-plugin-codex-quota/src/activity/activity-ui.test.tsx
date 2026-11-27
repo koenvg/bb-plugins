@@ -4,12 +4,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { dashboardFixture } from "../machines/app.test-support.js";
 import { AccountActivity, ActivityPanel } from "./activity-view.js";
 import { normalizeActivity } from "./activity.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const snapshot = () =>
-  normalizeActivity(
-    { stats: { lifetime_tokens: 42, daily_usage_buckets: [{ date: "2026-04-20", tokens: 5 }] } },
-    Date.now(),
-  )!;
+  requireFixtureValue(
+    normalizeActivity(
+      { stats: { lifetime_tokens: 42, daily_usage_buckets: [{ date: "2026-04-20", tokens: 5 }] } },
+      Date.now(),
+    ),
+  );
 const fresh = () => ({ state: "fresh" as const, reason: "ok" as const, snapshot: snapshot() });
 afterEach(() => {
   cleanup();
@@ -18,9 +21,11 @@ afterEach(() => {
 });
 async function toggle(container: HTMLElement, open: boolean) {
   await act(async () => {
-    const details = Array.from(container.querySelectorAll("details")).find(
-      (item) => item.querySelector("summary")?.textContent === "Account details and activity",
-    )!;
+    const details = requireFixtureValue(
+      Array.from(container.querySelectorAll("details")).find(
+        (item) => item.querySelector("summary")?.textContent === "Account details and activity",
+      ),
+    );
     details.open = open;
     fireEvent(details, new Event("toggle"));
   });
@@ -54,7 +59,7 @@ describe("account activity disclosure and presentation", () => {
     const remove = vi.spyOn(window, "removeEventListener");
     const read = vi.fn(async () => fresh());
     const page = render(<AccountActivity selection={{ hostId: "a", generation: 1 }} read={read} />);
-    expect(page.container.querySelector("details")!.open).toBe(false);
+    expect(requireFixtureValue(page.container.querySelector("details")).open).toBe(false);
     expect(read).not.toHaveBeenCalled();
     await toggle(page.container, true);
     await waitFor(() => expect(page.getByText("42")).toBeTruthy());
@@ -62,7 +67,7 @@ describe("account activity disclosure and presentation", () => {
     fireEvent.click(page.getByRole("button", { name: "Refresh activity" }));
     fireEvent(window, new Event("focus"));
     expect(read).toHaveBeenCalledTimes(1);
-    const id = set.mock.results[0]!.value;
+    const id = set.mock.results[0].value;
     await toggle(page.container, false);
     expect(clear).toHaveBeenCalledWith(id);
     expect(remove).toHaveBeenCalledWith("focus", expect.any(Function));
@@ -85,10 +90,10 @@ describe("account activity disclosure and presentation", () => {
     await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
     await act(async () => first(fresh()));
     expect(page.queryByText("42")).toBeNull();
-    expect(read.mock.calls[0]![1].aborted).toBe(true);
+    expect(read.mock.calls[0][1].aborted).toBe(true);
     page.unmount();
     await act(async () => resolve(fresh()));
-    expect(read.mock.calls[1]![1].aborted).toBe(true);
+    expect(read.mock.calls[1][1].aborted).toBe(true);
   });
   it("stops scheduling while hidden and rechecks on visibility resume", async () => {
     let visible = true;
@@ -124,7 +129,7 @@ describe("account activity disclosure and presentation", () => {
     const page = f.settings();
     const q = within(page.container);
     await q.findByText("63%");
-    fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]!);
+    fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]);
     await waitFor(() => expect(reads).toBe(1));
     expect(q.getByText("63%")).toBeTruthy();
     expect(q.getByRole("link", { name: "Open Codex Usage" }).getAttribute("href")).toBe(
@@ -152,7 +157,7 @@ describe("account activity disclosure and presentation", () => {
       const settings = f.settings();
       const q = within(settings.container);
       await q.findByText("Account allowance");
-      fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]!);
+      fireEvent.click(q.getAllByRole("button", { name: "Refresh account activity" })[0]);
       await waitFor(() => expect(reads).toBe(1));
       settings.lifecycle.unmount();
       if (mode === "pending") {

@@ -2,6 +2,7 @@ import { Profiler } from "react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { CalendarQuery } from "../src/history/calendar/calendar-contract.js";
 import { accountsFixture, reportsFixture } from "../src/machines/machines.test-support.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 const RealDate = Date;
@@ -76,7 +77,7 @@ function observation(query: CalendarQuery, tokens: number, cached: boolean) {
 }
 const app = await loadPluginApp(() => import("../src/plugin/app.js"));
 const tooltipCommits: { subtotal: string | null; models: string[] }[] = [];
-const Panel = app.navPanels[0]!.component;
+const Panel = app.navPanels[0].component;
 const ObservedPanel = (props: { subPath: string }) => {
   return (
     <Profiler
@@ -127,12 +128,12 @@ const options = {
   },
 };
 const page = renderSlot(
-  modelTransition ? { component: ObservedPanel } : app.navPanels[0]!,
+  modelTransition ? { component: ObservedPanel } : app.navPanels[0],
   { subPath: "" },
   options,
 );
 page.container.setAttribute("data-bb-plugin", "codex-quota");
-document.getElementById("root")!.append(page.container);
+requireFixtureValue(document.getElementById("root")).append(page.container);
 events.push({ event: "opened" });
 Object.assign(window, {
   savedFixture: {

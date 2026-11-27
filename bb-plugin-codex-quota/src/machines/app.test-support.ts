@@ -97,7 +97,7 @@ export async function dashboardFixture() {
       collectorControl,
     },
   };
-  const page = () => renderSlot(app.navPanels[0]!, { subPath: "" }, options);
-  const settings = () => renderSlot(app.settingsSections[0]!, {}, options);
+  const page = () => renderSlot(app.navPanels[0], { subPath: "" }, options);
+  const settings = () => renderSlot(app.settingsSections[0], {}, options);
   return { app, data, options, page, settings, machineAccounts, ...options.rpc };
 }

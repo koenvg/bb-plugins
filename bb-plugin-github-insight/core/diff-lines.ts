@@ -74,7 +74,7 @@ function rangesText(lines: Set<number>): string {
   const ranges: string[] = [];
   let start = sorted[0];
   for (let index = 0; index < sorted.length; index += 1) {
-    const current = sorted[index]!;
+    const current = sorted[index];
     if (sorted[index + 1] === current + 1) {
       continue;
     }

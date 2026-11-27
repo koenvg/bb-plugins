@@ -16,6 +16,7 @@ import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
 import hostEntry from "../host";
 import plugin from "../server";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const disposers: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -108,7 +109,8 @@ describe("host directory aliases", () => {
         { kind: "rejected" },
       ],
     });
-    const query = new URL(result.destinations[1]!.url!, "http://plugin.test").search;
+    const query = new URL(requireFixtureValue(result.destinations[1].url), "http://plugin.test")
+      .search;
     const image = await harness.behavior.fetchHttp("GET", `/image${query}`);
     expect(image.status).toBe(200);
     expect(await image.text()).toBe("image bytes");

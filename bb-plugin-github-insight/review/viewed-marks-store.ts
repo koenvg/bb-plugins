@@ -29,10 +29,10 @@ export function createViewedMarksStore(kv: PluginKvStorage) {
     update(pr: PullRequestRef, set: ViewedMarks, remove: readonly string[]): Promise<ActionResult> {
       const key = keyOf(pr);
       return inOrder(key, async () => {
-        const marks: Record<string, string> = { ...(await read(key)), ...set };
-        for (const path of remove) {
-          delete marks[path];
-        }
+        const removed = new Set(remove);
+        const marks = Object.fromEntries(
+          Object.entries({ ...(await read(key)), ...set }).filter(([path]) => !removed.has(path)),
+        );
         if (Object.keys(marks).length === 0) {
           await kv.delete(key);
         } else {

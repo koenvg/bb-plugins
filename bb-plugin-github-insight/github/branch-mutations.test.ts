@@ -4,12 +4,13 @@ import {
   enableAutoMergeArgs,
   updatePullRequestBranchArgs,
 } from "./branch-mutations";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const pullRequestId = "PR_kwDOHI7l-88AAAABEiddXg";
 const expectedHeadOid = "2c850077d3529aa67c8178c80d09517377124ea9";
 
 function queryOf(args: string[]): string {
-  return args.find((arg) => arg.startsWith("query="))!;
+  return requireFixtureValue(args.find((arg) => arg.startsWith("query=")));
 }
 
 describe("updatePullRequestBranchArgs", () => {

@@ -4,16 +4,16 @@ import { visibleView } from "../account/freshness.js";
 import { resetCountdown } from "./reset-countdown.js";
 import { QuotaSelect } from "./quota-select.js";
 
-export type QuotaSummaryProps = {
+export interface QuotaSummaryProps {
   view: QuotaStatus;
   now: number;
   loading?: boolean;
   ready?: boolean;
   selectedHostId: string | null;
   hosts: { id: string; name: string; status: "connected" | "disconnected" | "unknown" }[];
-  onHostChange(hostId: string | null): void;
-  onRefresh(): void;
-};
+  onHostChange: (hostId: string | null) => void;
+  onRefresh: () => void;
+}
 const observedText = (value: string) =>
   new Intl.DateTimeFormat("en-GB", {
     day: "numeric",

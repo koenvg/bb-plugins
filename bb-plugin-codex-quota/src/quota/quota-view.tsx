@@ -17,14 +17,15 @@ const dateText = (value: string): string =>
     timeZoneName: "short",
   }).format(new Date(value));
 const WindowRow = ({ window, now }: { window: QuotaWindow; now: number }) => {
-  const hasReset = window.resetAt !== null && Number.isFinite(Date.parse(window.resetAt));
+  const { resetAt } = window;
+  const hasReset = resetAt !== null && Number.isFinite(Date.parse(resetAt));
   return (
     <li className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border py-3 last:border-0">
       <div className="min-w-0">
         <div className="text-sm font-medium">{window.name}</div>
         <div className="text-xs text-muted-foreground">{resetCountdown(window.resetAt, now)}</div>
         {hasReset && (
-          <div className="text-xs text-muted-foreground">{`Resets ${dateText(window.resetAt!)}`}</div>
+          <div className="text-xs text-muted-foreground">{`Resets ${dateText(resetAt)}`}</div>
         )}
       </div>
       <div

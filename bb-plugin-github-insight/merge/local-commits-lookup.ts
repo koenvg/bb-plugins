@@ -2,11 +2,14 @@ import type { LocalCommitsAhead, LocalCommitsRequest } from "../contract";
 import type { CachedPr } from "../refresh/insight-service";
 
 interface LocalCommitsLookupDeps {
-  cachedPr(threadId: string): Promise<CachedPr>;
-  environmentIdOf(threadId: string): Promise<string | null>;
-  environment(environmentId: string): Promise<{ hostId: string; path: string | null }>;
-  countLocalCommitsAhead(hostId: string, request: LocalCommitsRequest): Promise<LocalCommitsAhead>;
-  warn(message: string): void;
+  cachedPr: (threadId: string) => Promise<CachedPr>;
+  environmentIdOf: (threadId: string) => Promise<string | null>;
+  environment: (environmentId: string) => Promise<{ hostId: string; path: string | null }>;
+  countLocalCommitsAhead: (
+    hostId: string,
+    request: LocalCommitsRequest,
+  ) => Promise<LocalCommitsAhead>;
+  warn: (message: string) => void;
 }
 
 const UNKNOWN: LocalCommitsAhead = { kind: "unknown" };

@@ -11,9 +11,12 @@ import {
   view,
   type QueueHandler,
 } from "../test/review-queue-fixtures";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const panel = app.navPanels.find((registration) => registration.id === "pull-requests")!;
+const panel = requireFixtureValue(
+  app.navPanels.find((registration) => registration.id === "pull-requests"),
+);
 const Badge = () => {
   const badge = panel.experimental_useBadge?.();
   return <output data-testid="badge">{JSON.stringify(badge)}</output>;
@@ -45,7 +48,7 @@ describe("Pull Requests sidebar badge", () => {
       ok(view([queuePr(), queuePr({ number: 16 }), queuePr({ review: "reviewed" })])),
     );
     await vi.waitFor(() =>
-      expect(JSON.parse(slot.getByTestId("badge").textContent!)).toEqual({
+      expect(JSON.parse(slot.getByTestId("badge").textContent)).toEqual({
         text: "2",
         tone: "neutral",
         label: "2 pull requests need review",
@@ -56,7 +59,7 @@ describe("Pull Requests sidebar badge", () => {
   it("marks the count when a PR is unseen", async () => {
     const slot = renderBadge(() => ok({ ...view([queuePr()]), hasUnseen: true }));
     await vi.waitFor(() =>
-      expect(JSON.parse(slot.getByTestId("badge").textContent!)).toEqual({
+      expect(JSON.parse(slot.getByTestId("badge").textContent)).toEqual({
         text: "1",
         tone: "warning",
         label: "1 pull requests need review. New pull requests",
@@ -69,7 +72,7 @@ describe("Pull Requests sidebar badge", () => {
       ok({ ...view([queuePr({ review: "reviewed", thread: returnedThread })]), hasReturned: true }),
     );
     await vi.waitFor(() =>
-      expect(JSON.parse(slot.getByTestId("badge").textContent!)).toEqual({
+      expect(JSON.parse(slot.getByTestId("badge").textContent)).toEqual({
         tone: "warning",
         label: "Review agent came back",
       }),
@@ -79,7 +82,7 @@ describe("Pull Requests sidebar badge", () => {
   it("follows queue updates and keeps the last good state on errors", async () => {
     const slot = renderBadge(() => ok(view([queuePr()])));
     await vi.waitFor(() =>
-      expect(JSON.parse(slot.getByTestId("badge").textContent!)).toEqual({
+      expect(JSON.parse(slot.getByTestId("badge").textContent)).toEqual({
         text: "1",
         tone: "neutral",
         label: "1 pull requests need review",
@@ -92,12 +95,12 @@ describe("Pull Requests sidebar badge", () => {
       tone: "warning",
       label: "2 pull requests need review. New pull requests",
     };
-    expect(JSON.parse(slot.getByTestId("badge").textContent!)).toEqual(expected);
+    expect(JSON.parse(slot.getByTestId("badge").textContent)).toEqual(expected);
     await slot.behavior.emitRealtime("review-queue.updated", {
       kind: "error",
       message: "gh not logged in",
       lastGood: next,
     });
-    expect(JSON.parse(slot.getByTestId("badge").textContent!)).toEqual(expected);
+    expect(JSON.parse(slot.getByTestId("badge").textContent)).toEqual(expected);
   });
 });

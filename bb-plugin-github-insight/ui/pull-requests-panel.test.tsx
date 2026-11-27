@@ -24,11 +24,13 @@ import {
 import { isBuiltinIconName } from "../components/ui/icon";
 import { OVERVIEW_LAYOUT_KEY } from "./use-overview-layout";
 import manifest from "../package.json";
+import type * as AppSdk from "@get-bb/plugin-sdk/app";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const submitOutcomes: Promise<"cleared" | "kept">[] = [];
 
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@get-bb/plugin-sdk/app")>();
+  const actual = await importOriginal<typeof AppSdk>();
   const DraftKeepingComposer = (props: NewThreadComposerProps) => {
     const Composer = actual.experimental_NewThreadComposer;
     return (
@@ -51,7 +53,9 @@ vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => {
 });
 
 const app = await loadPluginApp(() => import("../app"));
-const panel = app.navPanels.find((registration) => registration.id === "pull-requests")!;
+const panel = requireFixtureValue(
+  app.navPanels.find((registration) => registration.id === "pull-requests"),
+);
 
 afterEach(() => {
   cleanup();
@@ -800,7 +804,9 @@ describe("Pull Requests updates", () => {
     );
 
     const section = await slot.findByRole("region", { name: "Needs review" });
-    const headerRow = within(section).getByRole("heading", { name: /Needs review/ }).parentElement!;
+    const headerRow = requireFixtureValue(
+      within(section).getByRole("heading", { name: /Needs review/ }).parentElement,
+    );
     expect(within(headerRow).getByRole("button", { name: "Refresh" })).toBeTruthy();
     expect(headerRow.textContent).toContain("Updated 3 minutes ago");
     expect(slot.getAllByRole("button", { name: "Refresh" })).toHaveLength(1);
@@ -875,7 +881,7 @@ describe("Review composer", () => {
 
     const composer = await slot.findByTestId("bb-new-thread-composer");
     expect(composer.dataset.defaultProjectId).toBe("prj_api");
-    expect(JSON.parse(composer.dataset.defaultEnvironment!)).toEqual({
+    expect(JSON.parse(requireFixtureValue(composer.dataset.defaultEnvironment))).toEqual({
       type: "host",
       hostId: "host-1",
       workspace: { type: "managed-worktree", baseBranch: { kind: "default" } },

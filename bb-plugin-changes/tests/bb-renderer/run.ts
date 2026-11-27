@@ -16,8 +16,9 @@ import {
   rendererFixture,
   unsupportedSlotBundle,
 } from "./fixture";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
-type Plugin = {
+interface Plugin {
   id: string;
   enabled: boolean;
   status: string;
@@ -26,8 +27,10 @@ type Plugin = {
     hasApp: boolean;
     bundle: { jsUrl: string; cssUrl: string | null; compatible: boolean } | null;
   };
-};
-type PluginList = { plugins: Plugin[] };
+}
+interface PluginList {
+  plugins: Plugin[];
+}
 
 const origin = loopbackOrigin(process.env.BB_RENDERER_URL ?? process.env.BB_SERVER_URL ?? "");
 const threadId = process.env.BB_THREAD_ID;
@@ -102,7 +105,10 @@ async function candidate(browser: Browser, code: string) {
   const { targetInfo } = await session.send("Target.getTargetInfo");
   candidateTargets.push({ targetId: targetInfo.targetId, bundleSha256: hash(code) });
   await session.detach();
-  const fixture = rendererFixture(threadId!, expectedEnvironment!);
+  const fixture = rendererFixture(
+    requireFixtureValue(threadId),
+    requireFixtureValue(expectedEnvironment),
+  );
   const unexpected: string[] = [];
   const fileReads: string[] = [];
   page.on("pageerror", (error) => unexpected.push(`Runtime error: ${error.message}`));
@@ -138,7 +144,10 @@ async function candidate(browser: Browser, code: string) {
       await route.fulfill({ contentType: "text/css", body: css });
     } else if (url.pathname.startsWith("/api/v1/plugins/changes/rpc/")) {
       try {
-        const result = await fixture.rpc(url.pathname.split("/").at(-1)!, request.postDataJSON());
+        const result = await fixture.rpc(
+          requireFixtureValue(url.pathname.split("/").at(-1)),
+          request.postDataJSON(),
+        );
         await route.fulfill({ json: { ok: true, result } });
       } catch (error) {
         unexpected.push(String(error));

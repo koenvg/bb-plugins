@@ -4,6 +4,7 @@ import { memorySummaries, recordedFixture } from "./machines.test-support.js";
 import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
 import { calendarModelCostSnapshot } from "../history/calendar/calendar-test-support.js";
 import { comparisonReasons } from "../history/calendar/calendar-comparison.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 const query: CalendarQuery = {
@@ -89,8 +90,12 @@ it("keeps only eight query payloads and reads chart totals from a legacy report 
     }),
   ).toBeNull();
   const latest = { ...query, scope: { kind: "workspace" as const, workspace: "/workspace-8" } };
-  const key = (await storage.get<string[]>(keys.find((key) => key.endsWith("index"))!))![0]!;
-  const bodyKey = keys.find((name) => name.endsWith(key))!;
+  const key = requireFixtureValue(
+    requireFixtureValue(
+      await storage.get<string[]>(requireFixtureValue(keys.find((key) => key.endsWith("index")))),
+    )[0],
+  );
+  const bodyKey = requireFixtureValue(keys.find((name) => name.endsWith(key)));
   const report = recordedFixture(latest, now);
   await storage.set(bodyKey, {
     ...report,
@@ -112,12 +117,18 @@ it("keeps only eight query payloads and reads chart totals from a legacy report 
   expect(decoded?.ranking).toEqual([]);
 });
 
+interface LegacyReportFixture {
+  summary: Record<string, unknown>;
+  days: Record<string, unknown>[];
+  comparison: { prior: { summary: Record<string, unknown> } };
+}
+
 it("decodes legacy speed keys before both cache validation paths without deleting valid history", async () => {
   const storage = memorySummaries();
   const cache = createReportCache(storage, () => now);
   await cache.save("host_one", recordedFixture(query, now));
-  const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
-  const legacy = await storage.get<any>(key);
+  const key = requireFixtureValue((await storage.list()).find((key) => !key.endsWith("index")));
+  const legacy = requireFixtureValue(await storage.get<LegacyReportFixture>(key));
   legacy.summary.speedTokens = "obsolete malformed bucket";
   legacy.days[14].speedTokens = { fast: "obsolete" };
   legacy.days[14].models = {
@@ -144,8 +155,8 @@ it.each([-1, 601])("rejects genuine malformed legacy model attribution %s", asyn
   const storage = memorySummaries();
   const cache = createReportCache(storage, () => now);
   await cache.save("host_one", recordedFixture(query, now));
-  const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
-  const legacy = await storage.get<any>(key);
+  const key = requireFixtureValue((await storage.list()).find((key) => !key.endsWith("index")));
+  const legacy = requireFixtureValue(await storage.get<LegacyReportFixture>(key));
   legacy.days[14].models = {
     named: [{ model: "legacy-named", totalTokens: tokens }],
     otherTokens: 0,
@@ -160,10 +171,13 @@ it("preserves captured model money and comparison summaries through legacy cache
   const cache = createReportCache(storage, () => now);
   const compared = { ...query, includeUncertain: false, comparison: true };
   const original = calendarModelCostSnapshot(compared);
-  original.comparison!.reasons = comparisonReasons(original, original.comparison!.prior);
+  requireFixtureValue(original.comparison).reasons = comparisonReasons(
+    original,
+    requireFixtureValue(original.comparison).prior,
+  );
   await cache.save("host_one", original);
-  const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
-  const legacy = await storage.get<any>(key);
+  const key = requireFixtureValue((await storage.list()).find((key) => !key.endsWith("index")));
+  const legacy = requireFixtureValue(await storage.get<LegacyReportFixture>(key));
   legacy.comparison.prior.summary.speedTokens = { malformed: true };
   legacy.summary.speedTokens = null;
   legacy.days[14].speedTokens = -1;
@@ -182,8 +196,8 @@ it.each([-1, Number.MAX_SAFE_INTEGER + 1, "600"])(
     const storage = memorySummaries();
     const cache = createReportCache(storage, () => now);
     await cache.save("host_one", recordedFixture(query, now));
-    const key = (await storage.list()).find((key) => !key.endsWith("index"))!;
-    const legacy = await storage.get<any>(key);
+    const key = requireFixtureValue((await storage.list()).find((key) => !key.endsWith("index")));
+    const legacy = requireFixtureValue(await storage.get<LegacyReportFixture>(key));
     legacy.days[14].totalTokens = totalTokens;
     legacy.days[14].speedTokens = { normal: 600, fast: 0, ultrafast: 0 };
     await storage.set(key, legacy);

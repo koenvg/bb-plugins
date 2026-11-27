@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountFooterAdapter } from "./footer-adapter.js";
 import { footerFixture } from "./footer-fixture.test-support.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 // Restored BBP-61 public adapter regressions after the src/footer move.
 const disposers: (() => void)[] = [];
@@ -42,9 +43,11 @@ describe("quota footer work isolation", () => {
       task.className = `task-${i}`;
       task.style.visibility = "visible";
       task.setAttribute("aria-describedby", `task-description-${i}`);
-      task.querySelector("h2")!.textContent = `New heading ${i}`;
-      task.querySelector("section")!.replaceChildren(document.createElement("p"));
-      task.lastElementChild!.append(document.createElement("article"));
+      requireFixtureValue(task.querySelector("h2")).textContent = `New heading ${i}`;
+      requireFixtureValue(task.querySelector("section")).replaceChildren(
+        document.createElement("p"),
+      );
+      requireFixtureValue(task.lastElementChild).append(document.createElement("article"));
       await settle();
     }
     expect(counters.discovery).not.toHaveBeenCalled();
@@ -57,7 +60,7 @@ describe("quota footer work isolation", () => {
     const { sidebar, item, button } = footerFixture();
     const adapter = mount();
     await settle();
-    const target = adapter.getSnapshot()[0]!;
+    const target = adapter.getSnapshot()[0];
     const counters = workCounters(sidebar);
     item.className = "changed";
     item.style.visibility = "visible";
@@ -70,7 +73,7 @@ describe("quota footer work isolation", () => {
     counters.visibility.mockClear();
     target.container.innerHTML = '<span title="72%">72%</span>';
     target.container.className = "fresh";
-    target.container.firstElementChild!.textContent = "71%";
+    requireFixtureValue(target.container.firstElementChild).textContent = "71%";
     adapter.setNavigationReady(true);
     target.commit();
     await settle();
@@ -97,7 +100,7 @@ describe("quota footer work isolation", () => {
       disposers.push(() => sheet.remove());
       const adapter = mount();
       adapter.setNavigationReady(true);
-      adapter.getSnapshot()[0]!.commit();
+      adapter.getSnapshot()[0].commit();
       await settle();
       const hide = () => {
         if (mode === "hidden") {
@@ -128,7 +131,7 @@ describe("quota footer work isolation", () => {
     const first = footerFixture();
     const adapter = mount();
     await settle();
-    const original = adapter.getSnapshot()[0]!;
+    const original = adapter.getSnapshot()[0];
     first.sidebar.hidden = true;
     const drawer = document.createElement("section");
     const compact = footerFixture();
@@ -143,24 +146,24 @@ describe("quota footer work isolation", () => {
     compact.button.disabled = false;
     await settle();
     expect(adapter.getSnapshot()).toHaveLength(1);
-    expect(adapter.getSnapshot()[0]!.container.parentElement).toBe(compact.button);
+    expect(adapter.getSnapshot()[0].container.parentElement).toBe(compact.button);
     drawer.remove();
     first.sidebar.hidden = false;
     await settle();
     expect(adapter.getSnapshot()).toHaveLength(1);
-    expect(adapter.getSnapshot()[0]!.container.parentElement).toBe(first.button);
+    expect(adapter.getSnapshot()[0].container.parentElement).toBe(first.button);
     expect(compact.button.querySelector("[data-codex-quota-badge]")).toBeNull();
   });
   it("repairs an externally removed badge and restores fallback until the replacement commits", async () => {
     const { row, button } = footerFixture();
     const adapter = mount();
     adapter.setNavigationReady(true);
-    const original = adapter.getSnapshot()[0]!;
+    const original = adapter.getSnapshot()[0];
     original.commit();
     await settle();
     original.container.remove();
     await settle();
-    const replacement = adapter.getSnapshot()[0]!;
+    const replacement = adapter.getSnapshot()[0];
     expect(replacement).not.toBe(original);
     expect(replacement.container.parentElement).toBe(button);
     expect(row.hasAttribute("data-codex-quota-suppressed")).toBe(false);
@@ -221,7 +224,7 @@ describe("quota footer work isolation", () => {
     const { sidebar, item, row, button } = footerFixture();
     const adapter = mount();
     adapter.setNavigationReady(true);
-    adapter.getSnapshot()[0]!.commit();
+    adapter.getSnapshot()[0].commit();
     await settle();
     const queued: VoidFunction[] = [];
     vi.spyOn(globalThis, "queueMicrotask").mockImplementation((callback) => {

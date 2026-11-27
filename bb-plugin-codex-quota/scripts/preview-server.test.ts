@@ -4,6 +4,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 test("owned preview shutdown and occupied-port failure preserve other receipts", async () => {
   const parent = await mkdtemp(join(tmpdir(), "quota-preview-lifecycle-"));
@@ -38,8 +39,8 @@ test("owned preview shutdown and occupied-port failure preserve other receipts",
       server.once("error", reject);
       server.once("exit", () => reject(new Error(`Server exited before readiness: ${stderr}`)));
     });
-    const base = ready.match(/http:\/\/127\.0\.0\.1:\d+/)![0];
-    const root = ready.match(/\((.+)\)/)![1];
+    const base = requireFixtureValue(ready.match(/http:\/\/127\.0\.0\.1:\d+/))[0];
+    const root = requireFixtureValue(ready.match(/\((.+)\)/))[1];
     const response = await fetch(`${base}/calendar.html`);
     expect(response.status).toBe(200);
     expect(response.headers.get("content-security-policy")).toContain("connect-src 'none'");

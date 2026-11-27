@@ -5,11 +5,12 @@ import {
 } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import { defaultGuidance } from "./guidance";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
-const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
+const hosts: ReturnType<typeof createFakePluginHost>["harness"][] = [];
 afterEach(async () => {
   while (hosts.length) {
-    await hosts.pop()!.lifecycle.dispose();
+    await requireFixtureValue(hosts.pop()).lifecycle.dispose();
   }
 });
 const projects = ["enabled", "disabled", "prompt_only", "absent", "new_prompt"].map((id) => ({

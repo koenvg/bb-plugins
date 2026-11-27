@@ -1,9 +1,9 @@
-export type FooterTarget = {
+export interface FooterTarget {
   container: HTMLSpanElement;
   descriptionId: string;
   trigger: HTMLButtonElement;
-  commit(): () => void;
-};
+  commit: () => () => void;
+}
 type Attachment = FooterTarget & { rendered: boolean };
 let nextId = 0;
 
@@ -77,7 +77,7 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
         if (rows.length !== 1) {
           continue;
         }
-        const row = rows[0]!;
+        const row = rows[0];
         if (row.contains(document.activeElement)) {
           button.focus({ preventScroll: true });
         }
@@ -139,11 +139,11 @@ export function mountFooterAdapter(document: Document, pluginId: string) {
       if (items.length !== 1) {
         continue;
       }
-      const matches = items[0]!.querySelectorAll<HTMLButtonElement>(
+      const matches = items[0].querySelectorAll<HTMLButtonElement>(
         'button[data-sidebar="menu-button"]',
       );
-      if (matches.length === 1 && isAvailable(matches[0]!)) {
-        buttons.add(matches[0]!);
+      if (matches.length === 1 && isAvailable(matches[0])) {
+        buttons.add(matches[0]);
       }
     }
     for (const [button, target] of attached) {

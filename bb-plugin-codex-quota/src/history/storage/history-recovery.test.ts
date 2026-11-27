@@ -15,6 +15,7 @@ import { createHostHistory } from "../history-host.js";
 import { openHistoryDatabase, loadHistoryStorage } from "./history-storage.js";
 import { readCalendarTotals } from "./history-retention.js";
 import { controlCollector } from "../collection/collector-control.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -76,8 +77,12 @@ it("quarantines only confirmed corrupt owned storage, preserves sidecars and rec
     state: "recovered",
     recoveryGaps: [{ start: "2026-06-22T00:00:00.000Z", end: "2026-10-01T12:00:00.000Z" }],
   });
-  expect(view.collection!.workspaces).toEqual([{ workspace: "/kept", totalTokens: 5, events: 1 }]);
-  const quarantine = (await readdir(f.directory)).find((n) => n.startsWith("quarantine-"))!;
+  expect(requireFixtureValue(view.collection).workspaces).toEqual([
+    { workspace: "/kept", totalTokens: 5, events: 1 },
+  ]);
+  const quarantine = requireFixtureValue(
+    (await readdir(f.directory)).find((n) => n.startsWith("quarantine-")),
+  );
   expect(await readFile(join(f.directory, quarantine, "usage-v1.sqlite"), "utf8")).toBe(
     "confirmed-not-a-database",
   );
@@ -85,7 +90,7 @@ it("quarantines only confirmed corrupt owned storage, preserves sidecars and rec
     "retained-sidecar",
   );
   expect(await readFile(join(f.root, "unrelated.sqlite"), "utf8")).toBe("unrelated");
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   try {
     expect(db.prepare("SELECT recorded_host FROM usage_compact").get()).toMatchObject({
       recorded_host: originalOwner,
@@ -102,7 +107,9 @@ it("quarantines only confirmed corrupt owned storage, preserves sidecars and rec
     db.close();
   }
   const reload = createHostHistory({ agentDir: () => f.agent, now: () => at });
-  expect((await reload.read(f.context)).collection!.workspaces[0].totalTokens).toBe(5);
+  expect(
+    requireFixtureValue((await reload.read(f.context)).collection).workspaces[0].totalTokens,
+  ).toBe(5);
 });
 it("does not quarantine permission/IO/capability failures or raw error messages", async () => {
   const f = await fixture();
@@ -123,7 +130,7 @@ it("does not quarantine permission/IO/capability failures or raw error messages"
 });
 it("leaves a newer schema and all sidecars untouched even with a saved unfinished recovery receipt", async () => {
   const f = await fixture();
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   db.exec("PRAGMA user_version=99");
   db.close();
   await writeFile(f.path + "-wal", "private-newer-wal");
@@ -133,7 +140,7 @@ it("leaves a newer schema and all sidecars untouched even with a saved unfinishe
     [f.path, f.path + "-wal", f.path + "-shm"].map((p) => readFile(p)),
   );
   let calls = 0;
-  const factory = (await loadHistoryStorage())!;
+  const factory = requireFixtureValue(await loadHistoryStorage());
   const history = createHostHistory({
     storage: async () => (p, r) => {
       calls += 1;
@@ -195,7 +202,7 @@ it.each([false, true])(
   "preserves recovery ownership between quarantine move and phase publication with native preparation=%s",
   async (prepare) => {
     const f = await fixture();
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     try {
       await controlCollector(
         "pause",
@@ -246,7 +253,7 @@ it.each([false, true])(
     });
     try {
       const preparation = prepare
-        ? await history.prepare!({
+        ? await requireFixtureValue(history.prepare)({
             ...f.context,
             identities: {
               hostId: "host_fixture",
@@ -313,7 +320,7 @@ it.each([
   const history = createHostHistory({ codexHome: () => home, now: () => at });
   try {
     expect(
-      await history.prepare!({
+      await requireFixtureValue(history.prepare)({
         ...f.context,
         identities: {
           hostId: "host_fixture",

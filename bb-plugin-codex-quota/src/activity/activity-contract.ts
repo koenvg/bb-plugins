@@ -13,7 +13,7 @@ const date = z
 const buckets = z
   .array(z.object({ date, tokens: count }).strict())
   .max(MAX_ACTIVITY_BUCKETS)
-  .refine((rows) => rows.every((row, index) => index === 0 || rows[index - 1]!.date < row.date));
+  .refine((rows) => rows.every((row, index) => index === 0 || rows[index - 1].date < row.date));
 export const activitySnapshotSchema = z
   .object({
     observedAt: z.string().datetime(),

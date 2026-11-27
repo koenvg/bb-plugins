@@ -17,7 +17,10 @@ async function controlsFit(page: Page, panel: Locator, coarse: boolean) {
       range.selectNodeContents(control);
       const textBoxes = control.tagName === "SELECT" ? [] : Array.from(range.getClientRects());
       const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d")!;
+      const context = canvas.getContext("2d");
+      if (context == null) {
+        throw new Error('Missing browser fixture value: canvas.getContext("2d")');
+      }
       context.font = style.font;
       const select = control as HTMLSelectElement;
       return {

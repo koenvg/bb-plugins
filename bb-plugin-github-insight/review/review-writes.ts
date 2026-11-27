@@ -31,20 +31,24 @@ import type { DraftStore } from "./draft-store";
 import type { BasisLoad, PrReview, ReviewLoad, ReviewService } from "./review-service";
 
 interface ReviewWritesDeps {
-  resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
-  replyToThread(target: PrTarget, reviewThreadId: string, body: string): Promise<unknown>;
-  setThreadResolved(target: PrTarget, reviewThreadId: string, resolved: boolean): Promise<unknown>;
-  loadReview(threadId: string): Promise<ReviewLoad>;
-  loadBasis(threadId: string): Promise<BasisLoad>;
-  submitReview(target: PrTarget, request: AddPullRequestReviewRequest): Promise<unknown>;
+  resolvePr: (threadId: string, options?: LookupOptions) => Promise<PrResolution>;
+  replyToThread: (target: PrTarget, reviewThreadId: string, body: string) => Promise<unknown>;
+  setThreadResolved: (
+    target: PrTarget,
+    reviewThreadId: string,
+    resolved: boolean,
+  ) => Promise<unknown>;
+  loadReview: (threadId: string) => Promise<ReviewLoad>;
+  loadBasis: (threadId: string) => Promise<BasisLoad>;
+  submitReview: (target: PrTarget, request: AddPullRequestReviewRequest) => Promise<unknown>;
   drafts: DraftStore;
-  publish(update: ReviewUpdated): void;
-  publishDrafts(update: ReviewUpdated): void;
-  refreshAfterWrite(threadId: string): Promise<void>;
-  markReviewed(ref: PullRequestRef, commitOid: string): Promise<ActionResult>;
-  now(): number;
+  publish: (update: ReviewUpdated) => void;
+  publishDrafts: (update: ReviewUpdated) => void;
+  refreshAfterWrite: (threadId: string) => Promise<void>;
+  markReviewed: (ref: PullRequestRef, commitOid: string) => Promise<ActionResult>;
+  now: () => number;
   createLocalCommentDraft: ReviewService["createCommentDraft"];
-  warn(message: string): void;
+  warn: (message: string) => void;
 }
 
 const NO_PR_MESSAGE = "No pull request for this thread";

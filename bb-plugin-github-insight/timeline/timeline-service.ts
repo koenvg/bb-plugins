@@ -16,13 +16,13 @@ import type { PrResolution, PrTarget } from "../pr-lookup";
 import { createReadCache } from "../refresh/read-cache";
 
 interface TimelineServiceDeps {
-  resolvePr(threadId: string): Promise<PrResolution>;
-  fetchTimelinePage(target: PrTarget, before: string | null): Promise<unknown>;
-  addComment(target: PrTarget, request: AddCommentRequest): Promise<unknown>;
-  newCommentBasis(pr: PullRequestRef): Promise<{ markedAt: number | null; seen: Set<string> }>;
+  resolvePr: (threadId: string) => Promise<PrResolution>;
+  fetchTimelinePage: (target: PrTarget, before: string | null) => Promise<unknown>;
+  addComment: (target: PrTarget, request: AddCommentRequest) => Promise<unknown>;
+  newCommentBasis: (pr: PullRequestRef) => Promise<{ markedAt: number | null; seen: Set<string> }>;
   signMedia: SignMedia;
-  publish(update: ReviewUpdated): void;
-  now(): number;
+  publish: (update: ReviewUpdated) => void;
+  now: () => number;
 }
 
 const unsigned: SignMedia = (markdown) => markdown;

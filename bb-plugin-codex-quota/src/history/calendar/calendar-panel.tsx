@@ -13,14 +13,14 @@ import { useReportPreparation } from "./report-preparation.js";
 import { usePageClock } from "./page-clock.js";
 import type { PreparationRequest } from "../report-preparation-contract.js";
 
-type Props = {
+interface Props {
   selection: { hostId: string | null; generation: number };
   selectionPending?: boolean;
   selectionRevision?: number;
   now: number;
-  read(input: HistoryRequest & { query: CalendarQuery }): Promise<unknown>;
-  prepare?(input: PreparationRequest): Promise<unknown>;
-};
+  read: (input: HistoryRequest & { query: CalendarQuery }) => Promise<unknown>;
+  prepare?: (input: PreparationRequest) => Promise<unknown>;
+}
 function viewerTimezone(): string | null {
   try {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -118,7 +118,7 @@ export const CalendarReportPanel = ({
   const view = current?.view.state !== "unavailable" ? current?.view : null;
   const loading =
     !!selection.hostId && !selectionPending && !!query && (!current || current.attempt !== attempt);
-  const stale = !!view && (current!.stale || now - Date.parse(view.observedAt) > 5 * 60000);
+  const stale = !!view && (current?.stale || now - Date.parse(view.observedAt) > 5 * 60000);
   const navigate = (next: string) => setStart(next);
   const handleRetry = preparation.retry;
   return (

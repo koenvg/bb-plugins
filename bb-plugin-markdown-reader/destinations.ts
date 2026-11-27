@@ -9,7 +9,10 @@ export interface DocumentLocation {
   documentPath: string;
   environmentId?: string | null;
 }
-type LocalImage = { kind: "local-image"; relative: string };
+interface LocalImage {
+  kind: "local-image";
+  relative: string;
+}
 type Resolved = Destination | LocalImage;
 const rejected = (reason = "Unsupported or unsafe destination."): Destination => ({
   kind: "rejected",
@@ -39,7 +42,7 @@ function resolve(location: DocumentLocation, { url, image }: DestinationRequest)
   if (/[\x00-\x1f\x7f\\]/.test(decoded) || /[\ud800-\udfff]/u.test(decoded)) return rejected();
   if (/^https?:\/\//i.test(url)) {
     if (!/^https?:\/\/[^/?#]+(?:[/?#]|$)/i.test(url) || decoded.includes("%")) return rejected();
-    const encodedPath = url.replace(/^https?:\/\/[^/?#]+/i, "").split(/[?#]/, 1)[0]!;
+    const encodedPath = url.replace(/^https?:\/\/[^/?#]+/i, "").split(/[?#]/, 1)[0];
     if (unsafeEncodedPath(encodedPath)) return rejected();
     try {
       const external = new URL(url);
@@ -132,30 +135,26 @@ export async function resolveDestinations(
         images.add(key);
       }
       if (result.kind !== "local-image") return result;
-      if (!localUrls.has(result.relative)) {
-        localUrls.set(
-          result.relative,
-          (async (): Promise<Destination> => {
-            try {
-              if (!imageUrl) throw new Error("Image transport unavailable");
-              const paths = /^[a-z]:[\\/]|^\\\\/i.test(location.rootPath) ? win32 : posix;
-              const url = await imageUrl({
-                hostId: location.hostId,
-                rootPath: location.rootPath,
-                path: paths.resolve(location.rootPath, ...result.relative.split("/")),
-              });
-              if (
-                !/^\/api\/v1\/plugins\/markdown-reader\/http\/image\?asset=[a-z\d_-]+$/i.test(url)
-              )
-                throw new Error("Invalid image transport");
-              return { kind: "image", remote: false, url };
-            } catch {
-              return rejected("Image preview is unavailable. Refresh to retry.");
-            }
-          })(),
-        );
-      }
-      return localUrls.get(result.relative)!;
+      const cached = localUrls.get(result.relative);
+      if (cached) return cached;
+      const pending = (async (): Promise<Destination> => {
+        try {
+          if (!imageUrl) throw new Error("Image transport unavailable");
+          const paths = /^[a-z]:[\\/]|^\\\\/i.test(location.rootPath) ? win32 : posix;
+          const url = await imageUrl({
+            hostId: location.hostId,
+            rootPath: location.rootPath,
+            path: paths.resolve(location.rootPath, ...result.relative.split("/")),
+          });
+          if (!/^\/api\/v1\/plugins\/markdown-reader\/http\/image\?asset=[a-z\d_-]+$/i.test(url))
+            throw new Error("Invalid image transport");
+          return { kind: "image", remote: false, url };
+        } catch {
+          return rejected("Image preview is unavailable. Refresh to retry.");
+        }
+      })();
+      localUrls.set(result.relative, pending);
+      return pending;
     }),
   );
 }

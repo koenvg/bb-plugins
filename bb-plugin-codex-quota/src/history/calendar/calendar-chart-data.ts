@@ -1,8 +1,9 @@
 import type { CalendarSnapshot } from "./calendar-contract.js";
 import { projectTokenModels } from "./calendar-models.js";
 import { projectCostModels } from "./calendar-model-costs.js";
+import type { ComparisonMetric } from "./calendar-comparison.js";
 
-export type TokenMetric = import("./calendar-comparison.js").ComparisonMetric;
+export type TokenMetric = ComparisonMetric;
 export type CalendarDay = CalendarSnapshot["days"][number];
 // Graphite palette: neutral cache reads with restrained category accents.
 // BB's inherited color-scheme selects the approved light/dark pairs for bars and swatches.
@@ -116,7 +117,7 @@ export function chartData(days: CalendarDay[], metric: TokenMetric) {
             ? 0
             : null
           : maximum
-            ? values[index]! / maximum
+            ? values[index] / maximum
             : 0,
       uncertainHeight:
         metric === "tokens" && maximum ? (day.uncertain?.totalTokens ?? 0) / maximum : 0,

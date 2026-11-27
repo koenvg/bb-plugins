@@ -301,7 +301,10 @@ const FooterQuotaBadge = ({ target }: { target: FooterTarget }) => {
   useEffect(() => {
     const button = target.trigger;
     const document = button.ownerDocument;
-    const window = document.defaultView!;
+    const window = document.defaultView;
+    if (!window) {
+      throw new Error("Quota footer requires a window.");
+    }
     let timer: ReturnType<typeof setTimeout> | undefined;
     let dismissed = false;
     const show = () => {

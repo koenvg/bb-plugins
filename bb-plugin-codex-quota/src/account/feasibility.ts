@@ -1,4 +1,5 @@
 import { normalizeQuota } from "../quota/quota.js";
+import type { QuotaSnapshot } from "../quota/quota.js";
 
 const QUOTA_URL = "https://chatgpt.com/backend-api/wham/usage";
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -91,7 +92,7 @@ export async function fetchNormalizedQuota(
   fetchImpl: FetchLike = fetch,
   observedAtMs = Date.now(),
 ): Promise<
-  | { status: "ok"; snapshot: import("../quota/quota.js").QuotaSnapshot }
+  | { status: "ok"; snapshot: QuotaSnapshot }
   | { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null }
 > {
   const read = await quotaPayload(token, signal, fetchImpl);

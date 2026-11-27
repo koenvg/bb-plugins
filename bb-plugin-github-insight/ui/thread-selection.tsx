@@ -1,8 +1,8 @@
 import { createContext, useContext, useMemo, useState } from "react";
 
 export interface ThreadSelection {
-  isSelected(reviewThreadId: string): boolean;
-  toggle(reviewThreadId: string): void;
+  isSelected: (reviewThreadId: string) => boolean;
+  toggle: (reviewThreadId: string) => void;
 }
 
 export const ThreadSelectionContext = createContext<ThreadSelection | null>(null);

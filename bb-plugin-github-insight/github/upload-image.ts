@@ -14,7 +14,7 @@ import { classifyGhFailure, ghFailureText, ghProcessError } from "./gh-failure";
 
 export interface UploadImageDeps {
   fetch: typeof fetch;
-  gh(args: string[], signal: AbortSignal): Promise<string>;
+  gh: (args: string[], signal: AbortSignal) => Promise<string>;
 }
 
 type Step<T> = { ok: true; value: T } | { ok: false; message: string };

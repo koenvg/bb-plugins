@@ -9,6 +9,7 @@ import { openHistoryDatabase } from "./storage/history-storage.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { createCollectorMaintenance } from "./collector-maintenance-routing.js";
 import { createMachineCoordinator } from "../machines/machines-server.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const readiness = {
   state: "not-configured",
@@ -34,7 +35,7 @@ async function fixture(
     },
     experimental_callHostRpc: call,
   });
-  const database = (await openHistoryDatabase(":memory:"))!;
+  const database = requireFixtureValue(await openHistoryDatabase(":memory:"));
   const local = {
     ...bb,
     storage: {

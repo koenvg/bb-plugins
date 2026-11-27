@@ -27,7 +27,7 @@ for (const [state, expectedModels] of [
     const beforeTooltip = await page.getByRole("tooltip").textContent();
     try {
       await page.evaluate(() => {
-        const fixture = (window as unknown as { savedFixture: { release(name: string): void } })
+        const fixture = (window as unknown as { savedFixture: { release: (name: string) => void } })
           .savedFixture;
         fixture.release("live");
       });
@@ -87,9 +87,9 @@ test("token tooltip survives live model replacement before switching to Estimate
   const beforeTooltip = await page.getByRole("tooltip").textContent();
   try {
     await page.evaluate(() => {
-      (window as unknown as { savedFixture: { release(name: string): void } }).savedFixture.release(
-        "live",
-      );
+      (
+        window as unknown as { savedFixture: { release: (name: string) => void } }
+      ).savedFixture.release("live");
     });
     await expect(page.getByLabel("Recorded token subtotal")).toHaveText("1.8 thousand");
     await expect(page.getByRole("tooltip").getByRole("listitem")).toHaveText(["B900", "C900"]);

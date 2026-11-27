@@ -13,8 +13,8 @@ export interface CommentNavigation {
   position: number | null;
   total: number;
   jumpMark: JumpMark | null;
-  step(direction: StepDirection): void;
-  jumpToFirstThread(threadIds: ReadonlySet<string>): void;
+  step: (direction: StepDirection) => void;
+  jumpToFirstThread: (threadIds: ReadonlySet<string>) => void;
 }
 
 interface Pin {
@@ -72,7 +72,7 @@ export function useCommentNavigation(
     (index: number) => {
       const area = scrollArea.current;
       if (area === null) return;
-      const stop = stops[index]!;
+      const stop = stops[index];
       pin.current?.release();
       const entry: Pin = { stop, release: () => {} };
       pin.current = entry;
@@ -124,7 +124,7 @@ function targetIndex(
 ): number {
   if (pinnedIndex !== null) return pinnedIndex + direction;
   const current = currentIndex(area, stops);
-  const place = locate(area, stops[current]!);
+  const place = locate(area, stops[current]);
   const offset = place === null ? 0 : offsetFromTop(area, place);
   if (direction === 1) {
     const insideUnloadedFile = place?.isCard === false && offset >= -TOP_TOLERANCE_PX;

@@ -97,7 +97,7 @@ export const ReviewComposerPage = ({
       ) : pr.projectIds.length === 0 ? (
         <Notice>No bb project for this repository</Notice>
       ) : (
-        <ReviewComposer pr={pr} projectId={pr.projectIds[0]!} />
+        <ReviewComposer pr={pr} projectId={pr.projectIds[0]} />
       )}
     </div>
   );

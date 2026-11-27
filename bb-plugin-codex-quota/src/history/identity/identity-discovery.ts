@@ -14,7 +14,7 @@ import type { CatalogCursor } from "./identity-catalog.js";
 
 // Public metadata only. No timeline, output, prompt history or storage-file API.
 type Sdk = Pick<BbPluginApi["sdk"], "threads" | "environments">;
-type State = {
+interface State {
   generation: number;
   phase:
     | "environments"
@@ -38,7 +38,7 @@ type State = {
   evidenceId?: number;
   evidenceAll?: boolean;
   retained?: boolean;
-};
+}
 const initial = (generation: number, evidenceAll = true): State => ({
   generation,
   evidenceAll,

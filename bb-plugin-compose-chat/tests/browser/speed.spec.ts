@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const cases = [
   ...["dark", "light", "custom"].flatMap((theme) =>
@@ -71,18 +72,29 @@ for (const { theme, layout, mobile } of cases) {
         ).toContain("exclude");
         const dimensions = await layer.locator(".compose-speed-frame").boundingBox();
         const bounds = await frame.boundingBox();
-        expect(dimensions!.x).toBeCloseTo(bounds!.x, 1);
-        expect(dimensions!.y).toBeCloseTo(bounds!.y, 1);
-        expect(dimensions!.width).toBeCloseTo(bounds!.width, 1);
+        expect(requireFixtureValue(dimensions).x).toBeCloseTo(requireFixtureValue(bounds).x, 1);
+        expect(requireFixtureValue(dimensions).y).toBeCloseTo(requireFixtureValue(bounds).y, 1);
+        expect(requireFixtureValue(dimensions).width).toBeCloseTo(
+          requireFixtureValue(bounds).width,
+          1,
+        );
         if (layout !== "new") {
-          expect(dimensions!.height).toBeCloseTo(bounds!.height, 1);
+          expect(requireFixtureValue(dimensions).height).toBeCloseTo(
+            requireFixtureValue(bounds).height,
+            1,
+          );
         }
         const corner = await layer
           .locator(".border-glow-card")
           .evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue("--cursor-angle")));
         if (tier === "Ultrafast") {
           expect(corner).toBeCloseTo(
-            (Math.atan2(dimensions!.width, dimensions!.height) * 180) / Math.PI,
+            (Math.atan2(
+              requireFixtureValue(dimensions).width,
+              requireFixtureValue(dimensions).height,
+            ) *
+              180) /
+              Math.PI,
             2,
           );
           expect(
@@ -248,7 +260,7 @@ for (const theme of ["dark", "light"]) {
         .evaluate((el, tier) => el.setAttribute("title", `Codex (${tier} mode)`), tier);
       const card = page.locator(".compose-speed-layer .border-glow-card");
       await expect(card).toHaveCount(1);
-      const bounds = (await page.locator(".compose-speed-frame").boundingBox())!;
+      const bounds = requireFixtureValue(await page.locator(".compose-speed-frame").boundingBox());
       const angle = () =>
         card.evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue("--cursor-angle")));
       for (const [x, y] of [

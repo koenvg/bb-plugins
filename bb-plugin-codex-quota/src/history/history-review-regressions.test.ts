@@ -10,6 +10,7 @@ import { recordCoverage, readCoverage } from "./collection/history-coverage.js";
 import { reconcileCollector } from "./storage/history-ingest.js";
 import { parseCompact } from "./collection/usage-record.js";
 import { createHostHistory } from "./history-host.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db?: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -24,7 +25,7 @@ const now = Date.parse("2026-10-01T12:00:00.000Z");
 const report = { start, end, workspace: "/original", timezone: "UTC" };
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp23-review-regression-"));
-  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   fixtures.push({ root, db });
   initializeHistory(db, start);
   return { root, db };
@@ -72,7 +73,7 @@ it("persists unresolved source backlog across reopen and prevents false inactivi
   expect(
     await reconcileCollector(f.db, f.root, { signal: new AbortController().signal, now, rows: 1 }),
   ).toBe(true);
-  const reread = (await openHistoryDatabase(join(f.root, "usage.sqlite"), true))!;
+  const reread = requireFixtureValue(await openHistoryDatabase(join(f.root, "usage.sqlite"), true));
   try {
     expect(readCalendarTotals(reread, report).coverage).toMatchObject({
       state: "incomplete",
@@ -228,10 +229,12 @@ it("does not turn excluded observed events into certified inactivity", async () 
   const f = await fixture();
   inactivity(f.db);
   f.db.transaction(() => {
-    projectCompactRecord(f.db, parseCompact(JSON.stringify(value), false)!);
+    projectCompactRecord(f.db, requireFixtureValue(parseCompact(JSON.stringify(value), false)));
     projectCompactRecord(
       f.db,
-      parseCompact(JSON.stringify({ ...value, inputTokens: 3, totalTokens: 6 }), false)!,
+      requireFixtureValue(
+        parseCompact(JSON.stringify({ ...value, inputTokens: 3, totalTokens: 6 }), false),
+      ),
     );
   });
   const actual = readCalendarTotals(f.db, report);
@@ -240,7 +243,9 @@ it("does not turn excluded observed events into certified inactivity", async () 
 });
 it("normalizes equivalent UTC precision and offsets for reports and evidence", async () => {
   const f = await fixture();
-  f.db.transaction(() => projectCompactRecord(f.db, parseCompact(JSON.stringify(value), false)!));
+  f.db.transaction(() =>
+    projectCompactRecord(f.db, requireFixtureValue(parseCompact(JSON.stringify(value), false))),
+  );
   const expected = readCalendarTotals(f.db, report);
   expect(readCalendarTotals(f.db, { ...report, workspace: undefined })).toEqual(expected);
   expect(
@@ -291,7 +296,7 @@ it("keeps a conservative open pause after corrupt recovery, reopen and later exp
     end: "2026-10-05T00:00:00.000Z",
     workspace: "/original",
   };
-  let db = (await openHistoryDatabase(join(directory, "usage-v1.sqlite")))!;
+  let db = requireFixtureValue(await openHistoryDatabase(join(directory, "usage-v1.sqlite")));
   try {
     recordCoverage(db, {
       id: "after-recovery",
@@ -305,7 +310,7 @@ it("keeps a conservative open pause after corrupt recovery, reopen and later exp
   }
   clock = Date.parse("2026-10-04T12:00:00.000Z");
   await history.control("resume", context);
-  db = (await openHistoryDatabase(join(directory, "usage-v1.sqlite")))!;
+  db = requireFixtureValue(await openHistoryDatabase(join(directory, "usage-v1.sqlite")));
   try {
     expect(readCoverage(db, later)).toMatchObject({ zero: false, pauses: 1 });
     expect(readCoverage(db, { ...later, start: "2026-10-04T12:00:00.000Z" })).toMatchObject({

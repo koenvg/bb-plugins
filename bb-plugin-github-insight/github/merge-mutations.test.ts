@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { enqueuePullRequestArgs, mergePullRequestArgs } from "./merge-mutations";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const request = {
   pullRequestId: "PR_kwDOHI7l-88AAAABEiddXg",
@@ -26,7 +27,9 @@ describe("mergePullRequestArgs", () => {
   });
 
   it("keeps the values out of the query text", () => {
-    const query = mergePullRequestArgs(request).find((arg) => arg.startsWith("query="))!;
+    const query = requireFixtureValue(
+      mergePullRequestArgs(request).find((arg) => arg.startsWith("query=")),
+    );
 
     expect(query).toContain("mergePullRequest(");
     expect(query).not.toContain(request.pullRequestId);
@@ -55,7 +58,9 @@ describe("enqueuePullRequestArgs", () => {
   });
 
   it("keeps the values out of the query text", () => {
-    const query = enqueuePullRequestArgs(enqueue).find((arg) => arg.startsWith("query="))!;
+    const query = requireFixtureValue(
+      enqueuePullRequestArgs(enqueue).find((arg) => arg.startsWith("query=")),
+    );
 
     expect(query).toContain("enqueuePullRequest(");
     expect(query).not.toContain(enqueue.pullRequestId);

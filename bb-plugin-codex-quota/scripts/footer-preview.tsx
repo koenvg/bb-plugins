@@ -6,6 +6,7 @@ import {
 import { createRoot } from "react-dom/client";
 import { footerFixture } from "../src/footer/footer-fixture.test-support.js";
 import { accountsFixture } from "../src/machines/machines.test-support.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 const RealDate = Date;
@@ -20,17 +21,19 @@ globalThis.Date = class extends RealDate {
 
 const scenario = new URLSearchParams(location.search).get("state") ?? "fresh";
 const data = accountsFixture(now);
-data.machines = [data.machines[0]!];
-data.accounts[0]!.machines = [data.machines[0]!.id];
-const account = data.accounts[0]!;
+data.machines = [data.machines[0]];
+data.accounts[0].machines = [data.machines[0].id];
+const account = data.accounts[0];
 switch (scenario) {
   case "fresh":
     break;
   case "aged":
-    account.quota.snapshot!.observedAt = new Date(now - 300_000).toISOString();
+    requireFixtureValue(account.quota.snapshot).observedAt = new Date(now - 300_000).toISOString();
     break;
   case "expired":
-    account.quota.snapshot!.observedAt = new Date(now - 86_400_000).toISOString();
+    requireFixtureValue(account.quota.snapshot).observedAt = new Date(
+      now - 86_400_000,
+    ).toISOString();
     break;
   case "network":
     account.quota = { ...account.quota, state: "stale", reason: "network" };
@@ -44,7 +47,7 @@ switch (scenario) {
     account.quota = { state: "unavailable", reason: "credential-store-failed", snapshot: null };
     break;
   case "offline":
-    data.machines[0]!.status = "disconnected";
+    data.machines[0].status = "disconnected";
     account.quota = { state: "unavailable", reason: "host-offline", snapshot: null };
     break;
   default:
@@ -60,19 +63,19 @@ button.style.cssText =
   "display:flex;align-items:center;min-height:40px;background:var(--muted);color:var(--foreground);border:1px solid var(--border);border-radius:6px";
 const app = await loadPluginApp(() => import("../src/plugin/app.js"));
 const iconContainer = document.createElement("span");
-button.querySelector("svg")!.replaceWith(iconContainer);
+requireFixtureValue(button.querySelector("svg")).replaceWith(iconContainer);
 const icon = createRoot(iconContainer);
-const Battery = app.icons[0]!.component;
+const Battery = app.icons[0].component;
 icon.render(<Battery className="size-5" />);
 const options = { rpc: { machineAccountsV2: async () => data } };
 const scripts = await mountPluginContentScripts(app, { pluginId: "codex-quota" });
 const owners = ["quota-refresh", "quota-footer"].map((id) => {
   const owner = renderSlot(
-    app.appOverlays.find((slot) => slot.id === id)!,
+    requireFixtureValue(app.appOverlays.find((slot) => slot.id === id)),
     {},
     options,
   );
-  document.getElementById("root")!.append(owner.container);
+  requireFixtureValue(document.getElementById("root")).append(owner.container);
   return owner;
 });
 window.addEventListener(

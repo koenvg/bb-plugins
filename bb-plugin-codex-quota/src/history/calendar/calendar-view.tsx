@@ -33,7 +33,10 @@ function usageFacts(day: CalendarDay, metric: TokenMetric) {
     exclusions: `${exact(day.excludedTokens)} excluded tokens`,
   };
 }
-type SeriesSelection = { query: string; hidden: ReadonlySet<string> };
+interface SeriesSelection {
+  query: string;
+  hidden: ReadonlySet<string>;
+}
 function seriesId(series: ModelSeries | CostSeries): string {
   if ("selectionId" in series) {
     return series.selectionId;
@@ -279,15 +282,14 @@ export const CalendarValues = ({
                   {facts.pricing && <td>{facts.pricing}</td>}
                   {stacked &&
                     models.map((series) => {
-                      const value = rows.find((row) => row.date === day.date)?.modelFacts[
-                        series.key
-                      ];
+                      const row = rows.find((entry) => entry.date === day.date);
+                      const value = row?.modelFacts[series.key];
                       return (
                         <td key={series.key}>
                           {metric === "cost"
-                            ? subtotalText(
-                                rows.find((row) => row.date === day.date)!.costFacts[series.key],
-                              )
+                            ? row
+                              ? subtotalText(row.costFacts[series.key])
+                              : "Unavailable"
                             : value === null || value === undefined
                               ? "Unavailable"
                               : exact(value)}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultGuidance } from "./guidance";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 describe("default Code Cleanup guidance", () => {
   it("records substantial adjacent follow-ups through a single linked BB tracker", () => {
@@ -95,20 +96,20 @@ describe("default Code Cleanup guidance", () => {
     const examples = [...text.matchAll(/```markdown\n([\s\S]*?)```/g)];
     expect(examples).toHaveLength(3);
     for (const [, example] of examples) {
-      const sections = example!.match(/^## Summary\n([\s\S]+?)\n## Agent context\n([\s\S]+)$/);
+      const sections = example.match(/^## Summary\n([\s\S]+?)\n## Agent context\n([\s\S]+)$/);
       expect(sections).not.toBeNull();
-      const [, summary, context] = sections!;
+      const [, summary, context] = requireFixtureValue(sections);
       const wordCount = (value: string) => value.trim().split(/\s+/).length;
-      expect(wordCount(summary!)).toBeLessThanOrEqual(80);
-      expect(wordCount(context!)).toBeLessThanOrEqual(120);
-      expect(summary!.match(/^- /gm)?.length).toBeGreaterThanOrEqual(1);
-      expect(summary!.match(/^- /gm)?.length).toBeLessThanOrEqual(3);
+      expect(wordCount(summary)).toBeLessThanOrEqual(80);
+      expect(wordCount(context)).toBeLessThanOrEqual(120);
+      expect(summary.match(/^- /gm)?.length).toBeGreaterThanOrEqual(1);
+      expect(summary.match(/^- /gm)?.length).toBeLessThanOrEqual(3);
       expect(context).toContain("Evidence:");
       expect(context).toContain("Source:");
       expect(context).toMatch(/\[[^\]]+\]/);
     }
-    expect(examples[1]![1]).toContain("required matching edits in three parsers");
-    expect(examples[2]![1]).toContain("not a proven cause");
+    expect(examples[1][1]).toContain("required matching edits in three parsers");
+    expect(examples[2][1]).toContain("not a proven cause");
   });
 
   it("is concise and below the instruction limit for real project IDs", () => {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { cancelPrPanelRequest, receivePrPanel, requestPrPanel } from "./pr-panel-navigation";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const disposals: (() => void)[] = [];
 afterEach(() => {
@@ -46,7 +47,7 @@ it("keeps requests in their originating client window", () => {
   const frame = document.createElement("iframe");
   document.body.append(frame);
   disposals.push(() => frame.remove());
-  const otherClient = frame.contentWindow!;
+  const otherClient = requireFixtureValue(frame.contentWindow);
   requestPrPanel("thread-b", () => {});
   const otherOpen = vi.fn(() => true);
   disposals.push(receivePrPanel("thread-b", otherOpen, otherClient));

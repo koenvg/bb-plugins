@@ -4,6 +4,7 @@ import { calendarReportSchema } from "./calendar/calendar-contract.js";
 import { combineReports } from "../machines/combined-report.js";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 it("publishes scalar totals and rejects obsolete fields on the strict new contract", () => {
   const report = calendarSnapshot({
@@ -40,7 +41,7 @@ it("publishes scalar totals and rejects obsolete fields on the strict new contra
 it.each(["day", "model", "overflow", "prior"])(
   "rejects obsolete %s fields on new report writes",
   (target) => {
-    const report: any = calendarSnapshot({
+    const report = calendarSnapshot({
       startDate: "2026-09-02",
       timezone: "UTC",
       group: "workspace",
@@ -48,25 +49,37 @@ it.each(["day", "model", "overflow", "prior"])(
       comparison: true,
     });
     if (target === "day") {
-      report.days[14].speedTokens = { normal: 600, fast: 0, ultrafast: 0 };
+      Object.assign(report.days[14], { speedTokens: { normal: 600, fast: 0, ultrafast: 0 } });
     }
     if (target === "model") {
-      report.days[14].models = {
-        named: [
-          { model: "named", totalTokens: 600, speedTokens: { normal: 600, fast: 0, ultrafast: 0 } },
-        ],
-        otherTokens: 0,
-      };
+      Object.assign(report.days[14], {
+        models: {
+          named: [
+            {
+              model: "named",
+              totalTokens: 600,
+              speedTokens: { normal: 600, fast: 0, ultrafast: 0 },
+            },
+          ],
+          otherTokens: 0,
+        },
+      });
     }
     if (target === "overflow") {
-      report.days[14].models = {
-        named: [],
-        otherTokens: 600,
-        otherSpeedTokens: { normal: 600, fast: 0, ultrafast: 0 },
-      };
+      Object.assign(report.days[14], {
+        models: {
+          named: [],
+          otherTokens: 600,
+          otherSpeedTokens: { normal: 600, fast: 0, ultrafast: 0 },
+        },
+      });
     }
     if (target === "prior") {
-      report.comparison.prior.summary.speedTokens = { normal: 600, fast: 0, ultrafast: 0 };
+      const { prior } = requireFixtureValue(report.comparison);
+      if (prior.state === "unavailable") {
+        throw new Error("Expected a prior report fixture");
+      }
+      Object.assign(prior.summary, { speedTokens: { normal: 600, fast: 0, ultrafast: 0 } });
     }
     expect(calendarReportSchema.safeParse(report).success).toBe(false);
   },
@@ -100,19 +113,21 @@ it("combines aligned offline dates and does not deduplicate equal reports from s
     scope: { kind: "host" as const },
   };
   const report = calendarSnapshot({ ...query, startDate: "2026-09-01" });
-  const result = combineReports(
-    {
-      machines: ["one", "two"].map((id) => ({
-        machine: { id, name: id, status: "disconnected" as const },
-        cached: true,
-        preparation: { state: "settled" as const, progress: "fixture" },
-        report,
-      })),
-      truncated: false,
-      cache: "saved",
-    },
-    query,
-  )!;
+  const result = requireFixtureValue(
+    combineReports(
+      {
+        machines: ["one", "two"].map((id) => ({
+          machine: { id, name: id, status: "disconnected" as const },
+          cached: true,
+          preparation: { state: "settled" as const, progress: "fixture" },
+          report,
+        })),
+        truncated: false,
+        cache: "saved",
+      },
+      query,
+    ),
+  );
   expect(result.summary.totalTokens).toBe(1200);
   expect(result.days[13].totalTokens).toBe(1200);
   expect(JSON.stringify(result)).not.toMatch(/speedTokens|otherSpeedTokens/);

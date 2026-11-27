@@ -3,10 +3,11 @@ import { act, cleanup, configure, render, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { metadataFixture } from "../machines/app.test-support.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const installed = await loadPluginApp(() => import("./app.js"));
 const NavigationBadge = () => {
-  const badge = installed.navPanels[0]!.experimental_useBadge?.();
+  const badge = installed.navPanels[0].experimental_useBadge?.();
   return badge ? <span title={badge.label}>{badge.text}</span> : null;
 };
 afterEach(() => {
@@ -48,7 +49,9 @@ describe("app-wide quota ownership", () => {
     const visibilityAdds = vi.spyOn(document, "addEventListener");
     const visibilityRemoves = vi.spyOn(document, "removeEventListener");
     const input = options();
-    const slot = installed.appOverlays.find((item) => item.id === "quota-refresh")!;
+    const slot = requireFixtureValue(
+      installed.appOverlays.find((item) => item.id === "quota-refresh"),
+    );
     const first = renderSlot(slot, {}, input);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -90,23 +93,22 @@ describe("app-wide quota ownership", () => {
     const input = options();
     const config = { ...input, sdk: { hosts: { list: async () => [] } } };
     const owner = renderSlot(
-      installed.appOverlays.find((item) => item.id === "quota-refresh")!,
+      requireFixtureValue(installed.appOverlays.find((item) => item.id === "quota-refresh")),
       {},
       config,
     );
-    const panel = installed.navPanels[0]!;
+    const panel = installed.navPanels[0];
     const page = renderSlot(panel, { subPath: "" }, config);
     const badge = renderSlot({ component: NavigationBadge }, {}, config);
-    const Battery = installed.icons[0]!.component;
+    const Battery = installed.icons[0].component;
     const battery = render(<Battery />);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(badge.container.textContent).toBe("42%");
-    const observation = badge.container
-      .querySelector("[title]")!
-      .getAttribute("title")!
-      .split("; observed ")[1];
+    const observation = requireFixtureValue(
+      requireFixtureValue(badge.container.querySelector("[title]")).getAttribute("title"),
+    ).split("; observed ")[1];
     let finish!: () => void;
     input.read.mockImplementationOnce(
       () =>
@@ -146,9 +148,9 @@ describe("app-wide quota ownership", () => {
     });
     expect(input.read).toHaveBeenCalledTimes(2);
     expect(badge.container.textContent).toBe("42%");
-    expect(badge.container.querySelector("[title]")!.getAttribute("title")).toContain(
-      `observed ${observation}`,
-    );
+    expect(
+      requireFixtureValue(badge.container.querySelector("[title]")).getAttribute("title"),
+    ).toContain(`observed ${observation}`);
     expect(battery.container.querySelector("[data-battery-fill]")).toBeNull();
     expect(
       within(page.getByRole("region", { name: "Account allowance" })).getByRole("status")
@@ -169,7 +171,7 @@ describe("app-wide quota ownership", () => {
     const input = options();
     expect(installed.appOverlays.some((slot) => slot.id === "quota-refresh")).toBe(true);
     const owner = renderSlot(
-      installed.appOverlays.find((slot) => slot.id === "quota-refresh")!,
+      requireFixtureValue(installed.appOverlays.find((slot) => slot.id === "quota-refresh")),
       {},
       input,
     );
@@ -194,7 +196,7 @@ describe("app-wide quota ownership", () => {
     const input = options();
     input.read.mockRejectedValue(new Error("transport failure"));
     const owner = renderSlot(
-      installed.appOverlays.find((slot) => slot.id === "quota-refresh")!,
+      requireFixtureValue(installed.appOverlays.find((slot) => slot.id === "quota-refresh")),
       {},
       input,
     );

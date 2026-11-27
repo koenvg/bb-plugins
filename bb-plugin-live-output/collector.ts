@@ -28,7 +28,7 @@ type ThreadMetadata = Pick<
 type Cursor =
   | { kind: "catch-up"; before: number | null; highest: number }
   | { kind: "ready"; after: number };
-type ThreadObservation = {
+interface ThreadObservation {
   metadata: ThreadMetadata;
   cursor: Cursor;
   buckets: Map<number, number>;
@@ -42,20 +42,25 @@ type ThreadObservation = {
   activated: number | null;
   liveContinuation: boolean;
   background: Set<"identity" | "continuation" | "verify">;
-};
-type Discovery = { archived: boolean; offset: number; seen: Set<ThreadId>; limited: boolean };
+}
+interface Discovery {
+  archived: boolean;
+  offset: number;
+  seen: Set<ThreadId>;
+  limited: boolean;
+}
 const types = ["item/agentMessage/delta", "item/reasoning/textDelta"] as const;
 const maxThreads = 10_000;
 const eventPageSize = 100;
 const discoveryPageSize = 500;
 const encoder = new TextEncoder();
 const verificationInterval = 600_000;
-type Verification = {
+interface Verification {
   members: ThreadObservation[];
   index: number;
   quota: number;
   nextSeedAt: number;
-};
+}
 
 type FailureDiagnostic = OutputSnapshot["recentFailures"][number];
 class InvalidReadResponseError extends Error {
@@ -94,9 +99,11 @@ export class OutputCollector {
   private failures = 0;
   private readonly recentFailures: FailureDiagnostic[] = [];
 
-  constructor(
-    private readonly api: () => Pick<PluginBbSdk["threads"], "list" | "get" | "events">,
-  ) {}
+  private readonly api: () => Pick<PluginBbSdk["threads"], "list" | "get" | "events">;
+
+  constructor(api: () => Pick<PluginBbSdk["threads"], "list" | "get" | "events">) {
+    this.api = api;
+  }
 
   observe(metadata: ThreadMetadata, sequence?: number): void {
     if (this.disposed) return;
@@ -258,7 +265,7 @@ export class OutputCollector {
         smoothBytesPerSecond: bytes / smoothSeconds,
       };
     });
-    const latest = samples[graphSeconds - 1]!;
+    const latest = samples[graphSeconds - 1];
     const backlog =
       this.live.size +
       this.background.size +
@@ -361,7 +368,7 @@ export class OutputCollector {
     const pass = this.verification;
     if (!pass || now < pass.nextSeedAt) return;
     for (let seeded = 0; seeded < pass.quota && pass.index < pass.members.length; seeded++) {
-      const observation = pass.members[pass.index++]!;
+      const observation = pass.members[pass.index++];
       if (
         observation.deleted ||
         this.threads.get(observation.metadata.id) !== observation ||
@@ -407,7 +414,7 @@ export class OutputCollector {
       let discoveryRead = false;
       for (let starts = 0; starts < 20 && !this.disposed;) {
         const now = Date.now();
-        while (this.readStarts.length && this.readStarts[0]! <= now - 1000) this.readStarts.shift();
+        while (this.readStarts.length && this.readStarts[0] <= now - 1000) this.readStarts.shift();
         if (this.readStarts.length >= 20) break;
         const preferBackground = this.laneChoice === 4;
         const observation =
@@ -458,7 +465,8 @@ export class OutputCollector {
   }
 
   private async discoverPage(): Promise<void> {
-    const discovery = this.discovery!;
+    const discovery = this.discovery;
+    if (!discovery) return;
     const deletionVersion = this.deletionVersion;
     const rows = await this.api().list({
       archived: discovery.archived,
@@ -589,8 +597,13 @@ export class OutputCollector {
     }
     if (cursor.kind === "catch-up") {
       const highest = Math.max(cursor.highest, events[0]?.seq ?? 0);
-      if (events.length === eventPageSize && events.some((event) => event.at >= this.startedAt))
-        observation.cursor = { kind: "catch-up", highest, before: events.at(-1)!.seq };
+      const lastEvent = events.at(-1);
+      if (
+        lastEvent &&
+        events.length === eventPageSize &&
+        events.some((event) => event.at >= this.startedAt)
+      )
+        observation.cursor = { kind: "catch-up", highest, before: lastEvent.seq };
       else observation.cursor = { kind: "ready", after: highest };
       if (liveRead) observation.liveContinuation = true;
       else observation.background.add("continuation");

@@ -1,5 +1,6 @@
 import { test, expect, capture, jsonEvidence, reportTheme } from "./fixtures.js";
 import { chart, rows, pointAtDate } from "./calendar-driver.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 for (const width of [375, 1280]) {
   for (const theme of ["light", "dark"] as const) {
@@ -48,14 +49,14 @@ for (const width of [375, 1280]) {
           const currentIndex = daily.findIndex((row) => row[0] === current);
           expect(currentIndex).toBeGreaterThanOrEqual(0);
           await page.keyboard.press(currentIndex > index ? "ArrowLeft" : "ArrowRight");
-          await expect(date).not.toHaveAttribute("datetime", current!);
+          await expect(date).not.toHaveAttribute("datetime", requireFixtureValue(current));
         }
         await expect(date).toHaveAttribute("datetime", daily[index][0]);
         await expect(tip.locator("dl dd").first()).toHaveText(index === 15 ? "4" : "1");
         await page.keyboard.press("ArrowLeft");
         await expect(date).not.toHaveAttribute("datetime", daily[index][0]);
         const marker = page.locator(`[data-ts-key="positive:${daily[index][0]}"]`);
-        const box = (await marker.boundingBox())!;
+        const box = requireFixtureValue(await marker.boundingBox());
         expect(box.height).toBeGreaterThanOrEqual(2);
         expect(box.width).toBeGreaterThanOrEqual(4);
         const color = await marker.evaluate((node) => getComputedStyle(node).fill);

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 import { hideHostPrStrip } from "./hide-host-pr-strip";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const PR_LINK = '<a id="pr" aria-label="Pull request 44: Open"><span>PR #44</span></a>';
 const MERGE_GROUP =
@@ -12,7 +13,7 @@ function renderStrip(...items: string[]) {
 }
 
 function isHidden(id: string) {
-  return getComputedStyle(document.getElementById(id)!).display === "none";
+  return getComputedStyle(requireFixtureValue(document.getElementById(id))).display === "none";
 }
 
 async function mount() {

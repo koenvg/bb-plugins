@@ -9,8 +9,11 @@ import { validHostDataDir } from "../collection/collector-compatibility.js";
 type Reason = "storage-unavailable" | "storage-incompatible" | "not-configured";
 class RetainedHistoryError extends Error {
   override name = "RetainedHistoryError";
-  constructor(readonly reason: Reason) {
+  readonly reason: Reason;
+
+  constructor(reason: Reason) {
     super(reason);
+    this.reason = reason;
   }
 }
 export function retainedHistoryReason(

@@ -5,12 +5,13 @@ import {
 } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import type { ProjectState } from "./rpc";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
-const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
+const hosts: ReturnType<typeof createFakePluginHost>["harness"][] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
   while (hosts.length) {
-    await hosts.pop()!.lifecycle.dispose();
+    await requireFixtureValue(hosts.pop()).lifecycle.dispose();
   }
 });
 async function setup() {

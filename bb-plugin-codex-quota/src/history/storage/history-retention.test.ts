@@ -7,6 +7,7 @@ import type { HistoryDatabase } from "./history-storage.js";
 import { initializeHistory, projectCompactRecord, collectionView } from "./history-projection.js";
 import { maintainHistory, retentionCutoffs, readCalendarTotals } from "./history-retention.js";
 import { parseCompact } from "../collection/usage-record.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -17,7 +18,7 @@ afterEach(async () => {
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp23-retention-"));
-  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   fixtures.push({ root, db });
   initializeHistory(db, "2026-01-01T00:00:00.000Z");
   return db;
@@ -49,18 +50,20 @@ function put(
   entry = `entry-${value.eventId}`,
 ) {
   db.transaction(() => {
-    projectCompactRecord(db, parseCompact(JSON.stringify(value), false)!);
+    projectCompactRecord(db, requireFixtureValue(parseCompact(JSON.stringify(value), false)));
     projectCompactRecord(
       db,
-      parseCompact(
-        JSON.stringify({
-          version: 1,
-          eventId: value.eventId,
-          sessionId: value.sessionId,
-          entryId: entry,
-        }),
-        true,
-      )!,
+      requireFixtureValue(
+        parseCompact(
+          JSON.stringify({
+            version: 1,
+            eventId: value.eventId,
+            sessionId: value.sessionId,
+            entryId: entry,
+          }),
+          true,
+        ),
+      ),
     );
   });
 }
@@ -116,7 +119,7 @@ it("advances a durable cutoff, prunes bounded batches, resumes after reopen and 
   expect(collectionView(db, true, false).workspaces[0].events).toBe(5);
   const f = fixtures[0];
   db.close();
-  f.db = (await openHistoryDatabase(join(f.root, "usage.sqlite")))!;
+  f.db = requireFixtureValue(await openHistoryDatabase(join(f.root, "usage.sqlite")));
   for (let i = 0; i < 8; i += 1) {
     maintainHistory(f.db, now, 2);
   }
@@ -131,7 +134,7 @@ it("rolls back compact prices, detail and replay evidence with totals", async ()
   const db = await fixture();
   expect(() =>
     db.transaction(() => {
-      projectCompactRecord(db, parseCompact(JSON.stringify(event(1)), false)!);
+      projectCompactRecord(db, requireFixtureValue(parseCompact(JSON.stringify(event(1)), false)));
       throw new Error("rollback");
     }),
   ).toThrow();

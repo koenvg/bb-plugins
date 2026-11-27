@@ -16,7 +16,10 @@ export const comparisonReasonCodes = [
   "zero-baseline",
 ] as const;
 export type ComparisonReason = (typeof comparisonReasonCodes)[number];
-type Range = { state: string; summary: { excludedTokens: number } };
+interface Range {
+  state: string;
+  summary: { excludedTokens: number };
+}
 export function comparisonReasons(
   current: Range,
   prior: Range | { state: "unavailable" },

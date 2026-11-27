@@ -1,10 +1,10 @@
 import type { HistoryDatabase, SqlValue } from "./storage/history-storage.js";
 
-export type ExecutedStatement = {
+export interface ExecutedStatement {
   sql: string;
   method: "get" | "all" | "run";
   values: SqlValue[];
-};
+}
 
 export function recordHistoryExecutions(real: HistoryDatabase) {
   const executed: ExecutedStatement[] = [];

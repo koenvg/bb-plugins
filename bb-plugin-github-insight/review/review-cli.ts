@@ -25,10 +25,10 @@ import type { PrLoad, ReviewService } from "./review-service";
 
 interface ReviewCliDeps {
   review: ReviewService;
-  readTextFile(hostId: string, request: ReadTextFileRequest): Promise<ReadTextFileResult>;
-  uploadImage(hostId: string, request: UploadImageRequest): Promise<UploadImageResult>;
-  readReviewQueue(): Promise<ReviewQueueResult>;
-  now(): number;
+  readTextFile: (hostId: string, request: ReadTextFileRequest) => Promise<ReadTextFileResult>;
+  uploadImage: (hostId: string, request: UploadImageRequest) => Promise<UploadImageResult>;
+  readReviewQueue: () => Promise<ReviewQueueResult>;
+  now: () => number;
 }
 
 const bodyOptions = {

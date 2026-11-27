@@ -19,10 +19,9 @@ export function viewedKey(threadId: string, target: DiffTarget): string {
 function withMark(marks: ViewedMarks | null, path: string, identity: string | null): ViewedMarks {
   const next = { ...marks };
   if (identity === null) {
-    delete next[path];
-  } else {
-    next[path] = identity;
+    return Object.fromEntries(Object.entries(next).filter(([key]) => key !== path));
   }
+  next[path] = identity;
   return next;
 }
 

@@ -6,10 +6,11 @@ import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ActionResult, InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 type Methods = Pick<typeof rpcContract, "getInsight" | "refresh" | "runPrAction" | "getTimeline">;
 const app = await loadPluginApp(() => import("../app"));
-const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const tab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
 
 const HEAD = "head-a";
 const waiting: PrInsight = {
@@ -76,7 +77,7 @@ describe("Auto-merge", () => {
     fireEvent.click(await view.findByRole("button", { name: "Enable auto-merge (squash)" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
-    expect(run.mock.calls[0]![0]).toMatchObject({
+    expect(run.mock.calls[0][0]).toMatchObject({
       action: "enable-auto-merge",
       expectedHeadOid: HEAD,
     });
@@ -99,7 +100,7 @@ describe("Auto-merge", () => {
     fireEvent.click(within(summary).getByRole("button", { name: "Disable" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
-    expect(run.mock.calls[0]![0]).toMatchObject({ action: "disable-auto-merge" });
+    expect(run.mock.calls[0][0]).toMatchObject({ action: "disable-auto-merge" });
   });
 
   it("shows Enabling… and sends one request for a double click", async () => {

@@ -1,7 +1,14 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-type ProjectSettings = { enabled: boolean; enabledOverride: boolean | null; prompt: string | null };
-type Row = { enabled_override: number | null; prompt: string | null };
+interface ProjectSettings {
+  enabled: boolean;
+  enabledOverride: boolean | null;
+  prompt: string | null;
+}
+interface Row {
+  enabled_override: number | null;
+  prompt: string | null;
+}
 
 /** One host-managed database per generation. Resolve only the override, not the legacy column. */
 export function openProjectSettings(bb: BbPluginApi) {

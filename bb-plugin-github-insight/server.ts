@@ -73,7 +73,7 @@ export default async function plugin(bb: BbPluginApi) {
     writeSummary: async (threadId, summary) => {
       await bb.sdk.threads.updatePluginMetadata({
         threadId,
-        set: { [SUMMARY_METADATA_KEY]: summary },
+        set: { [SUMMARY_METADATA_KEY]: { ...summary } },
       });
     },
     removeSummary: async (threadId) => {

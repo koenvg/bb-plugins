@@ -46,14 +46,14 @@ const object = (raw: unknown): Record<string, unknown> =>
   raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 const count = (raw: unknown): raw is number =>
   typeof raw === "number" && Number.isSafeInteger(raw) && raw >= 0;
-type Context = {
+interface Context {
   thread: string | null;
   root: string | null;
   workspace: string | null;
   turn: string | null;
   model: string | null;
   blocked: boolean;
-};
+}
 const emptyContext = (): Context => ({
   thread: null,
   root: null,
@@ -62,7 +62,7 @@ const emptyContext = (): Context => ({
   model: null,
   blocked: false,
 });
-type Source = {
+interface Source {
   name: string;
   identity: string;
   size: number;
@@ -71,15 +71,20 @@ type Source = {
   edge: string;
   context: string;
   incomplete: number;
-};
-type Discovery = {
+}
+interface Discovery {
   home: string;
   directories: string[];
   reading: string;
   entry: number;
   fileAfter?: string;
-};
-type Options = { home?: () => string; now?: () => number; read?: () => void; lines?: number };
+}
+interface Options {
+  home?: () => string;
+  now?: () => number;
+  read?: () => void;
+  lines?: number;
+}
 function uuid(key: string) {
   return `${key.slice(0, 8)}-${key.slice(8, 12)}-5${key.slice(13, 16)}-8${key.slice(17, 20)}-${key.slice(20, 32)}`;
 }

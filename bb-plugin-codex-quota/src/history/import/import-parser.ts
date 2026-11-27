@@ -65,8 +65,13 @@ export function importedUsage(
     return { kind: "ignored" as const };
   }
   const m = v.message;
-  const u = m.usage;
-  if (!u || !Number.isFinite(m.timestamp) || Math.abs(m.timestamp!) > 8.64e15) {
+  const { usage: u, timestamp } = m;
+  if (
+    !u ||
+    timestamp === undefined ||
+    !Number.isFinite(timestamp) ||
+    Math.abs(timestamp) > 8.64e15
+  ) {
     return { kind: "invalid" as const };
   }
   const h = createHash("sha256")
@@ -78,7 +83,7 @@ export function importedUsage(
     version: 1,
     eventId,
     provenance: "imported",
-    occurredAt: new Date(m.timestamp!).toISOString(),
+    occurredAt: new Date(timestamp).toISOString(),
     sessionId,
     workspace,
     providerSessionKey,

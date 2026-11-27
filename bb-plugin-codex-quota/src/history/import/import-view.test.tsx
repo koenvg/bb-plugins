@@ -3,11 +3,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { ImportPanel } from "./import-view.js";
 import { importUnavailable } from "./import-contract.js";
-import type { ImportView } from "./import-contract.js";
+import type { ImportCommand, ImportView } from "./import-contract.js";
+import type { HistoryRequest } from "../history-contract.js";
 
 afterEach(cleanup);
-type Input = import("../history-contract.js").HistoryRequest & {
-  command: import("./import-contract.js").ImportCommand;
+type Input = HistoryRequest & {
+  command: ImportCommand;
 };
 function show(element: Parameters<typeof render>[0]) {
   const result = render(element);

@@ -5,6 +5,7 @@ import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk
 import app from "./app";
 import type { OutputSnapshot } from "./contract";
 import { readout, queryReadout, move, leave } from "./chart-test-support";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 let slot: RenderedSlot | undefined;
 afterEach(() => {
@@ -66,7 +67,7 @@ async function mount(handler: () => OutputSnapshot | Promise<OutputSnapshot>) {
   expect(captured.contentScripts).toEqual([]);
   expect(captured.appOverlays).toHaveLength(1);
   slot = renderSlot(
-    captured.navPanels[0]!,
+    captured.navPanels[0],
     { subPath: "" },
     { rpc: { snapshot: handler }, realtimeConnectionState: "connected" },
   );
@@ -91,7 +92,7 @@ describe("native Live Output page", () => {
     expect(view.getByText("Main BB thread")).toBeDefined();
     expect(view.getByText("Child BB thread · parent thr_main · hidden · archived")).toBeDefined();
     expect(view.getByText("pi-subagents")).toBeDefined();
-    const smoothPath = view.getByRole("img").querySelectorAll("path")[1]!.getAttribute("d");
+    const smoothPath = view.getByRole("img").querySelectorAll("path")[1].getAttribute("d");
     expect(view.getByRole("img").getAttribute("aria-label")).toBe(
       "Observed output over the last ten minutes in est. tokens/s",
     );
@@ -101,7 +102,7 @@ describe("native Live Output page", () => {
     expect(smoothPath).toContain("L960,");
     fireEvent.click(view.getByRole("button", { name: "Raw · 1 second" }));
     expect(view.getByLabelText("Current rate").textContent).toBe("20est. tokens/s");
-    expect(view.getByRole("img").querySelectorAll("path")[1]!.getAttribute("d")).not.toBe(
+    expect(view.getByRole("img").querySelectorAll("path")[1].getAttribute("d")).not.toBe(
       smoothPath,
     );
     fireEvent.click(view.getByRole("button", { name: "Bytes/s" }));
@@ -379,23 +380,23 @@ describe("native Live Output page", () => {
     act(() => chart.focus());
     expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
     act(() =>
-      callbacks[0]!(
+      callbacks[0](
         [
           {
-            target: chart.parentElement!,
+            target: requireFixtureValue(chart.parentElement),
             contentRect: new DOMRect(0, 0, 200, 240),
             borderBoxSize: [{ inlineSize: 200, blockSize: 240 }],
             contentBoxSize: [{ inlineSize: 200, blockSize: 240 }],
             devicePixelContentBoxSize: [{ inlineSize: 200, blockSize: 240 }],
           },
         ],
-        observers[0]!,
+        observers[0],
       ),
     );
     expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
     fireEvent.keyDown(chart, { key: "Home" });
     expect(readout().querySelector("time")?.dateTime).toBe("1970-01-01T00:00:00.000Z");
-    slot!.lifecycle.unmount();
+    requireFixtureValue(slot).lifecycle.unmount();
     slot = undefined;
     expect(observers.length).toBeGreaterThanOrEqual(2);
     for (const observer of observers) expect(observer.disconnect).toHaveBeenCalledOnce();

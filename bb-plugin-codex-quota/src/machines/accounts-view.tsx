@@ -135,7 +135,7 @@ export const AccountsOverview = ({
   loading?: boolean;
 }) => {
   const single =
-    data?.accounts.length === 1 && data.accounts[0]!.identity === "verified" && !data.truncated;
+    data?.accounts.length === 1 && data.accounts[0].identity === "verified" && !data.truncated;
   return (
     <section className="mt-7 min-w-0" aria-label="Account allowance">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -263,7 +263,7 @@ export const AccountsActivity = ({
   data: MachineAccounts | null;
   now: number;
   loading: boolean;
-  refresh(): void;
+  refresh: () => void;
 }) => {
   return (
     <section className="mt-5 text-sm" aria-label="Account-wide activity">

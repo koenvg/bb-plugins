@@ -21,7 +21,7 @@ export function parsePullRequestUrl(url: string): PullRequestRef | null {
     return null;
   }
   const [, owner, repo, number] = match;
-  return { owner: owner!, repo: repo!, number: Number(number) };
+  return { owner: owner, repo: repo, number: Number(number) };
 }
 
 export function prKey({ owner, repo, number }: PullRequestRef): string {

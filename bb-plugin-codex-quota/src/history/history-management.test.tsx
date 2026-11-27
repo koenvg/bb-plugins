@@ -7,6 +7,7 @@ import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import { importUnavailable } from "./import/import-contract.js";
 import { setHistoryManagementOpen } from "./history-test-support.js";
 import { metadataFixture, dashboardFixture } from "../machines/app.test-support.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("../plugin/app.js"));
 afterEach(cleanup);
@@ -35,7 +36,7 @@ function fixture() {
     collector: "missing",
     writer: "unconfirmed",
   };
-  const pending: { method: string; input: unknown; resolve(value: unknown): void }[] = [];
+  const pending: { method: string; input: unknown; resolve: (value: unknown) => void }[] = [];
   const request = (method: string, input: unknown) =>
     new Promise((resolve) => pending.push({ method, input, resolve }));
   const options = {
@@ -61,11 +62,11 @@ function fixture() {
     },
   };
   const owner = renderSlot(
-    app.appOverlays.find((slot) => slot.id === "quota-refresh")!,
+    requireFixtureValue(app.appOverlays.find((slot) => slot.id === "quota-refresh")),
     {},
     options,
   );
-  const page = renderSlot(app.settingsSections[0]!, {}, options);
+  const page = renderSlot(app.settingsSections[0], {}, options);
   const q = within(page.container);
   return {
     page,
@@ -93,7 +94,9 @@ it.each(["close", "unmount"])(
     const f = fixture();
     await f.q.findAllByText("Host A");
     await act(async () => {
-      const details = f.q.getByText("Machine status and collection settings").closest("details")!;
+      const details = requireFixtureValue(
+        f.q.getByText("Machine status and collection settings").closest("details"),
+      );
       flushSync(() => {
         details.open = true;
         fireEvent(details, new Event("toggle"));
@@ -121,7 +124,7 @@ it("discards closed-host results and refreshes readiness and import status on re
   await setHistoryManagementOpen(f.page.container, false);
   expect(f.q.queryByRole("region", { name: "History readiness" })).toBeNull();
   fireEvent.click(f.q.getByText("Machine status and collection settings"));
-  fireEvent.click(f.q.getAllByRole("button", { name: "Manage history" })[1]!);
+  fireEvent.click(f.q.getAllByRole("button", { name: "Manage history" })[1]);
   expect(f.pending).toHaveLength(2);
   await waitFor(() => expect(f.pending).toHaveLength(4));
   expect(f.pending.slice(2).map((call) => call.input)).toEqual(
@@ -159,9 +162,9 @@ it.each(["close", "unmount"])(
     await setHistoryManagementOpen(f.page.container);
     await waitFor(() => expect(f.pending).toHaveLength(2));
     await f.settle();
-    const privacy = f.q.getByText("Collection and privacy").closest("details")!;
+    const privacy = requireFixtureValue(f.q.getByText("Collection and privacy").closest("details"));
     privacy.open = true;
-    const imports = f.q.getByText(/^Historical import$/).closest("details")!;
+    const imports = requireFixtureValue(f.q.getByText(/^Historical import$/).closest("details"));
     imports.open = true;
     await act(async () => {
       fireEvent.click(f.q.getByRole("button", { name: "Install collector" }));
@@ -170,9 +173,9 @@ it.each(["close", "unmount"])(
         f.page.lifecycle.unmount();
       } else {
         flushSync(() => {
-          const details = f.q
-            .getByText("Machine status and collection settings")
-            .closest("details")!;
+          const details = requireFixtureValue(
+            f.q.getByText("Machine status and collection settings").closest("details"),
+          );
           details.open = false;
           fireEvent(details, new Event("toggle"));
         });
@@ -189,8 +192,8 @@ it("does not publish a late collector or import result after closing and reopeni
   await setHistoryManagementOpen(f.page.container);
   await waitFor(() => expect(f.pending).toHaveLength(2));
   await f.settle();
-  f.q.getByText("Collection and privacy").closest("details")!.open = true;
-  f.q.getByText(/^Historical import$/).closest("details")!.open = true;
+  requireFixtureValue(f.q.getByText("Collection and privacy").closest("details")).open = true;
+  requireFixtureValue(f.q.getByText(/^Historical import$/).closest("details")).open = true;
   fireEvent.click(f.q.getByRole("button", { name: "Install collector" }));
   fireEvent.click(f.q.getByRole("button", { name: "Check import status" }));
   await waitFor(() => expect(f.pending).toHaveLength(4));
@@ -222,17 +225,19 @@ it.each(["commands", "host"])(
     await setHistoryManagementOpen(f.page.container);
     await waitFor(() => expect(f.pending).toHaveLength(2));
     await f.settle();
-    f.q.getByText("Collection and privacy").closest("details")!.open = true;
-    f.q.getByText(/^Historical import$/).closest("details")!.open = true;
+    requireFixtureValue(f.q.getByText("Collection and privacy").closest("details")).open = true;
+    requireFixtureValue(f.q.getByText(/^Historical import$/).closest("details")).open = true;
     await act(async () => {
       if (action === "commands") {
         fireEvent.click(f.q.getByRole("button", { name: "Install collector" }));
         fireEvent.click(f.q.getByRole("button", { name: "Check import status" }));
       }
       fireEvent.click(summary);
-      expect(summary.closest("details")!.open).toBe(false);
+      expect(requireFixtureValue(summary.closest("details")).open).toBe(false);
       if (action === "host") {
-        fireEvent.click(summary.closest("details")!.querySelectorAll("button")[1]!);
+        fireEvent.click(
+          requireFixtureValue(summary.closest("details")).querySelectorAll("button")[1],
+        );
       }
       // Native toggle is delivered in a later task. Let request microtasks run first.
       for (let i = 0; i < 10; i += 1) {

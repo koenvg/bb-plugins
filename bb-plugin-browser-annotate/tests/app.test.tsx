@@ -7,7 +7,7 @@ import definition from "../app";
 import type { rpcContract } from "../lib/contract";
 
 const app = await loadPluginApp(definition);
-const toolbar = app.browserToolbarActions[0]!;
+const toolbar = app.browserToolbarActions[0];
 
 afterEach(cleanup);
 
@@ -257,7 +257,7 @@ describe("Annotate control", () => {
   it("shows internal page-message failures", async () => {
     const page = fakePage();
     const handlers = rpc();
-    vi.mocked(handlers.update!).mockRejectedValueOnce(new Error("Comment update failed"));
+    vi.mocked(handlers.update).mockRejectedValueOnce(new Error("Comment update failed"));
     const view = renderSlot(toolbar, props({ experimental_page: page }), { rpc: handlers });
     await act(async () => {});
 

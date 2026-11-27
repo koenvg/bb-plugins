@@ -2,8 +2,9 @@ import { test as base, expect } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
-export const test = base.extend<{ localOnly: void }>({
+export const test = base.extend<{ localOnly: undefined }>({
   localOnly: [
     async ({ context, page, baseURL }, use) => {
       const errors: string[] = [];
@@ -16,7 +17,7 @@ export const test = base.extend<{ localOnly: void }>({
         external.push(route.request().url());
         return route.abort();
       });
-      await use();
+      await use(undefined);
       expect(errors, "No browser exceptions").toEqual([]);
       expect(external, "No external traffic, including official usage link").toEqual([]);
     },
@@ -77,7 +78,10 @@ export async function decodedPng(page: Page, data: Buffer) {
     const canvas = document.createElement("canvas");
     canvas.width = image.width;
     canvas.height = image.height;
-    const context = canvas.getContext("2d")!;
+    const context = canvas.getContext("2d");
+    if (context == null) {
+      throw new Error('Missing browser fixture value: canvas.getContext("2d")');
+    }
     context.drawImage(image, 0, 0);
     const pixels = context.getImageData(0, 0, image.width, image.height).data;
     let nonSolid = false;
@@ -99,12 +103,16 @@ export async function decodedPng(page: Page, data: Buffer) {
   expect(facts.nonSolid, "Decoded screenshot must contain visible content").toBe(true);
   return { ...facts, sha256: createHash("sha256").update(data).digest("hex") };
 }
-type CaptureTile = { x: number; y: number; data: string };
+interface CaptureTile {
+  x: number;
+  y: number;
+  data: string;
+}
 
 export async function capture(page: Page, info: TestInfo, name: string, fullPage = true) {
   await page.evaluate(() => window.scrollTo({ left: 0, top: 0, behavior: "instant" }));
   const path = info.outputPath(`${name}.png`);
-  const viewport = page.viewportSize()!;
+  const viewport = requireFixtureValue(page.viewportSize());
   const content = await page.evaluate(() => ({
     width: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth, innerWidth),
     height: Math.max(
@@ -146,7 +154,10 @@ export async function capture(page: Page, info: TestInfo, name: string, fullPage
           const canvas = document.createElement("canvas");
           canvas.width = width;
           canvas.height = height;
-          const context = canvas.getContext("2d")!;
+          const context = canvas.getContext("2d");
+          if (context == null) {
+            throw new Error('Missing browser fixture value: canvas.getContext("2d")');
+          }
           for (const tile of tiles) {
             const image = new Image();
             image.src = `data:image/png;base64,${tile.data}`;
@@ -174,7 +185,7 @@ export async function capture(page: Page, info: TestInfo, name: string, fullPage
       : [],
   };
   const facts = { file: `${name}.png`, ...(await decodedPng(page, data)), coverage };
-  expect(facts.width).toBe(page.viewportSize()!.width);
+  expect(facts.width).toBe(requireFixtureValue(page.viewportSize()).width);
   await info.attach(name, { path, contentType: "image/png" });
   await jsonEvidence(info, `${name}.json`, facts);
   return facts;

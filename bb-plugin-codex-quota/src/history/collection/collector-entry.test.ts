@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { COLLECTOR_ENTRY } from "./collector-entry.js";
 import { usageRecordSchema, confirmationSchema } from "./usage-record.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -20,13 +21,13 @@ async function fixture() {
     join(root, "history/collector-control-v1.json"),
     '{"protocol":2,"revision":"00000000-0000-4000-8000-000000000001","enabled":true}',
   );
-  const handlers = new Map<string, Function>();
+  const handlers = new Map<string, (...args: unknown[]) => unknown>();
   const module = await import(
     /* @vite-ignore */
     `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`)}`
   );
   module.default(
-    { on: (name: string, handler: Function) => handlers.set(name, handler) },
+    { on: (name: string, handler: (...args: unknown[]) => unknown) => handlers.set(name, handler) },
     { dataDir: root, protocol: 2 },
   );
   let leaf: string | null = null;
@@ -81,9 +82,9 @@ it.each(["gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol"])(
     const f = await fixture();
     for (const cost of [0.125, undefined]) {
       const message = { ...f.message(cost), model };
-      await f.handlers.get("message_end")!({ message }, f.ctx);
+      await requireFixtureValue(f.handlers.get("message_end"))({ message }, f.ctx);
     }
-    await f.handlers.get("session_shutdown")!({}, f.ctx);
+    await requireFixtureValue(f.handlers.get("session_shutdown"))({}, f.ctx);
     const records = (await readFile(f.log, "utf8"))
       .trim()
       .split("\n")
@@ -103,10 +104,10 @@ it("serializes actual compact writes, validates metadata, preserves original pri
   process.env.BB_THREAD_ID = "thr_claim";
   try {
     for (const [i, message] of messages.entries()) {
-      f.handlers.get("message_end")!({ message }, f.ctx);
+      requireFixtureValue(f.handlers.get("message_end"))({ message }, f.ctx);
       f.persist(message, `entry-${i}`);
     }
-    await f.handlers.get("session_shutdown")!({}, f.ctx);
+    await requireFixtureValue(f.handlers.get("session_shutdown"))({}, f.ctx);
   } finally {
     if (prior === undefined) {
       delete process.env.BB_THREAD_ID;
@@ -149,17 +150,17 @@ it("ignores non-Codex and invalid fields, paused or incompatible controls; no ra
     { ...f.message(), timestamp: NaN },
     { ...f.message(), usage: { ...f.message().usage, input: -1 } },
   ]) {
-    await f.handlers.get("message_end")!({ message }, f.ctx);
+    await requireFixtureValue(f.handlers.get("message_end"))({ message }, f.ctx);
   }
   await expect(readFile(f.log)).rejects.toThrow();
   await writeFile(
     join(f.root, "history/collector-control-v1.json"),
     '{"protocol":2,"revision":"00000000-0000-4000-8000-000000000001","enabled":false}',
   );
-  await f.handlers.get("message_end")!({ message: f.message() }, f.ctx);
+  await requireFixtureValue(f.handlers.get("message_end"))({ message: f.message() }, f.ctx);
   await expect(readFile(f.log)).rejects.toThrow();
   await writeFile(join(f.root, "history/collector-control-v1.json"), "private-error-secret");
-  await f.handlers.get("message_end")!({ message: f.message() }, f.ctx);
+  await requireFixtureValue(f.handlers.get("message_end"))({ message: f.message() }, f.ctx);
   expect(diagnostic.mock.calls.flat()).toEqual(["[bb-codex-usage] Collector work incomplete"]);
 });
 it("bounds confirmation traversal, does not match equal message values, and resolves workspace aliases", async () => {
@@ -167,9 +168,9 @@ it("bounds confirmation traversal, does not match equal message values, and reso
   await symlink(f.ctx.cwd, join(f.root, "alias"));
   f.ctx.cwd = join(f.root, "alias");
   const message = f.message();
-  await f.handlers.get("message_end")!({ message }, f.ctx);
+  await requireFixtureValue(f.handlers.get("message_end"))({ message }, f.ctx);
   f.persist({ ...message }, "not-same-object");
-  await f.handlers.get("agent_end")!({}, f.ctx);
+  await requireFixtureValue(f.handlers.get("agent_end"))({}, f.ctx);
   expect(f.reads()).toBe(1);
   await expect(
     readFile(join(f.root, "history/confirmations-v1-2009-02-13.jsonl")),
@@ -178,7 +179,7 @@ it("bounds confirmation traversal, does not match equal message values, and reso
   for (let i = 0; i < 200; i += 1) {
     f.persist({}, `ancestor-${i}`);
   }
-  await f.handlers.get("agent_end")!({}, f.ctx);
+  await requireFixtureValue(f.handlers.get("agent_end"))({}, f.ctx);
   expect(f.reads() - readsBeforeBoundedScan).toBe(128);
   await expect(
     readFile(join(f.root, "history/confirmations-v1-2009-02-13.jsonl")),
@@ -197,13 +198,13 @@ it("captures assistant response IDs without subscribing to obsolete legacy tier 
     service_tier: "priority",
     content: "synthetic-secret-body",
   };
-  await f.handlers.get("message_end")!({ message }, f.ctx);
+  await requireFixtureValue(f.handlers.get("message_end"))({ message }, f.ctx);
   f.persist(message, "entry-match");
-  await f.handlers.get("message_end")!(
+  await requireFixtureValue(f.handlers.get("message_end"))(
     { message: { ...f.message(), responseId: "resp_missing" } },
     f.ctx,
   );
-  await f.handlers.get("session_shutdown")!({}, f.ctx);
+  await requireFixtureValue(f.handlers.get("session_shutdown"))({}, f.ctx);
   const body = await readFile(f.log, "utf8");
   const records = body
     .trim()

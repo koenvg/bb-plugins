@@ -5,6 +5,7 @@ import { CalendarValues, UsageTooltip } from "./calendar-view.js";
 import { CalendarReportPanel } from "./calendar-panel.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
 import { axisValue, chartData } from "./calendar-chart-data.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 const query = {
@@ -69,9 +70,9 @@ it("keeps missing data null rather than drawing invented usage", () => {
   expect(data.rows[14].value).toBe(600);
   expect(data.rows[14].height).toBe(1);
   render(<CalendarValues view={view} metric="tokens" />);
-  const first = screen
-    .getByRole("table", { name: "Daily recorded usage" })
-    .querySelector("tbody tr")!;
+  const first = requireFixtureValue(
+    screen.getByRole("table", { name: "Daily recorded usage" }).querySelector("tbody tr"),
+  );
   expect(first.textContent).toContain("Unavailable");
   expect(first.textContent).toContain("Unknown, uncovered gap");
 });

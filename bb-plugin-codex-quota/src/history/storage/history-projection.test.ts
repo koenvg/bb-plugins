@@ -7,6 +7,7 @@ import type { HistoryDatabase } from "./history-storage.js";
 import { recordHistoryExecutions, explainHistoryExecution } from "../history-sql.test-support.js";
 import { initializeHistory, projectCompactRecord, collectionView } from "./history-projection.js";
 import { parseCompact } from "../collection/usage-record.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -17,7 +18,7 @@ afterEach(async () => {
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp18-projection-"));
-  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   fixtures.push({ root, db });
   initializeHistory(db, "2026-10-01T00:00:00.000Z");
   return db;
@@ -44,7 +45,7 @@ function record(n: number, workspace = "/workspace") {
   };
 }
 const compact = (value: unknown) =>
-  parseCompact(JSON.stringify(value), !("workspace" in (value as object)))!;
+  requireFixtureValue(parseCompact(JSON.stringify(value), !("workspace" in (value as object))));
 const bind = (n: number, entryId = "entry") => ({
   version: 1,
   eventId: record(n).eventId,

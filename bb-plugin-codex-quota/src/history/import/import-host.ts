@@ -13,12 +13,12 @@ import type { ImportOptions } from "./import-engine.js";
 import { importUnavailable } from "./import-contract.js";
 import type { ImportCommand, ImportView } from "./import-contract.js";
 
-export type ImportContext = {
+export interface ImportContext {
   hostId: string;
   dataDir: string;
   signal: AbortSignal;
   knownWorkspaces: string[];
-};
+}
 export function createImportOperation(
   deps: {
     storage?: () => Promise<HistoryDatabaseFactory | null>;

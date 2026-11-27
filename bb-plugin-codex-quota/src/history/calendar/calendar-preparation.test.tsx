@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest";
 import { CalendarReportPanel } from "./calendar-panel.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
+import type { PreparationRequest } from "../report-preparation-contract.js";
 
 const now = Date.parse("2026-10-01T12:00:00Z");
 const selection = { hostId: "host_a", generation: 1 };
@@ -22,9 +23,8 @@ afterEach(() => {
 it("finishes 158 bounded batches on one open, keeps the chart usable, and refreshes on clock expiry", async () => {
   vi.useFakeTimers();
   let batch = 0;
-  const prepare = vi.fn(
-    async (_input: import("../report-preparation-contract.js").PreparationRequest) =>
-      (batch += 1) < 158 ? pending(String(batch)) : settled,
+  const prepare = vi.fn(async (_input: PreparationRequest) =>
+    (batch += 1) < 158 ? pending(String(batch)) : settled,
   );
   const read = vi.fn(async ({ query }) => calendarSnapshot(query));
   render(<CalendarReportPanel selection={selection} now={now} read={read} prepare={prepare} />);

@@ -32,7 +32,7 @@ function olderDates(db: HistoryDatabase, now: number) {
 export function completeCollectorDiscovery(db: HistoryDatabase, now: number, pending: Set<string>) {
   const dates = olderDates(db, now);
   if (dates.length && !dates.flatMap(names).some((name) => pending.has(name))) {
-    const next = day(Date.parse(dates.at(-1)! + "T00:00:00Z") + DAY);
+    const next = day(Date.parse(dates.at(-1) + "T00:00:00Z") + DAY);
     db.prepare("INSERT OR REPLACE INTO collector_sources VALUES (?, '', 0, ?, 0, 0, '', 0, 0)").run(
       DISCOVERY,
       next,

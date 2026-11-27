@@ -36,7 +36,10 @@ function decodeJpeg(base64: string): Uint8Array {
   return bytes;
 }
 
-type DatabaseListRow = { name: string; file: string };
+interface DatabaseListRow {
+  name: string;
+  file: string;
+}
 
 function imageRoot(bb: BbPluginApi): string {
   const main = bb.storage
@@ -85,7 +88,11 @@ export default function plugin(bb: BbPluginApi) {
       }
       store.updateComment(id, comment);
       changed(threadId);
-      return toAnnotation(store.get(id)!);
+      const annotation = store.get(id);
+      if (!annotation) {
+        throw new Error("Unknown annotation.");
+      }
+      return toAnnotation(annotation);
     },
     async remove({ threadId, id }) {
       const annotation = owned(threadId, id);

@@ -1,6 +1,7 @@
 import { test, expect, sizes, viewport, jsonEvidence } from "./fixtures.js";
 import { chart, rows, axFacts, pointAtDate, calls } from "./calendar-driver.js";
 import { tooltipDefinitions, verifyTooltip } from "./proof.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 for (const width of sizes) {
   for (const scope of ["all", "host"] as const) {
@@ -69,7 +70,7 @@ for (const width of sizes) {
           }
           const before = await date.getAttribute("datetime");
           await page.keyboard.press("ArrowLeft");
-          await expect(date).not.toHaveAttribute("datetime", before!);
+          await expect(date).not.toHaveAttribute("datetime", requireFixtureValue(before));
         }
         await expect(date).toHaveAttribute("datetime", dailyRows[0][0]);
         await page.keyboard.press("ArrowRight");
@@ -114,15 +115,22 @@ for (const width of sizes) {
           .hover();
         await expect(date).not.toHaveAttribute("datetime", keyboardDate);
         const pointerDate = await date.getAttribute("datetime");
-        const row = dailyRows.find((row) => row[0] === pointerDate)!;
+        const row = requireFixtureValue(dailyRows.find((row) => row[0] === pointerDate));
         expect(row).toBeDefined();
         const definitions = await page
           .locator(".calendar-tooltip dl > div")
           .evaluateAll((elements) =>
-            elements.map((element) => [
-              element.querySelector("dt")!.textContent!,
-              element.querySelector("dd")!.textContent!,
-            ]),
+            elements.map((element) => {
+              const element2 = element.querySelector("dt");
+              if (element2 == null) {
+                throw new Error('Missing browser fixture value: element.querySelector("dt")');
+              }
+              const element3 = element.querySelector("dd");
+              if (element3 == null) {
+                throw new Error('Missing browser fixture value: element.querySelector("dd")');
+              }
+              return [element2.textContent, element3.textContent];
+            }),
           );
         verifyTooltip(row, metric, pointerDate, definitions, [], keyboardDate);
         expect(definitions).toEqual(expect.arrayContaining(tooltipDefinitions(row, metric)));
@@ -209,10 +217,17 @@ for (const width of sizes) {
           const definitions = await page
             .locator(".calendar-tooltip dl > div")
             .evaluateAll((elements) =>
-              elements.map((element) => [
-                element.querySelector("dt")!.textContent!,
-                element.querySelector("dd")!.textContent!,
-              ]),
+              elements.map((element) => {
+                const element4 = element.querySelector("dt");
+                if (element4 == null) {
+                  throw new Error('Missing browser fixture value: element.querySelector("dt")');
+                }
+                const element5 = element.querySelector("dd");
+                if (element5 == null) {
+                  throw new Error('Missing browser fixture value: element.querySelector("dd")');
+                }
+                return [element4.textContent, element5.textContent];
+              }),
             );
           verifyTooltip(
             daily[index],
@@ -302,7 +317,7 @@ test("native pinned date identity survives filtering, metric switches and same-q
   await expect(model).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByText("Recorded values are out of date.", { exact: false })).toBeVisible();
   await expect(date).toHaveAttribute("datetime", daily[29][0]);
-  expect(await node!.evaluate((element) => element === document.querySelector(".ts-chart"))).toBe(
+  expect(await node.evaluate((element) => element === document.querySelector(".ts-chart"))).toBe(
     true,
   );
   await model.click();

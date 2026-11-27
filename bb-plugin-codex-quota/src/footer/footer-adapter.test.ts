@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { waitFor } from "@testing-library/react";
 import { mountFooterAdapter } from "./footer-adapter.js";
 import { footerFixture } from "./footer-fixture.test-support.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const disposers: (() => void)[] = [];
 afterEach(() => {
@@ -22,15 +23,17 @@ describe("quota footer attachment", () => {
   it("adds one badge target to its own native button without replacing host content", () => {
     const { sidebar, button, row } = footerFixture();
     const icon = button.querySelector("svg");
-    const unrelated = sidebar.querySelector(
-      '[data-footer-item="plugin:connect/remote-access"]',
-    )!.outerHTML;
+    const unrelated = requireFixtureValue(
+      sidebar.querySelector('[data-footer-item="plugin:connect/remote-access"]'),
+    ).outerHTML;
     const adapter = mount();
     expect(adapter.getSnapshot()).toHaveLength(1);
-    expect(adapter.getSnapshot()[0]!.container.parentElement).toBe(button);
+    expect(adapter.getSnapshot()[0].container.parentElement).toBe(button);
     expect(button.querySelector("svg")).toBe(icon);
     expect(
-      sidebar.querySelector('[data-footer-item="plugin:connect/remote-access"]')!.outerHTML,
+      requireFixtureValue(
+        sidebar.querySelector('[data-footer-item="plugin:connect/remote-access"]'),
+      ).outerHTML,
     ).toBe(unrelated);
     expect(getComputedStyle(row).display).not.toBe("none");
     adapter.dispose();
@@ -44,7 +47,7 @@ describe("quota footer attachment", () => {
     const unsubscribe = adapter.subscribe(() => changes.push(adapter.getSnapshot().length));
     const first = footerFixture();
     await waitFor(() => expect(adapter.getSnapshot()).toHaveLength(1));
-    const target = adapter.getSnapshot()[0]!;
+    const target = adapter.getSnapshot()[0];
     first.sidebar.append(document.createElement("div"));
     await waitFor(() => expect(first.button.children).toHaveLength(3));
     expect(adapter.getSnapshot()[0]).toBe(target);
@@ -67,10 +70,10 @@ describe("quota footer attachment", () => {
   it("suppresses navigation only after render and navigation readiness, with reversible focus and descriptions", () => {
     const { row, button } = footerFixture();
     const adapter = mount();
-    const target = adapter.getSnapshot()[0]!;
+    const target = adapter.getSnapshot()[0];
     const uncommit = target.commit();
     expect(getComputedStyle(row).display).not.toBe("none");
-    row.querySelector("button")!.focus();
+    requireFixtureValue(row.querySelector("button")).focus();
     adapter.setNavigationReady(true);
     expect(document.activeElement).toBe(button);
     expect(getComputedStyle(row).display).toBe("none");
@@ -93,7 +96,7 @@ describe("quota footer attachment", () => {
     const { sidebar, row, button } = footerFixture();
     const adapter = mount();
     adapter.setNavigationReady(true);
-    const target = adapter.getSnapshot()[0]!;
+    const target = adapter.getSnapshot()[0];
     target.commit();
     const menu = document.createElement("div");
     menu.setAttribute("role", "menu");
@@ -119,7 +122,7 @@ describe("quota footer attachment", () => {
       const { sidebar, row, item } = footerFixture();
       const adapter = mount();
       adapter.setNavigationReady(true);
-      adapter.getSnapshot()[0]!.commit();
+      adapter.getSnapshot()[0].commit();
       expect(getComputedStyle(row).display).toBe("none");
       if (mode === "hidden") {
         item.hidden = true;
@@ -136,8 +139,11 @@ describe("quota footer attachment", () => {
       await waitFor(() => expect(getComputedStyle(row).display).not.toBe("none"));
       expect(adapter.getSnapshot()).toHaveLength(0);
       expect(
-        getComputedStyle(sidebar.querySelector('[data-sidebar-navigation-item="other/quota"]')!)
-          .display,
+        getComputedStyle(
+          requireFixtureValue(
+            sidebar.querySelector('[data-sidebar-navigation-item="other/quota"]'),
+          ),
+        ).display,
       ).not.toBe("none");
     },
   );
@@ -149,7 +155,7 @@ describe("quota footer attachment", () => {
     row.after(clone);
     const adapter = mount();
     adapter.setNavigationReady(true);
-    adapter.getSnapshot()[0]!.commit();
+    adapter.getSnapshot()[0].commit();
     expect(row.hasAttribute("data-codex-quota-suppressed")).toBe(false);
     button.setAttribute(
       "aria-describedby",
@@ -163,6 +169,6 @@ describe("quota footer attachment", () => {
   it("lets the native button receive pointer hits over the portalled percentage", () => {
     footerFixture();
     const adapter = mount();
-    expect(getComputedStyle(adapter.getSnapshot()[0]!.container).pointerEvents).toBe("none");
+    expect(getComputedStyle(adapter.getSnapshot()[0].container).pointerEvents).toBe("none");
   });
 });

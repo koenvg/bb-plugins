@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { it, expect } from "vitest";
 import { request } from "node:http";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 it("guards isolated fixture requests and preserves split UTF-8 prompt text", async () => {
   // Split the Node flag because SDK 0.5.9's text scanner mistakes it for a JS import.
@@ -44,7 +45,7 @@ it("guards isolated fixture requests and preserves split UTF-8 prompt text", asy
           },
           (res) => {
             res.resume();
-            res.once("end", () => resolve(res.statusCode!));
+            res.once("end", () => resolve(requireFixtureValue(res.statusCode)));
           },
         );
         req.once("error", reject);
@@ -103,7 +104,9 @@ it("guards isolated fixture requests and preserves split UTF-8 prompt text", asy
             res.setEncoding("utf8");
             res.on("data", (chunk) => (text += chunk));
             res.once("error", reject);
-            res.once("end", () => resolve({ status: res.statusCode!, body: text }));
+            res.once("end", () =>
+              resolve({ status: requireFixtureValue(res.statusCode), body: text }),
+            );
           },
         );
         req.once("error", reject);

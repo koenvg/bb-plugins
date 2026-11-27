@@ -239,8 +239,8 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
   it.each(stages.flatMap((stage) => changes.map((change) => ({ stage, change }))))(
     "settles on $change during $stage even if the adapter ignores cancellation",
     async ({ stage, change }) => {
-      const held = deferred<void>();
-      const entered = deferred<void>();
+      const held = deferred<undefined>();
+      const entered = deferred<undefined>();
       const { harness, generation, setCall } = await setup(result);
       let checks = 0;
       harness.inspection.sdk.stub("hosts.get", async ({ hostId }: { hostId: string }) => {
@@ -250,7 +250,7 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
             (stage === "enrollment" && checks === 1) ||
             (stage === "publication" && checks === 2)
           ) {
-            entered.resolve();
+            entered.resolve(undefined);
             await held.promise;
           }
         }
@@ -258,7 +258,7 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
       });
       setCall(async () => {
         if (stage === "host call") {
-          entered.resolve();
+          entered.resolve(undefined);
           await held.promise;
         }
         return result;
@@ -293,7 +293,7 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
         }
       } finally {
         clearTimeout(deadline);
-        held.resolve();
+        held.resolve(undefined);
         await pending;
         await harness.lifecycle.dispose();
       }

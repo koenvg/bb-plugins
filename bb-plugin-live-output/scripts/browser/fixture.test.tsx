@@ -3,7 +3,12 @@ import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk
 import app from "../../app";
 import type { OutputSnapshot } from "../../contract";
 
-type Config = { offset: number; revision: boolean; zero: boolean; startedAt: number };
+interface Config {
+  offset: number;
+  revision: boolean;
+  zero: boolean;
+  startedAt: number;
+}
 let config: Config = { offset: 0, revision: false, zero: false, startedAt: 1500 };
 let release: ((value: OutputSnapshot) => void) | undefined;
 let calls = 0;
@@ -59,12 +64,12 @@ const rpc = () => {
 };
 await act(async () => {
   page = renderSlot(
-    captured.navPanels[0]!,
+    captured.navPanels[0],
     { subPath: "" },
     { rpc: { snapshot: rpc }, realtimeConnectionState: "connected" },
   );
   footer = renderSlot(
-    captured.appOverlays[0]!,
+    captured.appOverlays[0],
     {},
     { rpc: { snapshot: rpc }, realtimeConnectionState: "connected" },
   );

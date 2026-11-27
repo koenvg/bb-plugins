@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { PluginSettingsSectionProps } from "@get-bb/plugin-sdk/app";
 import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, screen, within } from "@testing-library/react";
@@ -6,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import type { ProjectState, ProjectSummary, SettingsContract } from "./rpc";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 afterEach(cleanup);
 const initial: ProjectSummary[] = [
@@ -38,7 +40,7 @@ function deferred<T>() {
 }
 async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>> = {}) {
   const app = await loadPluginApp(() => import("./app"));
-  return renderSlot<{}, SettingsContract>(
+  return renderSlot<PluginSettingsSectionProps, SettingsContract>(
     app.settingsSections[0],
     {},
     {
@@ -59,7 +61,9 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
 const toggle = (name: string) =>
   screen.getByRole("switch", { name: `Enable Code Cleanup for ${name}` });
 const row = (name: string) =>
-  screen.getByRole("button", { name: `Edit prompt for ${name}` }).closest("tr")!;
+  requireFixtureValue(
+    screen.getByRole("button", { name: `Edit prompt for ${name}` }).closest("tr"),
+  );
 const mutations = (rendered: Awaited<ReturnType<typeof mount>>) =>
   rendered.inspection.rpcCalls.filter((c) => c.method.startsWith("set"));
 

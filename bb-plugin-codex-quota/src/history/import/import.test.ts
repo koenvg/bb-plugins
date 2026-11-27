@@ -6,7 +6,8 @@ import { openHistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory, projectCompactRecord } from "../storage/history-projection.js";
 import { initializeIdentityStorage, acceptIdentityBatch } from "../identity/identity-storage.js";
 import { executeImport } from "./import-engine.js";
-import type { ImportConfiguration } from "./import-contract.js";
+import type { ImportCommand, ImportConfiguration } from "./import-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const owned: string[] = [];
 afterEach(async () => {
@@ -49,7 +50,7 @@ async function fixture() {
   const workspace = join(root, "workspace");
   await mkdir(sources);
   await mkdir(workspace);
-  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   initializeHistory(db, instant);
   initializeIdentityStorage(db);
   acceptIdentityBatch(db, {
@@ -74,7 +75,7 @@ async function fixture() {
       reads += 1;
     },
   };
-  const run = (command: any, options = {}) =>
+  const run = (command: ImportCommand, options = {}) =>
     executeImport(db, "host-a", command, [workspace], { ...opts, ...options });
   const config: ImportConfiguration = {
     bbRoot: sources,
@@ -148,7 +149,7 @@ it("does not admit unresolved live overlap after detail expiry and reopen", asyn
       total_tokens: 5,
       events: 1,
     });
-    const reopened = (await openHistoryDatabase(join(f.root, "usage.sqlite")))!;
+    const reopened = requireFixtureValue(await openHistoryDatabase(join(f.root, "usage.sqlite")));
     try {
       expect(
         reopened.prepare("SELECT provenance,confirmed,total FROM usage_compact").all(),

@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { ActivityRequestState } from "./activity-request-state.js";
 import { normalizeActivity } from "./activity.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const time = Date.UTC(2026, 3, 23, 12);
-const snapshot = normalizeActivity({ stats: { lifetime_tokens: 12 } }, time)!;
+const snapshot = requireFixtureValue(normalizeActivity({ stats: { lifetime_tokens: 12 } }, time));
 const fresh = { state: "fresh" as const, reason: "ok" as const, snapshot };
 describe("activity-only browser request state", () => {
   it("coalesces requests and recalculates expiry without network", async () => {
@@ -63,7 +64,7 @@ describe("activity-only browser request state", () => {
     store.close();
     await next;
     expect(store.getSnapshot().view.snapshot).toBeNull();
-    expect(read.mock.calls[0]![1].aborted).toBe(true);
+    expect(read.mock.calls[0][1].aborted).toBe(true);
   });
   it("limits manual retries and rejects raw/unsupported output", async () => {
     let now = time;
@@ -101,7 +102,7 @@ describe("activity-only browser request state", () => {
       if (reopen) {
         await store.refresh();
         expect(read).toHaveBeenCalledTimes(1);
-        expect(read.mock.calls[0]![0]).toEqual({ hostId: "b", generation: 2, refresh: false });
+        expect(read.mock.calls[0][0]).toEqual({ hostId: "b", generation: 2, refresh: false });
       }
       store.close();
     },

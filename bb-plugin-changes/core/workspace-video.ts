@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import { open, realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { z } from "zod";
+import type { z } from "zod";
 import { workspaceVideoRequestSchema } from "../contract";
 import { MAX_VIDEO_BYTES, videoBytes, videoError } from "./video-content";
 import type { VideoWireResult } from "./video-content";

@@ -8,9 +8,13 @@ import type { InsightResult, rpcContract } from "../contract";
 import { cancelPrPanelRequest, requestPrPanel } from "../pr-panel-navigation";
 import { useCommandIntent } from "./command-intents";
 import { forgetInsights } from "./pr-availability";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const banner = app.composerCustomizations.find((entry) => entry.id === "pr-insight")!.banners![0]!;
+const banner = requireFixtureValue(
+  requireFixtureValue(app.composerCustomizations.find((entry) => entry.id === "pr-insight"))
+    .banners,
+)[0];
 afterEach(() => {
   cleanup();
   forgetInsights();

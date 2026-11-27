@@ -1,6 +1,7 @@
 import { test, expect } from "vitest";
 import { accessibleFacts, tooltipDefinitions, verifyTooltip } from "./proof.js";
 import type { AxNode, Metric } from "./proof.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 function table(metric: Metric = "cost") {
   const node = (nodeId: string, role: string, name = "", childIds: string[] = []): AxNode => ({
@@ -132,15 +133,17 @@ test("unrelated AX names cannot supply a table caption or facts", () => {
 for (const kind of ["misplaced", "hidden", "missing", "incomplete"]) {
   test(`AX ${kind} cell fails`, () => {
     const { rows, nodes } = table();
-    const cell = nodes.find((node) => node.nodeId === "c-14-1")!;
+    const cell = requireFixtureValue(nodes.find((node) => node.nodeId === "c-14-1"));
     if (kind === "hidden") {
       cell.ignored = true;
     } else if (kind === "missing") {
-      nodes.find((node) => node.nodeId === "r-14")!.childIds!.splice(1, 1);
+      requireFixtureValue(
+        requireFixtureValue(nodes.find((node) => node.nodeId === "r-14")).childIds,
+      ).splice(1, 1);
     } else if (kind === "incomplete") {
       nodes.splice(nodes.indexOf(cell), 1);
     } else {
-      cell.name!.value = "Unavailable";
+      requireFixtureValue(cell.name).value = "Unavailable";
       nodes.push({
         nodeId: "unrelated",
         role: { value: "StaticText" },
@@ -156,7 +159,9 @@ for (const caption of [
 ]) {
   test(`AX wrong caption ${caption}`, () => {
     const { rows, nodes } = table();
-    nodes.find((node) => node.nodeId === "caption-text")!.name!.value = caption;
+    requireFixtureValue(
+      requireFixtureValue(nodes.find((node) => node.nodeId === "caption-text")).name,
+    ).value = caption;
     nodes.push({
       nodeId: "unrelated",
       role: { value: "StaticText" },
@@ -167,8 +172,8 @@ for (const caption of [
 }
 test("AX swapped dates fail", () => {
   const { rows, nodes } = table();
-  const first = nodes.find((node) => node.nodeId === "c-0-0")!;
-  const last = nodes.find((node) => node.nodeId === "c-29-0")!;
+  const first = requireFixtureValue(nodes.find((node) => node.nodeId === "c-0-0"));
+  const last = requireFixtureValue(nodes.find((node) => node.nodeId === "c-29-0"));
   [first.name, last.name] = [last.name, first.name];
   expect(() => accessibleFacts(nodes, rows, "cost")).toThrow();
 });

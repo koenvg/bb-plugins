@@ -6,6 +6,7 @@ import { calendarDaySchema } from "./calendar-contract.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
 import { mergeDayModels, projectTokenModels } from "./calendar-models.js";
 import { prepareNativeUsageFixture } from "../../../scripts/prepare-native-usage-fixture.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const day = {
   totalTokens: 300,
@@ -88,9 +89,11 @@ it("rejects over-attribution and unsafe scalar model totals at the report bounda
 });
 it("carries captured model totals and raw money from public preparation into the graph", async () => {
   const reports = await prepareNativeUsageFixture();
-  const report = reports.find(
-    (value) => value.query.startDate === "2026-09-02" && value.query.group === "workspace",
-  )!;
+  const report = requireFixtureValue(
+    reports.find(
+      (value) => value.query.startDate === "2026-09-02" && value.query.group === "workspace",
+    ),
+  );
   expect(report.summary.totalTokens).toBe(450);
   expect(report.summary.money.capturedCost).toBe(0.03);
   expect(report.days.find((day) => day.date === "2026-09-15")?.models).toEqual({
@@ -152,9 +155,11 @@ it("keeps a missing native model unknown without discarding a real Pi model name
     await writeFile(join(root, "native-legacy-usage.jsonl"), native);
     await writeFile(join(root, "pi-legacy-usage.jsonl"), pi);
     const reports = await prepareNativeUsageFixture(root);
-    const report = reports.find(
-      (value) => value.query.startDate === "2026-09-02" && value.query.group === "workspace",
-    )!;
+    const report = requireFixtureValue(
+      reports.find(
+        (value) => value.query.startDate === "2026-09-02" && value.query.group === "workspace",
+      ),
+    );
     expect(report.summary.totalTokens).toBe(450);
     const known = report.days.flatMap((value) => value.models?.named ?? []);
     expect(known.reduce((sum, value) => sum + value.totalTokens, 0)).toBe(80);

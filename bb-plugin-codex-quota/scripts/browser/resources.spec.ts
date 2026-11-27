@@ -9,7 +9,9 @@ test("PNG receipts require full decode and non-solid pixels", async ({ page }) =
         const canvas = document.createElement("canvas");
         canvas.width = 375;
         canvas.height = 812;
-        const context = canvas.getContext("2d")!;
+        const context = canvas.getContext("2d");
+        if (context == null)
+          throw new Error('Missing browser fixture value: canvas.getContext("2d")');
         context.fillStyle = "black";
         context.fillRect(0, 0, canvas.width, canvas.height);
         if (changed) {

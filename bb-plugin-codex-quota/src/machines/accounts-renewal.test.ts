@@ -4,6 +4,7 @@ import { QuotaCache } from "../quota/quota-cache.js";
 import type { QuotaRead } from "../quota/quota-cache.js";
 import { MachineAccountsStore, footerAllowance } from "./accounts-store.js";
 import { accountsFixture, quotaFixture } from "./machines.test-support.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const start = Date.UTC(2026, 3, 23, 12);
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -39,7 +40,7 @@ function pollingAccount(rpcMs = 12_000, cachedRpcMs = rpcMs) {
     const quota = await cache.read("account-a", load, recheck, refresh, controller.signal);
     await wait(load.mock.calls.length === previousLoads ? cachedRpcMs : rpcMs);
     const data = accountsFixture();
-    data.accounts[0]!.quota = quota;
+    data.accounts[0].quota = quota;
     return data;
   });
   const samples: { at: number; state: string; label: string; observedAt: string | null }[] = [];
@@ -50,9 +51,9 @@ function pollingAccount(rpcMs = 12_000, cachedRpcMs = rpcMs) {
     }
     samples.push({
       at: now - start,
-      state: visibleView(data.accounts[0]!.quota, now).state,
+      state: visibleView(data.accounts[0].quota, now).state,
       label: footerAllowance(data, now).label,
-      observedAt: data.accounts[0]!.quota.snapshot?.observedAt ?? null,
+      observedAt: data.accounts[0].quota.snapshot?.observedAt ?? null,
     });
   });
   const stop = store.start(api);
@@ -85,9 +86,9 @@ afterEach(() => {
 });
 
 function displayed() {
-  const { data, now } = account!.store.getSnapshot();
+  const { data, now } = requireFixtureValue(account).store.getSnapshot();
   return {
-    quota: visibleView(data!.accounts[0]!.quota, now),
+    quota: visibleView(requireFixtureValue(data).accounts[0].quota, now),
     footer: footerAllowance(data, now),
   };
 }
@@ -125,7 +126,7 @@ describe("account polling through the host quota cache", () => {
 
     expect(displayed().quota).toEqual({ state: "stale", reason: "network", snapshot: original });
     expect(displayed().footer).toMatchObject({ label: "63%", known: true });
-    expect(Date.now() - Date.parse(original!.observedAt)).toBeLessThan(300_000);
+    expect(Date.now() - Date.parse(requireFixtureValue(original).observedAt)).toBeLessThan(300_000);
     await vi.advanceTimersByTimeAsync(950_000);
     expect(
       account.samples.filter((sample) => sample.at >= 250_000 && sample.label !== "63%"),

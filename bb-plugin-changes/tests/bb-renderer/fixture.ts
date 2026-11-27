@@ -169,10 +169,11 @@ export function rendererFixture(threadId: string, environmentId: string) {
           return { kind: "ok", marks: marks.get(JSON.stringify(target)) ?? {} };
         case "updateViewed": {
           const key = JSON.stringify(target);
-          const next = { ...marks.get(key), ...(input.set as Record<string, string>) };
-          for (const path of input.remove as string[]) {
-            delete next[path];
-          }
+          const updates = { ...marks.get(key), ...(input.set as Record<string, string>) };
+          const removed = new Set(input.remove as string[]);
+          const next = Object.fromEntries(
+            Object.entries(updates).filter(([path]) => !removed.has(path)),
+          );
           marks.set(key, next);
           return { kind: "ok" };
         }

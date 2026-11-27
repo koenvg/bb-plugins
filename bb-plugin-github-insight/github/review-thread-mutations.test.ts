@@ -4,11 +4,12 @@ import {
   replyToThreadArgs,
   setThreadResolvedArgs,
 } from "./review-thread-mutations";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const THREAD = "PRRT_kwDOUpGL5s6lyX41";
 
 function queryOf(args: string[]): string {
-  return args.find((arg) => arg.startsWith("query="))!;
+  return requireFixtureValue(args.find((arg) => arg.startsWith("query=")));
 }
 
 describe("replyToThreadArgs", () => {

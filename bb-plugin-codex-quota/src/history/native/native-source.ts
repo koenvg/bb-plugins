@@ -25,7 +25,7 @@ export async function openSource(path: string): Promise<{
   identity: string;
   size: number;
   stamp: string;
-  verify(): Promise<void>;
+  verify: () => Promise<void>;
 }> {
   const parent = dirname(path);
   const proof = await proveDirectory(parent);

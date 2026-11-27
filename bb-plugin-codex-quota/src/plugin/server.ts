@@ -37,6 +37,7 @@ import {
   reportsRequestSchema,
   reportsSchema,
 } from "../machines/machines-contract.js";
+import type { HistoryRequest } from "../history/history-contract.js";
 
 const hostIdSchema = z.string().min(1).max(128);
 const generationSchema = z.number().int().min(0).max(1_000_000_000);
@@ -172,7 +173,7 @@ export default function plugin(bb: BbPluginApi) {
     mutate: (hostId, work) => machines.mutate(hostId, work),
   });
   bb.onDispose(() => maintenance.dispose());
-  const readHistory = (input: import("../history/history-contract.js").HistoryRequest) =>
+  const readHistory = (input: HistoryRequest) =>
     session.request(input, {
       schema: historyReadinessSchema,
       unavailable: historyUnavailable,

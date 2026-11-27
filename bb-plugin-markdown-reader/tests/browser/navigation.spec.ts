@@ -1,5 +1,6 @@
 import { test, expect, sourceText, revealed, capture, results } from "./fixture";
 import type { Page } from "@playwright/test";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const request = (page: Page, start: number, end: number) =>
   page.evaluate(
@@ -94,7 +95,9 @@ for (const [width, theme] of [
     expect(await raw.textContent()).toBe(source);
     const line = raw.locator('[data-source-line="18"]');
     await expect(raw.locator('[data-highlighted="true"]')).toHaveCount(1);
-    expect(await line.textContent()).toBe(source.match(/[^\n]*\n|[^\n]+$/g)![17]);
+    expect(await line.textContent()).toBe(
+      requireFixtureValue(source.match(/[^\n]*\n|[^\n]+$/g))[17],
+    );
     expect(await line.evaluate((e) => e === document.activeElement)).toBe(true);
     expect(await revealed(line)).toBe(true);
     if (width === 390)
@@ -215,15 +218,16 @@ for (const headings of ["none", "actual"]) {
     );
     await expect(page.locator(".mr-prose a[href]")).toHaveCount(4);
     expect(
-      await page
-        .locator(".mr-prose a[href]")
-        .evaluateAll((es) =>
-          es.every((e) =>
-            Array.from(e.closest(".mr-prose")!.querySelectorAll("[id]")).some(
-              (t) => "#" + t.id === e.getAttribute("href"),
-            ),
-          ),
-        ),
+      await page.locator(".mr-prose a[href]").evaluateAll((es) =>
+        es.every((e) => {
+          const ancestor = e.closest(".mr-prose");
+          if (ancestor == null)
+            throw new Error('Missing browser fixture value: e.closest(".mr-prose")');
+          return Array.from(ancestor.querySelectorAll("[id]")).some(
+            (t) => "#" + t.id === e.getAttribute("href"),
+          );
+        }),
+      ),
     ).toBe(true);
     expect(
       await page
@@ -233,12 +237,15 @@ for (const headings of ["none", "actual"]) {
     const referencesLocal = await page
       .locator(".mr-prose sup [aria-describedby]")
       .evaluateAll((es) =>
-        es.every((e) =>
-          Array.from(e.closest(".mr-prose")!.querySelectorAll("[id]")).some(
+        es.every((e) => {
+          const ancestor2 = e.closest(".mr-prose");
+          if (ancestor2 == null)
+            throw new Error('Missing browser fixture value: e.closest(".mr-prose")');
+          return Array.from(ancestor2.querySelectorAll("[id]")).some(
             (label) =>
               label.id === e.getAttribute("aria-describedby") && label.textContent === "Footnotes",
-          ),
-        ),
+          );
+        }),
       );
     expect(referencesLocal).toBe(true);
     const screenshot = await capture(page, info, `footnotes-${headings}`);

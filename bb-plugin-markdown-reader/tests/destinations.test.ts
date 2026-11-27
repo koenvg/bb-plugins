@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSourceReader, type SourceAdapter, type ReaderTarget } from "../source";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const targets: ReaderTarget[] = [
   {
@@ -83,7 +84,7 @@ describe("source destination interface", () => {
       expect(adapter.imageUrl).not.toHaveBeenCalled();
     },
   );
-  it.each([targets[0]!, targets[2]!])(
+  it.each([targets[0], targets[2]])(
     "permits literal parent links inside the $source.kind root",
     async (target) => {
       const { reader } = setup();
@@ -198,7 +199,9 @@ describe("source destination interface", () => {
   );
   it("keeps valid file/URL results when image URL creation fails", async () => {
     const { reader, adapter } = setup();
-    vi.mocked(adapter.imageUrl!).mockRejectedValue(new Error("Host disconnected"));
+    vi.mocked(requireFixtureValue(adapter.imageUrl)).mockRejectedValue(
+      new Error("Host disconnected"),
+    );
     const result = await reader.destinations({
       target: targets[0],
       requests: [request("image.png", true), request("next.md"), request("https://example.com")],
@@ -227,7 +230,7 @@ describe("source destination interface", () => {
         requests: Array.from({ length: 129 }, () => request("x.png", true)),
       }),
     ).rejects.toThrow();
-    const bad = { ...targets[0]!, source: { ...targets[0]!.source, experimental_hostId: "wrong" } };
+    const bad = { ...targets[0], source: { ...targets[0].source, experimental_hostId: "wrong" } };
     expect(
       (await reader.destinations({ target: bad, requests: [request("x.png", true)] }))
         .destinations[0],
@@ -249,7 +252,7 @@ describe("source destination interface", () => {
     "/api/v1/plugins/markdown-reader/http/image?asset=x&path=other.png",
   ])("rejects invalid image URL %j", async (url) => {
     const { reader, adapter } = setup();
-    vi.mocked(adapter.imageUrl!).mockResolvedValue(url);
+    vi.mocked(requireFixtureValue(adapter.imageUrl)).mockResolvedValue(url);
     expect(
       (await reader.destinations({ target: targets[0], requests: [request("x.png", true)] }))
         .destinations[0],

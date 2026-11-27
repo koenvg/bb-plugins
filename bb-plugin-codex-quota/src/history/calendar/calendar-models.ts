@@ -24,7 +24,11 @@ export const dayModelsSchema = z
   )
   .refine((value) => Number.isSafeInteger(modelTotal(value)), "Unsafe model total");
 export type DayModels = z.infer<typeof dayModelsSchema>;
-type ModelDay = { totalTokens: number; coverage?: { zero: boolean }; models?: DayModels };
+interface ModelDay {
+  totalTokens: number;
+  coverage?: { zero: boolean };
+  models?: DayModels;
+}
 export function modelTotal(value: {
   named: { totalTokens: number }[];
   otherTokens: number;
@@ -84,7 +88,12 @@ export function modelColor(model: string): string {
   }
   return palette[(hash >>> 0) % palette.length];
 }
-export type ModelSeries = { key: string; label: string; color: string; model?: string };
+export interface ModelSeries {
+  key: string;
+  label: string;
+  color: string;
+  model?: string;
+}
 export function projectTokenModels(days: readonly ModelDay[]) {
   const totals = new Map<string, bigint>();
   for (const day of days) {
@@ -137,12 +146,11 @@ export function projectTokenModels(days: readonly ModelDay[]) {
       });
     }
   }
-  for (const values of facts) {
-    for (const name of Object.keys(values)) {
-      if (!series.some((item) => item.key === name)) {
-        delete values[name];
-      }
-    }
-  }
-  return { series, facts };
+  const keys = new Set(series.map((item) => item.key));
+  return {
+    series,
+    facts: facts.map((values) =>
+      Object.fromEntries(Object.entries(values).filter(([name]) => keys.has(name))),
+    ),
+  };
 }

@@ -16,6 +16,8 @@ import { openHistoryDatabase } from "./storage/history-storage.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Preparation } from "./report-preparation-contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -26,7 +28,7 @@ afterEach(async () => {
 it("settles a large catalog over bounded RPC batches without management, account or transcript calls", async () => {
   const root = await mkdtemp(join(tmpdir(), "bbp143-routing-"));
   roots.push(root);
-  const usage = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const usage = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   initializeHistory(usage, "2026-10-01T00:00:00Z");
   initializeIdentityStorage(usage);
   let hardUnknown = false;
@@ -67,7 +69,7 @@ it("settles a large catalog over bounded RPC batches without management, account
       };
     },
   });
-  const discovery = (await openHistoryDatabase(":memory:"))!;
+  const discovery = requireFixtureValue(await openHistoryDatabase(":memory:"));
   bb.onDispose(() => {
     discovery.close();
   });
@@ -88,7 +90,7 @@ it("settles a large catalog over bounded RPC batches without management, account
     const selection = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
       generation: number;
     };
-    let result: import("./report-preparation-contract.js").Preparation;
+    let result: Preparation;
     let calls = 0;
     let previousProgress = "";
     do {
@@ -98,7 +100,7 @@ it("settles a large catalog over bounded RPC batches without management, account
         hostId: "host_a",
         generation: selection.generation,
         refresh: (calls += 1) - 1 === 0,
-      })) as import("./report-preparation-contract.js").Preparation;
+      })) as Preparation;
       const metadata = harness.inspection.sdk.calls
         .slice(before)
         .filter((call) => call.path !== "hosts.get");
@@ -262,13 +264,13 @@ it.each([
       const selection = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
         generation: number;
       };
-      let result: import("./report-preparation-contract.js").Preparation | undefined;
+      let result: Preparation | undefined;
       for (let batch = 0; batch < 10; batch += 1) {
         result = (await harness.behavior.callRpc("reportPreparation", {
           hostId: "host_a",
           generation: selection.generation,
           refresh: batch === 0,
-        })) as import("./report-preparation-contract.js").Preparation;
+        })) as Preparation;
         if (result.state !== "pending") {
           break;
         }

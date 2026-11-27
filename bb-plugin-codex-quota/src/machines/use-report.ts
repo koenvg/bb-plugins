@@ -94,7 +94,7 @@ export function useMachineReport(
     // Neither optional storage nor remote collection can hold the other's first result.
     if (readers.current.snapshot) {
       void Promise.resolve()
-        .then(() => (active ? readers.current.snapshot!({ query }) : null))
+        .then(() => (active ? readers.current.snapshot?.({ query }) : null))
         .then((raw) => {
           if (!active || livePublished) {
             return;

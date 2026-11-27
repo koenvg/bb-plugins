@@ -11,6 +11,7 @@ import { readHostCalendar } from "../calendar/calendar-host.js";
 import { calendarQuerySchema, calendarReportSchema } from "../calendar/calendar-contract.js";
 import { importCommandSchema } from "./import-contract.js";
 import type { ImportCommand } from "./import-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -55,7 +56,7 @@ async function fixture() {
     await mkdir(dir, { recursive: true });
   }
   const path = join(dataDir, "history/usage-v1.sqlite");
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, at, false);
   maintainHistory(db, now);
   acceptIdentityBatch(db, {

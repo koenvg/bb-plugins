@@ -11,8 +11,8 @@ const require = createRequire(createRequire(import.meta.url).resolve("react-dom/
 const realScheduler = require("scheduler");
 const originalScheduler = { ...realScheduler };
 const scheduler = require("scheduler/unstable_mock") as {
-  unstable_flushUntilNextPaint(): void;
-  unstable_flushAllWithoutAsserting(): void;
+  unstable_flushUntilNextPaint: () => void;
+  unstable_flushAllWithoutAsserting: () => void;
 };
 Object.assign(realScheduler, scheduler);
 const { cleanup, fireEvent } = await import("@testing-library/react");
@@ -61,7 +61,7 @@ it("keeps an enqueue error when the RPC finishes before the button subscribes", 
   const message = "Pull request is not mergeable";
   const run = vi.spyOn(prOperations, "run");
   const subscribe = vi.spyOn(prOperations, "subscribe");
-  const slot = renderSlot<{}, typeof rpcContract>(
+  const slot = renderSlot<Record<string, never>, typeof rpcContract>(
     { component: DelayedButton },
     {},
     { rpc: { runPrAction: () => ({ kind: "error", message }) } as never },
@@ -77,7 +77,7 @@ it("keeps an enqueue error when the RPC finishes before the button subscribes", 
   expect(subscribe).not.toHaveBeenCalled();
   fireEvent.click(button);
   expect(run).toHaveBeenCalledTimes(1);
-  await run.mock.results[0]!.value;
+  await run.mock.results[0].value;
   expect(subscribe).not.toHaveBeenCalled();
   expect(slot.inspection.rpcCalls).toEqual([
     {

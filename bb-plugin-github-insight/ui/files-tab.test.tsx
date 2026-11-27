@@ -29,6 +29,8 @@ import { FilesTab } from "./files-tab";
 import prFiles from "../test/fixtures/pr-1-files.json";
 import threadedPrFiles from "../test/fixtures/pr-25259-files.json";
 import reviewThreads from "../test/fixtures/pr-25259-review-threads.json";
+import type { VideoWireResult } from "../core/video-content";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const DiffsContainer = "diffs-container" as unknown as "div";
 
@@ -62,7 +64,7 @@ vi.mock("@pierre/diffs/react", () => ({
         const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
         if (!root.querySelector("[data-diffs-header]")) {
           root.innerHTML = "<div data-diffs-header data-sticky><div data-title></div></div>";
-          root.querySelector("[data-title]")!.textContent = fileDiff.name;
+          requireFixtureValue(root.querySelector("[data-title]")).textContent = fileDiff.name;
         }
         options?.onPostRender?.(element);
       }}
@@ -101,7 +103,11 @@ vi.mock("@pierre/diffs/react", () => ({
 }));
 
 class VisibleAtOnce {
-  constructor(private readonly callback: IntersectionObserverCallback) {}
+  private readonly callback: IntersectionObserverCallback;
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+  }
   observe(target: Element) {
     this.callback(
       [{ isIntersecting: true, target } as IntersectionObserverEntry],
@@ -114,7 +120,11 @@ class VisibleAtOnce {
 const resizeCallbacks = new Set<ResizeObserverCallback>();
 
 class RecordedResizeObserver {
-  constructor(private readonly callback: ResizeObserverCallback) {}
+  private readonly callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
   observe() {
     resizeCallbacks.add(this.callback);
   }
@@ -169,9 +179,7 @@ const threaded = {
 
 interface RpcHandlers {
   getReview?: () => ReviewResult | Promise<ReviewResult>;
-  getPrVideo?: () =>
-    | import("../core/video-content").VideoWireResult
-    | Promise<import("../core/video-content").VideoWireResult>;
+  getPrVideo?: () => VideoWireResult | Promise<VideoWireResult>;
   getPrImage?: () => ImageWireResult | Promise<ImageWireResult>;
   getDrafts?: () => DraftsResult | Promise<DraftsResult>;
   sendToAgent?: () => SendToAgentResult | Promise<SendToAgentResult>;
@@ -224,9 +232,9 @@ function renderTabWith(handlers: RpcHandlers, ...results: ReviewResult[]) {
 
 function renderTabFor(threadId: string, handlers: RpcHandlers, ...results: ReviewResult[]) {
   let call = 0;
-  const getReview = () => results[Math.min((call += 1) - 1, results.length - 1)]!;
+  const getReview = () => results[Math.min((call += 1) - 1, results.length - 1)];
   const getDrafts = (): DraftsResult => {
-    const latest = results[Math.min(call, results.length - 1)]!;
+    const latest = results[Math.min(call, results.length - 1)];
     if (latest.kind !== "ok") {
       return latest;
     }
@@ -454,7 +462,7 @@ describe("PR raster review", () => {
     revoke.mockRestore();
   });
   it("keeps SVG patches reviewable as text", async () => {
-    const source = recorded.files.find((file) => file.patch !== null)!;
+    const source = requireFixtureValue(recorded.files.find((file) => file.patch !== null));
     const slot = renderTab({ ...recorded, imageBasis, files: [{ ...source, path: "icon.svg" }] });
     await slot.findByTestId("file-diff");
     expect(callsTo(slot, "getPrImage")).toEqual([]);
@@ -490,15 +498,15 @@ describe("Files tab", () => {
       "plugins/github-insight/app.tsx",
       "plugins/github-insight/core/pr-ref.ts",
     ]);
-    expect(slot.getAllByTestId("file-diff")[0]!.getAttribute("data-type")).toBe("new");
+    expect(slot.getAllByTestId("file-diff")[0].getAttribute("data-type")).toBe("new");
   });
 
   it("shows the path and 'Diff not available' for a file without a patch", async () => {
     const slot = renderTab(recorded);
 
-    const row = (await slot.findByText("plugins/github-insight/package-lock.json")).closest(
-      "section",
-    )!;
+    const row = requireFixtureValue(
+      (await slot.findByText("plugins/github-insight/package-lock.json")).closest("section"),
+    );
     expect(within(row).getByText("Diff not available")).toBeTruthy();
   });
 
@@ -571,11 +579,13 @@ describe("Files tab viewed files", () => {
   let threadCount = 0;
 
   function fileAt(files: readonly ReviewFile[], path: string): ReviewFile {
-    return files.find((file) => file.path === path)!;
+    return requireFixtureValue(files.find((file) => file.path === path));
   }
 
   function markedIn(files: readonly ReviewFile[], ...paths: string[]) {
-    return Object.fromEntries(paths.map((path) => [path, fileIdentity(fileAt(files, path))!]));
+    return Object.fromEntries(
+      paths.map((path) => [path, requireFixtureValue(fileIdentity(fileAt(files, path)))]),
+    );
   }
 
   function withFiles(files: ReviewFile[], viewedMarks: Record<string, string> = {}): ReviewResult {
@@ -584,7 +594,9 @@ describe("Files tab viewed files", () => {
 
   function editPatch(files: readonly ReviewFile[], path: string): ReviewFile[] {
     return files.map((file) =>
-      file.path === path ? { ...file, patch: file.patch!.replace("\n+", "\n+edited ") } : file,
+      file.path === path
+        ? { ...file, patch: requireFixtureValue(file.patch).replace("\n+", "\n+edited ") }
+        : file,
     );
   }
 
@@ -594,9 +606,9 @@ describe("Files tab viewed files", () => {
   }
 
   function diffOf(slot: ReturnType<typeof renderTab>, path: string) {
-    return slot
-      .getAllByTestId("file-diff")
-      .find((diff) => diff.getAttribute("data-path") === path)!;
+    return requireFixtureValue(
+      slot.getAllByTestId("file-diff").find((diff) => diff.getAttribute("data-path") === path),
+    );
   }
 
   function checkbox(slot: ReturnType<typeof renderTab>, path: string) {
@@ -647,7 +659,9 @@ describe("Files tab viewed files", () => {
   it("toggles only the clicked filename's accordion and keeps Viewed controls independent", async () => {
     const slot = renderViewed({}, withFiles(recorded.files, markedIn(recorded.files, APP)));
     await slot.findByRole("button", { name: `Expand ${APP}` });
-    const filename = diffOf(slot, APP).shadowRoot!.querySelector("[data-title]")!;
+    const filename = requireFixtureValue(
+      requireFixtureValue(diffOf(slot, APP).shadowRoot).querySelector("[data-title]"),
+    );
 
     fireEvent.click(filename);
     expect(diffOf(slot, APP).dataset.collapsed).toBe("false");
@@ -680,7 +694,7 @@ describe("Files tab viewed files", () => {
 
   it("keeps the thread count in the header of a viewed file", async () => {
     const files = threaded.files;
-    const path = files[0]!.path;
+    const path = files[0].path;
     const slot = renderViewed({}, { ...threaded, viewedMarks: markedIn(files, path) });
 
     await slot.findAllByTestId("file-diff");
@@ -806,11 +820,13 @@ describe("Files tab threads", () => {
   it("shows the thread count in the file header", async () => {
     const slot = renderTab(threaded);
 
-    const diff = (await slot.findAllByTestId("file-diff")).find((candidate) =>
-      within(candidate)
-        .queryAllByTestId("line-annotation")
-        .some((annotation) => annotation.textContent?.includes(OPEN_THREAD)),
-    )!;
+    const diff = requireFixtureValue(
+      (await slot.findAllByTestId("file-diff")).find((candidate) =>
+        within(candidate)
+          .queryAllByTestId("line-annotation")
+          .some((annotation) => annotation.textContent?.includes(OPEN_THREAD)),
+      ),
+    );
     const threadCount = within(diff).getAllByTestId("line-annotation").length;
     expect(within(diff).getByTestId("file-diff-header").textContent).toBe(`${threadCount}Viewed`);
   });
@@ -819,9 +835,11 @@ describe("Files tab threads", () => {
     const slot = renderTab(threaded);
 
     await slot.findAllByTestId("line-annotation");
-    const annotation = annotationWith(slot, OPEN_THREAD)!;
+    const annotation = requireFixtureValue(annotationWith(slot, OPEN_THREAD));
     expect(annotation.dataset).toMatchObject({ side: "additions", line: "46" });
-    expect(annotation.closest("[data-testid=file-diff]")!.getAttribute("data-path")).toBe(
+    expect(
+      requireFixtureValue(annotation.closest("[data-testid=file-diff]")).getAttribute("data-path"),
+    ).toBe(
       "apps/shell/e2e/catalog/integrations/components/asset/generic-configuration/createDatabricksOutboundSyncConfigurationComponent.ts",
     );
   });
@@ -830,7 +848,7 @@ describe("Files tab threads", () => {
     const slot = renderTab(threaded);
 
     await slot.findAllByTestId("line-annotation");
-    const thread = within(annotationWith(slot, OPEN_THREAD)!);
+    const thread = within(requireFixtureValue(annotationWith(slot, OPEN_THREAD)));
     const bodies = thread.getAllByTestId("bb-markdown").map((body) => body.textContent);
     expect(bodies).toHaveLength(2);
     expect(bodies[0]).toMatch(/^There's no wait/);
@@ -846,9 +864,11 @@ describe("Files tab threads", () => {
     const slot = renderTab(threaded);
 
     await slot.findAllByTestId("line-annotation");
-    const thread = within(annotationWith(slot, OPEN_THREAD)!);
+    const thread = within(requireFixtureValue(annotationWith(slot, OPEN_THREAD)));
     for (const body of thread.getAllByTestId("bb-markdown")) {
-      expect(body.parentElement!.classList).toContain("[&_pre]:overflow-x-auto");
+      expect(requireFixtureValue(body.parentElement).classList).toContain(
+        "[&_pre]:overflow-x-auto",
+      );
     }
   });
 
@@ -883,7 +903,7 @@ describe("Files tab threads", () => {
 
     fireEvent.click(await slot.findByRole("checkbox", { name: "Show resolved" }));
 
-    const collapsed = annotationWith(slot, "Resolved")!;
+    const collapsed = requireFixtureValue(annotationWith(slot, "Resolved"));
     expect(collapsed.dataset).toMatchObject({ side: "additions", line: "46" });
     expect(within(collapsed).queryByTestId("bb-markdown")).toBeNull();
     const toggle = within(collapsed).getByRole("button", { name: /a-bandziuk.*Resolved/ });
@@ -914,12 +934,12 @@ describe("Files tab threads", () => {
       ...threaded,
       threads: {
         ...threaded.threads,
-        placed: [{ ...first!, thread: { ...first!.thread, hasMoreComments: true } }, ...rest],
+        placed: [{ ...first, thread: { ...first.thread, hasMoreComments: true } }, ...rest],
       },
     });
 
     const link = await slot.findByRole("link", { name: "More comments on GitHub" });
-    expect(link.getAttribute("href")).toBe(first!.thread.comments.at(-1)!.url);
+    expect(link.getAttribute("href")).toBe(requireFixtureValue(first.thread.comments.at(-1)).url);
   });
 
   it("has no Outdated section when no outdated thread shows", async () => {
@@ -952,9 +972,9 @@ describe("Files tab drafts", () => {
 
     const { section, box } = await findDraft(slot);
     expect(box.value).toBe("Renamed in abc123");
-    const card = section.closest("article")!;
+    const card = requireFixtureValue(section.closest("article"));
     expect(card.textContent).toContain("There's no wait for the new row to mount");
-    const lastComment = within(card).getAllByTestId("bb-markdown").at(-1)!;
+    const lastComment = requireFixtureValue(within(card).getAllByTestId("bb-markdown").at(-1));
     expect(
       lastComment.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -1020,7 +1040,7 @@ describe("Files tab drafts", () => {
   it("has 'Discard' only on a thread with a draft", async () => {
     const slot = renderTab(withDraft(PLACED));
 
-    const card = within((await findDraft(slot)).section.closest("article")!);
+    const card = within(requireFixtureValue((await findDraft(slot)).section.closest("article")));
     const discard = card.getByRole("button", { name: "Discard" });
     expect(slot.getAllByRole("button", { name: "Discard" })).toEqual([discard]);
   });
@@ -1030,7 +1050,9 @@ describe("Files tab drafts", () => {
     const { box } = await findDraft(slot);
 
     fireEvent.change(box, { target: { value: "Renamed in def456" } });
-    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Post" }));
+    fireEvent.click(
+      within(requireFixtureValue(box.closest("article"))).getByRole("button", { name: "Post" }),
+    );
 
     await waitFor(() =>
       expect(slot.queryByRole("region", { name: "Draft from agent" })).toBeNull(),
@@ -1046,7 +1068,9 @@ describe("Files tab drafts", () => {
     const { box } = await findDraft(slot);
 
     fireEvent.click(
-      within(box.closest("article")!).getByRole("button", { name: "Post + resolve" }),
+      within(requireFixtureValue(box.closest("article"))).getByRole("button", {
+        name: "Post + resolve",
+      }),
     );
 
     await waitFor(() =>
@@ -1060,7 +1084,7 @@ describe("Files tab drafts", () => {
   it("discards the draft without a GitHub write, and loads only the drafts again", async () => {
     const slot = renderTab(withDraft(PLACED), threaded);
     const { box } = await findDraft(slot);
-    const card = within(box.closest("article")!);
+    const card = within(requireFixtureValue(box.closest("article")));
 
     fireEvent.click(card.getByRole("button", { name: "Discard" }));
     await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft"]));
@@ -1079,7 +1103,9 @@ describe("Files tab drafts", () => {
     const slot = renderTab(withDraft(PLACED), threaded);
     const { box } = await findDraft(slot);
 
-    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Discard" }));
+    fireEvent.click(
+      within(requireFixtureValue(box.closest("article"))).getByRole("button", { name: "Discard" }),
+    );
     await waitFor(() => expect(methods(slot)).toEqual(["getReview", "discardDraft"]));
     await slot.behavior.emitRealtime("review.drafts-updated", { threadId: "thr_1" });
 
@@ -1096,7 +1122,9 @@ describe("Files tab drafts", () => {
     );
     const { box } = await findDraft(slot);
 
-    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Discard" }));
+    fireEvent.click(
+      within(requireFixtureValue(box.closest("article"))).getByRole("button", { name: "Discard" }),
+    );
 
     expect((await slot.findByRole("alert")).textContent).toBe("No pull request for this thread");
     expect((await findDraft(slot)).box.value).toBe("Renamed in abc123");
@@ -1110,7 +1138,9 @@ describe("Files tab drafts", () => {
     const { box } = await findDraft(slot);
 
     fireEvent.change(box, { target: { value: "Renamed in def456" } });
-    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Post" }));
+    fireEvent.click(
+      within(requireFixtureValue(box.closest("article"))).getByRole("button", { name: "Post" }),
+    );
 
     expect((await slot.findByRole("alert")).textContent).toBe("gh not logged in");
     expect((await findDraft(slot)).box.value).toBe("Renamed in def456");
@@ -1161,7 +1191,9 @@ describe("Files tab drafts", () => {
     const { box } = await findDraft(slot);
 
     fireEvent.change(box, { target: { value: "Renamed in def456" } });
-    fireEvent.click(within(box.closest("article")!).getByRole("button", { name: "Resolve" }));
+    fireEvent.click(
+      within(requireFixtureValue(box.closest("article"))).getByRole("button", { name: "Resolve" }),
+    );
 
     await waitFor(() =>
       expect(methods(slot)).toEqual(["getReview", "saveDraft", "setResolved", "getReview"]),
@@ -1170,9 +1202,11 @@ describe("Files tab drafts", () => {
 
   it("does not save a reply on a thread without a draft", async () => {
     const slot = renderTab(withDraft(OUTDATED));
-    const annotation = (await slot.findAllByTestId("line-annotation")).find((candidate) =>
-      candidate.textContent?.includes("There's no wait"),
-    )!;
+    const annotation = requireFixtureValue(
+      (await slot.findAllByTestId("line-annotation")).find((candidate) =>
+        candidate.textContent?.includes("There's no wait"),
+      ),
+    );
 
     fireEvent.change(within(annotation).getByRole("textbox", { name: "Reply" }), {
       target: { value: "Half written" },
@@ -1201,9 +1235,9 @@ describe("Files tab send to agent", () => {
   const PLACED_TEXT = "There's no wait for the new row to mount";
 
   function checkboxOf(slot: ReturnType<typeof renderTab>, text: string) {
-    const card = slot
-      .getAllByRole("article")
-      .find((article) => article.textContent?.includes(text))!;
+    const card = requireFixtureValue(
+      slot.getAllByRole("article").find((article) => article.textContent?.includes(text)),
+    );
     return within(card).getByRole("checkbox", { name: "Add to agent" }) as HTMLInputElement;
   }
 
@@ -1252,7 +1286,9 @@ describe("Files tab send to agent", () => {
     });
     fireEvent.click(resolved);
 
-    expect(within(resolved.closest("article")!).queryByRole("checkbox")).toBeNull();
+    expect(
+      within(requireFixtureValue(resolved.closest("article"))).queryByRole("checkbox"),
+    ).toBeNull();
     expect(slot.getAllByRole("checkbox", { name: "Add to agent" })).toHaveLength(3);
   });
 
@@ -1361,10 +1397,12 @@ describe("Files tab thread actions", () => {
 
   async function openCard(slot: ReturnType<typeof renderTab>) {
     await slot.findAllByTestId("line-annotation");
-    const annotation = slot
-      .getAllByTestId("line-annotation")
-      .find((candidate) => candidate.textContent?.includes(OPEN_THREAD))!;
-    return within(annotation.querySelector("article")!);
+    const annotation = requireFixtureValue(
+      slot
+        .getAllByTestId("line-annotation")
+        .find((candidate) => candidate.textContent?.includes(OPEN_THREAD)),
+    );
+    return within(requireFixtureValue(annotation.querySelector("article")));
   }
 
   function typeReply(card: Awaited<ReturnType<typeof openCard>>, text = REPLY) {
@@ -1413,7 +1451,7 @@ describe("Files tab thread actions", () => {
         "getReview",
       ]),
     );
-    expect(writeCalls(slot)[0]!.input).toEqual({
+    expect(writeCalls(slot)[0].input).toEqual({
       threadId: "thr_1",
       reviewThreadId: PLACED,
       body: REPLY,
@@ -1430,7 +1468,7 @@ describe("Files tab thread actions", () => {
     fireEvent.click(card.getByRole("button", { name: "Post + resolve" }));
 
     await waitFor(() => expect(writeCalls(slot)).toHaveLength(1));
-    expect(writeCalls(slot)[0]!.input).toMatchObject({ reviewThreadId: PLACED, resolve: true });
+    expect(writeCalls(slot)[0].input).toMatchObject({ reviewThreadId: PLACED, resolve: true });
   });
 
   it("shows the error and keeps the text when the post fails", async () => {
@@ -1549,7 +1587,9 @@ describe("Files tab thread actions", () => {
     fireEvent.click(await slot.findByRole("checkbox", { name: "Show resolved" }));
     fireEvent.click(slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }));
     const card = within(
-      slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }).closest("article")!,
+      requireFixtureValue(
+        slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }).closest("article"),
+      ),
     );
     expect(card.queryByRole("textbox", { name: "Reply" })).toBeNull();
     fireEvent.click(card.getByRole("button", { name: "Unresolve" }));
@@ -1587,7 +1627,9 @@ describe("Files tab thread actions", () => {
       fireEvent.click(await slot.findByRole("checkbox", { name: "Show resolved" }));
       fireEvent.click(slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }));
       const card = within(
-        slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }).closest("article")!,
+        requireFixtureValue(
+          slot.getByRole("button", { name: /a-bandziuk.*Resolved/ }).closest("article"),
+        ),
       );
 
       fireEvent.click(card.getByRole("button", { name: "Unresolve" }));
@@ -1646,16 +1688,16 @@ describe("Files tab thread actions", () => {
 
   it("keeps the reply text when a thread above it in the file gets resolved", async () => {
     const [first, second] = threaded.threads.placed;
-    const sameFile = { ...second!, thread: { ...second!.thread, path: first!.thread.path } };
+    const sameFile = { ...second, thread: { ...second.thread, path: first.thread.path } };
     const before: ReviewResult = {
       ...threaded,
-      threads: { ...threaded.threads, placed: [first!, sameFile] },
+      threads: { ...threaded.threads, placed: [first, sameFile] },
     };
     const after: ReviewResult = {
       ...before,
       threads: {
         ...before.threads,
-        placed: [{ ...first!, thread: { ...first!.thread, resolved: true } }, sameFile],
+        placed: [{ ...first, thread: { ...first.thread, resolved: true } }, sameFile],
       },
     };
     const slot = renderTab(before, after);
@@ -1709,7 +1751,9 @@ describe("Files tab comment drafts", () => {
     expect(box.value).toBe("Name the slot id");
     const annotation = card.closest("[data-testid=line-annotation]") as HTMLElement;
     expect(annotation.dataset).toMatchObject({ side: "additions", line: "4" });
-    expect(annotation.closest("[data-testid=file-diff]")!.getAttribute("data-path")).toBe(APP_TSX);
+    expect(
+      requireFixtureValue(annotation.closest("[data-testid=file-diff]")).getAttribute("data-path"),
+    ).toBe(APP_TSX);
   });
 
   it("shows a draft on the old side on the deletions side", async () => {
@@ -1863,7 +1907,7 @@ describe("Files tab new comments", () => {
 
   async function clickAdd(slot: ReturnType<typeof renderTab>, side: "additions" | "deletions") {
     const [diff] = await slot.findAllByTestId("file-diff");
-    fireEvent.click(within(diff!).getByRole("button", { name: `+ ${side} 4` }));
+    fireEvent.click(within(diff).getByRole("button", { name: `+ ${side} 4` }));
   }
 
   it("creates a comment draft on the new side and focuses its box after the drafts reload", async () => {
@@ -1944,7 +1988,11 @@ describe("Files tab new comment glow", () => {
   let threadCount = 0;
 
   class WatchComments {
-    constructor(private readonly callback: IntersectionObserverCallback) {}
+    private readonly callback: IntersectionObserverCallback;
+
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+    }
     observe(target: Element) {
       if (target.hasAttribute("data-review-comment-id")) {
         watchedComments.set(target, this.callback);
@@ -2020,8 +2068,10 @@ describe("Files tab new comment glow", () => {
     const slot = renderGlow({}, withNew(threaded, REPLY));
 
     await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
-    expect(commentOf(slot, REPLY)!.classList).toContain("review-comment-new");
-    expect(commentOf(slot, FIRST)!.classList).not.toContain("review-comment-new");
+    expect(requireFixtureValue(commentOf(slot, REPLY)).classList).toContain("review-comment-new");
+    expect(requireFixtureValue(commentOf(slot, FIRST)).classList).not.toContain(
+      "review-comment-new",
+    );
   });
 
   it("shows no glow when nothing is new", async () => {
@@ -2035,9 +2085,9 @@ describe("Files tab new comment glow", () => {
     const slot = renderGlow({}, withNew(threaded, REPLY));
     await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
 
-    readFor(1800, commentOf(slot, REPLY)!);
+    readFor(1800, requireFixtureValue(commentOf(slot, REPLY)));
 
-    expect(commentOf(slot, REPLY)!.classList).toContain("review-comment-new");
+    expect(requireFixtureValue(commentOf(slot, REPLY)).classList).toContain("review-comment-new");
     await waitFor(() =>
       expect(callsTo(slot, "markCommentsSeen")).toEqual([
         { threadId: `thr_glow_${threadCount}`, commentIds: [REPLY] },
@@ -2049,7 +2099,7 @@ describe("Files tab new comment glow", () => {
     const slot = renderGlow({}, withNew(threaded, REPLY));
     await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
 
-    readFor(500, commentOf(slot, REPLY)!);
+    readFor(500, requireFixtureValue(commentOf(slot, REPLY)));
 
     expect(callsTo(slot, "markCommentsSeen")).toEqual([]);
   });
@@ -2063,7 +2113,7 @@ describe("Files tab new comment glow", () => {
     await waitFor(() => expect(methods(slot).filter((m) => m === "getReview")).toHaveLength(2));
     await quietly();
 
-    expect(commentOf(slot, REPLY)!.classList).toContain("review-comment-new");
+    expect(requireFixtureValue(commentOf(slot, REPLY)).classList).toContain("review-comment-new");
   });
 
   it("does not try again to save a comment that failed to save", async () => {
@@ -2072,10 +2122,10 @@ describe("Files tab new comment glow", () => {
       withNew(threaded, REPLY),
     );
     await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
-    readFor(1800, commentOf(slot, REPLY)!);
+    readFor(1800, requireFixtureValue(commentOf(slot, REPLY)));
     await waitFor(() => expect(callsTo(slot, "markCommentsSeen")).toHaveLength(1));
 
-    readFor(1800, commentOf(slot, REPLY)!);
+    readFor(1800, requireFixtureValue(commentOf(slot, REPLY)));
     await quietly();
 
     expect(callsTo(slot, "markCommentsSeen")).toHaveLength(1);
@@ -2085,7 +2135,11 @@ describe("Files tab new comment glow", () => {
     const slot = renderGlow({}, withNew(threaded, FIRST, REPLY));
     await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
 
-    readFor(1800, commentOf(slot, FIRST)!, commentOf(slot, REPLY)!);
+    readFor(
+      1800,
+      requireFixtureValue(commentOf(slot, FIRST)),
+      requireFixtureValue(commentOf(slot, REPLY)),
+    );
 
     await waitFor(() =>
       expect(callsTo(slot, "markCommentsSeen")).toEqual([
@@ -2098,7 +2152,7 @@ describe("Files tab new comment glow", () => {
     const slot = renderGlow({}, withNew(threaded, REPLY));
     await waitFor(() => expect(commentOf(slot, REPLY)).not.toBeNull());
 
-    readFor(1500, commentOf(slot, REPLY)!);
+    readFor(1500, requireFixtureValue(commentOf(slot, REPLY)));
     slot.unmount();
 
     expect(callsTo(slot, "markCommentsSeen")).toEqual([
@@ -2139,13 +2193,17 @@ describe("Files tab new comment glow", () => {
   });
 
   it("starts a viewed file with a new comment expanded", async () => {
-    const identity = fileIdentity(threaded.files.find((file) => file.path === DATABRICKS)!)!;
+    const identity = requireFixtureValue(
+      fileIdentity(requireFixtureValue(threaded.files.find((file) => file.path === DATABRICKS))),
+    );
     const viewed = { ...threaded, viewedMarks: { [DATABRICKS]: identity } };
     const slot = renderGlow({}, withNew(viewed, REPLY));
 
-    const diff = (await slot.findAllByTestId("file-diff")).find(
-      (candidate) => candidate.getAttribute("data-path") === DATABRICKS,
-    )!;
+    const diff = requireFixtureValue(
+      (await slot.findAllByTestId("file-diff")).find(
+        (candidate) => candidate.getAttribute("data-path") === DATABRICKS,
+      ),
+    );
     expect(diff.dataset.collapsed).toBe("false");
     expect(
       (slot.getByRole("checkbox", { name: `Viewed ${DATABRICKS}` }) as HTMLInputElement).checked,
@@ -2175,7 +2233,7 @@ describe("Files tab drafts on an older commit", () => {
     ).toBe("Name the slot id");
     const [firstDiff] = await slot.findAllByTestId("file-diff");
     expect(
-      section.compareDocumentPosition(firstDiff!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      section.compareDocumentPosition(firstDiff) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(slot.queryAllByTestId("line-annotation")).toEqual([]);
   });
@@ -2211,7 +2269,7 @@ describe("Files tab submit panel", () => {
   function verdicts(panel: ReturnType<typeof within>) {
     return panel
       .getAllByRole("radio")
-      .map((radio: HTMLElement) => radio.closest("label")!.textContent);
+      .map((radio: HTMLElement) => requireFixtureValue(radio.closest("label")).textContent);
   }
 
   function submitButton(panel: ReturnType<typeof within>) {
@@ -2331,7 +2389,7 @@ describe("Files tab submit panel", () => {
     const slot = renderTab(withDraftsAndSummary, recorded);
     const panel = await openPanel(slot);
     const box = within(
-      (await slot.findAllByRole("region", { name: "Pending comment" }))[0]!,
+      (await slot.findAllByRole("region", { name: "Pending comment" }))[0],
     ).getByRole("textbox", { name: "Comment" });
 
     fireEvent.change(box, { target: { value: "Edited comment" } });
@@ -2435,7 +2493,7 @@ describe("Files tab palette commands", () => {
   it("keeps an open panel open with the typed summary", async () => {
     const slot = renderTab(recorded);
     fireEvent.click(await slot.findByRole("button", { name: "Submit review" }));
-    const summary = within(submitRegion(slot)!).getByRole("textbox", {
+    const summary = within(requireFixtureValue(submitRegion(slot))).getByRole("textbox", {
       name: "Summary",
     }) as HTMLTextAreaElement;
     fireEvent.change(summary, { target: { value: "Looks good" } });
@@ -2443,8 +2501,11 @@ describe("Files tab palette commands", () => {
     await act(async () => postIntent("thr_1", "files", "submit"));
 
     expect(
-      (within(submitRegion(slot)!).getByRole("textbox", { name: "Summary" }) as HTMLTextAreaElement)
-        .value,
+      (
+        within(requireFixtureValue(submitRegion(slot))).getByRole("textbox", {
+          name: "Summary",
+        }) as HTMLTextAreaElement
+      ).value,
     ).toBe("Looks good");
   });
 
@@ -2614,7 +2675,11 @@ describe("Files tab comment navigation", () => {
   const pendingReveals = new Map<Element, IntersectionObserverCallback>();
 
   class RevealOnRequest {
-    constructor(private readonly callback: IntersectionObserverCallback) {}
+    private readonly callback: IntersectionObserverCallback;
+
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+    }
     observe(target: Element) {
       pendingReveals.set(target, this.callback);
     }
@@ -2622,7 +2687,7 @@ describe("Files tab comment navigation", () => {
   }
 
   function reveal(area: HTMLElement, path: string) {
-    const section = area.querySelector(`section[data-path="${path}"]`)!;
+    const section = requireFixtureValue(area.querySelector(`section[data-path="${path}"]`));
     act(() => {
       pendingReveals.get(section)?.(
         [{ isIntersecting: true, target: section } as IntersectionObserverEntry],
@@ -2667,7 +2732,9 @@ describe("Files tab comment navigation", () => {
   async function renderNavigation(result: ReviewResult) {
     const slot = renderTab(result);
     await slot.findByText(/files? changed/);
-    const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+    const area = requireFixtureValue(
+      slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]"),
+    );
     return Object.assign(slot, {
       area,
       stepper: () => within(slot.getByRole("group", { name: "Comment navigation" })),
@@ -2823,7 +2890,9 @@ describe("Files tab comment navigation", () => {
     vi.useFakeTimers();
     reveal(slot.area, "b.ts");
     resize();
-    const card = slot.area.querySelector<HTMLElement>('[data-review-thread-id="tb"]')!;
+    const card = requireFixtureValue(
+      slot.area.querySelector<HTMLElement>('[data-review-thread-id="tb"]'),
+    );
     expect(slot.area.scrollTop).toBe(cardTop(UNMOUNTED_HEIGHT + 4 * LINE_HEIGHT));
     expect(card.hasAttribute("data-jumped")).toBe(true);
 
@@ -2872,7 +2941,9 @@ describe("Files tab comment navigation", () => {
     await act(quietly);
     resize();
 
-    const area = slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]")!;
+    const area = requireFixtureValue(
+      slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]"),
+    );
     expect(area.scrollTop).toBe(0);
   });
 
@@ -2905,7 +2976,7 @@ describe("Files tab comment navigation", () => {
   it("keeps the typed text of a draft across a jump", async () => {
     const slot = await renderNavigation(standard);
     const box = within(
-      slot.area.querySelector<HTMLElement>('[data-comment-draft-id="d1"]')!,
+      requireFixtureValue(slot.area.querySelector<HTMLElement>('[data-comment-draft-id="d1"]')),
     ).getByRole("textbox", { name: "Comment" }) as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "Half typed" } });
 

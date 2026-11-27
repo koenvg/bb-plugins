@@ -11,6 +11,7 @@ import {
   SHARED_ENVIRONMENT_MESSAGE,
 } from "./review-queue-service";
 import type { QueueProject, QueueThread, ReviewQueueServiceDeps } from "./review-queue-service";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 function queuePr(repo: string, number: number, overrides: Partial<QueuePr> = {}): QueuePr {
   return {
@@ -166,7 +167,7 @@ function allPrs(result: LoadedReviewQueue): LinkedQueuePr[] {
 }
 
 function firstReviewRequest(result: LoadedReviewQueue): LinkedQueuePr {
-  return allPrs(result)[0]!;
+  return allPrs(result)[0];
 }
 
 function sections(result: LoadedReviewQueue) {
@@ -864,8 +865,8 @@ describe("new activity after the mark", () => {
     await service.markReviewed({ repo: "acme/api", number: 15, headOid: "head-15" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(firstReviewRequest(published[1]!).newActivity).toEqual([]);
-    expect(sections(published[1]!)).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
+    expect(firstReviewRequest(published[1]).newActivity).toEqual([]);
+    expect(sections(published[1])).toEqual({ needsReview: [], reviewed: [["acme/api", [15]]] });
   });
 
   it("puts a marked PR back in Needs review after an unseen inline reply", async () => {
@@ -967,7 +968,7 @@ describe("new activity after the mark", () => {
     ).toEqual({ kind: "ok" });
 
     expect(kv.entries.get("comment-seen:v1:acme/api#15")).toEqual({ v: 1, ids: ["PRRC_1"] });
-    expect(firstReviewRequest(published.at(-1)!).newActivity).toEqual([]);
+    expect(firstReviewRequest(requireFixtureValue(published.at(-1))).newActivity).toEqual([]);
   });
 
   it("returns an error when the seen comments cannot be saved", async () => {
@@ -1039,9 +1040,9 @@ describe("new activity after the mark", () => {
     const { service, kv } = serviceWith();
     const loaded = await service.refreshReviewQueue();
     const stored = structuredClone(loaded) as { kind: "ok" } & Record<string, unknown>;
-    const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
-    delete prs[0]!.newActivity;
-    delete prs[0]!.activity;
+    const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0].prs;
+    delete prs[0].newActivity;
+    delete prs[0].activity;
     kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 6, result: stored });
 
     expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
@@ -1053,8 +1054,8 @@ describe("new activity after the mark", () => {
     const { service, kv } = serviceWith();
     const loaded = await service.refreshReviewQueue();
     const stored = structuredClone(loaded) as { kind: "ok" } & Record<string, unknown>;
-    const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0]!.prs;
-    delete prs[0]!.labels;
+    const prs = (stored.needsReview as { prs: Record<string, unknown>[] }[])[0].prs;
+    delete prs[0].labels;
     kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 6, result: stored });
 
     expect(firstReviewRequest((await service.getReviewQueue()) as LoadedReviewQueue)).toMatchObject(
@@ -1135,10 +1136,10 @@ describe("stored review queue", () => {
     await new Promise((resolve) => setImmediate(resolve));
     expect(fetches).toHaveLength(1);
 
-    fetches[0]!.resolve(queueOf([queuePr("acme/api", 15)]));
+    fetches[0].resolve(queueOf([queuePr("acme/api", 15)]));
     await first;
     await vi.waitFor(() => expect(fetches).toHaveLength(2));
-    fetches[1]!.resolve(queueOf([queuePr("acme/api", 16)]));
+    fetches[1].resolve(queueOf([queuePr("acme/api", 16)]));
 
     expect(firstReviewRequest(await second).number).toBe(16);
     expect(await third).toEqual(await second);
@@ -1209,7 +1210,7 @@ describe("startReview", () => {
 
     expect(spawned).toEqual([[pr, request]]);
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    const update = published[1]!;
+    const update = published[1];
     expect(firstReviewRequest(update).thread?.id).toBe("thr_review");
     expect(update).toMatchObject({ loadedAt: 1_000 });
     expect(hostIds).toHaveLength(1);
@@ -1260,18 +1261,20 @@ describe("startReview", () => {
     await service.startReview(pr, request);
 
     await vi.waitFor(() => expect(published).toHaveLength(3));
-    const update = published[2]!;
+    const update = published[2];
     if (update.kind !== "error") {
       throw new Error("expected error");
     }
     expect(update.message).toBe("rate limited");
-    expect(update.lastGood?.needsReview[0]!.prs[0]!.thread?.id).toBe("thr_review");
+    expect(
+      requireFixtureValue(requireFixtureValue(update.lastGood?.needsReview[0]).prs[0]).thread?.id,
+    ).toBe("thr_review");
   });
 
   it("keeps a load that finished during the re-link", async () => {
     let number = 15;
     let clock = 1_000;
-    let gate: ReturnType<typeof deferred<void>> | null = null;
+    let gate: ReturnType<typeof deferred<undefined>> | null = null;
     const { service, published } = serviceWith({
       fetchReviewQueue: async () => queueOf([queuePr("acme/api", number)]),
       listProjects: async () => {
@@ -1283,13 +1286,13 @@ describe("startReview", () => {
       now: () => (clock += 1) - 1,
     });
     await service.refreshReviewQueue();
-    const relinkGate = deferred<void>();
+    const relinkGate = deferred<undefined>();
     gate = relinkGate;
 
     await service.startReview(pr, request);
     number = 16;
     const newer = await service.refreshReviewQueue();
-    relinkGate.resolve();
+    relinkGate.resolve(undefined);
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(await service.getReviewQueue()).toEqual(newer);
@@ -1332,7 +1335,7 @@ describe("archiveReview", () => {
     expect(await service.archiveReview("thr_review")).toEqual({ kind: "ok" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    const update = published[1]!;
+    const update = published[1];
     expect(firstReviewRequest(update).thread).toBeNull();
     expect(hostIds).toHaveLength(1);
   });
@@ -1393,7 +1396,7 @@ describe("archiveReview on a PR kept only by its thread", () => {
     await service.archiveReview("thr_review");
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(allPrs(published[1]!)).toEqual([]);
+    expect(allPrs(published[1])).toEqual([]);
     expect(fetches).toBe(1);
   });
 });
@@ -1408,12 +1411,12 @@ describe("markReviewed", () => {
     ).toEqual({ kind: "ok" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(sections(published[1]!)).toEqual({ needsReview: [], reviewed: [["Acme/API", [15]]] });
+    expect(sections(published[1])).toEqual({ needsReview: [], reviewed: [["Acme/API", [15]]] });
     expect(hostIds).toHaveLength(1);
   });
 
   it("keeps both marks when a second mark lands during the re-link of the first", async () => {
-    let gate: ReturnType<typeof deferred<void>> | null = null;
+    let gate: ReturnType<typeof deferred<undefined>> | null = null;
     const { service } = serviceWith({
       fetchReviewQueue: async () => queueOf([queuePr("acme/api", 15), queuePr("acme/api", 16)]),
       listProjects: async () => {
@@ -1424,7 +1427,7 @@ describe("markReviewed", () => {
       },
     });
     await service.refreshReviewQueue();
-    const firstRelink = deferred<void>();
+    const firstRelink = deferred<undefined>();
     gate = firstRelink;
 
     const first = service.markReviewed({ repo: "acme/api", number: 15, headOid: "head-15" });
@@ -1433,7 +1436,7 @@ describe("markReviewed", () => {
     for (let i = 0; i < 20; i += 1) {
       await new Promise((resolve) => setImmediate(resolve));
     }
-    firstRelink.resolve();
+    firstRelink.resolve(undefined);
     await Promise.all([first, second]);
 
     const stored = await service.getReviewQueue();
@@ -1466,7 +1469,7 @@ describe("markReviewed", () => {
     await service.markReviewed({ repo: "acme/api", number: 15, headOid: "abc123" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(firstReviewRequest(published[1]!).review).toBe("updated_since_review");
+    expect(firstReviewRequest(published[1]).review).toBe("updated_since_review");
   });
 
   it("loads from GitHub to show a marked PR that is not in the list yet", async () => {
@@ -1483,7 +1486,7 @@ describe("markReviewed", () => {
     await service.markReviewed({ repo: "acme/web", number: 3, headOid: "head-3" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(sections(published[1]!).reviewed).toEqual([["acme/web", [3]]]);
+    expect(sections(published[1]).reviewed).toEqual([["acme/web", [3]]]);
     expect(hostIds).toHaveLength(2);
   });
 
@@ -1519,8 +1522,8 @@ describe("markNeedsReview", () => {
     expect(await service.markNeedsReview({ repo: "Acme/API", number: 15 })).toEqual({ kind: "ok" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(firstReviewRequest(published[1]!).review).toBe("needs_review");
-    expect(sections(published[1]!).reviewed).toEqual([]);
+    expect(firstReviewRequest(published[1]).review).toBe("needs_review");
+    expect(sections(published[1]).reviewed).toEqual([]);
   });
 
   it("drops a PR that is listed only because of its mark", async () => {
@@ -1533,7 +1536,7 @@ describe("markNeedsReview", () => {
     await service.markNeedsReview({ repo: "acme/api", number: 15 });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(allPrs(published[1]!)).toEqual([]);
+    expect(allPrs(published[1])).toEqual([]);
   });
 
   it("reports a failed delete", async () => {
@@ -1600,7 +1603,7 @@ describe("unseen PRs", () => {
     });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(viewOf(published[1]!).hasUnseen).toBe(false);
+    expect(viewOf(published[1]).hasUnseen).toBe(false);
   });
 
   it("forgets a seen PR that leaves Needs review, so a new request for it is unseen", async () => {
@@ -1645,8 +1648,8 @@ describe("returned review threads", () => {
     const loaded = await service.refreshReviewQueue();
     const stored = structuredClone(loaded) as { kind: "ok" } & Record<string, unknown>;
     delete stored.hasReturned;
-    const prs = (stored.needsReview as { prs: { thread: Record<string, unknown> }[] }[])[0]!.prs;
-    delete prs[0]!.thread.returned;
+    const prs = (stored.needsReview as { prs: { thread: Record<string, unknown> }[] }[])[0].prs;
+    delete prs[0].thread.returned;
     kv.entries.set(REVIEW_QUEUE_STORAGE_KEY, { v: 6, result: stored });
 
     expect(returnedOf((await service.getReviewQueue()) as LoadedReviewQueue)).toEqual({
@@ -1667,7 +1670,7 @@ describe("returned review threads", () => {
       await service.threadStopped("thr_review");
 
       await vi.waitFor(() => expect(published).toHaveLength(2));
-      expect(returnedOf(published[1]!)).toEqual({ row: reason, view: true });
+      expect(returnedOf(published[1])).toEqual({ row: reason, view: true });
     },
   );
 
@@ -1682,7 +1685,7 @@ describe("returned review threads", () => {
     await service.threadStopped("thr_branch");
 
     expect([...kv.entries.keys()]).toEqual(keys);
-    expect(returnedOf(published.at(-1)!)).toEqual({ row: null, view: false });
+    expect(returnedOf(requireFixtureValue(published.at(-1)))).toEqual({ row: null, view: false });
   });
 
   it("clears a returned thread when the user opens it, and returns it after a follow-up", async () => {
@@ -1692,11 +1695,11 @@ describe("returned review threads", () => {
 
     expect(await service.markThreadOpened({ threadId: "thr_review" })).toEqual({ kind: "ok" });
     await vi.waitFor(() => expect(published).toHaveLength(3));
-    expect(returnedOf(published[2]!)).toEqual({ row: null, view: false });
+    expect(returnedOf(published[2])).toEqual({ row: null, view: false });
 
     await service.threadStopped("thr_review");
     await vi.waitFor(() => expect(published).toHaveLength(4));
-    expect(returnedOf(published[3]!)).toEqual({ row: "finished", view: true });
+    expect(returnedOf(published[3])).toEqual({ row: "finished", view: true });
   });
 
   it("does nothing when an opened thread was not returned", async () => {
@@ -1719,7 +1722,7 @@ describe("returned review threads", () => {
     await service.markThreadOpened({ threadId: "thr_review" });
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(returnedOf(published[1]!)).toEqual({ row: "needs_you", view: true });
+    expect(returnedOf(published[1])).toEqual({ row: "needs_you", view: true });
   });
 
   it("counts a returned thread on a reviewed PR", async () => {
@@ -1804,7 +1807,7 @@ describe("linked thread status", () => {
     await service.threadActive("thr_branch");
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(statusOf(published[1]!)).toBe("running");
+    expect(statusOf(published[1])).toBe("running");
   });
 
   it("shows a review thread as running again after a follow-up message", async () => {
@@ -1820,7 +1823,7 @@ describe("linked thread status", () => {
     await service.threadActive("thr_review");
 
     await vi.waitFor(() => expect(published).toHaveLength(3));
-    expect(firstReviewRequest(published[2]!).thread).toMatchObject({
+    expect(firstReviewRequest(published[2]).thread).toMatchObject({
       status: "running",
       returned: null,
     });
@@ -1835,7 +1838,7 @@ describe("linked thread status", () => {
     await service.threadStopped("thr_branch");
 
     await vi.waitFor(() => expect(published).toHaveLength(2));
-    expect(statusOf(published[1]!)).toBe("idle");
+    expect(statusOf(published[1])).toBe("idle");
   });
 
   it("ignores a thread that no PR in the queue links to", async () => {

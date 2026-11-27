@@ -6,10 +6,12 @@ import { createHostHistory } from "./history-host.js";
 import { openHistoryDatabase, loadHistoryStorage } from "./storage/history-storage.js";
 import { packagedCollectorAsset } from "./collection/collector-compatibility.js";
 import { readFileSync } from "node:fs";
+import type * as FileSystemPromises from "node:fs/promises";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const publicationFailure = vi.hoisted(() => ({ control: "" }));
 vi.mock("node:fs/promises", async (original) => {
-  const filesystem = await original<typeof import("node:fs/promises")>();
+  const filesystem = await original<typeof FileSystemPromises>();
   return {
     ...filesystem,
     rename: async (
@@ -51,8 +53,10 @@ it.each([true, false])(
       await f.history.control("pause", f.context);
     }
     const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"));
-    db!.prepare("INSERT INTO workspace_totals VALUES (?,?,?)").run("/retained", 42, 2);
-    db!.close();
+    requireFixtureValue(db)
+      .prepare("INSERT INTO workspace_totals VALUES (?,?,?)")
+      .run("/retained", 42, 2);
+    requireFixtureValue(db).close();
     await writeFile(f.asset, "ordinary old collector");
     const result = await f.history.repairExisting(f.context);
     expect(result).toMatchObject({
@@ -293,8 +297,10 @@ it("does one bounded mutable pass and verifies without ingesting a second batch"
   });
   expect(await readFile(log, "utf8")).toBe(records);
   const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"), true);
-  expect(db!.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 1 });
-  db!.close();
+  expect(requireFixtureValue(db).prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({
+    n: 1,
+  });
+  requireFixtureValue(db).close();
   history.dispose();
 });
 
@@ -305,16 +311,16 @@ it.each(["unsupported-storage", "invalid-collection", "import-only"])(
     await writeFile(f.asset, "old");
     const db = await openHistoryDatabase(join(f.dataDir, "history/usage-v1.sqlite"));
     if (state === "unsupported-storage") {
-      db!.exec("PRAGMA user_version=99");
+      requireFixtureValue(db).exec("PRAGMA user_version=99");
     }
     if (state === "invalid-collection") {
-      db!.exec("UPDATE collector_meta SET first_observed='invalid'");
+      requireFixtureValue(db).exec("UPDATE collector_meta SET first_observed='invalid'");
     }
     if (state === "import-only") {
-      db!.exec("DELETE FROM collector_meta");
+      requireFixtureValue(db).exec("DELETE FROM collector_meta");
       await rm(f.control);
     }
-    db!.close();
+    requireFixtureValue(db).close();
     const control = state === "import-only" ? null : await readFile(f.control);
     expect(await f.history.repairExisting(f.context)).toMatchObject({
       kind: "refused",
@@ -354,7 +360,7 @@ it("does not report success when read-back fails after both durable publications
   await writeFile(f.asset, "old");
   const before = await readFile(f.control, "utf8");
   f.history.dispose();
-  const factory = (await loadHistoryStorage())!;
+  const factory = requireFixtureValue(await loadHistoryStorage());
   const history = createHostHistory({
     agentDir: () => f.agent,
     now: () => Date.UTC(2026, 9, 1),
@@ -386,7 +392,7 @@ it("rechecks missing eligibility after waiting behind uncooperative queued work"
   await writeFile(f.asset, "old");
   expect(await f.history.read(f.context)).toMatchObject({ reason: "collector-incompatible" });
   f.history.dispose();
-  const factory = (await loadHistoryStorage())!;
+  const factory = requireFixtureValue(await loadHistoryStorage());
   let release!: () => void;
   let entered!: () => void;
   let loads = 0;

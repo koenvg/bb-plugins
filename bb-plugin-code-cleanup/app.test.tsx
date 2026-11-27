@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { PluginSettingsSectionProps } from "@get-bb/plugin-sdk/app";
 import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, screen, act, waitFor } from "@testing-library/react";
@@ -8,12 +9,13 @@ import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import type { ProjectState, ProjectSummary, PromptResult, SettingsContract } from "./rpc";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
-const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
+const hosts: ReturnType<typeof createFakePluginHost>["harness"][] = [];
 afterEach(async () => {
   cleanup();
   while (hosts.length) {
-    await hosts.pop()!.lifecycle.dispose();
+    await requireFixtureValue(hosts.pop()).lifecycle.dispose();
   }
 });
 const choices = [
@@ -50,7 +52,7 @@ async function mount(
 ) {
   const app = await loadPluginApp(() => import("./app"));
   expect(app.settingsSections).toHaveLength(1);
-  return renderSlot<{}, SettingsContract>(
+  return renderSlot<PluginSettingsSectionProps, SettingsContract>(
     app.settingsSections[0],
     {},
     {

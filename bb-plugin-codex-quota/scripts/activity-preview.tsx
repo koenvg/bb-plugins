@@ -6,6 +6,7 @@ import { AccountActivity } from "../src/activity/activity-view.js";
 import { normalizeActivity } from "../src/activity/activity.js";
 import type { ActivityApi } from "../src/activity/activity-request-state.js";
 import { HistoryReadinessPanel } from "../src/history/history-view.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 const now = Date.now();
 let activityCalls = 0;
@@ -78,4 +79,4 @@ const Preview = () => {
     </>
   );
 };
-createRoot(document.getElementById("root")!).render(<Preview />);
+createRoot(requireFixtureValue(document.getElementById("root"))).render(<Preview />);

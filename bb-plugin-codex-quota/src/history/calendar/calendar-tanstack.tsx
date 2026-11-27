@@ -13,17 +13,17 @@ import type { chartData, TokenMetric } from "./calendar-chart-data.js";
 
 type ChartData = ReturnType<typeof chartData>;
 type DailyRow = ChartData["rows"][number];
-type DrawingRow = {
+interface DrawingRow {
   date: string;
   series: string;
   height: number;
   color: string;
   uncertain: boolean;
-};
+}
 
 function dailyInspection(
   rows: DailyRow[],
-  models: Array<ChartData["models"][number]>,
+  models: ChartData["models"][number][],
   metric: TokenMetric,
 ) {
   return createMark<DailyRow, string, number>(() => ({
@@ -85,7 +85,7 @@ export const CalendarChart = ({
   helpId,
 }: {
   data: ChartData;
-  visibleModels: Array<ChartData["models"][number]>;
+  visibleModels: ChartData["models"][number][];
   metric: TokenMetric;
   includeUncertain: boolean;
   helpId?: string;

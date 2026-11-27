@@ -5,9 +5,11 @@ import { createQuotaHostEntry } from "../plugin/host.js";
 import plugin from "../plugin/server.js";
 import { quotaFixture } from "../machines/machines.test-support.js";
 import { normalizeActivity } from "./activity.js";
+import type { ActivityView } from "./activity-contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const time = Date.UTC(2026, 3, 23, 12);
-const snapshot = normalizeActivity({ stats: { lifetime_tokens: 12 } }, time)!;
+const snapshot = requireFixtureValue(normalizeActivity({ stats: { lifetime_tokens: 12 } }, time));
 const fresh = { state: "fresh", reason: "ok", snapshot };
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -40,8 +42,8 @@ describe("activity host and server boundaries", () => {
     let identity = "a";
     let now = time;
     let calls = 0;
-    const held = deferred<void>();
-    const started = deferred<void>();
+    const held = deferred<undefined>();
+    const started = deferred<undefined>();
     const harness = experimental_createHostEntryHarness(
       createQuotaHostEntry({
         auth: async () => ({ status: "ok", token: "private-token", identity }),
@@ -49,7 +51,7 @@ describe("activity host and server boundaries", () => {
         read: async () => ({ status: "service", snapshot: null }),
         activityRead: async () => {
           if ((calls += 1) === 2) {
-            started.resolve();
+            started.resolve(undefined);
             await held.promise;
           }
           return { status: "ok", snapshot };
@@ -61,7 +63,7 @@ describe("activity host and server boundaries", () => {
     const pending = harness.experimental_call("activity", { refresh: true });
     await started.promise;
     identity = "b";
-    held.resolve();
+    held.resolve(undefined);
     expect((await pending).reason).toBe("identity-changed");
     now += 30_000;
     expect((await harness.experimental_call("activity", {})).state).toBe("fresh");
@@ -100,7 +102,8 @@ describe("activity host and server boundaries", () => {
     });
     await plugin(bb);
     expect(
-      ((await harness.behavior.callRpc("activity", { hostId: "a", generation: 0 })) as any).reason,
+      ((await harness.behavior.callRpc("activity", { hostId: "a", generation: 0 })) as ActivityView)
+        .reason,
     ).toBe("no-selection");
     const selected = (await harness.behavior.callRpc("selectHost", { hostId: "a" })) as {
       generation: number;
@@ -110,7 +113,7 @@ describe("activity host and server boundaries", () => {
         (await harness.behavior.callRpc("activity", {
           hostId: "b",
           generation: selected.generation,
-        })) as any
+        })) as ActivityView
       ).reason,
     ).toBe("foreign-host");
     expect(
@@ -122,7 +125,7 @@ describe("activity host and server boundaries", () => {
         (await harness.behavior.callRpc("activity", {
           hostId: "a",
           generation: selected.generation,
-        })) as any
+        })) as ActivityView
       ).reason,
     ).toBe("host-offline");
     await expect(
@@ -137,7 +140,7 @@ describe("activity host and server boundaries", () => {
     await harness.lifecycle.dispose();
   });
   it("drops old-host output and cancels the RPC on selection change", async () => {
-    const started = deferred<void>();
+    const started = deferred<undefined>();
     const held = deferred<unknown>();
     const { bb, harness } = createFakePluginHost({
       pluginId: "codex-quota",
@@ -145,7 +148,7 @@ describe("activity host and server boundaries", () => {
         hosts: { get: async ({ hostId }: { hostId: string }) => makeHostResponse({ id: hostId }) },
       },
       experimental_callHostRpc: async () => {
-        started.resolve();
+        started.resolve(undefined);
         return held.promise;
       },
     });
@@ -160,8 +163,8 @@ describe("activity host and server boundaries", () => {
     await started.promise;
     await harness.behavior.callRpc("selectHost", { hostId: "b" });
     held.resolve(fresh);
-    expect(((await pending) as any).reason).toBe("selection-changed");
-    expect(harness.experimental_hostRpcCalls[0]!.signal!.aborted).toBe(true);
+    expect(((await pending) as ActivityView).reason).toBe("selection-changed");
+    expect(requireFixtureValue(harness.experimental_hostRpcCalls[0].signal).aborted).toBe(true);
     await harness.lifecycle.dispose();
   });
   it("rejects extra raw output fields without logs", async () => {
@@ -183,13 +186,13 @@ describe("activity host and server boundaries", () => {
       hostId: "a",
       generation: selected.generation,
     });
-    expect((result as any).snapshot).toBeNull();
+    expect((result as ActivityView).snapshot).toBeNull();
     expect(JSON.stringify(result) + JSON.stringify(harness.logEntries)).not.toContain("private");
     await harness.lifecycle.dispose();
   });
   it("disposes the host while an activity read is held and rejects its late result", async () => {
-    const started = deferred<void>();
-    const held = deferred<void>();
+    const started = deferred<undefined>();
+    const held = deferred<undefined>();
     let readSignal: AbortSignal | undefined;
     const harness = experimental_createHostEntryHarness(
       createQuotaHostEntry({
@@ -198,7 +201,7 @@ describe("activity host and server boundaries", () => {
         read: async () => ({ status: "network", snapshot: null }),
         activityRead: async (_token, signal) => {
           readSignal = signal;
-          started.resolve();
+          started.resolve(undefined);
           await held.promise;
           return { status: "ok", snapshot };
         },
@@ -213,12 +216,12 @@ describe("activity host and server boundaries", () => {
       reason: "selection-changed",
       snapshot: null,
     });
-    held.resolve();
+    held.resolve(undefined);
     await Promise.resolve();
     await expect(harness.experimental_call("activity", {})).rejects.toThrow();
   });
   it("disposes the server while a host RPC is held and rejects its late result", async () => {
-    const started = deferred<void>();
+    const started = deferred<undefined>();
     const held = deferred<unknown>();
     const { bb, harness } = createFakePluginHost({
       pluginId: "codex-quota",
@@ -226,7 +229,7 @@ describe("activity host and server boundaries", () => {
         hosts: { get: async ({ hostId }: { hostId: string }) => makeHostResponse({ id: hostId }) },
       },
       experimental_callHostRpc: async () => {
-        started.resolve();
+        started.resolve(undefined);
         return held.promise;
       },
     });
@@ -240,7 +243,7 @@ describe("activity host and server boundaries", () => {
     });
     await started.promise;
     await harness.lifecycle.dispose();
-    expect(harness.experimental_hostRpcCalls[0]!.signal!.aborted).toBe(true);
+    expect(requireFixtureValue(harness.experimental_hostRpcCalls[0].signal).aborted).toBe(true);
     expect(await pending).toEqual({
       state: "unavailable",
       reason: "selection-changed",

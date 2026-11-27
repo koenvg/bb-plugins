@@ -17,6 +17,7 @@ import { usageRecordSchema } from "../collection/usage-record.js";
 import type { CalendarQuery } from "./calendar-contract.js";
 import { importedUsage } from "../import/import-parser.js";
 import { acceptIdentityBatch, reconcileIdentity } from "../identity/identity-storage.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 const now = Date.parse("2026-10-01T12:00:00Z");
@@ -35,7 +36,7 @@ async function fixture(clock = now) {
   const dataDir = join(root, "data");
   await mkdir(join(dataDir, "history"), { recursive: true });
   const path = join(dataDir, "history/usage-v1.sqlite");
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, new Date(clock).toISOString(), false);
   maintainHistory(db, clock);
   const history = createHostHistory({ now: () => clock });
@@ -418,7 +419,7 @@ it("retains compact prices after class expiry, reopen and changes in later model
     ]),
   });
   expect(await readFile(f.path)).toEqual(before);
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   put(db, 2, "/original", 999);
   db.close();
   expect(await f.read(previous)).toMatchObject({

@@ -21,7 +21,7 @@ export const ANNOTATION_MIGRATIONS = [
    CREATE INDEX annotations_thread_url ON annotations (thread_id, url_key);`,
 ];
 
-type Row = {
+interface Row {
   id: string;
   thread_id: string;
   url: string;
@@ -34,7 +34,7 @@ type Row = {
   viewport: string;
   image_path: string;
   resolved_at: number | null;
-};
+}
 
 export interface StoredAnnotation extends Annotation {
   imagePath: string;
@@ -101,7 +101,7 @@ export function createAnnotationStore(db: Database.Database, now: () => number =
   );
 
   const insert = db.transaction((annotation: NewAnnotation): StoredAnnotation => {
-    if (nextNumber.get(annotation.threadId)!.next !== annotation.number) {
+    if (nextNumber.get(annotation.threadId)?.next !== annotation.number) {
       throw new Error("Another annotation was added at the same time. Save again.");
     }
     insertRow.run({
@@ -112,7 +112,11 @@ export function createAnnotationStore(db: Database.Database, now: () => number =
       viewport: JSON.stringify(annotation.viewport),
       createdAt: now(),
     });
-    return fromRow(byId.get(annotation.id)!);
+    const row = byId.get(annotation.id);
+    if (!row) {
+      throw new Error("New annotation could not be read.");
+    }
+    return fromRow(row);
   });
 
   const removeMany = db.transaction((ids: readonly string[]): StoredAnnotation[] => {

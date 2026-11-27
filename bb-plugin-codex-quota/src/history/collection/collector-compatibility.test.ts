@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { packagedCollectorAsset, readCollectorCompatibility } from "./collector-compatibility.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 async function fixture() {
@@ -74,8 +75,8 @@ describe("self-contained collector compatibility", () => {
       content: "SENTINEL-private-prompt",
       toolArgs: "SENTINEL-credential",
     };
-    await handlers.get("message_end")!({ message }, context);
-    await handlers.get("session_shutdown")!();
+    await requireFixtureValue(handlers.get("message_end"))({ message }, context);
+    await requireFixtureValue(handlers.get("session_shutdown"))();
     expect(await readdir(root)).toEqual([]);
     await mkdir(join(root, "history"));
     await writeFile(
@@ -86,8 +87,8 @@ describe("self-contained collector compatibility", () => {
         enabled: true,
       }),
     );
-    await handlers.get("message_end")!({ message }, context);
-    await handlers.get("session_shutdown")!();
+    await requireFixtureValue(handlers.get("message_end"))({ message }, context);
+    await requireFixtureValue(handlers.get("session_shutdown"))();
     const text = await readFile(log, "utf8");
     const event = JSON.parse(text.trim());
     expect(event).toMatchObject({
@@ -101,11 +102,11 @@ describe("self-contained collector compatibility", () => {
     expect(text).not.toContain("SENTINEL");
     expect(text).not.toContain("content");
     expect(text).not.toContain("toolArgs");
-    await handlers.get("message_end")!(
+    await requireFixtureValue(handlers.get("message_end"))(
       { message: { ...message, provider: "another-provider" } },
       context,
     );
-    await handlers.get("session_shutdown")!();
+    await requireFixtureValue(handlers.get("session_shutdown"))();
     expect(await readFile(log, "utf8")).toBe(text);
     await writeFile(
       join(root, "history/collector-control-v1.json"),
@@ -115,15 +116,15 @@ describe("self-contained collector compatibility", () => {
         enabled: false,
       }),
     );
-    await handlers.get("message_end")!({ message }, context);
-    await handlers.get("session_shutdown")!();
+    await requireFixtureValue(handlers.get("message_end"))({ message }, context);
+    await requireFixtureValue(handlers.get("session_shutdown"))();
     expect(await readFile(log, "utf8")).toBe(text);
     await writeFile(
       join(root, "history/collector-control-v1.json"),
       JSON.stringify({ protocol: 99, enabled: true }),
     );
-    await handlers.get("message_end")!({ message }, context);
-    await handlers.get("session_shutdown")!();
+    await requireFixtureValue(handlers.get("message_end"))({ message }, context);
+    await requireFixtureValue(handlers.get("session_shutdown"))();
     expect(await readFile(log, "utf8")).toBe(text);
   });
 });

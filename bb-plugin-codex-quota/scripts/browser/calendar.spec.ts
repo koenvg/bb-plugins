@@ -10,6 +10,7 @@ import {
 } from "./fixtures.js";
 import { chart, calls, rows, tooltip, axFacts, interactions } from "./calendar-driver.js";
 import { layout } from "./chart-layout.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 const matrices = {
   calendar: [
@@ -84,7 +85,9 @@ for (const [suite, states] of Object.entries(matrices)) {
           const chartBox = await page
             .getByRole("region", { name: "Recorded usage", exact: true })
             .boundingBox();
-          expect(allowanceBox!.y + allowanceBox!.height).toBeLessThan(chartBox!.y);
+          expect(
+            requireFixtureValue(allowanceBox).y + requireFixtureValue(allowanceBox).height,
+          ).toBeLessThan(requireFixtureValue(chartBox).y);
         }
         const facts = [];
         const captures = [];
@@ -135,11 +138,11 @@ for (const [suite, states] of Object.entries(matrices)) {
             const measurements = await layout(page);
             expect(measurements.x.length).toBeGreaterThanOrEqual(2);
             expect(measurements.axisSpacing).not.toBeNull();
-            expect(measurements.axisSpacing!.gap).toBeGreaterThanOrEqual(8);
+            expect(requireFixtureValue(measurements.axisSpacing).gap).toBeGreaterThanOrEqual(8);
             expect(
               measurements.x.every((label) => /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(label)),
             ).toBe(true);
-            expect(measurements.axisSpacing!.contained).toBe(true);
+            expect(requireFixtureValue(measurements.axisSpacing).contained).toBe(true);
             expect(measurements.tooltipContained).toBe(true);
             const theme = measurements.tooltipTheme;
             expect(theme.backgroundAlpha).toBe(1);
@@ -165,12 +168,17 @@ for (const [suite, states] of Object.entries(matrices)) {
           );
           if (state === "partial" && metric === "tokens") {
             expect(
-              (await calls(page))
-                .filter(
-                  (call) =>
-                    call.method === "machineReports" && call.input.query!.group === "workspace",
-                )
-                .at(-1)!.input.query!.includeUncertain,
+              requireFixtureValue(
+                requireFixtureValue(
+                  (await calls(page))
+                    .filter(
+                      (call) =>
+                        call.method === "machineReports" &&
+                        requireFixtureValue(call.input.query).group === "workspace",
+                    )
+                    .at(-1),
+                ).input.query,
+              ).includeUncertain,
             ).toBe(true);
             expect((await rows(page))[14][8]).toBe("300");
             expect(
@@ -207,8 +215,8 @@ for (const [suite, states] of Object.entries(matrices)) {
           } else {
             expect(call.input).toEqual({ query: call.input.query });
           }
-          expect(call.input.query!.scope).toEqual({ kind: "host" });
-          expect(call.input.query!.comparison).toBeFalsy();
+          expect(requireFixtureValue(call.input.query).scope).toEqual({ kind: "host" });
+          expect(requireFixtureValue(call.input.query).comparison).toBeFalsy();
         }
         expect(await page.evaluate("calendarFixture.errors")).toEqual([]);
         await jsonEvidence(info, "result.json", {

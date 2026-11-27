@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, within, waitFor } from "@testing-library/react
 import { afterEach, expect, it } from "vitest";
 import { dashboardFixture } from "../machines/app.test-support.js";
 import { setHistoryManagementOpen } from "./history-test-support.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 afterEach(cleanup);
 it("keeps one account owner and the official link while history is unconfigured", async () => {
@@ -39,13 +40,13 @@ it.each([false, true])(
     );
     fireEvent.click(q.getByRole("button", { name: "Refresh allowance" }));
     await waitFor(() => expect(finish).toBeTypeOf("function"));
-    fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[1]!);
+    fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[1]);
     await q.findByText("History not configured on this host.");
     if (back) {
-      fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[0]!);
+      fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[0]);
       await q.findByText("History not configured on this host.");
     }
-    expect(f.historyReadiness.mock.lastCall![0]).toMatchObject({
+    expect(requireFixtureValue(f.historyReadiness.mock.lastCall)[0]).toMatchObject({
       hostId: back ? "host_one" : "host_two",
     });
     expect((q.getByRole("button", { name: "Check readiness" }) as HTMLButtonElement).disabled).toBe(

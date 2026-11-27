@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-export type Layout = {
+export interface Layout {
   width: number;
   overflow: boolean;
   chartWidth?: number;
@@ -15,7 +15,7 @@ export type Layout = {
     opacity: number;
     textContrast: { color: string; ratio: number }[];
   };
-};
+}
 export function layout(page: Page): Promise<Layout> {
   return page.evaluate(`(() => {
     const s = document.querySelector('.ts-chart');

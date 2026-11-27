@@ -7,10 +7,11 @@ import type { InsightResult, rpcContract } from "../contract";
 import type { Check } from "../core/checks";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 type ReadMethods = Pick<typeof rpcContract, "getInsight">;
 const app = await loadPluginApp(() => import("../app"));
-const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const tab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
 
 const insight: PrInsight = {
   pr: {
@@ -247,7 +248,9 @@ describe("Merge status card", () => {
     fireEvent.click(toggle);
 
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    const shown = document.getElementById(toggle.getAttribute("aria-controls")!)!;
+    const shown = requireFixtureValue(
+      document.getElementById(requireFixtureValue(toggle.getAttribute("aria-controls"))),
+    );
     expect(Array.from(shown.querySelectorAll("li"), (row: Element) => row.textContent)).toEqual([
       expect.stringContaining("build"),
       expect.stringContaining("lint"),
@@ -264,8 +267,8 @@ describe("PR checks", () => {
       checks: [check("build", "failed", true), check("lint-docs", "failed")],
     });
 
-    const build = (await view.findByText("build")).closest("li")!;
-    const lint = view.getByText("lint-docs").closest("li")!;
+    const build = requireFixtureValue((await view.findByText("build")).closest("li"));
+    const lint = requireFixtureValue(view.getByText("lint-docs").closest("li"));
     expect(within(build).getByText("required")).toBeTruthy();
     expect(within(lint).queryByText("required")).toBeNull();
   });
@@ -277,7 +280,7 @@ describe("PR checks", () => {
     });
 
     const line = await view.findByText("2 passed, 1 skipped");
-    const group = line.closest("details")!;
+    const group = requireFixtureValue(line.closest("details"));
     expect(group.open).toBe(false);
 
     fireEvent.click(line);

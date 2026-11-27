@@ -53,8 +53,11 @@ export function imageContentType(bytes: Uint8Array): ImageContentType | null {
 
 export function attachmentFileName(path: string, type: ImageContentType): string {
   const name = baseName(path);
-  const { named, extension } = IMAGE_TYPES.find((entry) => entry.type === type)!;
-  return named.test(name) ? name : `${stem(name)}${extension}`;
+  const format = IMAGE_TYPES.find((entry) => entry.type === type);
+  if (!format) {
+    throw new Error(`Unsupported attachment type: ${type}`);
+  }
+  return format.named.test(name) ? name : `${stem(name)}${format.extension}`;
 }
 
 export function attachmentTag({ alt, url }: Attachment): string {
@@ -78,7 +81,7 @@ export function draftAttachments(body: string): Attachment[] {
   const attachments: Attachment[] = [];
   for (const [tag] of body.matchAll(IMG_TAG)) {
     const attributes = new Map(
-      [...tag.matchAll(ATTRIBUTE)].map(([, name, value]) => [name!.toLowerCase(), value!]),
+      [...tag.matchAll(ATTRIBUTE)].map(([, name, value]) => [name.toLowerCase(), value]),
     );
     const url = attributes.get("src");
     if (url === undefined || !isAttachmentUrl(url)) {

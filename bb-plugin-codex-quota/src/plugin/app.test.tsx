@@ -5,9 +5,10 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { accountsFixture, reportsFixture } from "../machines/machines.test-support.js";
 import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
 import { emptyActivity } from "../activity/activity-contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const installed = await loadPluginApp(() => import("./app.js"));
-const panel = installed.navPanels[0]!;
+const panel = installed.navPanels[0];
 const NavigationBadge = () => {
   const badge = panel.experimental_useBadge?.();
   return badge ? <span title={badge.label}>{badge.text}</span> : null;
@@ -60,7 +61,7 @@ describe("all-machine Codex slots", () => {
     const stop = vi.spyOn(globalThis, "clearInterval");
     expect(panel.path).toBe("quota");
     const owner = renderSlot(
-      installed.appOverlays.find((slot) => slot.id === "quota-refresh")!,
+      requireFixtureValue(installed.appOverlays.find((slot) => slot.id === "quota-refresh")),
       {},
       f.options,
     );
@@ -77,7 +78,7 @@ describe("all-machine Codex slots", () => {
       "https://chatgpt.com/settings/usage?tab=overview",
     );
     const ids = timers.mock.calls.flatMap((args, index) =>
-      args[1] === 1000 ? [timers.mock.results[index]!.value] : [],
+      args[1] === 1000 ? [timers.mock.results[index].value] : [],
     );
     expect(ids).toHaveLength(1);
     page.unmount();
@@ -131,8 +132,8 @@ describe("all-machine Codex slots", () => {
   });
   it("shows a known qualifier when some account quota is unavailable, without a min label", async () => {
     const f = fixture(true);
-    f.data.accounts[1]!.quota = { state: "unavailable", reason: "auth-required", snapshot: null };
-    f.data.accounts[1]!.activity = emptyActivity("auth-required");
+    f.data.accounts[1].quota = { state: "unavailable", reason: "auth-required", snapshot: null };
+    f.data.accounts[1].activity = emptyActivity("auth-required");
     const page = f.dashboard();
     const badge = f.accessory();
     await waitFor(() => expect(badge.container.textContent).toBe("63%"));
@@ -143,7 +144,7 @@ describe("all-machine Codex slots", () => {
   });
   it("shows account credits and resets above the chart, without ranking or machine controls", async () => {
     const f = fixture(true);
-    const first = f.data.accounts[0]!.quota.snapshot!;
+    const first = requireFixtureValue(requireFixtureValue(f.data.accounts[0]).quota.snapshot);
     Object.assign(first, {
       credits: { kind: "balance", balance: "0.00000000001" },
       bankedResets: 0,
@@ -169,7 +170,7 @@ describe("all-machine Codex slots", () => {
         .getByText("5-hour window", { selector: "dt" })
         .closest("div")
         ?.querySelector("time")?.dateTime,
-    ).toBe(first.general[0]!.resetAt);
+    ).toBe(first.general[0].resetAt);
     expect(
       within(page.getByRole("region", { name: "Account 2 allowance" })).getByText("Unavailable", {
         selector: "dd",
@@ -188,11 +189,11 @@ describe("all-machine Codex slots", () => {
   it("labels last-known credits and hides expired credits and resets", async () => {
     const f = fixture(true);
     const [lastKnown, expired] = f.data.accounts;
-    const staleSnapshot = lastKnown!.quota.snapshot!;
+    const staleSnapshot = requireFixtureValue(requireFixtureValue(lastKnown).quota.snapshot);
     staleSnapshot.observedAt = new Date(f.now - 10 * 60_000).toISOString();
     staleSnapshot.credits = { kind: "unlimited" };
-    staleSnapshot.general[0]!.resetAt = new Date(f.now - 60_000).toISOString();
-    const expiredSnapshot = expired!.quota.snapshot!;
+    staleSnapshot.general[0].resetAt = new Date(f.now - 60_000).toISOString();
+    const expiredSnapshot = requireFixtureValue(requireFixtureValue(expired).quota.snapshot);
     expiredSnapshot.observedAt = new Date(f.now - 25 * 60 * 60_000).toISOString();
     expiredSnapshot.credits = { kind: "balance", balance: "125" };
     expiredSnapshot.bankedResets = 12;
@@ -203,7 +204,7 @@ describe("all-machine Codex slots", () => {
     expect(staleStatus.textContent).toContain("Account 1: Stale · Observed");
     expect(staleStatus.querySelector("time")?.dateTime).toBe(staleSnapshot.observedAt);
     expect(stale.getByText("Reset due", { exact: false }).querySelector("time")?.dateTime).toBe(
-      staleSnapshot.general[0]!.resetAt,
+      staleSnapshot.general[0].resetAt,
     );
     const unavailable = within(page.getByRole("region", { name: "Account 2 allowance" }));
     expect(unavailable.getAllByText("Unavailable", { selector: "dd" })).toHaveLength(2);
@@ -211,7 +212,9 @@ describe("all-machine Codex slots", () => {
     expect(expiredStatus.textContent).toBe("Account 2: Observation expired");
     expect(unavailable.queryByText("Weekly window")).toBeNull();
     await act(async () => {
-      expired!.quota = accountsFixture(f.now, true).accounts[1]!.quota;
+      requireFixtureValue(expired).quota = requireFixtureValue(
+        accountsFixture(f.now, true).accounts[1],
+      ).quota;
       fireEvent.click(page.getByRole("button", { name: "Refresh allowance" }));
     });
     expect(unavailable.getByRole("status")).toBe(expiredStatus);

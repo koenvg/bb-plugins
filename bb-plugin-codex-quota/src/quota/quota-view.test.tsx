@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuotaDashboard, QuotaBadge, QuotaBattery, QuotaOtherLimits } from "./quota-view.js";
 import { visibleView } from "../account/freshness.js";
 import type { QuotaStatus } from "./contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const observedAt = Date.UTC(2026, 3, 23, 12);
 const snapshot = (remainingPercent: number) => ({
@@ -177,7 +178,7 @@ describe("Codex quota UI", () => {
       snapshot: {
         ...snapshot(25),
         additional: [],
-        general: [{ ...snapshot(25).general[0]!, resetAt }],
+        general: [{ ...snapshot(25).general[0], resetAt }],
       },
     };
     render(<QuotaDashboard {...props} view={view} />);
@@ -193,7 +194,7 @@ describe("Codex quota UI", () => {
         ...snapshot(25),
         additional: [],
         general: [
-          { ...snapshot(25).general[0]!, resetAt: new Date(observedAt + 30_000).toISOString() },
+          { ...snapshot(25).general[0], resetAt: new Date(observedAt + 30_000).toISOString() },
         ],
       },
     };
@@ -373,12 +374,12 @@ describe("Codex quota UI", () => {
       const icon = render(
         <QuotaBattery view={fresh(remaining)} now={observedAt} className="size-4" />,
       );
-      const svg = icon.container.querySelector("svg")!;
+      const svg = requireFixtureValue(icon.container.querySelector("svg"));
       expect(svg.getAttribute("class")).toBe("size-4");
       expect(svg.getAttribute("aria-hidden")).toBe("true");
       expect(svg.getAttribute("focusable")).toBe("false");
       expect(svg.getAttribute("stroke")).toBe("currentColor");
-      const fill = svg.querySelector("[data-battery-fill]")!;
+      const fill = requireFixtureValue(svg.querySelector("[data-battery-fill]"));
       expect(Number(fill.getAttribute("width"))).toBeCloseTo((13 * remaining) / 100);
       expect(fill.getAttribute("fill")).toBe("currentColor");
     },

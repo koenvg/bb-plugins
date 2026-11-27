@@ -13,10 +13,12 @@ import { postIntent } from "./command-intents";
 import { GITHUB_COMMANDS } from "./commands";
 import { forgetInsights } from "./pr-availability";
 import { forgetSubTabs } from "./pr-sub-tab";
+import type * as AppSdk from "@get-bb/plugin-sdk/app";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 import { forgetPrViews } from "./pr-view-snapshots";
 
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@get-bb/plugin-sdk/app")>()),
+  ...(await importOriginal<typeof AppSdk>()),
   Markdown: ({ content }: { content: string }) => {
     const attach = useCallback(
       (node: HTMLDivElement | null) => {
@@ -45,7 +47,7 @@ beforeAll(() => {
 });
 
 const app = await loadPluginApp(() => import("../app"));
-const prTab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const prTab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
 
 afterEach(() => {
   cleanup();
@@ -281,7 +283,7 @@ describe("PR panel", () => {
 });
 
 function runCommand(id: string, threadId = "thr_1") {
-  const found = GITHUB_COMMANDS.find((entry) => entry.id === id)!;
+  const found = requireFixtureValue(GITHUB_COMMANDS.find((entry) => entry.id === id));
   void found.run({
     threadId,
     projectId: null,
@@ -417,9 +419,10 @@ describe("PR panel Overview conversation", () => {
     const files = subTab(slot, "Files");
     await vi.waitFor(() => expect(files.textContent).toContain("18"));
     expect(files.querySelector("[title='Unresolved review threads']")).toBeTruthy();
-    expect(document.getElementById(files.getAttribute("aria-describedby")!)?.textContent).toBe(
-      "18 changed files, unresolved review threads",
-    );
+    expect(
+      document.getElementById(requireFixtureValue(files.getAttribute("aria-describedby")))
+        ?.textContent,
+    ).toBe("18 changed files, unresolved review threads");
   });
 
   it("shows the conversation below the PR status", async () => {

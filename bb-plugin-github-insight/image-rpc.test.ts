@@ -3,6 +3,7 @@ import { setup, linkedPr, ok, failed, prHeadResponse } from "./test/plugin-harne
 import { imageBasisKey } from "./core/pr-image-basis";
 import type { ReviewResult } from "./contract";
 import threads from "./test/fixtures/pr-25259-review-threads.json";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const headSha = "1111111111111111111111111111111111111111";
 const baseSha = "2222222222222222222222222222222222222222";
@@ -177,7 +178,7 @@ describe("PR image RPC", () => {
     expect(
       await harness.behavior.callRpc("getPrImage", {
         threadId: "thr_1",
-        expectedBasisKey: imageBasisKey(review.imageBasis!),
+        expectedBasisKey: imageBasisKey(requireFixtureValue(review.imageBasis)),
         path: "renamed.bin",
         side: "before",
       }),
@@ -248,7 +249,7 @@ describe("PR image RPC", () => {
       expect(
         await harness.behavior.callRpc("getPrImage", {
           threadId: "thr_1",
-          expectedBasisKey: imageBasisKey(review.imageBasis!),
+          expectedBasisKey: imageBasisKey(requireFixtureValue(review.imageBasis)),
           path: "new.png",
           side,
         }),
@@ -277,7 +278,7 @@ describe("PR image RPC", () => {
     expect(
       await harness.behavior.callRpc("getPrImage", {
         threadId: "thr_1",
-        expectedBasisKey: imageBasisKey(review.imageBasis!),
+        expectedBasisKey: imageBasisKey(requireFixtureValue(review.imageBasis)),
         path: "new.png",
         side,
       }),
@@ -289,7 +290,7 @@ describe("PR image RPC", () => {
   it("rejects unlisted paths and stale basis", async () => {
     const { harness, review } = await fixture();
     for (const [path, key] of [
-      ["other.png", imageBasisKey(review.imageBasis!)],
+      ["other.png", imageBasisKey(requireFixtureValue(review.imageBasis))],
       ["new.png", "old-basis"],
     ]) {
       expect(

@@ -5,12 +5,12 @@ import type { CalendarQuery, CalendarSnapshot } from "../history/calendar/calend
 import { dayBoundary, latestStart, shiftDate } from "../history/calendar/calendar-time.js";
 import { retentionCutoffs } from "../history/storage/history-retention.js";
 
-export type SummaryStorage = {
-  get<T>(key: string): Promise<T | undefined>;
-  set(key: string, value: unknown): Promise<void>;
-  delete(key: string): Promise<void>;
-  list(prefix?: string): Promise<string[]>;
-};
+export interface SummaryStorage {
+  get: <T>(key: string) => Promise<T | undefined>;
+  set: (key: string, value: unknown) => Promise<void>;
+  delete: (key: string) => Promise<void>;
+  list: (prefix?: string) => Promise<string[]>;
+}
 const prefix = "machine-summary-v1/";
 const indexSchema = z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(8);
 const digest = (query: CalendarQuery) =>
@@ -209,7 +209,7 @@ export function createReportCache(storage: SummaryStorage, now = Date.now) {
     pruneMachines(ids: Set<string>) {
       return serial(async () => {
         const hosts = new Set(
-          (await storage.list(prefix)).map((key) => key.slice(prefix.length).split("/")[0]!),
+          (await storage.list(prefix)).map((key) => key.slice(prefix.length).split("/")[0]),
         );
         for (const hostId of hosts) {
           if (!ids.has(hostId)) {

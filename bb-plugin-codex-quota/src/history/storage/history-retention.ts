@@ -7,9 +7,10 @@ import { retireIdentityUsage } from "../identity/identity-storage.js";
 import { canonicalInterval, readCoverage } from "../collection/history-coverage.js";
 
 import { aggregateDays } from "../calendar/calendar-aggregation.js";
+import type { CalendarAggregate } from "../calendar/calendar-aggregation.js";
 
 export const HISTORY_VERSION = 5;
-export type CompactRow = {
+export interface CompactRow {
   event_id: string;
   session_id: string;
   workspace: string;
@@ -26,7 +27,7 @@ export type CompactRow = {
   recorded_host: string;
   provenance: "observed" | "imported";
   detail_available: number;
-};
+}
 export const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 export { usageEvidence } from "../collection/usage-evidence.js";
 export function createRetentionSchema(db: HistoryDatabase, backfill: boolean) {
@@ -101,12 +102,12 @@ export function retentionCutoffs(now: number) {
   month.setUTCDate(Math.min(day, last) - 9);
   return { detail: new Date(now - 45 * 86400000).toISOString(), compact: month.toISOString() };
 }
-type Retention = {
+interface Retention {
   detail_cutoff: string;
   compact_cutoff: string;
   backfill_cursor: string;
   backfill_done: number;
-};
+}
 export function retentionState(db: HistoryDatabase) {
   return db.prepare("SELECT * FROM history_retention WHERE id=1").get() as Retention;
 }
@@ -204,28 +205,28 @@ export function maintainHistory(db: HistoryDatabase, now: number, budget = 500) 
     };
   });
 }
-export type CalendarQuery = {
+export interface CalendarQuery {
   start: string;
   end: string;
   workspace?: string;
   verifiedThread?: string;
   timezone: string;
   group?: "workspace" | "thread";
-};
+}
 /** Internal bounded storage-side aggregation. No accepted-record cap. */
-type CalendarTotalsState = {
+interface CalendarTotalsState {
   coverage: ReturnType<typeof readCoverage>;
   truncated: boolean;
   detail: "available" | "unavailable";
   expired: boolean;
   pending: boolean;
-};
+}
 export function readCalendarTotals(
   db: HistoryDatabase,
   query: CalendarQuery & { group: "workspace" | "thread" },
   now?: number,
 ): CalendarTotalsState & {
-  days: import("../calendar/calendar-aggregation.js").CalendarAggregate[];
+  days: CalendarAggregate[];
 };
 export function readCalendarTotals(
   db: HistoryDatabase,

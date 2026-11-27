@@ -1,7 +1,8 @@
 import { test as base, expect, type Page, type Locator } from "@playwright/test";
 import type {} from "./fixture.test";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
-const test = base.extend<{ clean: void }>({
+const test = base.extend<{ clean: undefined }>({
   clean: [
     async ({ page, context }, use) => {
       const errors: string[] = [];
@@ -9,7 +10,7 @@ const test = base.extend<{ clean: void }>({
       await context.route("**/*", (route) =>
         new URL(route.request().url()).hostname === "127.0.0.1" ? route.continue() : route.abort(),
       );
-      await use();
+      await use(undefined);
       expect(errors).toEqual([]);
     },
     { auto: true },
@@ -25,13 +26,18 @@ async function start(page: Page, query = "") {
   await page.waitForFunction(() => Boolean(window.outputFixture));
 }
 async function pointer(page: Page, second: number, last = 599) {
-  const box = (await chart(page).boundingBox())!;
+  const box = requireFixtureValue(await chart(page).boundingBox());
   await page.mouse.move(box.x + (box.width * second) / last, box.y + 110);
 }
 async function lineFacts(surface: Locator) {
   return surface.evaluate((svg) => {
-    const path = svg.querySelector('path[stroke-width="2"]')!;
-    const d = path.getAttribute("d")!;
+    const path = svg.querySelector('path[stroke-width="2"]');
+    if (path == null)
+      throw new Error(
+        "Missing browser fixture value: svg.querySelector('path[stroke-width=\"2\"]')",
+      );
+    const d = path.getAttribute("d");
+    if (d == null) throw new Error('Missing browser fixture value: path.getAttribute("d")');
     const points = Array.from(d.matchAll(/[ML](-?[\d.]+),(-?[\d.]+)/g), (match) => [
       Number(match[1]),
       Number(match[2]),
@@ -40,8 +46,8 @@ async function lineFacts(surface: Locator) {
   });
 }
 async function withinViewport(page: Page) {
-  const bounds = (await native(page).boundingBox())!;
-  const viewport = page.viewportSize()!;
+  const bounds = requireFixtureValue(await native(page).boundingBox());
+  const viewport = requireFixtureValue(page.viewportSize());
   expect(bounds.x).toBeGreaterThanOrEqual(8);
   expect(bounds.y).toBeGreaterThanOrEqual(8);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width - 8);
@@ -49,12 +55,11 @@ async function withinViewport(page: Page) {
 }
 function contrast(foreground: string, background: string) {
   const luminance = (color: string) => {
-    const channels = color
-      .match(/[\d.]+/g)!
+    const channels = requireFixtureValue(color.match(/[\d.]+/g))
       .slice(0, 3)
       .map((value) => Number(value) / 255)
       .map((value) => (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
-    return channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
   };
   const a = luminance(foreground),
     b = luminance(background);
@@ -267,7 +272,9 @@ for (const width of [283, 403, 960, 1920])
     await page.locator(".live-output-rate-surface").evaluate((element, value) => {
       (element as HTMLElement).style.width = `${value}px`;
     }, width);
-    await expect.poll(async () => (await chart(page).boundingBox())!.width).toBe(width);
+    await expect
+      .poll(async () => requireFixtureValue(await chart(page).boundingBox()).width)
+      .toBe(width);
     await expect(chart(page)).toHaveAttribute("viewBox", `0 0 ${width} 240`);
     await pointer(page, 599 / 4);
     await expect(time(page)).toHaveAttribute("datetime", stamp(150));
@@ -299,7 +306,9 @@ for (const width of [360, 375, 480, 1280])
           theme === "dark",
         );
         await page.evaluate(() => {
-          const main = document.querySelector("main")!;
+          const main = document.querySelector("main");
+          if (main == null)
+            throw new Error('Missing browser fixture value: document.querySelector("main")');
           const shell = document.createElement("div");
           shell.id = "scrolling-shell";
           shell.style.cssText = "position:fixed;inset:0;overflow:auto;transform:translateZ(0)";
@@ -307,11 +316,18 @@ for (const width of [360, 375, 480, 1280])
           spacer.style.height = "900px";
           document.body.append(shell);
           shell.append(spacer, main);
-          shell.scrollTop =
-            document.querySelector(".live-output-rate-surface")!.getBoundingClientRect().top - 500;
+          const element2 = document.querySelector(".live-output-rate-surface");
+          if (element2 == null)
+            throw new Error(
+              'Missing browser fixture value: document.querySelector(".live-output-rate-surface")',
+            );
+          shell.scrollTop = element2.getBoundingClientRect().top - 500;
         });
         await page.locator(".live-output-rate-surface").evaluate((element) => {
-          element.parentElement!.style.overflow = "hidden";
+          const parentElement2 = element.parentElement;
+          if (parentElement2 == null)
+            throw new Error("Missing browser fixture value: element.parentElement");
+          parentElement2.style.overflow = "hidden";
         });
         expect(
           await page
@@ -383,7 +399,7 @@ for (const width of [360, 375, 480, 1280])
           expect(label.lineHeights.length).toBeGreaterThan(0);
           for (const height of label.lineHeights) expect(height).toBeGreaterThanOrEqual(14);
         }
-        expect(axes.labels[3]!.box.right).toBeLessThanOrEqual(axes.labels[4]!.box.left);
+        expect(axes.labels[3].box.right).toBeLessThanOrEqual(axes.labels[4].box.left);
         expect(
           axes.labels.every(
             (label) => label.box.left >= axes.bounds.left && label.box.right <= axes.bounds.right,
@@ -425,7 +441,12 @@ for (const width of [360, 375, 480, 1280])
         });
         await page.screenshot({ path: info.outputPath("axes-tooltip.png") });
         await page.evaluate(() => {
-          document.getElementById("scrolling-shell")!.scrollTop -= 30;
+          const element3 = document.getElementById("scrolling-shell");
+          if (element3 == null)
+            throw new Error(
+              'Missing browser fixture value: document.getElementById("scrolling-shell")',
+            );
+          element3.scrollTop -= 30;
         });
         await withinViewport(page);
         await page.keyboard.press("End");
@@ -433,13 +454,15 @@ for (const width of [360, 375, 480, 1280])
         await page.locator(".live-output-rate-surface").evaluate((element) => {
           (element as HTMLElement).style.width = "200px";
         });
-        await expect.poll(async () => (await chart(page).boundingBox())!.width).toBe(200);
+        await expect
+          .poll(async () => requireFixtureValue(await chart(page).boundingBox()).width)
+          .toBe(200);
         await expect(chart(page)).toHaveAttribute("viewBox", "0 0 200 240");
         expect(Number(await chart(page).locator('circle[r="4"]').getAttribute("cx"))).toBe(200);
         await withinViewport(page);
         await page.keyboard.press("Home");
         await withinViewport(page);
-        const box = (await chart(page).boundingBox())!;
+        const box = requireFixtureValue(await chart(page).boundingBox());
         await chart(page).evaluate((element) => (element as SVGSVGElement).blur());
         await page.touchscreen.tap(box.x + box.width / 4, box.y + 110);
         await expect(time(page)).toHaveAttribute("datetime", stamp(150));
@@ -511,9 +534,12 @@ test("document listener and native observer lifetimes survive same-task leave/Es
   await pointer(page, 300);
   expect(await page.evaluate(() => window.outputResources().keys)).toBe(1);
   await page.evaluate(() => {
-    document
-      .querySelector(".live-output-rate-surface")!
-      .dispatchEvent(new MouseEvent("mouseleave"));
+    const element4 = document.querySelector(".live-output-rate-surface");
+    if (element4 == null)
+      throw new Error(
+        'Missing browser fixture value: document .querySelector(".live-output-rate-surface")',
+      );
+    element4.dispatchEvent(new MouseEvent("mouseleave"));
     document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   });
   await expect(native(page)).toHaveCount(0);
@@ -559,12 +585,14 @@ for (const mode of ["popover", "fallback"])
     await chart(page).focus();
     await page.evaluate(() => window.outputFixture.update({ offset: 253402299201 }));
     await expect(time(page)).toHaveAttribute("datetime", stamp(253402299800));
-    expect((await time(page).textContent())!.length).toBeGreaterThan(40);
+    expect(requireFixtureValue(await time(page).textContent()).length).toBeGreaterThan(40);
     await expect(time(page)).toContainText("9999");
     await page.locator(".live-output-rate-surface").evaluate((element) => {
       (element as HTMLElement).style.width = "200px";
     });
-    await expect.poll(async () => (await chart(page).boundingBox())!.width).toBe(200);
+    await expect
+      .poll(async () => requireFixtureValue(await chart(page).boundingBox()).width)
+      .toBe(200);
     await expect(chart(page)).toHaveAttribute("viewBox", "0 0 200 240");
     await withinViewport(page);
     await page.screenshot({ path: info.outputPath("long-date.png") });

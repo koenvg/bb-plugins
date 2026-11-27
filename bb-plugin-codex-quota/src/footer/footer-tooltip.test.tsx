@@ -37,7 +37,7 @@ it("keeps quota details described through native tooltip open/close and removes 
   const button = within(sidebar).getByRole("button", { name: "Codex quota" });
   const adapter = mountFooterAdapter(document, "codex-quota");
   dispose = adapter.dispose;
-  const target = adapter.getSnapshot()[0]!;
+  const target = adapter.getSnapshot()[0];
   const status = "My Mac; 7 days; fresh; 72% remaining; observed 30 September 2026";
   // The portal renderer supplies this description; only its DOM contract matters here.
   target.container.append(
