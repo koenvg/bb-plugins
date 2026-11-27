@@ -261,7 +261,8 @@ export function createVoiceKeyboardControls() {
     }
     lastFocused = form;
     pendingStart = { form, errors: voiceErrors() };
-    session = newSession(form, true); // Latch before React/native handlers run.
+    // Latch before React/native handlers run.
+    session = newSession(form, true);
     mic.click();
     sync();
   }

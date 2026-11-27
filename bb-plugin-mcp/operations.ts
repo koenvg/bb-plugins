@@ -441,7 +441,8 @@ export function operationControl(options: {
             : null;
           checkDispatch();
           if (isStart) {
-            if (!execution || environment === null) throw new Error();
+            if (!execution || environment === null)
+              throw new Error("Thread start needs execution settings and an environment");
             dispatched = true;
             const thread = await source.spawn({
               ...execution,
@@ -458,7 +459,7 @@ export function operationControl(options: {
               !thread.id.length ||
               thread.id.length > 200
             )
-              throw new Error();
+              throw new Error("Thread creation did not return a valid thread ID");
             finish(row.id, "accepted", null, thread.id);
           } else if ("message" in input) {
             dispatched = true;
@@ -468,19 +469,20 @@ export function operationControl(options: {
               input: [{ type: "text", text: input.message, mentions: [] }],
             });
             if (!sent || sent.ok !== true || !["sent", "queued"].includes(sent.delivery))
-              throw new Error();
+              throw new Error("Message delivery was not acknowledged");
             const waitingOn =
               sent.delivery === "queued" ? (sent.queuedMessage?.waitingOn?.kind ?? null) : null;
             if (
               sent.delivery === "queued" &&
               (!sent.queuedMessage || sent.queuedMessage.threadId !== input.threadId)
             )
-              throw new Error();
+              throw new Error("Queued message does not match its target thread");
             finish(row.id, "accepted", null, input.threadId, sent.delivery, waitingOn);
           } else {
             dispatched = true;
             const stopped = await source.stop({ threadId: input.threadId });
-            if (!stopped || stopped.ok !== true) throw new Error();
+            if (!stopped || stopped.ok !== true)
+              throw new Error("Thread stop was not acknowledged");
             finish(row.id, "accepted", null, input.threadId);
             await captureStop(identity, row, sdkDeadline);
           }
@@ -769,14 +771,14 @@ export function operationControl(options: {
         },
         async ({ operationId }) => {
           try {
-            if (signal.aborted) throw new Error();
+            if (signal.aborted) throw new Error("Operation observation was canceled");
             const data = await observe(
               identity,
               operationId,
               false,
               AbortSignal.any([signal, AbortSignal.timeout(3000)]),
             );
-            if (signal.aborted) throw new Error();
+            if (signal.aborted) throw new Error("Operation observation was canceled");
             return result(data);
           } catch {
             onFailure("bb_get_operation");

@@ -44,7 +44,7 @@ function seriesId(series: ModelSeries | CostSeries): string {
   if (series.key === "other" || series.key === "unknown") {
     return JSON.stringify(["tokens", series.key]);
   }
-  throw Error("Unrecognized model bucket");
+  throw new Error("Unrecognized model bucket");
 }
 const graphFilterHelp =
   "Graph filters affect bars only. Recorded totals and table include all series. Uncertain estimates are not filtered.";

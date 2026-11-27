@@ -53,7 +53,7 @@ export function readImportCoverage(
           (value) => typeof value?.recorded !== "string" || !value.recorded.startsWith("/"),
         )
       ) {
-        throw Error();
+        throw new Error("Recorded workspace coverage is invalid");
       }
       workspaces = values.map((value) => value.recorded);
     } catch {

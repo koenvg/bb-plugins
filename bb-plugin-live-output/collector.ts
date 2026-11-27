@@ -58,7 +58,9 @@ type Verification = {
 };
 
 type FailureDiagnostic = OutputSnapshot["recentFailures"][number];
-class InvalidReadResponse extends Error {}
+class InvalidReadResponseError extends Error {
+  override name = "InvalidReadResponseError";
+}
 export class OutputCollector {
   private readonly threads = new Map<ThreadId, ThreadObservation>();
   private readonly live = new Set<ThreadId>();
@@ -378,7 +380,7 @@ export class OutputCollector {
 
   private recordFailure(operation: FailureDiagnostic["operation"], error: unknown): void {
     const category: FailureDiagnostic["category"] =
-      error instanceof InvalidReadResponse
+      error instanceof InvalidReadResponseError
         ? "invalid-response"
         : error instanceof Error && error.name === "TimeoutError"
           ? "timeout"
@@ -470,14 +472,15 @@ export class OutputCollector {
       this.discoveryError = true;
       return;
     }
-    if (rows.length > discoveryPageSize) throw new InvalidReadResponse("Oversized discovery page");
+    if (rows.length > discoveryPageSize)
+      throw new InvalidReadResponseError("Oversized discovery page");
     for (const row of rows) {
       this.mergeMetadata(row);
     }
     if (rows.length === discoveryPageSize) {
       discovery.offset += discoveryPageSize;
       if (discovery.offset > maxThreads)
-        throw new InvalidReadResponse("Discovery pagination limit");
+        throw new InvalidReadResponseError("Discovery pagination limit");
       return;
     }
     if (!discovery.archived) {
@@ -509,7 +512,7 @@ export class OutputCollector {
     const revision = observation.metadataRevision;
     const metadata = await this.api().get({ threadId: id, signal: this.requestSignal() });
     if (this.disposed || observation.deleted || this.threads.get(id) !== observation) return;
-    if (metadata.id !== id) throw new InvalidReadResponse("Unexpected thread identity");
+    if (metadata.id !== id) throw new InvalidReadResponseError("Unexpected thread identity");
     if (!this.missing.has(id) || observation.metadataRevision !== revision) {
       this.enqueue(observation);
       return;
@@ -554,7 +557,7 @@ export class OutputCollector {
       this.threads.get(observation.metadata.id) !== observation
     )
       return;
-    if (rows.length > eventPageSize) throw new InvalidReadResponse("Oversized event page");
+    if (rows.length > eventPageSize) throw new InvalidReadResponseError("Oversized event page");
     let previous = cursor.kind === "ready" ? cursor.after : (cursor.before ?? Infinity);
     const events = rows.map((row) => {
       if (
@@ -568,7 +571,7 @@ export class OutputCollector {
         (row.type !== types[0] && row.type !== types[1]) ||
         typeof row.data.delta !== "string"
       )
-        throw new InvalidReadResponse("Invalid output event page");
+        throw new InvalidReadResponseError("Invalid output event page");
       previous = row.seq;
       return { seq: row.seq, at: row.createdAt, bytes: encoder.encode(row.data.delta).byteLength };
     });

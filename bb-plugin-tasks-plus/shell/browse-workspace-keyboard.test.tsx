@@ -52,7 +52,8 @@ describe("browse keyboard selection", () => {
     const count = slot.inspection.navigateCalls.length;
     press("ArrowDown");
     expect(slot.inspection.navigateCalls).toHaveLength(count);
-    row(slot, 1).focus(); // Tab focus does not invent another selection.
+    // Tab focus does not invent another selection.
+    row(slot, 1).focus();
     await move(slot, "k", 2);
     await move(slot, "ArrowUp", 1);
     press("k");

@@ -36,7 +36,9 @@ export function useTasksBadge(): ExperimentalBadge | null {
       try {
         const { openTaskCount } = await rpcRef.current.call("sidebarOpenTaskCount");
         if (request.isMounted) setCount(openTaskCount);
-      } catch {}
+      } catch {
+        // Keep the last count until a later refresh succeeds.
+      }
       void readCount();
     };
     void readCount();

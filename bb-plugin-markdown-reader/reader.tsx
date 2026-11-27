@@ -75,11 +75,11 @@ export const Reader = ({
           snapshot: result.kind === "ready" ? result.snapshot : (previous?.snapshot ?? null),
         }));
     };
-    void request.readDocument(request.target).then(settle, (cause) =>
+    void request.readDocument(request.target).then(settle, (error) =>
       settle({
         kind: "error",
         message:
-          cause instanceof Error ? cause.message.slice(0, 1024) : "Could not read this file.",
+          error instanceof Error ? error.message.slice(0, 1024) : "Could not read this file.",
       }),
     );
     // Every new read invalidates its predecessor. Fallback and unmount also discard results.

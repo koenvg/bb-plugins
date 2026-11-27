@@ -19,17 +19,17 @@ async function backupDirectory(path) {
     }
     if (info) {
       if (ancestor === path && info.isSymbolicLink()) {
-        throw Error("Backup directory must not be a symbolic link.");
+        throw new Error("Backup directory must not be a symbolic link.");
       }
       const actual = await realpath(ancestor);
       if (!(await lstat(actual)).isDirectory()) {
-        throw Error("Backup parent is not a directory.");
+        throw new Error("Backup parent is not a directory.");
       }
       return resolve(actual, ...missing);
     }
     const parent = dirname(ancestor);
     if (parent === ancestor) {
-      throw Error("Backup directory is unavailable.");
+      throw new Error("Backup directory is unavailable.");
     }
     missing.unshift(basename(ancestor));
     ancestor = parent;
@@ -50,7 +50,7 @@ process.once("SIGINT", () => controller.abort());
 process.once("SIGTERM", () => controller.abort());
 try {
   if (!values["data-dir"]) {
-    throw Error("Provide --data-dir. Default operation is read-only inspection.");
+    throw new Error("Provide --data-dir. Default operation is read-only inspection.");
   }
   const context = { dataDir: values["data-dir"], signal: controller.signal };
   const plan = await upgradeRetainedIdentityStorage(context);
@@ -61,7 +61,7 @@ try {
     }
   } else {
     if (!values.backup) {
-      throw Error("Applying requires --backup with a new private backup path.");
+      throw new Error("Applying requires --backup with a new private backup path.");
     }
     const requested = resolve(values.backup);
     const parent = await backupDirectory(dirname(requested));
@@ -69,15 +69,15 @@ try {
     const directory = await realpath(join(context.dataDir, "history"));
     const within = relative(directory, destination);
     if (!(within === ".." || within.startsWith(`..${sep}`) || isAbsolute(within))) {
-      throw Error("Keep the backup outside the live history directory.");
+      throw new Error("Keep the backup outside the live history directory.");
     }
     await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
     if ((await realpath(dirname(destination))) !== parent) {
-      throw Error("Backup directory changed before creation.");
+      throw new Error("Backup directory changed before creation.");
     }
     const folder = await lstat(dirname(destination));
     if (!folder.isDirectory() || folder.isSymbolicLink() || folder.mode & 0o077) {
-      throw Error("Backup directory must be private and not a symbolic link.");
+      throw new Error("Backup directory must be private and not a symbolic link.");
     }
     const reserved = await open(destination, "wx", 0o600);
     const original = await reserved.stat();
@@ -97,7 +97,7 @@ try {
         saved.dev !== original.dev ||
         saved.mode & 0o077
       ) {
-        throw Error("Backup file changed or is not private.");
+        throw new Error("Backup file changed or is not private.");
       }
     } finally {
       await reserved.close();

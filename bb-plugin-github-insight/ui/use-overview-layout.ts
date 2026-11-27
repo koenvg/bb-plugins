@@ -17,7 +17,9 @@ export function useOverviewLayout() {
     setLayout(next);
     try {
       localStorage.setItem(OVERVIEW_LAYOUT_KEY, JSON.stringify(next));
-    } catch {}
+    } catch {
+      // Use the new layout for this session even if storage is unavailable.
+    }
   }
 
   function previewWidth(width: number) {

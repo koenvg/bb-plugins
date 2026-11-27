@@ -45,6 +45,7 @@ type Sdk = BbPluginApi["sdk"];
 type Kv = BbPluginApi["storage"]["kv"];
 
 class ChangesUnavailableError extends Error {
+  override name = "ChangesUnavailableError";
   constructor(
     message: string,
     readonly noGit = false,

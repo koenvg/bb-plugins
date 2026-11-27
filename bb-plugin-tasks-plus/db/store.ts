@@ -242,7 +242,9 @@ function decodeTaskCursor(value: string): TaskCursor {
     const parsed: unknown = JSON.parse(decoded);
     const result = taskCursorSchema.safeParse(parsed);
     if (result.success) return result.data;
-  } catch {}
+  } catch {
+    // Invalid JSON and invalid cursor fields use the same domain error.
+  }
   throw new TasksPageCursorError(
     "invalid_cursor",
     "invalid task-list cursor; start again without --cursor",

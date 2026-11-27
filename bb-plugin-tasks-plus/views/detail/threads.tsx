@@ -120,7 +120,9 @@ function loadLastPresetId(): string | null {
 function storeLastPresetId(presetId: string): void {
   try {
     window.localStorage.setItem(LAST_PRESET_STORAGE_KEY, presetId);
-  } catch {}
+  } catch {
+    // Remembering the preset is optional when storage is unavailable.
+  }
 }
 
 interface DispatchControlProps {

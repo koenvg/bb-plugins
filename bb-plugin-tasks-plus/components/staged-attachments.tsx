@@ -40,12 +40,12 @@ export async function uploadStagedAttachments(
   await Array.fromAsync(staged, async (entry) => {
     try {
       await uploadAttachment(entry.file, owner);
-    } catch (cause) {
+    } catch (error) {
       failed.push({
         ...entry,
         status: "failed",
         owner,
-        error: errorMessage(cause),
+        error: errorMessage(error),
       });
     }
   });
@@ -81,8 +81,8 @@ export function useStagedAttachmentRetry(
       await uploadAttachment(entry.file, entry.owner);
       setPendingFiles((files) => files.filter((candidate) => candidate.id !== entry.id));
       onUploaded?.();
-    } catch (cause) {
-      const message = errorMessage(cause);
+    } catch (error) {
+      const message = errorMessage(error);
       setPendingFiles((files) =>
         files.map((candidate) =>
           candidate.id === entry.id ? { ...candidate, busy: false, error: message } : candidate,

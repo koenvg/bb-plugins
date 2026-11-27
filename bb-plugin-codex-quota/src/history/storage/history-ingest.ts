@@ -55,16 +55,18 @@ export async function reconcileCollector(
     let file;
     try {
       file = await open(join(directory, name), constants.O_RDONLY | constants.O_NOFOLLOW);
-    } catch (e) {
-      if (e && typeof e === "object" && "code" in e && e.code === "ENOENT") {
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
         continue;
       }
-      throw Error("Collector source unavailable");
+    }
+    if (!file) {
+      throw new Error("Collector source unavailable");
     }
     try {
       const stat = await file.stat();
       if (!stat.isFile()) {
-        throw Error("Collector source unavailable");
+        throw new Error("Collector source unavailable");
       }
       const identity = `${stat.dev}:${stat.ino}`;
       const stamp = `${stat.mtimeMs}:${stat.ctimeMs}`;

@@ -59,7 +59,7 @@ export async function planWeeklyCheck(
       !idPattern.test(input.serverHostId) ||
       !input.serverHostId.startsWith("host_")
     )
-      throw new Error();
+      throw new Error("Setup requires a local environment on the server host");
     const inventory = await ports.sources(input.projectId);
     if (!inventory.complete)
       return { action: "blocked", reason: "Incomplete server-host source inventory" };
@@ -87,7 +87,7 @@ export async function planWeeklyCheck(
       inspection.packageDir !== join(source.path, packageName) ||
       !/^[0-9a-f]{40}$/.test(inspection.sourceRevision)
     )
-      throw new Error();
+      throw new Error("Source inspection did not return a valid revision");
     const plan: Plan = {
       projectId: input.projectId,
       source: inspection.root,

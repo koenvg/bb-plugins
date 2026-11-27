@@ -200,7 +200,7 @@ describe("Codex Quota host entry", () => {
   });
   it("adapts narrow maintenance to host-owned paths and lifecycle without account access", async () => {
     const unexpected = async (): Promise<never> => {
-      throw Error("Unrelated host operation");
+      throw new Error("Unrelated host operation");
     };
     let captured: { dataDir: string; signal: AbortSignal } | undefined;
     const history: HostHistory = {

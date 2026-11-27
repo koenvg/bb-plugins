@@ -43,7 +43,9 @@ export function createBrowsePreference(key: string, storage: StorageAccess) {
           const document = parseDocument(raw);
           sessionScope = document?.version === VERSION ? parseScope(document.scope) : null;
         }
-      } catch {}
+      } catch {
+        return sessionScope;
+      }
       return sessionScope;
     },
     store(scope: BrowseScope): void {
@@ -56,8 +58,11 @@ export function createBrowsePreference(key: string, storage: StorageAccess) {
           target.setItem(key, raw);
           lastRaw = raw;
         }
-      } catch {}
-      sessionScope = scope;
+      } catch {
+        return;
+      } finally {
+        sessionScope = scope;
+      }
     },
   };
 }

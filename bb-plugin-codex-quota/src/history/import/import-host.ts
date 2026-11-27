@@ -57,9 +57,9 @@ export function createImportOperation(
             state === "incompatible" ? "storage-incompatible" : "storage-unavailable",
           );
         }
-      } catch (e) {
-        if (!e || typeof e !== "object" || !("code" in e) || e.code !== "ENOENT") {
-          throw e;
+      } catch (error) {
+        if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ENOENT") {
+          throw error;
         }
       }
       if (!exists && command.action !== "configure") {

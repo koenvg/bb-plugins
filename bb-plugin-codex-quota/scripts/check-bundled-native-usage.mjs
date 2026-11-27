@@ -20,7 +20,7 @@ try {
     }
   };
   globalThis.fetch = async () => {
-    throw Error("Network forbidden");
+    throw new Error("Network forbidden");
   };
   process.env.CODEX_HOME = join(root, "codex");
   await mkdir(join(process.env.CODEX_HOME, "sessions"), { recursive: true });
@@ -47,7 +47,7 @@ try {
         return;
       }
     }
-    throw Error("Preparation did not settle");
+    throw new Error("Preparation did not settle");
   }
   const query = {
     startDate: "2026-09-02",

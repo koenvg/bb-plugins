@@ -17,20 +17,14 @@ import {
   type PluginThreadListProps,
   type ExperimentalProviderIconProps,
 } from "@get-bb/plugin-sdk/app";
-import { toast } from "sonner";
+import { NameDialog, type NameRequest } from "./name-dialog";
 import { useThreadListActions, useThreadListNavigation } from "./sidebar-actions";
 import {
   cancelPrPanelRequest,
   requestPrPanel,
 } from "../bb-plugin-github-insight/pr-panel-navigation";
 import { ActionMenu, FOCUS_RING, TOOL_BUTTON, type MenuItem } from "./action-menu";
-import {
-  createSection,
-  groupMenuItems,
-  newThreadScope,
-  snoozeMenuItems,
-  threadMenuItems,
-} from "./thread-actions";
+import { groupMenuItems, newThreadScope, snoozeMenuItems, threadMenuItems } from "./thread-actions";
 import { projectBadge } from "./project-badge";
 import { Tip } from "./tip";
 import { PrBadgeView } from "./pr-badge";
@@ -208,10 +202,12 @@ const ThreadRow = ({
   pullRequest,
   wakeAt,
   snoozes,
+  requestName,
 }: {
   provider: Provider;
   wakeAt: number | undefined;
   snoozes: SnoozeControls;
+  requestName: (request: NameRequest) => void;
   pullRequest: PrSummary | null;
   item: Extract<ListItem, { kind: "thread" }>;
   activeThreadId: string | null;
@@ -315,6 +311,7 @@ const ThreadRow = ({
                     pinned,
                     splitAvailable,
                     onNavigate,
+                    requestName,
                   ),
                 ]}
               />
@@ -549,6 +546,7 @@ function samePlacements(
 
 const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient }) => {
   const [prefs, setPrefs] = useState(readPreferences);
+  const [nameRequest, requestName] = useState<NameRequest | null>(null);
   const lifecycles = prefs.tab === "all" ? prefs.lifecycles : ACTIVE_ONLY;
   const {
     status,
@@ -694,7 +692,13 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
             title="Create section"
             className={TOOL_BUTTON}
             onClick={() => {
-              void createSection(sdk)?.catch(() => toast.error("Could not create section."));
+              requestName({
+                title: "Create section",
+                initialName: "",
+                action: "Create",
+                save: (name) => sdk.threadSections.create({ name }),
+                failure: "Could not create section.",
+              });
             }}
           >
             <Icon name="FolderPlus" className="size-3.5" aria-hidden />
@@ -742,7 +746,7 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
                   item={item}
                   onToggle={() => toggle("collapsedGroups", item.id)}
                   onNewThread={newThreadAction(item)}
-                  menu={groupMenuItems(item, sdk)}
+                  menu={groupMenuItems(item, sdk, requestName)}
                 />
               ) : (
                 <ThreadRow
@@ -761,6 +765,7 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
                   pullRequest={pullRequests.get(item.thread.id) ?? null}
                   wakeAt={snoozes.snoozed.get(item.thread.id)}
                   snoozes={snoozes}
+                  requestName={requestName}
                 />
               ),
             )
@@ -790,6 +795,9 @@ const ThreadList = (props: PluginThreadListProps & { snoozeClient: SnoozeClient 
           </button>
         ) : null}
       </div>
+      {nameRequest ? (
+        <NameDialog request={nameRequest} onDismiss={() => requestName(null)} />
+      ) : null}
     </div>
   );
 };

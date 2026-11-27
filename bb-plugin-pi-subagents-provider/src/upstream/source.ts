@@ -49,7 +49,8 @@ export async function readCommittedBaseline(
     const result = await git(dir, ["rev-parse", "--show-toplevel"]);
     const root = result.trim();
     const file = relative(root, join(dir, "UPSTREAM.json")).split("\\").join("/");
-    if (file.startsWith("../") || file.startsWith("/")) throw new Error();
+    if (file.startsWith("../") || file.startsWith("/"))
+      throw new Error("Upstream baseline must be inside the repository");
     return parseBaseline(JSON.parse(await git(root, ["show", `HEAD:${file}`])));
   } catch {
     throw new Error("Missing or invalid committed baseline");
@@ -67,15 +68,16 @@ export async function inspectStableSource(
   const git = isolatedGit(environment);
   try {
     // oxlint-disable-next-line eslint/no-control-regex -- Reject control bytes before resolving the source directory.
-    if (!isAbsolute(path) || /[\x00-\x1f\x7f]/.test(path)) throw new Error();
+    if (!isAbsolute(path) || /[\x00-\x1f\x7f]/.test(path))
+      throw new Error("Source path must be absolute and free of control characters");
     const root = await realpath(path);
     if (root !== resolve(path) || /(?:^|\/)(?:worktrees|thr_[^/]+)(?:\/|$)/.test(root))
-      throw new Error();
+      throw new Error("Source path must be a canonical non-worktree directory");
     // A linked worktree has a .git file. Reject it even if its path looks permanent.
     const gitEntry = await lstat(join(root, ".git"));
-    if (!gitEntry.isDirectory()) throw new Error();
+    if (!gitEntry.isDirectory()) throw new Error("Source must have its own Git directory");
     const gitRoot = await git(root, ["rev-parse", "--show-toplevel"]);
-    if (gitRoot.trim() !== root) throw new Error();
+    if (gitRoot.trim() !== root) throw new Error("Source must be the Git repository root");
     const packageDir = join(root, packageName);
     {
       const stepItems = prerequisites;
@@ -85,7 +87,7 @@ export async function inspectStableSource(
         const prerequisitePath = join(packageDir, file);
         const prerequisiteStat = await lstat(prerequisitePath);
         if (!prerequisiteStat.isFile() || (await realpath(prerequisitePath)) !== prerequisitePath)
-          throw new Error();
+          throw new Error("Required source file is missing or not canonical");
         await git(root, ["cat-file", "-e", `HEAD:${packageName}/${file}`]);
         const fileHash = await git(root, ["hash-object", "--no-filters", prerequisitePath]);
         const actual = fileHash.trim();

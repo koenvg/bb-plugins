@@ -25,7 +25,10 @@ beforeAll(async () => {
     CODEX_SPEED_SOURCE + "\nexport const { CapabilitySource, SpeedController } = __bbCodexSpeed;\n",
   );
   // The temporary generated module exists only at runtime, outside Vite's import analysis.
-  speed = await import(/* @vite-ignore */ path);
+  speed = await import(
+    /* @vite-ignore */
+    path
+  );
 });
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 

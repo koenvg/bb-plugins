@@ -438,7 +438,7 @@ describe("saved machine observations", () => {
     const set = f.storage.set;
     f.storage.set = async (key, value) => {
       if (key.startsWith("machine-summary-v1/host_one/")) {
-        throw Error("write failure");
+        throw new Error("write failure");
       }
       await set(key, value);
     };
@@ -463,7 +463,7 @@ describe("saved machine observations", () => {
       const remove = f.storage.delete;
       f.storage.delete = async (key) => {
         if (key.startsWith("machine-summary-v1/host_one/")) {
-          throw Error("delete failure");
+          throw new Error("delete failure");
         }
         await remove(key);
       };
@@ -495,7 +495,7 @@ describe("saved machine observations", () => {
     expect(corrupt.cache).toBe("unavailable");
     expect(combineReports(corrupt, query)?.summary.totalTokens).toBe(600);
     f.storage.get = async () => {
-      throw Error("read failure");
+      throw new Error("read failure");
     };
     const failed = await service.lastKnown(query);
     expect(failed.cache).toBe("unavailable");
@@ -524,7 +524,7 @@ describe("saved machine observations", () => {
         const set = f.storage.set;
         f.storage.set = async (key, value) => {
           if (key.startsWith("machine-summary-v1/host_one/")) {
-            throw Error("write failure");
+            throw new Error("write failure");
           }
           await set(key, value);
         };
@@ -693,7 +693,7 @@ describe("saved machine observations", () => {
         if (failure) {
           f.storage.set = async (key, value) => {
             if (key === "machine-summary-v1/host_one/index") {
-              throw Error("invalidation unavailable");
+              throw new Error("invalidation unavailable");
             }
             return set(key, value);
           };

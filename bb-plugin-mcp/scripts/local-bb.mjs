@@ -15,7 +15,7 @@ function readManifest(root) {
   return manifest;
 }
 
-/** @returns {LocalToolchain} */
+/** @returns {LocalToolchain} Verified paths to the package's pinned BB executable and SDK. */
 function localToolchain(root) {
   const manifest = readManifest(root);
   const installed = new Map();

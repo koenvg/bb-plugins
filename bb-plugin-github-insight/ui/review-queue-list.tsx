@@ -185,7 +185,7 @@ export const ReviewQueueLists = ({
       reviewed
         ? rpc.call("markReviewed", { repo, number, headOid })
         : rpc.call("markNeedsReview", { repo, number })
-    ).catch((failure: unknown) => ({ kind: "error" as const, message: messageOf(failure) }));
+    ).catch((error: unknown) => ({ kind: "error" as const, message: messageOf(error) }));
     if (result.kind === "error") setActionError(result.message);
     setBusyKey(key, false);
   }
@@ -198,8 +198,8 @@ export const ReviewQueueLists = ({
       const result = await rpc.call("archiveReview", { threadId });
       if (result.kind === "ok") setArchived((ids) => new Set(ids).add(threadId));
       else setActionError(result.message);
-    } catch (failure) {
-      setActionError(messageOf(failure));
+    } catch (error) {
+      setActionError(messageOf(error));
     } finally {
       setBusyKey(key, false);
     }

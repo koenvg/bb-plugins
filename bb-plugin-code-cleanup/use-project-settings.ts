@@ -75,7 +75,8 @@ export function useProjectSettings(
   const discardOnRead = useRef(false);
 
   function refresh(discard = false) {
-    generation.current += 1; // Invalidate responses before React starts the next effect.
+    // Invalidate responses before React starts the next effect.
+    generation.current += 1;
     if (discard) {
       discardOnRead.current = true;
     }

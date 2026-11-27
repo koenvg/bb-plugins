@@ -78,7 +78,8 @@ for (const { width, theme, viewport, name } of cases) {
       const headingCounts = await Promise.all(
         [1, 2, 3, 4, 5, 6].map((level) => reader.getByRole("heading", { level }).count()),
       );
-      expect(headingCounts).toEqual([1, 5, 2, 1, 1, 1]); // Includes the accessible footnote label.
+      // Includes the accessible footnote label.
+      expect(headingCounts).toEqual([1, 5, 2, 1, 1, 1]);
       await expect(page.getByRole("columnheader", { name: "Observation" })).toHaveCount(1);
       expect(await page.locator(".mr-prose pre").first().textContent()).toBe(
         '{"compact":true,"value":"<script>not active</script>"}\n',

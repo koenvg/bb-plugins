@@ -226,11 +226,11 @@ function storageTarget(target: ReaderTarget): ReaderTarget | null {
 async function readFromSources(adapter: SourceAdapter, target: ReaderTarget) {
   try {
     return await readAt(adapter, target);
-  } catch (cause) {
-    const storage = isMissingFile(cause) ? storageTarget(target) : null;
+  } catch (error) {
+    const storage = isMissingFile(error) ? storageTarget(target) : null;
     const fromStorage = storage && (await readAt(adapter, storage).catch(() => null));
     if (fromStorage) return fromStorage;
-    return await findByName(adapter, target, cause);
+    return await findByName(adapter, target, error);
   }
 }
 async function findByName(adapter: SourceAdapter, target: ReaderTarget, cause: unknown) {
@@ -303,12 +303,12 @@ export function createSourceReader(adapter: SourceAdapter): SourceReader {
             documentDirectory: paths.dirname(documentPath),
           }),
         };
-      } catch (cause) {
+      } catch (error) {
         return {
           kind: "error",
           message:
-            cause instanceof Error
-              ? cause.message.slice(0, 1024)
+            error instanceof Error
+              ? error.message.slice(0, 1024)
               : "Could not read this file. Use BB preview.",
         };
       }

@@ -67,6 +67,7 @@ export function ghFailureText(failure: GhFailure): string {
 export const RATE_LIMITED_TEXT = ghFailureText({ kind: "rate_limited", resetAt: null });
 
 export class GhFailureError extends Error {
+  override name = "GhFailureError";
   constructor(readonly failure: GhFailure) {
     super(ghFailureText(failure));
   }

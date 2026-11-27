@@ -270,7 +270,7 @@ export async function slice(
         .prepare("SELECT * FROM import_candidates WHERE generation=? AND path=? AND state='done'")
         .get(g.id, c.parent) as Candidate | undefined;
       if (!parent) {
-        throw Error("Import parent unavailable");
+        throw new Error("Import parent unavailable");
       }
       const p = await confinedFile(f.roots[parent.root], parent.name, JSON.parse(parent.stamp!));
       try {

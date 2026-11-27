@@ -30,21 +30,21 @@ async function readJson(path: string) {
   let file;
   try {
     file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch (e) {
-    if (absent(e)) {
+  } catch (error) {
+    if (absent(error)) {
       return null;
     }
-    throw e;
+    throw error;
   }
   try {
     const stat = await file.stat();
     if (!stat.isFile() || stat.size > 4096) {
-      throw Error("History recovery unavailable");
+      throw new Error("History recovery unavailable");
     }
     const bytes = Buffer.alloc(4097);
     const { bytesRead } = await file.read(bytes, 0, bytes.length, 0);
     if (bytesRead > 4096) {
-      throw Error("History recovery unavailable");
+      throw new Error("History recovery unavailable");
     }
     return JSON.parse(bytes.subarray(0, bytesRead).toString("utf8"));
   } finally {
@@ -114,7 +114,7 @@ export async function recoverHistory(
     }
     // Missing established control is not permission to rebuild or resume a collector.
     if ((await readControl(directory)) === null) {
-      throw Error("History recovery unavailable");
+      throw new Error("History recovery unavailable");
     }
     const boundary = boundarySchema.parse(
       await readJson(join(directory, "retention-boundary-v2.json")),
@@ -131,11 +131,11 @@ export async function recoverHistory(
       try {
         const stat = await lstat(join(directory, name));
         if (!stat.isFile() || stat.isSymbolicLink()) {
-          throw Error("History recovery unavailable");
+          throw new Error("History recovery unavailable");
         }
-      } catch (e) {
-        if (!absent(e)) {
-          throw e;
+      } catch (error) {
+        if (!absent(error)) {
+          throw error;
         }
       }
     }
@@ -143,7 +143,7 @@ export async function recoverHistory(
   }
   const enabled = await readControl(directory);
   if (enabled === null) {
-    throw Error("History recovery unavailable");
+    throw new Error("History recovery unavailable");
   }
   if (receipt.phase === "quarantine") {
     await safeDirectory(join(directory, receipt.directory));
@@ -154,20 +154,20 @@ export async function recoverHistory(
       try {
         const stat = await lstat(source);
         if (!stat.isFile() || stat.isSymbolicLink()) {
-          throw Error("History recovery unavailable");
+          throw new Error("History recovery unavailable");
         }
         try {
           await lstat(target);
-          throw Error("History recovery unavailable");
-        } catch (e) {
-          if (!absent(e)) {
-            throw e;
+          throw new Error("History recovery unavailable");
+        } catch (error) {
+          if (!absent(error)) {
+            throw error;
           }
         }
         await rename(source, target);
-      } catch (e) {
-        if (!absent(e)) {
-          throw e;
+      } catch (error) {
+        if (!absent(error)) {
+          throw error;
         }
       }
     }

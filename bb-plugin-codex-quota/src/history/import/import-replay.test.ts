@@ -149,7 +149,7 @@ it.each([false, true])(
           "provider-a.jsonl",
         );
         if (usage.kind !== "usage") {
-          throw Error("Invalid synthetic fixture");
+          throw new Error("Invalid synthetic fixture");
         }
         liveId = "00000000-0000-4000-8000-000000000001";
         projectCompactRecord(f.db, { ...usage.record, eventId: liveId, provenance: "observed" });

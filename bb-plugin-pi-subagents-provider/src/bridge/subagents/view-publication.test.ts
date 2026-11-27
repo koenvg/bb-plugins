@@ -162,7 +162,7 @@ it("retries an identical receipt after a thrown publication instead of rememberi
   const states: ViewState[] = [];
   const view = createViewStore(
     (state) => {
-      if (reject) throw Error("offline");
+      if (reject) throw new Error("offline");
       states.push(state);
     },
     () => 1,

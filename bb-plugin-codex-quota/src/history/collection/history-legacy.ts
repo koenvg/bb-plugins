@@ -66,7 +66,7 @@ const sameOutput = (a: Manifest | null, b: Manifest | null) =>
   a?.stamp.split(":")[0] === b?.stamp.split(":")[0];
 function describe(stat: BigIntStats): Manifest {
   if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n) {
-    throw Error("Legacy retirement unavailable");
+    throw new Error("Legacy retirement unavailable");
   }
   return manifestSchema.parse({
     identity: `${stat.dev}:${stat.ino}`,
@@ -77,32 +77,32 @@ function describe(stat: BigIntStats): Manifest {
 async function manifest(path: string): Promise<Manifest | null> {
   try {
     return describe(await lstat(path, { bigint: true }));
-  } catch (e) {
-    if (absent(e)) {
+  } catch (error) {
+    if (absent(error)) {
       return null;
     }
-    throw e;
+    throw error;
   }
 }
 async function json(path: string, maximum = 32768) {
   let file;
   try {
     file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch (e) {
-    if (absent(e)) {
+  } catch (error) {
+    if (absent(error)) {
       return null;
     }
-    throw e;
+    throw error;
   }
   try {
     const stat = await file.stat();
     if (!stat.isFile() || stat.nlink !== 1 || stat.size > maximum) {
-      throw Error("Legacy retirement unavailable");
+      throw new Error("Legacy retirement unavailable");
     }
     const bytes = Buffer.alloc(maximum + 1);
     const result = await file.read(bytes, 0, bytes.length, 0);
     if (result.bytesRead > maximum) {
-      throw Error("Legacy retirement unavailable");
+      throw new Error("Legacy retirement unavailable");
     }
     return JSON.parse(bytes.subarray(0, result.bytesRead).toString("utf8"));
   } finally {
@@ -124,6 +124,7 @@ async function save(directory: string, receipt: Receipt, signal: AbortSignal) {
 /** One host-owned operation at a time. Only an exited recorded maintenance PID permits stale-lock recovery. */
 async function lock(directory: string) {
   const path = join(directory, LOCK);
+  let shouldRecover = false;
   try {
     const file = await open(
       path,
@@ -136,10 +137,13 @@ async function lock(directory: string) {
     } finally {
       await file.close();
     }
-  } catch (e) {
-    if (!e || typeof e !== "object" || !("code" in e) || e.code !== "EEXIST") {
-      throw e;
+  } catch (error) {
+    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "EEXIST") {
+      throw error;
     }
+    shouldRecover = true;
+  }
+  if (shouldRecover) {
     const before = await manifest(path);
     const value = z
       .object({ pid: z.number().int().positive() })
@@ -147,17 +151,16 @@ async function lock(directory: string) {
       .parse(await json(path, 128));
     try {
       process.kill(value.pid, 0);
-      throw Error("Legacy retirement busy");
     } catch (error) {
       if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ESRCH") {
         throw error;
       }
+      if (same(before, await manifest(path))) {
+        await unlink(path);
+        return lock(directory);
+      }
     }
-    if (!same(before, await manifest(path))) {
-      throw Error("Legacy retirement busy");
-    }
-    await unlink(path);
-    return lock(directory);
+    throw new Error("Legacy retirement busy");
   }
   const owned = await manifest(path);
   return async () => {
@@ -202,7 +205,7 @@ async function begin(
     const staged = await manifest(join(directory, paths.spool));
     const owned = previous?.groups.find((group) => group.kind === kind)?.outputIdentity;
     if (staged && staged.size && staged.identity !== owned) {
-      throw Error("Legacy retirement unavailable");
+      throw new Error("Legacy retirement unavailable");
     }
     groups.push({
       kind,
@@ -283,8 +286,9 @@ async function needsReconciliation(db: HistoryDatabase, directory: string) {
 function keep(db: HistoryDatabase, line: string, kind: Group["kind"], cutoff: string) {
   const record = parseCompact(line, kind === "confirmations");
   if (!record) {
+    // Ingestion already committed scoped uncertainty for invalid records.
     return false;
-  } // Ingestion already committed scoped uncertainty for invalid records.
+  }
   if ("workspace" in record) {
     return new Date(record.occurredAt).toISOString() >= cutoff;
   }
@@ -313,13 +317,14 @@ async function copy(
         ? state.identity !== group.outputIdentity || state.size < group.output
         : state.size !== 0
     ) {
-      throw Error("Legacy retirement unavailable");
+      throw new Error("Legacy retirement unavailable");
     }
     if (!group.outputIdentity) {
       group.outputIdentity = state.identity;
       await save(directory, receipt, options.signal);
     }
-    await output.truncate(group.output); // Remove only uncommitted bytes in this private, fenced spool.
+    // Remove only uncommitted bytes in this private, fenced spool.
+    await output.truncate(group.output);
     let rows = Math.max(1, Math.min(options.rows ?? 500, 500));
     let bytesLeft = 128 * 1024;
     for (let index = 0; index < 2 && rows > 0 && bytesLeft > 0; index += 1) {
@@ -334,7 +339,7 @@ async function copy(
       );
       try {
         if (!same(describe(await file.stat({ bigint: true })), boundary)) {
-          throw Error("Legacy retirement source changed");
+          throw new Error("Legacy retirement source changed");
         }
         const chunk = Buffer.alloc(Math.min(bytesLeft, boundary.size - input.offset));
         const { bytesRead } = await file.read(chunk, 0, chunk.length, input.offset);
@@ -348,7 +353,7 @@ async function copy(
               input.dropping = true;
               consumed = bytesRead;
             } else if (input.offset + bytesRead === boundary.size) {
-              throw Error("Legacy retirement source incomplete");
+              throw new Error("Legacy retirement source incomplete");
             }
             break;
           }
@@ -368,7 +373,7 @@ async function copy(
                 group.output + written,
               );
               if (!result.bytesWritten) {
-                throw Error("Legacy retirement unavailable");
+                throw new Error("Legacy retirement unavailable");
               }
               written += result.bytesWritten;
             }
@@ -378,7 +383,7 @@ async function copy(
           consumed = end + 1;
         }
         if (!same(describe(await file.stat({ bigint: true })), boundary)) {
-          throw Error("Legacy retirement source changed");
+          throw new Error("Legacy retirement source changed");
         }
         input.offset += consumed;
       } finally {
@@ -403,7 +408,7 @@ async function validateControl(directory: string, receipt: Receipt) {
     control.protocol !== 2 ||
     (receipt.mode === "operator" && (control.enabled || control.revision !== receipt.revision))
   ) {
-    throw Error("Legacy retirement control changed");
+    throw new Error("Legacy retirement control changed");
   }
 }
 
@@ -421,18 +426,18 @@ async function publish(
     const staged = await manifest(spool);
     if (staged) {
       if (!same(staged, group.published)) {
-        throw Error("Legacy retirement unavailable");
+        throw new Error("Legacy retirement unavailable");
       }
       await validateControl(directory, receipt);
       options.signal.throwIfAborted();
       await rename(spool, target);
       await syncDirectory(directory);
     } else if (!sameOutput(await manifest(target), group.published)) {
-      throw Error("Legacy retirement unavailable");
+      throw new Error("Legacy retirement unavailable");
     }
     const published = await manifest(target);
     if (!published) {
-      throw Error("Legacy retirement source changed");
+      throw new Error("Legacy retirement source changed");
     }
     group.published = published;
     group.phase = "cleanup";
@@ -441,12 +446,12 @@ async function publish(
   }
   if (group.phase === "cleanup") {
     if (!group.published || !same(await manifest(target), group.published)) {
-      throw Error("Legacy retirement source changed");
+      throw new Error("Legacy retirement source changed");
     }
     const original = await manifest(join(directory, paths.legacy));
     if (original) {
       if (!same(original, group.inputs[1].manifest)) {
-        throw Error("Legacy retirement source changed");
+        throw new Error("Legacy retirement source changed");
       }
       await validateControl(directory, receipt);
       options.signal.throwIfAborted();
@@ -488,7 +493,7 @@ export async function maintainLegacy(
     receipt = receiptSchema.nullable().parse(await json(join(directory, RECEIPT)));
     const control = await readControlRecord(directory);
     if (!control) {
-      throw Error("Legacy retirement unavailable");
+      throw new Error("Legacy retirement unavailable");
     }
     if (action === "prepare-legacy") {
       if (control.enabled) {
@@ -564,7 +569,7 @@ export async function maintainLegacy(
     const day = new Date(now).toISOString().slice(0, 10);
     if (receipt.phase === "complete" && day > receipt.day) {
       if (control.protocol !== 2) {
-        throw Error("Legacy retirement unavailable");
+        throw new Error("Legacy retirement unavailable");
       }
       receipt = await begin(db, directory, now, control.revision, "maintenance");
       await save(directory, receipt, options.signal);
@@ -581,7 +586,7 @@ export async function maintainLegacy(
         legacyOnly: true,
       });
       if (!(await validSources(directory, receipt))) {
-        throw Error("Legacy retirement source changed");
+        throw new Error("Legacy retirement source changed");
       }
       const incomplete = db
         .prepare(
@@ -589,7 +594,7 @@ export async function maintainLegacy(
         )
         .get();
       if (incomplete) {
-        throw Error("Legacy retirement source incomplete");
+        throw new Error("Legacy retirement source incomplete");
       }
       if (backlog) {
         return { status: publicStatus(receipt), failed: false };
@@ -606,7 +611,7 @@ export async function maintainLegacy(
           await copy(db, directory, receipt, group, options);
         }
         if (!(await validSources(directory, receipt))) {
-          throw Error("Legacy retirement source changed");
+          throw new Error("Legacy retirement source changed");
         }
         if (group.phase === "replace" || group.phase === "cleanup") {
           await publish(db, directory, receipt, group, options);

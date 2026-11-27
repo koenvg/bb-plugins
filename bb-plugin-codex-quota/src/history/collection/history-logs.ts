@@ -84,14 +84,14 @@ export async function pruneCollectorLogs(
       let stat;
       try {
         stat = await lstat(path);
-      } catch (e) {
-        if (absent(e)) {
+      } catch (error) {
+        if (absent(error)) {
           continue;
         }
-        throw e;
+        throw error;
       }
       if (!stat.isFile() || stat.isSymbolicLink()) {
-        throw Error("Collector source unavailable");
+        throw new Error("Collector source unavailable");
       }
       const source = db.prepare("SELECT * FROM collector_sources WHERE name=?").get(name) as
         | { identity: string; stamp: string; offset: number; dropping: number; invalid: number }
@@ -129,12 +129,12 @@ export async function pruneCollectorLogs(
     try {
       const stat = await lstat(join(directory, name));
       if (!stat.isFile() || stat.isSymbolicLink()) {
-        throw Error("Collector source unavailable");
+        throw new Error("Collector source unavailable");
       }
       legacyLogsPending = true;
-    } catch (e) {
-      if (!absent(e)) {
-        throw e;
+    } catch (error) {
+      if (!absent(error)) {
+        throw error;
       }
     }
   }

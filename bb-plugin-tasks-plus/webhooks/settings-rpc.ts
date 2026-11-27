@@ -34,8 +34,8 @@ export function registerWebhookSettings(bb: BbPluginApi, store: TasksApiStore, w
       } catch (error) {
         if (error instanceof WebhookError && error.code === "invalid_stored")
           return { state: "blocked" };
-        throw new Error("Could not load webhook settings");
       }
+      throw new Error("Could not load webhook settings");
     },
     async addWebhook(input) {
       const parsed = addInput.safeParse(input);

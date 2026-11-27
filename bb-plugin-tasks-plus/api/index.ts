@@ -168,20 +168,20 @@ export function createStore(bb: BbPluginApi): TasksApiStore {
   };
 }
 
-class TasksDomainFailure extends Error {
+class TasksDomainFailureError extends Error {
+  override name = "TasksDomainFailureError";
   readonly detail: TasksDomainError;
   constructor(detail: TasksDomainError) {
     super(detail.message);
     this.detail = detail;
-    this.name = "TasksDomainFailure";
   }
 }
 
 function fail(code: TasksDomainError["code"], message: string): never {
-  throw new TasksDomainFailure({ code, message });
+  throw new TasksDomainFailureError({ code, message });
 }
 
-function taskFailure(error: TasksDomainFailure) {
+function taskFailure(error: TasksDomainFailureError) {
   return { ok: false as const, error: error.detail };
 }
 
@@ -565,7 +565,7 @@ export function registerHandlers(
         publishProjectsChanged(bb, project.id);
         return { ok: true, project };
       } catch (error) {
-        if (error instanceof TasksDomainFailure) return taskFailure(error);
+        if (error instanceof TasksDomainFailureError) return taskFailure(error);
         throw error;
       }
     },
@@ -588,7 +588,7 @@ export function registerHandlers(
         }
         return { ok: true, deleted };
       } catch (error) {
-        if (error instanceof TasksDomainFailure) return taskFailure(error);
+        if (error instanceof TasksDomainFailureError) return taskFailure(error);
         throw error;
       }
     },
@@ -622,7 +622,7 @@ export function registerHandlers(
           publishTasksChanged(bb, task.id, task.projectId);
           return { ok: true, task };
         } catch (error) {
-          if (error instanceof TasksDomainFailure) return taskFailure(error);
+          if (error instanceof TasksDomainFailureError) return taskFailure(error);
           throw error;
         }
       });
@@ -687,7 +687,7 @@ export function registerHandlers(
           ? { ok: true, task: result.task, changeId, warnings }
           : { ok: true, task: result.task, changeId };
       } catch (error) {
-        if (error instanceof TasksDomainFailure) return taskFailure(error);
+        if (error instanceof TasksDomainFailureError) return taskFailure(error);
         if (error instanceof TaskDependencyError) {
           return dependencyFailure(error);
         }
@@ -774,7 +774,7 @@ export function registerHandlers(
         publishTasksChanged(bb, result.task.id, result.task.projectId);
         return { ok: true, task: result.task };
       } catch (error) {
-        if (error instanceof TasksDomainFailure) return taskFailure(error);
+        if (error instanceof TasksDomainFailureError) return taskFailure(error);
         throw error;
       }
     },

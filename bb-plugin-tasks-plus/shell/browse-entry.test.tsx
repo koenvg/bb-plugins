@@ -395,7 +395,8 @@ describe("remembered Tasks entry", () => {
     );
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
     slot.lifecycle.unmount();
-    resetBrowsePreferenceStateForTest(); // A fresh JavaScript session reads durable storage.
+    // A fresh JavaScript session reads durable storage.
+    resetBrowsePreferenceStateForTest();
     const refreshed = open();
     await refreshed.findByText("Tenet");
   });

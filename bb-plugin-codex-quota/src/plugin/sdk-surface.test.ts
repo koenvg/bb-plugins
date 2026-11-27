@@ -79,8 +79,10 @@ describe("public SDK and quota-only boundary", () => {
         /^@earendil-works\/pi-(ai|coding-agent)(\/.*)?$/,
         /^react(\/.*)?$/,
         /^react-dom$/,
-        /^react-dom\/client$/, // Isolated synthetic preview entry.
-        /^@tanstack\/charts(?:\/.*)?$/, // Declared MIT chart dependency, bundled locally for the primary view.
+        // Isolated synthetic preview entry.
+        /^react-dom\/client$/,
+        // Declared MIT chart dependency, bundled locally for the primary view.
+        /^@tanstack\/charts(?:\/.*)?$/,
         /^@testing-library\/react$/,
         /^vitest$/,
         // Existing dev dependency used to exercise BB's real native tooltip.
@@ -93,19 +95,19 @@ describe("public SDK and quota-only boundary", () => {
       [
         "src/history/collection/collector-compatibility.test.ts",
         [
-          `/* @vite-ignore */ \`data:text/javascript;base64,\${Buffer.from(packagedCollectorAsset(root)).toString("base64")}\``,
+          `/* @vite-ignore */\n      \`data:text/javascript;base64,\${Buffer.from(packagedCollectorAsset(root)).toString("base64")}\``,
         ],
       ],
       [
         "src/history/collection/collector-entry.test.ts",
         [
-          `/* @vite-ignore */ \`data:text/javascript,\${encodeURIComponent(\`export default \${COLLECTOR_ENTRY}\`)}\``,
+          `/* @vite-ignore */\n    \`data:text/javascript,\${encodeURIComponent(\`export default \${COLLECTOR_ENTRY}\`)}\``,
         ],
       ],
       [
         "src/history/collection/history-legacy.test.ts",
         [
-          `/* @vite-ignore */ \`data:text/javascript,\${encodeURIComponent(\`export default \${LEGACY_ENTRY}\`)}\``,
+          `/* @vite-ignore */\n      \`data:text/javascript,\${encodeURIComponent(\`export default \${LEGACY_ENTRY}\`)}\``,
         ],
       ],
       [
@@ -234,6 +236,7 @@ describe("public SDK and quota-only boundary", () => {
         ) {
           return false;
         }
+        // Public SDK React fixture. Never shipped as the plugin app.
         if (
           entry.reason === "outside-allowlist" &&
           entry.specifier === "@get-bb/plugin-sdk/testing/app" &&
@@ -245,7 +248,7 @@ describe("public SDK and quota-only boundary", () => {
           ].includes(entry.file)
         ) {
           return false;
-        } // Public SDK React fixture. Never shipped as the plugin app.
+        }
         // CI-only guard imports exact file URLs resolved through the installed Pi graph.
         if (
           entry.reason === "dynamic-specifier" &&

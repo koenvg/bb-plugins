@@ -29,7 +29,7 @@ function observation(q: CalendarQuery, tokens = 1200, cached = false) {
   for (const row of value.machines) {
     row.cached = cached;
     if (row.report.state === "unavailable") {
-      throw Error("Fixture unavailable");
+      throw new Error("Fixture unavailable");
     }
     const report = row.report;
     report.days[14]!.totalTokens = report.summary.totalTokens = tokens / 2;
@@ -106,7 +106,7 @@ it("retains same-query known marked values on rejection and clears them on autho
     useMachineReport(query, revision, read, async () => observation(query, 1200, true)),
   );
   await waitFor(() => expect(hook.result.current.view?.summary.totalTokens).toBe(1800));
-  read.mockRejectedValueOnce(Error("transient"));
+  read.mockRejectedValueOnce(new Error("transient"));
   revision += 1;
   hook.rerender();
   await waitFor(() => expect(hook.result.current.failed).toBe(true));

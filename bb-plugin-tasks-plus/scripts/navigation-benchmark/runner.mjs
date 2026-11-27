@@ -45,7 +45,7 @@ export async function runNavigation(
   };
   let probeInstalled = false;
   let moduleInstalled = false;
-  let error = null;
+  let failureMessage = null;
   let run = null;
   // Browser configuration is explicit and local to the caller's owned page.
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -119,8 +119,8 @@ export async function runNavigation(
     page.on("request", onRequest);
     await Array.fromAsync(fixture.movements, (key) => move(key, "warm"));
     run = { warmup };
-  } catch (e) {
-    error = e.message;
+  } catch (error) {
+    failureMessage = error.message;
   } finally {
     try {
       page.off("request", onRequest);
@@ -145,7 +145,7 @@ export async function runNavigation(
   return {
     ...run,
     mode,
-    error,
+    error: failureMessage,
     identities,
     approvalReference,
     fixtureOwner: fixture.owner,

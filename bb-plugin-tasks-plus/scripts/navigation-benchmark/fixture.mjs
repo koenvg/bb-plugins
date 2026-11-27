@@ -53,7 +53,8 @@ export function createFixture(owner, count = 100) {
 }
 export async function writeFixture(dir, owner) {
   const fixture = serialize(createFixture(owner));
-  await mkdir(dir); // Refuse existing paths. Never replace or merge a user's directory.
+  // Refuse existing paths. Never replace or merge a user's directory.
+  await mkdir(dir);
   await writeFile(join(dir, "fixture.json"), fixture, { flag: "wx" });
   await writeFile(
     join(dir, "ownership.json"),

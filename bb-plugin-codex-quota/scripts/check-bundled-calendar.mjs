@@ -45,7 +45,7 @@ try {
   process.env.CODEX_HOME = join(root, "absent-codex");
   globalThis.Date = FixtureDate;
   globalThis.fetch = async () => {
-    throw Error("Network forbidden");
+    throw new Error("Network forbidden");
   };
   const agent = join(root, "agent");
   mkdirSync(agent);

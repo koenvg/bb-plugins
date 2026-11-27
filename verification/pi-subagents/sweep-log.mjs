@@ -46,7 +46,8 @@ export async function openSweepLog({ directory, scope, afterMs, timeoutMs, watch
     return source;
   };
   const { promise: receipt, resolve, reject } = Promise.withResolvers();
-  receipt.catch(() => {}); // Observe failure while the caller is still arming.
+  // Observe failure while the caller is still arming.
+  receipt.catch(() => {});
   const handles = new Map();
   const states = new Map();
   const close = () => {
@@ -163,7 +164,8 @@ export async function openSweepLog({ directory, scope, afterMs, timeoutMs, watch
           const h = watch(file, () => void scan());
           h.on("error", () => fail("SWEEP_LOG_WATCH_FAILED"));
           handles.set(file, h);
-          source = await handle.stat(); // Drain bytes appended while the file watcher was arming.
+          // Drain bytes appended while the file watcher was arming.
+          source = await handle.stat();
           await checkDirectory();
           if (!source.isFile() || source.uid !== process.getuid())
             throw new Error("INVALID_SWEEP_LOG_SOURCE");

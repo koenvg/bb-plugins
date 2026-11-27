@@ -132,7 +132,7 @@ it("rolls back compact prices, detail and replay evidence with totals", async ()
   expect(() =>
     db.transaction(() => {
       projectCompactRecord(db, parseCompact(JSON.stringify(event(1)), false)!);
-      throw Error("rollback");
+      throw new Error("rollback");
     }),
   ).toThrow();
   expect(db.prepare("SELECT count(*) AS n FROM usage_compact").get()).toMatchObject({ n: 0 });

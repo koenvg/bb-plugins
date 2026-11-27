@@ -163,14 +163,14 @@ export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") 
                   meta: result.byTaskId[id] ?? unavailable(previous.get(id)?.meta),
                   error: null,
                 });
-            } catch (cause) {
-              const error = errorMessage(cause);
+            } catch (error) {
+              const message = errorMessage(error);
               for (const id of chunk)
-                observations.set(id, { meta: unavailable(previous.get(id)?.meta), error });
+                observations.set(id, { meta: unavailable(previous.get(id)?.meta), error: message });
             }
-          } catch (cause) {
+          } catch (error) {
             if (refreshId) await releaseRefresh(refreshId);
-            throw cause;
+            throw error;
           }
           void readChunk(offset + WORK_STATUS_TASK_LIMIT).catch(fail);
         };

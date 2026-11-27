@@ -32,7 +32,7 @@ async function fixture(status = "renamed", path = "new.webm") {
       if (method === "fetchReviewThreads") return ok(threads);
       if (method === "fetchImageMergeBase") return ok({ merge_base_commit: { sha: mergeBaseSha } });
       if (method === "readPrVideo") return ready;
-      throw Error(`Unexpected ${method}`);
+      throw new Error(`Unexpected ${method}`);
     },
   });
   const review = (await harness.behavior.callRpc("getReview", { threadId: "thr_1" })) as Extract<

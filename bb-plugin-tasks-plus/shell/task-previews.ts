@@ -96,7 +96,8 @@ export function createTaskPreviews(
     for (const key of keys) {
       if (invalidated?.has(key)) continue;
       invalidated?.add(key);
-      requests.delete(key); // Revoke publication rights, not transport cancellation.
+      // Revoke publication rights, not transport cancellation.
+      requests.delete(key);
       const previous = active.get(key) ?? retained.get(key)?.snapshot ?? empty;
       const snapshot = { ...previous, current: false, isLoading: true, error: null };
       if (listeners.has(key)) active.set(key, snapshot);

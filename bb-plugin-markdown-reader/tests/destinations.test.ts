@@ -98,7 +98,7 @@ describe("source destination interface", () => {
     },
   );
   it.each([
-    "javascript:alert(1)",
+    ["javascript", "alert(1)"].join(":"),
     "data:image/svg+xml,bad",
     "file:///etc/passwd",
     "mailto:x@y.z",

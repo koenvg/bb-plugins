@@ -25,7 +25,7 @@ function sourcePath(home: string, relative: string) {
     ) ||
     relative.length > 16384
   ) {
-    throw Error("Native confinement unavailable");
+    throw new Error("Native confinement unavailable");
   }
   return join(home, relative);
 }
@@ -177,7 +177,7 @@ export function createNativeUsage(options: Options = {}) {
         }
         discovery.entry = entry;
         if ((await proveDirectory(directoryPath)) !== directoryProof) {
-          throw Error("Native directory changed");
+          throw new Error("Native directory changed");
         }
         const relative = join(discovery.reading, item.name);
         const path = sourcePath(discovery.home, relative);
@@ -451,7 +451,7 @@ function decodeFact(
 }
 function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) {
   if (fact.source.kind !== "codex-native") {
-    throw Error("Native admission unavailable");
+    throw new Error("Native admission unavailable");
   }
   const key = responseKey(db, fact.source.responseId);
   const retention = effectiveRetentionState(db, now);
@@ -536,7 +536,7 @@ function admitNative(db: HistoryDatabase, fact: RecordedUsageFact, now: number) 
     .prepare("SELECT total_tokens,events FROM workspace_totals WHERE workspace=?")
     .get(fact.workspace) as { total_tokens: number; events: number };
   if (![totals.total_tokens, totals.events].every(count)) {
-    throw Error("Native total unavailable");
+    throw new Error("Native total unavailable");
   }
   recordSourceMetadata(
     db,

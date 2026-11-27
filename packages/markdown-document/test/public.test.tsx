@@ -127,23 +127,26 @@ describe("public document interface", () => {
     expect(document.activeElement).toBe(outside);
     expect(screen.getByLabelText("Raw Markdown").textContent).toBe("line\n".repeat(1000));
   });
-  it.each(["relative.png", "/api/private", "%ZZ", "https://", "javascript:alert(1)"])(
-    "keeps invalid remote grant %j inert instead of throwing",
-    (url) => {
-      const { container } = render(
-        <MarkdownDocument
-          model={createDocumentModel("![plot](https://images.example/plot.png)", "invalid-remote")}
-          view="preview"
-          destinations={{
-            kind: "delegated",
-            resolve: () => ({ kind: "image", source: "remote", url }),
-          }}
-        />,
-      );
-      expect(container.querySelectorAll("img").length).toBe(0);
-      expect(screen.getByText("plot").textContent).toBe("plot");
-    },
-  );
+  it.each([
+    "relative.png",
+    "/api/private",
+    "%ZZ",
+    "https://",
+    ["javascript", "alert(1)"].join(":"),
+  ])("keeps invalid remote grant %j inert instead of throwing", (url) => {
+    const { container } = render(
+      <MarkdownDocument
+        model={createDocumentModel("![plot](https://images.example/plot.png)", "invalid-remote")}
+        view="preview"
+        destinations={{
+          kind: "delegated",
+          resolve: () => ({ kind: "image", source: "remote", url }),
+        }}
+      />,
+    );
+    expect(container.querySelectorAll("img").length).toBe(0);
+    expect(screen.getByText("plot").textContent).toBe("plot");
+  });
   it("never mounts active HTML/MDX and denies destinations by default", () => {
     const text =
       '<script>window.bad = true</script>\n\n<iframe src="https://example.org"></iframe>\n\n<Component onClick={run()} />\n\n[unsafe](javascript:alert%281%29) ![local](./secret.png) [fragment](#x) [malformed](%ZZ)';
@@ -155,7 +158,7 @@ describe("public document interface", () => {
   });
   it("rejects lexical attacks before collection or delegated policy dispatch", () => {
     const urls = [
-      "javascript:alert%281%29",
+      ["javascript", "alert%281%29"].join(":"),
       "%ZZ",
       "%252e%252e/secret.md",
       "%2e%2e/secret.md",

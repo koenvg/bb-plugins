@@ -104,7 +104,7 @@ export const configSchema = z
           (field === "publicOrigin" && value[field] !== url.origin) ||
           (field === "issuer" && value[field] !== url.href && value[field] !== url.origin)
         )
-          throw new Error();
+          throw new Error("URL is not valid for this configuration field");
       } catch {
         ctx.addIssue({
           code: "custom",
@@ -133,7 +133,7 @@ export const configSchema = z
           !oauth.hostname.includes(".") ||
           (value.accessOAuthIssuer !== oauth.href && value.accessOAuthIssuer !== oauth.origin)
         )
-          throw new Error();
+          throw new Error("Access OAuth issuer must be a canonical HTTPS URL");
       } catch {
         ctx.addIssue({
           code: "custom",

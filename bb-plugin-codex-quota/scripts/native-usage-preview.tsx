@@ -27,7 +27,7 @@ function report(query: CalendarQuery) {
     (value) => value.query.startDate === query.startDate && value.query.group === query.group,
   );
   if (!value) {
-    throw Error("Fixture query unavailable");
+    throw new Error("Fixture query unavailable");
   }
   return structuredClone(value);
 }

@@ -128,7 +128,8 @@ it("persists transactions and unchanged-source progress, bounds backlog, exclude
     JSON.stringify(db!.prepare("SELECT payload FROM usage_events LIMIT 1").get()),
   ).not.toContain("sentinel");
   db!.close();
-  await writeFile(f.log, line(ids[0])); // truncation and replay
+  // truncation and replay
+  await writeFile(f.log, line(ids[0]));
   expect((await f.history.read(f.context)).collection!.workspaces[0].totalTokens).toBe(12);
   await writeFile(f.log + ".new", line(ids[2]));
   await rename(f.log + ".new", f.log);

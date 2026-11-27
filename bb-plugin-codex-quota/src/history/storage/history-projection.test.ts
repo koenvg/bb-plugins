@@ -57,7 +57,7 @@ it("rolls back events, replay ownership, counters and totals together", async ()
     db.transaction(() => {
       projectCompactRecord(db, compact(record(1)));
       projectCompactRecord(db, compact(bind(1)));
-      throw Error("rollback");
+      throw new Error("rollback");
     }),
   ).toThrow();
   expect(collectionView(db, true, false)).toMatchObject({

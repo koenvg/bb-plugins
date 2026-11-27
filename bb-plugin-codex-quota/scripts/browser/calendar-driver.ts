@@ -194,7 +194,8 @@ export async function interactions(page: Page, state: string, suite: string) {
     if (state === "cancel") {
       const before = await rows(page);
       await click("Release pending responses");
-      await page.waitForTimeout(200); // Observe delayed obsolete response completion.
+      // Observe delayed obsolete response completion.
+      await page.waitForTimeout(200);
       expect(await rows(page)).toEqual(before);
     }
   }

@@ -21,10 +21,12 @@ export async function freeze(
           verified = true;
           break;
         }
-      } catch {}
+      } catch {
+        continue;
+      }
     }
     if (!verified) {
-      throw Error("Import workspace unavailable");
+      throw new Error("Import workspace unavailable");
     }
     workspaces.push({
       recorded: normalize(recorded),
@@ -36,7 +38,7 @@ export async function freeze(
     [configuration.bbRoot, ...configuration.ordinaryRoots].map(proveRoot),
   );
   if (new Set(roots.map((r) => r.resolved)).size !== roots.length) {
-    throw Error("Import roots overlap");
+    throw new Error("Import roots overlap");
   }
   return { roots, workspaces, catalog };
 }

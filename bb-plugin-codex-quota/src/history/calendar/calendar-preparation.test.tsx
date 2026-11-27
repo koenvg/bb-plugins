@@ -143,7 +143,7 @@ it.each(["stalled", "unknown", "failure"])(
     vi.useFakeTimers();
     const prepare = vi.fn(async () => {
       if (mode === "failure") {
-        throw Error("offline");
+        throw new Error("offline");
       }
       return mode === "unknown"
         ? { state: "unavailable", progress: "", reason: "identity-unavailable" }

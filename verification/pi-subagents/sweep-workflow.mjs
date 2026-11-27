@@ -305,6 +305,7 @@ export function createSweepCoordinator({
             signal,
             clock,
           );
+          return;
         } catch (error) {
           const safe = [
             "DAEMON_AUTHENTICATION_FAILED",
@@ -316,8 +317,8 @@ export function createSweepCoordinator({
             "SWEEP_SIGNAL_CANCELLED",
           ];
           failure = safe.includes(error?.message) ? error.message : "SWEEP_ADAPTER_FAILED";
-          throw new Error(failure);
         }
+        throw new Error(failure);
       },
       acceptCompletion: () => true,
       stop: (input) =>

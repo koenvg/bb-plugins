@@ -50,7 +50,7 @@ function evidenceHashes(value: string): string[] {
       (hash) => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash),
     )
   ) {
-    throw Error("History evidence unavailable");
+    throw new Error("History evidence unavailable");
   }
   return [proof.d!, proof.o!, proof.i!];
 }

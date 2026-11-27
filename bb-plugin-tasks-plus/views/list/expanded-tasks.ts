@@ -68,7 +68,9 @@ export function storeExpandedTasks(
       scopes,
     };
     window.localStorage.setItem(EXPANDED_TASKS_STORAGE_KEY, JSON.stringify(document));
-  } catch {}
+  } catch {
+    // The current expansion state remains usable without persistence.
+  }
 }
 
 interface SessionToggles {

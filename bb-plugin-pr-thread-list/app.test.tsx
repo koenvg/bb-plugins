@@ -2,7 +2,7 @@
 import type * as AppSdk from "@get-bb/plugin-sdk/app";
 import { fail as missingValue } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
 import { renderSidebarSlot as renderSlot } from "./sidebar-actions.test-support";
 import type { RenderSlotOptions } from "@get-bb/plugin-sdk/testing/app";
@@ -20,6 +20,7 @@ import {
   receivePrPanel,
   requestPrPanel,
 } from "../bb-plugin-github-insight/pr-panel-navigation";
+import "../bb-plugin-code-cleanup/dialog-test-support";
 
 // The SDK harness ignores query options. Supply host-shaped snapshots for lifecycle regressions.
 const lifecycleViews = vi.hoisted(() => ({
@@ -540,7 +541,8 @@ describe("thread list slot", () => {
     const first = mount([thread({ isArchived: true })], { experimental_archived: page });
     showLifecycle(first, "Archived");
     expect(first.getByRole("link", { name: /Prepare release/ })).toBeTruthy();
-    expect(fetchNextPage).toHaveBeenCalledOnce(); // The snooze owner starts loading the complete relationship graph.
+    // The snooze owner starts loading the complete relationship graph.
+    expect(fetchNextPage).toHaveBeenCalledOnce();
     fireEvent.click(first.getByRole("button", { name: "Show more" }));
     expect(fetchNextPage).toHaveBeenCalledTimes(2);
     first.lifecycle.unmount();
@@ -721,7 +723,6 @@ describe("thread list slot", () => {
     expect(slot.getByTitle("Unsent draft").textContent).toBe("Draft");
   });
   it("routes row menu actions through BB and reorders pinned threads", () => {
-    const rename = vi.spyOn(window, "prompt").mockReturnValue("Renamed");
     const sdk = {
       threads: {
         reorderPinned: vi.fn(() => Promise.resolve({} as never)),
@@ -745,7 +746,11 @@ describe("thread list slot", () => {
     });
     open();
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
-    expect(rename).toHaveBeenCalled();
+    const dialog = within(screen.getByRole("dialog", { name: "Rename thread" }));
+    const name = dialog.getByRole<HTMLInputElement>("textbox", { name: "Name" });
+    expect(name.value).toBe("Prepare release");
+    fireEvent.change(name, { target: { value: "  Renamed  " } });
+    fireEvent.click(dialog.getByRole("button", { name: "Rename" }));
     expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "rename",
       threadId: "t1",
@@ -770,7 +775,6 @@ describe("thread list slot", () => {
       method: "requestDelete",
       threadId: "t1",
     });
-    rename.mockRestore();
   });
   it("offers pin reordering only between pinned top threads", () => {
     const sdk = { threads: { reorderPinned: vi.fn(() => Promise.resolve({} as never)) } };
@@ -808,8 +812,24 @@ describe("thread list slot", () => {
     expect(screen.queryByRole("menuitem", { name: "Move up" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Move down" })).toBeNull();
   });
+  it("closes a canceled section prompt without creating a section", () => {
+    const create = vi.fn(() => Promise.resolve({} as never));
+    const slot = mount([], {}, { sdk: { threadSections: { create } } });
+    chooseOption(slot, "Section");
+    fireEvent.click(slot.getByRole("button", { name: "Create section" }));
+    const prompt = screen.getByRole("dialog", { name: "Create section" });
+    const dialog = within(prompt);
+    const name = dialog.getByRole<HTMLInputElement>("textbox", { name: "Name" });
+    const submit = dialog.getByRole<HTMLButtonElement>("button", { name: "Create" });
+    expect(name.value).toBe("");
+    fireEvent.change(name, { target: { value: "   " } });
+    expect(submit.disabled).toBe(true);
+    fireEvent.change(name, { target: { value: "Unsaved" } });
+    fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog", { name: "Create section" })).toBeNull();
+    expect(create).not.toHaveBeenCalled();
+  });
   it("uses public SDK operations for section changes and unarchiving", () => {
-    const prompt = vi.spyOn(window, "prompt").mockReturnValue("Later renamed");
     const sdk = {
       threads: {
         update: vi.fn(() => Promise.resolve({} as never)),
@@ -836,11 +856,14 @@ describe("thread list slot", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Unarchive" }));
     expect(sdk.threads.unarchive).toHaveBeenCalledWith({ threadId: "t1" });
     fireEvent.click(slot.getByRole("button", { name: "Create section" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Create section" }));
+    fireEvent.change(dialog.getByRole("textbox", { name: "Name" }), {
+      target: { value: "Later renamed" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Create" }));
     expect(sdk.threadSections.create).toHaveBeenCalledWith({ name: "Later renamed" });
-    prompt.mockRestore();
   });
   it("offers section group creation, rename and a scoped new-thread action", () => {
-    const prompt = vi.spyOn(window, "prompt").mockReturnValue("Renamed section");
     const sdk = { threadSections: { update: vi.fn(() => Promise.resolve({} as never)) } };
     const slot = mount(
       [],
@@ -850,13 +873,17 @@ describe("thread list slot", () => {
     chooseOption(slot, "Section");
     fireEvent.click(slot.getByRole("button", { name: "More for Later" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename section" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Rename section" }));
+    const name = dialog.getByRole<HTMLInputElement>("textbox", { name: "Name" });
+    expect(name.value).toBe("Later");
+    fireEvent.change(name, { target: { value: "Renamed section" } });
+    fireEvent.click(dialog.getByRole("button", { name: "Rename" }));
     expect(sdk.threadSections.update).toHaveBeenCalledWith({ id: "s1", name: "Renamed section" });
     fireEvent.click(slot.getByRole("button", { name: "New thread in Later" }));
     expect(slot.inspection.threadActionCalls).toContainEqual({
       method: "openNewThread",
       options: { sectionId: "s1", focusPrompt: true },
     });
-    prompt.mockRestore();
   });
   it("keeps native link semantics, keyboard targets, split drag and compact navigation", () => {
     const onNavigate = vi.fn();

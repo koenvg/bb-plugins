@@ -295,7 +295,9 @@ export class PiRpcChild {
   private endWriters(): void {
     try {
       this.child.stdin?.end();
-    } catch {}
+    } catch {
+      // The child may already have closed stdin.
+    }
     this.channel.end();
   }
 
@@ -383,7 +385,9 @@ export class PiRpcChild {
         this.channelRecorder?.fromChild(parsed);
         this.args.onChannelMessage(parsed as Record<string, unknown>);
       }
-    } catch {}
+    } catch {
+      return;
+    }
   }
 }
 

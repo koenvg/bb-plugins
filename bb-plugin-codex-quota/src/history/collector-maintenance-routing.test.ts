@@ -117,7 +117,7 @@ it.each(["mismatch", "ephemeral", "inactive", "offline", "throws"])(
     const h = await fixture();
     h.inspection.sdk.stub("hosts.get", async () => {
       if (state === "throws") {
-        throw Error("private-sentinel");
+        throw new Error("private-sentinel");
       }
       const host = makeHostResponse({
         id: state === "mismatch" ? "host_wrong" : "host_target",
@@ -174,7 +174,7 @@ it.each(["revoked", "offline"])("suppresses a late result after %s target loss",
   const h = await fixture(async () => {
     h.inspection.sdk.stub("hosts.get", async () => {
       if (state === "revoked") {
-        throw Error("private-sentinel");
+        throw new Error("private-sentinel");
       }
       return makeHostResponse({ id: "host_a", status: "disconnected" });
     });
@@ -534,7 +534,7 @@ it.each(["throw", "cancel"])(
     });
     const { bb, harness: h } = createFakePluginHost({ pluginId: "codex-quota" });
     const unexpected = async (): Promise<never> => {
-      throw Error("Unrelated operation");
+      throw new Error("Unrelated operation");
     };
     const machines = createMachineCoordinator({
       storage: bb.storage.kv,
@@ -554,7 +554,7 @@ it.each(["throw", "cancel"])(
           await held;
         }
         await bb.storage.kv.set("machine-summary-v1/host_a/late", { stale: true });
-        throw Error("private-sentinel");
+        throw new Error("private-sentinel");
       },
       mutate: (hostId, work) => machines.mutate(hostId, work),
     });

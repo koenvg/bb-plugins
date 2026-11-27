@@ -129,7 +129,7 @@ async function fixture() {
     );
     expect(view.state).not.toBe("unavailable");
     if (view.state === "unavailable") {
-      throw Error(view.reason);
+      throw new Error(view.reason);
     }
     return view;
   };

@@ -111,7 +111,7 @@ it("does not quarantine permission/IO/capability failures or raw error messages"
     const failing = createHostHistory({
       agentDir: () => f.agent,
       storage: async () => () => {
-        throw Object.assign(Error("credential-secret"), { code });
+        throw Object.assign(new Error("credential-secret"), { code });
       },
     });
     const view = await failing.read(f.context);

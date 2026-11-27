@@ -57,7 +57,9 @@ export function writeListScroll(scopeKey: string, offset: number): void {
   if (store === null) return;
   try {
     store.setItem(STORAGE_PREFIX + scopeKey, String(rounded));
-  } catch {}
+  } catch {
+    // The current scroll position does not depend on persistence.
+  }
 }
 
 export function resolveRestoreTarget(

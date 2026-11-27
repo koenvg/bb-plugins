@@ -81,7 +81,7 @@ function host(
       list: () =>
         Promise.try(() => {
           reads.push("plugins");
-          if (integration === "error") throw Error("offline");
+          if (integration === "error") throw new Error("offline");
           return {
             plugins:
               integration === "absent"
@@ -110,7 +110,7 @@ function host(
       getPluginMetadata: (input: { threadId: string }) =>
         Promise.try(({ threadId }: { threadId: string }) => {
           reads.push(`metadata:${threadId}`);
-          if (metadataError) throw Error("offline");
+          if (metadataError) throw new Error("offline");
           return { prSummary: packet };
         }, input),
     },
@@ -472,7 +472,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
         get: ({ threadId }: { threadId: string }) =>
           sdkRead("threads", () => {
             const id = threadId.slice(4);
-            if (id === "error") throw Error("offline");
+            if (id === "error") throw new Error("offline");
             return makeThreadResponse({
               id: threadId,
               status: id === "conflict" ? "error" : id === "ready_a" ? "active" : "idle",
@@ -546,7 +546,7 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
             projectLabels={[]}
             onEdit={() => {}}
             onOpen={() => {
-              throw Error("unexpected task open");
+              throw new Error("unexpected task open");
             }}
             pending={false}
             openMenu={null}

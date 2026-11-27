@@ -52,7 +52,7 @@ async function fixture(status = "renamed", moving = false, path = "new.png") {
       if (method === "readPrImage") {
         return { kind: "ready", content: "iVBORw0KGgoAAAAA", mime: "image/png", sizeBytes: 12 };
       }
-      throw Error(`Unexpected ${method}`);
+      throw new Error(`Unexpected ${method}`);
     },
   });
   const review = (await harness.behavior.callRpc("getReview", { threadId: "thr_1" })) as Extract<
@@ -94,7 +94,7 @@ describe("PR image RPC", () => {
             events.push("compare");
             return ok({ merge_base_commit: { sha: mergeBaseSha } });
           }
-          throw Error(`Unexpected ${method}`);
+          throw new Error(`Unexpected ${method}`);
         },
       });
       const loading = harness.behavior.callRpc("getReview", { threadId: "thr_1" });
@@ -150,7 +150,7 @@ describe("PR image RPC", () => {
         if (method === "fetchReviewThreads") {
           return ok(threads);
         }
-        throw Error(`Unexpected ${method}`);
+        throw new Error(`Unexpected ${method}`);
       },
     });
     const review = (await harness.behavior.callRpc("getReview", {
@@ -158,7 +158,7 @@ describe("PR image RPC", () => {
     })) as ReviewResult;
     expect(review).toMatchObject({ kind: "ok", head: { oid: headSha }, imageBasis: null });
     if (review.kind !== "ok") {
-      throw Error("Expected loaded review");
+      throw new Error("Expected loaded review");
     }
     expect(review.files).toEqual(expectedFiles);
     expect(calls).toEqual(["fetchPrHead", "fetchPrFiles", "fetchReviewThreads"]);
@@ -209,7 +209,7 @@ describe("PR image RPC", () => {
           if (method === "fetchReviewThreads") {
             return threadRead.promise;
           }
-          throw Error(`Unexpected ${method}`);
+          throw new Error(`Unexpected ${method}`);
         },
       });
       let result: unknown = null;
@@ -323,7 +323,7 @@ describe("PR body image RPC", () => {
         if (method === "readPrImage") {
           return ready;
         }
-        throw Error(`Unexpected ${method}`);
+        throw new Error(`Unexpected ${method}`);
       },
     });
 

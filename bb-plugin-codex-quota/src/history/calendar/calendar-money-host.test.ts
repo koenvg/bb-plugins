@@ -43,10 +43,10 @@ async function fixture(clock = now) {
     createQuotaHostEntry({
       history,
       auth: async () => {
-        throw Error("Money report must not read auth");
+        throw new Error("Money report must not read auth");
       },
       read: async () => {
-        throw Error("Money report must not read quota");
+        throw new Error("Money report must not read quota");
       },
     }),
     { experimental_paths: { dataDir, tempDir: join(root, "temp") } },
@@ -155,7 +155,7 @@ it("caps money by captured dollars, includes zero-token prices, and directly sum
   f.db.close();
   const report = await f.read();
   if (report.state === "unavailable") {
-    throw Error(report.reason);
+    throw new Error(report.reason);
   }
   const day = report.days[14];
   expect(day.money).toMatchObject({ capturedCost: 55, records: 11, pricedRecords: 11 });
@@ -185,7 +185,7 @@ it("withholds model identities at logical detail expiry before maintenance", asy
   f.db.close();
   const report = await f.read({ ...query, startDate: "2026-08-02" });
   if (report.state === "unavailable") {
-    throw Error(report.reason);
+    throw new Error(report.reason);
   }
   expect(report.days[3].modelCosts).toEqual({
     named: [],
@@ -220,7 +220,7 @@ it("does not erase subnormal Other or Unknown prices beside large named subtotal
   f.db.close();
   const report = await f.read();
   if (report.state === "unavailable") {
-    throw Error(report.reason);
+    throw new Error(report.reason);
   }
   expect(report.days[14].money.capturedCost).toBe(8e9);
   expect(report.days[14].modelCosts?.other).toEqual({
@@ -310,7 +310,7 @@ it("keeps imported tokens with missing, zero, negative, invalid and non-finite p
         null,
       );
       if (value.kind !== "usage") {
-        throw Error("Expected scalar import fixture");
+        throw new Error("Expected scalar import fixture");
       }
       projectCompactRecord(f.db, value.record);
     }),
