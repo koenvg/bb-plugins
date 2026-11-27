@@ -155,7 +155,9 @@ let markerExists = false;
 try {
   readFileSync(join(shared, "ci-consumer-allowed"));
   markerExists = true;
-} catch {}
+} catch {
+  // A failed shared check must leave the consumer marker absent.
+}
 if (markerExists) throw new Error("Failed shared tests allowed consumer bootstrap");
 console.log(
   "PASS shared-test failure blocks subsequent consumer setup; workflow uses these same fail-fast steps without continue-on-error",

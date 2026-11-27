@@ -7,7 +7,7 @@ const [agentDir, cwd, dataDir] = process.argv.slice(2);
 assert.ok(agentDir && cwd);
 process.env.PI_CODING_AGENT_DIR = agentDir;
 globalThis.fetch = async () => {
-  throw Error("Network is forbidden in collector loading");
+  throw new Error("Network is forbidden in collector loading");
 };
 const { discoverAndLoadExtensions } = await import("@earendil-works/pi-coding-agent");
 const loaded = await discoverAndLoadExtensions([], cwd, agentDir);

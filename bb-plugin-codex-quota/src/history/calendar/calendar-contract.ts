@@ -10,7 +10,7 @@ import { dayModelCostsSchema, validModelCosts } from "./calendar-model-costs.js"
 
 export function checkedCount(n: number): number {
   if (!Number.isSafeInteger(n) || n < 0) {
-    throw Error("Calendar total unavailable");
+    throw new Error("Calendar total unavailable");
   }
   return n;
 }

@@ -64,7 +64,8 @@ export function createLocalHost(options: LocalHostOptions) {
         live();
         if (Object.is(snapshot, next)) return;
         snapshot = next;
-        const recipients = [...listeners]; // Changes during delivery affect the next event.
+        // Changes during delivery affect the next event.
+        const recipients = [...listeners];
         for (const listener of recipients) listener();
       },
       clear() {
@@ -102,7 +103,8 @@ export function createLocalHost(options: LocalHostOptions) {
       const normalized = input === undefined ? null : copy(input);
       rpcCalls.push({ method, input: normalized });
       const result = await options.rpc(method, normalized);
-      live(); // Revoke publication rights from responses after disposal.
+      // Revoke publication rights from responses after disposal.
+      live();
       return copy(result);
     },
   } as PluginRpcClient;

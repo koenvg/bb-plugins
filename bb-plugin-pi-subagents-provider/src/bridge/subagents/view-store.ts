@@ -103,7 +103,9 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
       timer = undefined;
       try {
         flush();
-      } catch {}
+      } catch {
+        // A failed flush leaves the last persisted view intact.
+      }
     }, 250);
     timer.unref?.();
   }

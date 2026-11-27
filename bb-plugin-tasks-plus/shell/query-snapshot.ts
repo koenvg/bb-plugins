@@ -41,7 +41,9 @@ function pruneOtherSnapshotVersions(): void {
       }
     }
     for (const key of stale) window.localStorage.removeItem(key);
-  } catch {}
+  } catch {
+    // Cache cleanup is optional when storage is unavailable.
+  }
 }
 
 export function readQuerySnapshot<T>(name: string, schema: z.ZodType<T>): T | undefined {
@@ -62,5 +64,7 @@ export function writeQuerySnapshot(name: string, value: unknown, revision: numbe
   writtenRevisions.set(name, revision);
   try {
     window.localStorage.setItem(querySnapshotStorageKey(name), JSON.stringify(value));
-  } catch {}
+  } catch {
+    // The in-memory snapshot remains usable without persistence.
+  }
 }

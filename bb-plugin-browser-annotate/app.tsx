@@ -136,8 +136,8 @@ export const AnnotateControl = ({
     try {
       await controller.setMode(next);
       setError(null);
-    } catch (cause) {
-      reportError(cause, true);
+    } catch (error) {
+      reportError(error, true);
     } finally {
       setPending(false);
     }

@@ -35,7 +35,7 @@ function observation(query: CalendarQuery, tokens: number, cached: boolean) {
   for (const row of value.machines) {
     row.cached = cached;
     if (row.report.state === "unavailable") {
-      throw Error("Synthetic history missing");
+      throw new Error("Synthetic history missing");
     }
     const report = row.report;
     report.summary.totalTokens = report.days[14].totalTokens = tokens / 2;

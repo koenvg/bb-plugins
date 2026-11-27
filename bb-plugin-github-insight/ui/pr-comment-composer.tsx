@@ -28,7 +28,7 @@ export const PrCommentComposer = ({
     setError(null);
     const result = await rpc
       .call("addPrComment", { threadId, prNodeId, body })
-      .catch((caught: unknown): ActionResult => ({ kind: "error", message: messageOf(caught) }));
+      .catch((error: unknown): ActionResult => ({ kind: "error", message: messageOf(error) }));
     if (result.kind === "ok") {
       setBody("");
       await onPosted();

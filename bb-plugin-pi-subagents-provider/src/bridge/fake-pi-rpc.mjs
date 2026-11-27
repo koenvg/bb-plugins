@@ -22,7 +22,9 @@ if (args.includes("--version")) {
   if (process.env.FAKE_PI_PROCESS_LOG) {
     try {
       appendFileSync(process.env.FAKE_PI_PROCESS_LOG, `version:${process.pid}:${process.ppid}\n`);
-    } catch {}
+    } catch {
+      // The version command does not depend on fixture logging.
+    }
   }
   if (process.env.FAKE_PI_VERSION === "crash") {
     process.stderr.write("Error: pi 0.84.0 failed to start\n    at main (pi.js:1:1)\n");
@@ -63,7 +65,9 @@ function logProcessStep(step) {
   if (!processLogPath) return;
   try {
     appendFileSync(processLogPath, `${step}:${process.pid}:${process.ppid}\n`);
-  } catch {}
+  } catch {
+    // The child can still serve RPC when the fixture log is unavailable.
+  }
 }
 logProcessStep("spawn");
 let exiting = false;
@@ -312,7 +316,9 @@ async function prepareExtensionLoadPath(path) {
     process.on("exit", () => {
       try {
         rmSync(staging, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // The test's outer cleanup can remove leftover staging files.
+      }
     });
   }
   return loadPath;

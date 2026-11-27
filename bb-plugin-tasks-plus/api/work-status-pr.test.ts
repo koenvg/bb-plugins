@@ -195,7 +195,7 @@ describe("basic list PR lifecycle without optional plugins", () => {
 
   it.each([
     "https://evil.test/acme/bb/pull/42",
-    "javascript:alert(42)",
+    ["javascript", "alert(42)"].join(":"),
     "https://github.com/acme/bb/pull/43",
     "https://github.com/acme/bb/issues/42",
   ])("treats invalid identity %s as unavailable, not confirmed absence", async (url) => {

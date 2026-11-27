@@ -387,7 +387,7 @@ const options = {
         return new Promise(() => {});
       }
       if (state === "stale" && reportCalls > 1) {
-        throw Error("Synthetic failed refresh");
+        throw new Error("Synthetic failed refresh");
       }
       if (state === "cancel" && query.startDate === shiftDate(latestRange, -30)) {
         await new Promise<void>((resolve) => pending.push(resolve));
@@ -440,7 +440,7 @@ const options = {
     historicalImport: async (input: unknown) => {
       record("historicalImport", input);
       if ((input as { command: { action: string } }).command.action !== "status") {
-        throw Error("Only synthetic import status is allowed");
+        throw new Error("Only synthetic import status is allowed");
       }
       if (state === "settings") {
         await new Promise<void>((resolve) => pending.push(resolve));

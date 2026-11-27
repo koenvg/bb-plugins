@@ -105,7 +105,7 @@ describe("per-file lazy context", () => {
     expect(transport.call.mock.calls).toHaveLength(1);
   });
   it("retains a retryable read failure and successfully retries", async () => {
-    transport.call.mockRejectedValueOnce(Error("offline")).mockResolvedValueOnce(response());
+    transport.call.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(response());
     const screen = render(<Harness source={snapshot} />);
     fireEvent.click(screen.getByRole("button"));
     await waitFor(() =>

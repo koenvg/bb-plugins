@@ -118,9 +118,9 @@ const ReviewComposer = ({ pr, projectId }: { pr: LinkedQueuePr; projectId: strin
         request,
       });
       navigation.toThread(threadId);
-    } catch (failure) {
-      setError(messageOf(failure));
-      throw failure;
+    } catch (error) {
+      setError(messageOf(error));
+      throw error;
     }
   }
 

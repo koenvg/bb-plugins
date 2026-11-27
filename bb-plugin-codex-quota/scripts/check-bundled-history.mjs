@@ -31,7 +31,7 @@ try {
   mkdirSync(dataDir);
   process.env.PI_CODING_AGENT_DIR = agentDir;
   globalThis.fetch = async () => {
-    throw Error("Network is forbidden in this proof");
+    throw new Error("Network is forbidden in this proof");
   };
   const artifact = join(root, "host.mjs");
   copyFileSync(new URL("../dist/host.js", import.meta.url), artifact);
@@ -70,7 +70,7 @@ try {
   assert.throws(() =>
     db.transaction(() => {
       db.prepare("INSERT INTO persistence_proof VALUES (?, ?)").run(2, "rolled-back");
-      throw Error("rollback");
+      throw new Error("rollback");
     }),
   );
   db.close();
@@ -92,7 +92,8 @@ try {
     beforeUnknown,
     "Known version with unknown table layout is protected",
   );
-  renameSync(path, join(root, "adapter-persistence-proof.sqlite")); // Owned fixture, separate from real history.
+  // Owned fixture, separate from real history.
+  renameSync(path, join(root, "adapter-persistence-proof.sqlite"));
   console.log(
     "Packaged Node host: create/commit/rollback/close/reopen/query passed with persistent temporary SQLite. Runtime:",
     process.versions.node,

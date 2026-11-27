@@ -71,5 +71,7 @@ export function storeViewMode(projectId: string, view: TaskViewMode): void {
       projects,
     };
     window.localStorage.setItem(VIEW_PREFERENCE_STORAGE_KEY, JSON.stringify(document));
-  } catch {}
+  } catch {
+    // The current view stays selected even if persistence fails.
+  }
 }

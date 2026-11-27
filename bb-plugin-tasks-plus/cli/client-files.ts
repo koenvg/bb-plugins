@@ -112,7 +112,8 @@ async function readWebhookConfigFile(
 ): Promise<string> {
   try {
     const path = resolve(ctx.cwd ?? process.cwd(), file);
-    if (/^\/(?:dev|proc)(?:\/|$)/.test(path)) throw new Error();
+    if (/^\/(?:dev|proc)(?:\/|$)/.test(path))
+      throw new Error("Device and process files are not supported");
     const hostId = await resolveClientHostId(bb, domain, machine, ctx);
     const result = await bb.sdk.files.read({
       ...(hostId ? { hostId } : {}),
@@ -124,7 +125,7 @@ async function readWebhookConfigFile(
       result.sizeBytes > 8192 ||
       Buffer.byteLength(result.content) > 8192
     )
-      throw new Error();
+      throw new Error("Secret file must contain at most 8192 bytes of readable text");
     return result.content;
   } catch {
     throw new CliError("Could not read webhook config file", { code: "webhook_file_error" });

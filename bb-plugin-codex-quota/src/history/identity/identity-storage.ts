@@ -62,12 +62,12 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
   db.transaction(() => {
     const prior = receipt(db);
     if (prior.host_id && prior.host_id !== batch.hostId) {
-      throw Error("Identity host mismatch");
+      throw new Error("Identity host mismatch");
     }
     // Unknown discovery heartbeats contain no rows and establish no evidence.
     if (batch.total === null) {
       if (batch.rows.length) {
-        throw Error("Partial identity rows");
+        throw new Error("Partial identity rows");
       }
       return;
     }
@@ -82,7 +82,7 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
         if (!prior.generation && !prior.received) {
           return;
         }
-        throw Error("Identity batch gap");
+        throw new Error("Identity batch gap");
       }
       db.prepare(
         "UPDATE identity_receipt SET host_id=?,generation=?,received=0,complete=0,expected_total=NULL,evidence_changed=? WHERE id=1",
@@ -91,22 +91,22 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
     }
     const current = receipt(db);
     if (current.expected_total !== null && current.expected_total !== batch.total) {
-      throw Error("Identity total changed");
+      throw new Error("Identity total changed");
     }
     db.prepare("UPDATE identity_receipt SET expected_total=? WHERE id=1").run(batch.total);
     if (batch.offset > current.received || batch.offset + batch.rows.length > batch.total) {
-      throw Error("Identity batch gap");
+      throw new Error("Identity batch gap");
     }
     const digest = createHash("sha256").update(JSON.stringify(batch)).digest("hex");
     const stored = db
       .prepare("SELECT digest FROM identity_batches WHERE generation=? AND offset=?")
       .get(batch.generation, batch.offset) as { digest: string } | undefined;
     if (stored && stored.digest !== digest) {
-      throw Error("Identity batch conflict");
+      throw new Error("Identity batch conflict");
     }
     if (!stored) {
       if (batch.offset !== current.received) {
-        throw Error("Identity batch overlap");
+        throw new Error("Identity batch overlap");
       }
       for (const input of batch.rows) {
         const row = {
@@ -129,7 +129,8 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
             );
             db.prepare("UPDATE identity_receipt SET evidence_changed=1 WHERE id=1").run();
           }
-          continue; // Never store unknown ownership as host-local edges or metadata.
+          // Never store unknown ownership as host-local edges or metadata.
+          continue;
         }
         // Only positive ownership evidence can clear retained uncertainty.
         if (
@@ -138,9 +139,10 @@ export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
           db.prepare("DELETE FROM identity_uncertain WHERE thread_id=?").run(row.threadId);
           db.prepare("UPDATE identity_receipt SET evidence_changed=1 WHERE id=1").run();
         }
-        if (row.ownershipUnknown === false) {
+        const isHostNeutralResolution = row.ownershipUnknown === false;
+        if (isHostNeutralResolution) {
           continue;
-        } // Host-neutral resolution, not a binding.
+        }
         if (row.providerIdentity) {
           if (
             !db
@@ -264,7 +266,7 @@ function adjust(
       .prepare(`SELECT total_tokens,events FROM ${table} WHERE ${where}`)
       .get(...keys) as { total_tokens: number; events: number };
     if (![row.total_tokens, row.events].every((n) => Number.isSafeInteger(n) && n >= 0)) {
-      throw Error("Identity totals unavailable");
+      throw new Error("Identity totals unavailable");
     }
     if (!row.events) {
       db.prepare(`DELETE FROM ${table} WHERE ${where}`).run(...keys);

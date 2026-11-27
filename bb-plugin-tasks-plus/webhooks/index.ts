@@ -77,6 +77,7 @@ const messages = {
 } as const;
 
 export class WebhookError extends Error {
+  override name = "WebhookError";
   readonly code: keyof typeof messages;
   constructor(code: keyof typeof messages) {
     super(messages[code]);
@@ -145,7 +146,8 @@ const documentSchema = z
 function readDocument(value: string | undefined): EndpointDocument {
   try {
     if (value === undefined) return { version: 1, endpoints: [] };
-    if (Buffer.byteLength(value) > MAX_CONFIG_BYTES) throw new Error();
+    if (Buffer.byteLength(value) > MAX_CONFIG_BYTES)
+      throw new Error("Stored webhook configuration is too large");
     return documentSchema.parse(JSON.parse(value));
   } catch {
     throw new WebhookError("invalid_stored");
@@ -410,7 +412,7 @@ export async function createWebhooks(bb: BbPluginApi): Promise<Webhooks> {
       return mutate((document) => {
         let input: z.infer<typeof createInput>;
         try {
-          if (Buffer.byteLength(json) > 8192) throw new Error();
+          if (Buffer.byteLength(json) > 8192) throw new Error("Webhook input is too large");
           input = createInput.parse(JSON.parse(json));
           scope = scopeSchema.parse(scope);
         } catch {

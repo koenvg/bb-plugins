@@ -135,18 +135,18 @@ async function fixture(rows: unknown[], options: { lines?: number; read?: () => 
     for (let i = 0; i < 500; i += 1) {
       result = await h.prepare!(context);
       if (result.state !== "available") {
-        throw Error(result.reason);
+        throw new Error(result.reason);
       }
       if (!result.ingestionPending && !result.attribution.backlog) {
         return result;
       }
     }
-    throw Error("Fixture did not settle");
+    throw new Error("Fixture did not settle");
   }
   async function report(q = query, h = history) {
     const result = await h.report(q, context);
     if (result.state === "unavailable") {
-      throw Error(result.reason);
+      throw new Error(result.reason);
     }
     return result;
   }
@@ -638,7 +638,7 @@ it("rolls back schema-4 migration, facts and controls when version publication f
         ...opened,
         exec(sql) {
           if (/PRAGMA user_version = 5/u.test(sql)) {
-            throw Error("synthetic-publication-failure");
+            throw new Error("synthetic-publication-failure");
           }
           opened.exec(sql);
         },

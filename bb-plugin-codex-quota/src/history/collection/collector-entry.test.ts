@@ -22,7 +22,8 @@ async function fixture() {
   );
   const handlers = new Map<string, Function>();
   const module = await import(
-    /* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`)}`
+    /* @vite-ignore */
+    `data:text/javascript,${encodeURIComponent(`export default ${COLLECTOR_ENTRY}`)}`
   );
   module.default(
     { on: (name: string, handler: Function) => handlers.set(name, handler) },

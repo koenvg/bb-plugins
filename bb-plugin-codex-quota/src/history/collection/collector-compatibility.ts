@@ -17,7 +17,7 @@ export function validHostDataDir(path: string): boolean {
 /** Self-contained Pi asset. It fails closed until explicit compatible control metadata exists. */
 export function packagedCollectorAsset(dataDir: string): string {
   if (!validHostDataDir(dataDir)) {
-    throw Error("Invalid collector configuration");
+    throw new Error("Invalid collector configuration");
   }
   return (
     `// BB Codex usage collector protocol ${COLLECTOR_PROTOCOL}. No checkout or server dependency.\n` +

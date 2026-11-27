@@ -149,7 +149,7 @@ describe("bounded selected-host history routing", () => {
   it("cannot return a raw body, error or credential from a failed host", async () => {
     const secret = "private-error-and-credential";
     const harness = await setup(async () => {
-      throw Error(secret);
+      throw new Error(secret);
     });
     const a = (await harness.behavior.callRpc("selectHost", { hostId: "host_a" })) as {
       generation: number;

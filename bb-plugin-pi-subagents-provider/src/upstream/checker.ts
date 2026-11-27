@@ -147,11 +147,11 @@ export async function checkUpstream(
       } catch (error) {
         // Never include transport errors, URLs, headers, or remote messages in output.
         if (error instanceof Error && safeReasons.has(error.message)) throw error;
-        throw new Error("Upstream network failure");
       } finally {
         clearTimeout(timer);
         controller.abort();
       }
+      throw new Error("Upstream network failure");
     }
     stage = "branch";
     const branch = await get(`${prefix}/branches/${encodeURIComponent(b.branch)}`);

@@ -132,7 +132,9 @@ process.on('SIGINT',()=>{server.closeAllConnections();server.close()});
         const runStep = async () => {
           try {
             return { kind: "return", value: await readFile(join(root, file), "utf8") };
-          } catch {}
+          } catch {
+            // The fixture may not have published readiness yet.
+          }
           if (child.exitCode !== null) throw new Error(output);
           await delay(10);
         };

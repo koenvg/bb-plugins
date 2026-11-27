@@ -17,7 +17,7 @@ vi.mock("node:fs/promises", async (original) => {
       to: Parameters<typeof filesystem.rename>[1],
     ) => {
       if (to === publicationFailure.control) {
-        throw Error("private-publication-failure");
+        throw new Error("private-publication-failure");
       }
       return filesystem.rename(from, to);
     },
@@ -360,7 +360,7 @@ it("does not report success when read-back fails after both durable publications
     now: () => Date.UTC(2026, 9, 1),
     storage: async () => (path, readonly) => {
       if (readFileSync(f.asset, "utf8") !== "old") {
-        throw Error("private-readback-failure");
+        throw new Error("private-readback-failure");
       }
       return factory(path, readonly);
     },

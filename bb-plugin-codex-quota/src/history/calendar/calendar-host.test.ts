@@ -31,10 +31,10 @@ async function calendarFixture(clock = now) {
     createQuotaHostEntry({
       history,
       auth: async () => {
-        throw Error("no account");
+        throw new Error("no account");
       },
       read: async () => {
-        throw Error("no account");
+        throw new Error("no account");
       },
     }),
     { experimental_paths: { dataDir, tempDir: join(root, "temp") } },
@@ -56,7 +56,7 @@ async function calendarFixture(clock = now) {
     ) => {
       const value = await harness.experimental_call("calendarReport", query);
       if (value.state === "unavailable") {
-        throw Error(value.reason);
+        throw new Error(value.reason);
       }
       return value;
     },
@@ -534,10 +534,10 @@ it("reports retained import-only usage independently of collector assets without
   const entry = createQuotaHostEntry({
     history,
     auth: async () => {
-      throw Error("no auth");
+      throw new Error("no auth");
     },
     read: async () => {
-      throw Error("no account");
+      throw new Error("no account");
     },
   });
   const harness = experimental_createHostEntryHarness(entry, {
@@ -610,7 +610,7 @@ it("reports retained import-only usage independently of collector assets without
     ]),
   });
   if (result.state === "unavailable") {
-    throw Error(result.reason);
+    throw new Error(result.reason);
   }
   expect(result.days).toHaveLength(30);
   expect(result.summary.totalTokens).toBe(10);

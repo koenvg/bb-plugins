@@ -87,7 +87,8 @@ export async function freePort() {
   const server = createServer();
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error();
+  if (!address || typeof address === "string")
+    throw new Error("Fixture server did not bind to a TCP port");
   await new Promise<void>((resolve) => server.close(() => resolve()));
   return address.port;
 }
@@ -147,7 +148,8 @@ export async function fixture(
   });
   await new Promise<void>((resolve) => issuer.listen(0, "127.0.0.1", resolve));
   const address = issuer.address();
-  if (!address || typeof address === "string") throw new Error();
+  if (!address || typeof address === "string")
+    throw new Error("Fixture issuer did not bind to a TCP port");
   const fetchIssuer: typeof fetch = async (input, init) => {
     const url = new URL(String(input));
     if (url.origin !== "https://issuer.example.org") throw new Error("Unexpected issuer URL");

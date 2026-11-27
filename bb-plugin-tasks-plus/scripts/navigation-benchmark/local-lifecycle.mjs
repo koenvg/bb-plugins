@@ -8,7 +8,8 @@ const errorText = (error) => error?.stack ?? String(error);
 
 export async function runLocalHarness({ output, phase, execute }) {
   output = resolve(output);
-  await mkdir(output, { mode: 0o700 }); // Never merge or overwrite a run.
+  // Never merge or overwrite a run.
+  await mkdir(output, { mode: 0o700 });
   const ledger = {
     owner: "tasks-navigation-local-harness",
     run: randomUUID(),
@@ -101,7 +102,8 @@ export async function runLocalHarness({ output, phase, execute }) {
         page.evaluate(() => {
           const probe = window.lab?.probe;
           if (!probe) return undefined;
-          probe.dispose(); // Flush queued observations and finish an interrupted sample before export.
+          // Flush queued observations and finish an interrupted sample before export.
+          probe.dispose();
           return probe.export();
         }),
       livePage,
@@ -274,7 +276,8 @@ export async function runLocalHarness({ output, phase, execute }) {
     const alreadyFailed = ledger.status === "failed";
     if (alreadyFailed) await publishFailure("failure.json");
     try {
-      await saveLedger(); // Includes the actual result/failure publication outcome.
+      // Includes the actual result/failure publication outcome.
+      await saveLedger();
     } catch (error) {
       errors.push(error);
       ledger.persistence = { status: "failed", error: errorText(error) };

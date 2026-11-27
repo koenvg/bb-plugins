@@ -42,6 +42,7 @@ interface PluginStatus {
 type TasksDomain = ReturnType<typeof registerHandlers>;
 
 class CliError extends PluginCliError {
+  override name = "CliError";
   constructor(message: string, options?: { code?: string; hint?: string; exitCode?: number }) {
     super(oneLine(message), options);
   }

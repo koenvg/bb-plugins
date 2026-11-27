@@ -150,7 +150,7 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
               )
               .get() || !db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
           if (initialSetup && action !== "install") {
-            throw Error("Collector control unavailable");
+            throw new Error("Collector control unavailable");
           }
           if (initialSetup) {
             initializeHistory(db, new Date(now).toISOString());
@@ -252,7 +252,7 @@ export function createHistoryMaintenance(deps: HistoryDependencies = {}) {
             await saveBoundary(db, directory, now, signal);
             const latestEnabled = await readControl(directory);
             if (latestEnabled === null) {
-              throw Error("Collector control unavailable");
+              throw new Error("Collector control unavailable");
             }
             view.collection = collectionView(db, latestEnabled, backlog);
             reconcileIdentity(db, signal);

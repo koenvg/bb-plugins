@@ -34,7 +34,7 @@ async function fixture() {
     history,
     auth: async () => ({ status: "auth-required" }),
     read: async () => {
-      throw Error("No account request");
+      throw new Error("No account request");
     },
   });
   const harness = experimental_createHostEntryHarness(entry, {
@@ -164,7 +164,7 @@ it.each([
         scope: { kind: "host" },
       });
       if (report.state === "unavailable") {
-        throw Error(report.reason);
+        throw new Error(report.reason);
       }
       const day = report.days[27];
       expect(day.models).toEqual({
@@ -342,7 +342,7 @@ it.each([
             return ready;
           }
           if (method !== "historicalImport") {
-            throw Error("unexpected dispatch");
+            throw new Error("unexpected dispatch");
           }
           dispatches.push((input as { command: { action: string } }).command.action);
           signal?.throwIfAborted();

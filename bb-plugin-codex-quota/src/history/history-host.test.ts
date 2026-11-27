@@ -29,10 +29,10 @@ describe("host-local readiness", () => {
     const { root, paths, history } = await fixture();
     const entry = createQuotaHostEntry({
       auth: async () => {
-        throw Error("must not authenticate");
+        throw new Error("must not authenticate");
       },
       read: async () => {
-        throw Error("must not fetch");
+        throw new Error("must not fetch");
       },
       history,
     });
@@ -56,7 +56,7 @@ describe("host-local readiness", () => {
       history,
       auth: async () => ({ status: "auth-required" }),
       read: async () => {
-        throw Error("not called");
+        throw new Error("not called");
       },
     });
     const harness = experimental_createHostEntryHarness(entry, { experimental_paths: paths });
@@ -90,7 +90,7 @@ describe("host-local readiness", () => {
     const path = join(paths.dataDir, "history/usage-v1.sqlite");
     const db = await openHistoryDatabase(path);
     if (!db) {
-      throw Error("test SQLite required");
+      throw new Error("test SQLite required");
     }
     db.exec("PRAGMA user_version = 99");
     db.close();
@@ -129,7 +129,7 @@ describe("host-local readiness", () => {
       history,
       auth: async () => ({ status: "auth-required" }),
       read: async () => {
-        throw Error("not called");
+        throw new Error("not called");
       },
     });
     const harness = experimental_createHostEntryHarness(entry, { experimental_paths: paths });

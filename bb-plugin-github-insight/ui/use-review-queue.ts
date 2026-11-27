@@ -37,8 +37,8 @@ export function useReviewQueue(): ReviewQueueState {
       try {
         const result = await call();
         if (isLatest()) apply(result);
-      } catch (failure) {
-        if (isLatest()) setError(messageOf(failure));
+      } catch (error) {
+        if (isLatest()) setError(messageOf(error));
       }
     },
     [apply],

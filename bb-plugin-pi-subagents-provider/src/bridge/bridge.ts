@@ -1175,15 +1175,18 @@ function handleParsedMessage(parsed: unknown): void {
 
 export const handleLine = createBridgeLineHandler({ handleParsedMessage });
 
-/** @internal Test inspection: where this process writes its scratch files. */
+/**
+ * Returns the directory this process uses for test scratch files.
+ * @internal
+ */
 export function experimental_scratchDirForTests(): string {
   return requireScratchDir();
 }
 
 /**
- * @internal Test cleanup: every pi child this process runs, and the private
- * scratch dir (a suite never runs the entry's `start`, so nothing else would
- * remove it).
+ * Closes the test process's Pi children and removes its private scratch directory.
+ * Test suites do not call the entry point's `start`, which normally owns cleanup.
+ * @internal
  */
 export async function experimental_closeAllForTests(): Promise<void> {
   await closeThreadSessionsGracefully("Pi bridge test teardown");

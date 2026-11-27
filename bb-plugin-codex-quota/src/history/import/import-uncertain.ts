@@ -106,7 +106,7 @@ export function uncertainTotals(
   `)
     .get(start, end, ...(workspace ? [workspace] : [])) as { totalTokens: number; records: number };
   if (![row.totalTokens, row.records].every((n) => Number.isSafeInteger(n) && n >= 0)) {
-    throw Error("Uncertain history total unavailable");
+    throw new Error("Uncertain history total unavailable");
   }
   return row;
 }

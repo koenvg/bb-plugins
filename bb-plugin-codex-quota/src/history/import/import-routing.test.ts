@@ -49,7 +49,7 @@ it("rechecks host changes after queued metadata and never dispatches to an old h
   });
   const harness = await setup(async (method) => {
     if (method !== "historyReadiness") {
-      throw Error("unexpected host dispatch");
+      throw new Error("unexpected host dispatch");
     }
     entered();
     await held;

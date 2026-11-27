@@ -136,7 +136,8 @@ it.each(["checks", "ready"])(
     expect(
       slot.getByRole("link", { name: /Open GitHub PR/ }).textContent?.includes("Ready to merge"),
     ).toBe(mode === "ready");
-    await act(() => vi.advanceTimersByTimeAsync(60_000)); // Exactly one hour is still usable; RPC now pending.
+    // Exactly one hour is still usable; RPC now pending.
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
     expect(calls).toBe(2);
     expect(latest?.pullRequests.items[0]?.details).toBe("available");
     await act(() => vi.advanceTimersByTimeAsync(60_000));

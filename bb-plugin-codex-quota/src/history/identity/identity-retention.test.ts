@@ -82,7 +82,7 @@ it.each([101, 501])(
           () => now,
         );
       }
-      throw Error("Discovery did not complete");
+      throw new Error("Discovery did not complete");
     };
     const a = await complete("host_a");
     discovery.delivered(a);
@@ -218,7 +218,7 @@ it("retains canonical evidence and ownership resolution for hosts that miss many
         () => now,
       );
     }
-    throw Error("Discovery did not complete");
+    throw new Error("Discovery did not complete");
   };
   const original = await complete("host_a");
   discovery.delivered(original);
@@ -372,7 +372,7 @@ it("rolls back canceled cleanup and leaves usage and public metadata unchanged",
         return batch;
       }
     }
-    throw Error("Discovery did not complete");
+    throw new Error("Discovery did not complete");
   };
   await complete();
   now += 60_000;

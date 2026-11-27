@@ -215,7 +215,7 @@ describe.each(feeds)("selected-host $method guards", ({ method, extra, result })
       const { harness, generation, setCall } = await setup(result);
       setCall(async () => {
         if (failure === "transport failure") {
-          throw Error(secret);
+          throw new Error(secret);
         }
         return { ...result, raw: secret };
       });

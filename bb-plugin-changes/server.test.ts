@@ -527,7 +527,7 @@ describe("getImage", () => {
     const { harness } = await setup({
       diffFile: async (args) => {
         calls.push(args);
-        throw Error("not called");
+        throw new Error("not called");
       },
     });
     expect(
@@ -576,7 +576,7 @@ describe("getImage", () => {
       const { harness } = await setup({
         diffFile: async (args) => {
           calls.push(args);
-          throw Error("not called");
+          throw new Error("not called");
         },
       });
       expect(
@@ -659,12 +659,12 @@ describe("getChanges", () => {
         if (mergeBaseBranch !== undefined) {
           commitsStarted = true;
           return commits.promise.then(() => {
-            throw Error("commits unavailable");
+            throw new Error("commits unavailable");
           });
         }
         return status(null);
       },
-      diffFiles: Error("files unavailable"),
+      diffFiles: new Error("files unavailable"),
     });
     let result: unknown = null;
     const loading = harness

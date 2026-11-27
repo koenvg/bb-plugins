@@ -29,7 +29,7 @@ it("cannot publish a late unavailable assessment after disposal or poison a reus
   const pending = observation.refresh();
   observation.dispose("replacement");
   view.background({ ...owner, generation: 2 }, [{ ...node, label: "replacement" }], false);
-  reject(Error("old timeout"));
+  reject(new Error("old timeout"));
   await pending;
   expect(states.at(-1)).toMatchObject({
     availability: "available",

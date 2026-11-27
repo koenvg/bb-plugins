@@ -64,7 +64,7 @@ describe("standalone packaging", () => {
               ((violation.reason === "outside-allowlist" &&
                 violation.specifier === "@koenvg/pi-openai-codex-speed") ||
                 (violation.reason === "dynamic-specifier" &&
-                  violation.specifier === "/* @vite-ignore */ path")))
+                  violation.specifier === "/* @vite-ignore */\n    path")))
           ),
       ),
     ).toEqual([]);

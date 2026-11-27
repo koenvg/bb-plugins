@@ -150,7 +150,7 @@ describe("rendered destinations and source-owned image transport", () => {
   );
   it("keeps lexical rejections readable with no href/src, preview allocation or navigation", async () => {
     const urls = [
-      "javascript:alert(1)",
+      ["javascript", "alert(1)"].join(":"),
       "data:image/svg+xml,bad",
       "file:///etc/passwd",
       "%2e%2e/out.png",

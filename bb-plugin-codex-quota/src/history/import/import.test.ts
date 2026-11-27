@@ -496,7 +496,7 @@ it("quarantines unconfirmed overlap, without matching equal tokens or times", as
     const { importedUsage } = await import("./import-parser.js");
     const parsed = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
     if (parsed.kind !== "usage") {
-      throw Error("fixture invalid");
+      throw new Error("fixture invalid");
     }
     projectCompactRecord(f.db, {
       ...parsed.record,
@@ -708,7 +708,7 @@ it("reserves unresolved scalar exclusions across later imports and never resurre
     const { importedUsage } = await import("./import-parser.js");
     const p = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
     if (p.kind !== "usage") {
-      throw Error("Invalid fixture");
+      throw new Error("Invalid fixture");
     }
     const live = {
       ...p.record,
@@ -828,7 +828,7 @@ it.each([false, true])(
       const { importedUsage } = await import("./import-parser.js");
       const usage = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
       if (usage.kind !== "usage") {
-        throw Error("Invalid synthetic record");
+        throw new Error("Invalid synthetic record");
       }
       const live = {
         ...usage.record,
@@ -902,7 +902,7 @@ it("does not use an excluded canonical owner as fork evidence", async () => {
     const { importedUsage } = await import("./import-parser.js");
     const usage = importedUsage(message(), "pi-a", f.workspace, "provider-a.jsonl");
     if (usage.kind !== "usage") {
-      throw Error("Invalid fixture");
+      throw new Error("Invalid fixture");
     }
     const live = {
       ...usage.record,

@@ -131,7 +131,7 @@ it("cancels immediately before dispatch when enrollment preparation is disposed"
       hosts: { get: async ({ hostId }: { hostId: string }) => makeHostResponse({ id: hostId }) },
     },
     experimental_callHostRpc: async () => {
-      throw Error("must not dispatch");
+      throw new Error("must not dispatch");
     },
   });
   await plugin(bb);
@@ -383,7 +383,7 @@ it("routes a frozen comparison once and cancels it before dispatch after enrollm
       hosts: { get: async ({ hostId }: { hostId: string }) => makeHostResponse({ id: hostId }) },
     },
     experimental_callHostRpc: async () => {
-      throw Error("must not dispatch");
+      throw new Error("must not dispatch");
     },
   });
   await plugin(bb);

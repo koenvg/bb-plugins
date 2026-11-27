@@ -15,12 +15,12 @@ it("publishes scalar totals and rejects obsolete fields on the strict new contra
   });
   const decoded = calendarReportSchema.parse(report);
   if (decoded.state === "unavailable") {
-    throw Error(decoded.reason);
+    throw new Error(decoded.reason);
   }
   expect(decoded.summary.totalTokens).toBe(600);
   expect(decoded.days[14].totalTokens).toBe(600);
   if (decoded.comparison?.prior.state === "unavailable") {
-    throw Error("Missing comparison");
+    throw new Error("Missing comparison");
   }
   expect(decoded.comparison?.prior.summary.totalTokens).toBe(600);
   expect(JSON.stringify(decoded)).not.toMatch(/speedTokens|otherSpeedTokens/);

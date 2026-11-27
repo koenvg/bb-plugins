@@ -52,6 +52,7 @@ interface DatabaseListRow {
 type PluginHttpContext = Parameters<Parameters<BbPluginApi["http"]["route"]>[2]>[0];
 
 class AttachmentRequestError extends Error {
+  override name = "AttachmentRequestError";
   readonly status: 400 | 413;
   constructor(status: 400 | 413, message: string) {
     super(message);
@@ -437,6 +438,7 @@ export function publishAttachmentChanged(
 type PreviewErrorCode = "invalid-request" | "missing" | "unsupported" | "too-large" | "failed";
 
 class PreviewReadError extends Error {
+  override name = "PreviewReadError";
   readonly code: PreviewErrorCode;
   constructor(code: PreviewErrorCode) {
     super(code);

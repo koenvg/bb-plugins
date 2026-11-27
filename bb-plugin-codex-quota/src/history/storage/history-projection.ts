@@ -36,7 +36,7 @@ export function initializeHistory(db: HistoryDatabase, firstObservedAt: string, 
     version !== 0 &&
     (!supportedHistoryVersion(version) || !supportedHistoryLayout(db, version))
   ) {
-    throw Error("History schema unsupported");
+    throw new Error("History schema unsupported");
   }
   db.transaction(() => {
     db.exec(`CREATE TABLE IF NOT EXISTS collector_meta (id INTEGER PRIMARY KEY CHECK(id=1), first_observed TEXT NOT NULL);
@@ -85,7 +85,7 @@ function adjustWorkspace(db: HistoryDatabase, row: EventRow, direction: number) 
     .prepare("SELECT total_tokens,events FROM workspace_totals WHERE workspace=?")
     .get(row.workspace) as { total_tokens: number; events: number };
   if (![total.total_tokens, total.events].every((n) => Number.isSafeInteger(n) && n >= 0)) {
-    throw Error("History totals unavailable");
+    throw new Error("History totals unavailable");
   }
   if (total.events === 0) {
     db.prepare("DELETE FROM workspace_totals WHERE workspace=?").run(row.workspace);

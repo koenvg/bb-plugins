@@ -53,7 +53,7 @@ export function registerThreadTools(
   };
   function requireProject(projectId: string) {
     authorize();
-    if (!isRemoteProject(projectId)) throw new Error();
+    if (!isRemoteProject(projectId)) throw new Error("Project is not remotely accessible");
   }
   function result(data: Record<string, unknown>) {
     const text =
@@ -61,7 +61,8 @@ export function registerThreadTools(
       JSON.stringify(data);
     const response = { content: [{ type: "text" as const, text }], structuredContent: data };
     // Count both encoded copies, including escaping, before handing data to the transport.
-    if (Buffer.byteLength(JSON.stringify(response)) > 60000) throw new Error();
+    if (Buffer.byteLength(JSON.stringify(response)) > 60000)
+      throw new Error("Thread data exceeds the response limit");
     return response;
   }
   function unavailable(tool: ThreadTool) {
@@ -135,7 +136,7 @@ export function registerThreadTools(
           initial.projectId !== projectId ||
           initial.deletedAt !== null
         )
-          throw new Error();
+          throw new Error("Requested thread is not available");
         const output = await source.output({ threadId, signal });
         requireProject(projectId);
         const interactions = await source.interactions.list({ threadId, signal });
@@ -148,7 +149,7 @@ export function registerThreadTools(
           current.projectId !== projectId ||
           current.deletedAt !== null
         )
-          throw new Error();
+          throw new Error("Thread became unavailable during the read");
         const pendingInteraction = interactions.some(
           (item) => item.status === "pending" || item.status === "resolving",
         );

@@ -174,7 +174,8 @@ it.each([
       String(remainder),
       "Partial, recorded usage",
       "2 excluded tokens",
-      String(total), // The model-based graph and table keep the authoritative total.
+      // The model-based graph and table keep the authoritative total.
+      String(total),
     ]);
   },
 );

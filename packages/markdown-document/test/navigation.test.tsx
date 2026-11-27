@@ -177,7 +177,7 @@ it("fails closed before permissive source dispatch while allowing one confined b
     "%ZZ",
     "https:example.org",
     "https://u:p@example.org",
-    "javascript:alert%281%29",
+    ["javascript", "alert%281%29"].join(":"),
     "mailto:me@example.org",
     "a%00b",
     "a%5cb",

@@ -203,7 +203,7 @@ it("stops an unexpected metadata failure without dispatching host or management 
       hosts: { get: async ({ hostId }: { hostId: string }) => makeHostResponse({ id: hostId }) },
       environments: {
         list: async () => {
-          throw Error("Unexpected metadata");
+          throw new Error("Unexpected metadata");
         },
       },
     },

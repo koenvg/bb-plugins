@@ -17,7 +17,7 @@ export function canonicalInterval(start: string, end: string, maximumDays?: numb
   const first = Date.parse(utcInstant.parse(start));
   const last = Date.parse(utcInstant.parse(end));
   if (last <= first || (maximumDays !== undefined && last - first > maximumDays * 86400000)) {
-    throw Error("History range unavailable");
+    throw new Error("History range unavailable");
   }
   return { start: new Date(first).toISOString(), end: new Date(last).toISOString() };
 }

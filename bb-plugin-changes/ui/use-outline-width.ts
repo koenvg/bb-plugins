@@ -15,14 +15,18 @@ export function useOutlineWidth() {
     setWidth(clamped);
     try {
       localStorage.setItem(OUTLINE_WIDTH_KEY, String(clamped));
-    } catch {}
+    } catch {
+      // Keep the resized width for this session even if storage is unavailable.
+    }
   }
 
   function reset() {
     setWidth(OUTLINE_WIDTH.default);
     try {
       localStorage.removeItem(OUTLINE_WIDTH_KEY);
-    } catch {}
+    } catch {
+      // Keep the reset width for this session even if storage is unavailable.
+    }
   }
 
   return { width, preview, commit, reset };

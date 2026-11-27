@@ -99,7 +99,7 @@ it("resolves removed worktrees with bounded metadata reads and keeps unknown own
         list: async () => [{ id: "env_active", hostId: "host_a" }],
         get: async (args: { environmentId: string }) => {
           if (args.environmentId === "env_unknown" && !resolved) {
-            throw Error("Not found");
+            throw new Error("Not found");
           }
           return {
             id: args.environmentId,
@@ -155,7 +155,7 @@ it("resolves removed worktrees with bounded metadata reads and keeps unknown own
         () => now,
       );
     }
-    throw Error("Discovery did not progress");
+    throw new Error("Discovery did not progress");
   };
   const batch = await complete();
   expect(batch.rows.filter((r) => r.threadId === "thr_unknown")).toEqual([
@@ -383,7 +383,7 @@ it.each(["lookup-failed", "no-host", "wrong-environment", "no-environment"])(
           list: async () => [],
           get: async () => {
             if (reason === "lookup-failed") {
-              throw Error("Unavailable");
+              throw new Error("Unavailable");
             }
             return {
               id: reason === "wrong-environment" ? "env_other" : "env_missing",

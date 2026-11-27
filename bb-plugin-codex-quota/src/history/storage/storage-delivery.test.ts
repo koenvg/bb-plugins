@@ -80,7 +80,7 @@ it("redelivers an unchanged cached catalog after host recovery without changing 
     history,
     auth: async () => ({ status: "auth-required" }),
     read: async () => {
-      throw Error("No network");
+      throw new Error("No network");
     },
   });
   const harness = experimental_createHostEntryHarness(entry, {

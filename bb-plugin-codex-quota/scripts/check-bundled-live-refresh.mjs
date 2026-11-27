@@ -34,7 +34,7 @@ try {
     }
   };
   globalThis.fetch = async () => {
-    throw Error("Network forbidden");
+    throw new Error("Network forbidden");
   };
   const agent = join(root, "agent");
   const dataDir = join(root, "data");

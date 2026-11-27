@@ -41,7 +41,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
               reads.environments++;
               const id = environmentId.slice(4);
               if (["environment", "shared", "distinct"].includes(failure) && affected(id))
-                throw Error("offline");
+                throw new Error("offline");
               return {
                 outcome: "available",
                 pullRequest: {
@@ -64,7 +64,7 @@ it.each(["environment", "thread", "removed", "shared", "distinct"] as const)(
           get: (input: { threadId: string }) =>
             Promise.try(({ threadId }: { threadId: string }) => {
               reads.threads++;
-              if (failure === "thread" && affected(threadId)) throw Error("offline");
+              if (failure === "thread" && affected(threadId)) throw new Error("offline");
               return makeThreadResponse({
                 id: threadId,
                 environmentId: `env_${threadId}`,

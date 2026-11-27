@@ -13,7 +13,7 @@ export async function proveRoot(configured: string): Promise<RootProof> {
   const resolved = await realpath(configured);
   const stat = await lstat(resolved);
   if (!stat.isDirectory() || resolved === "/") {
-    throw Error("Import root unavailable");
+    throw new Error("Import root unavailable");
   }
   return {
     configured: normalize(configured),
@@ -24,7 +24,7 @@ export async function proveRoot(configured: string): Promise<RootProof> {
 export async function revalidateRoot(root: RootProof) {
   const actual = await proveRoot(root.configured);
   if (actual.resolved !== root.resolved || actual.identity !== root.identity) {
-    throw Error("Import root changed");
+    throw new Error("Import root changed");
   }
 }
 export type SourceStamp = { identity: string; size: number; stamp: string };
@@ -54,17 +54,17 @@ export async function confinedFile(
     name === ".jsonl" ||
     name.includes("\\")
   ) {
-    throw Error("Import filename unavailable");
+    throw new Error("Import filename unavailable");
   }
   await revalidateRoot(root);
   const path = join(root.resolved, name);
   const canonical = await realpath(path);
   if (canonical !== path || dirname(canonical) !== root.resolved) {
-    throw Error("Import confinement unavailable");
+    throw new Error("Import confinement unavailable");
   }
   const before = await lstat(path);
   if (!before.isFile() || before.isSymbolicLink()) {
-    throw Error("Import source unavailable");
+    throw new Error("Import source unavailable");
   }
   // Nonblocking open also rejects replacement-to-pipe races without stranding the host queue.
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -80,12 +80,12 @@ export async function confinedFile(
       identity(stat) !== identity(pathStat) ||
       (saved && !sameStamp(stamp, saved))
     ) {
-      throw Error("Import source changed");
+      throw new Error("Import source changed");
     }
     return { file, stamp };
-  } catch (e) {
+  } catch (error) {
     await file.close();
-    throw e;
+    throw error;
   }
 }
 export async function revalidateFile(
@@ -103,6 +103,6 @@ export async function revalidateFile(
     !sameStamp(sourceStamp(s), stamp) ||
     !sameStamp(sourceStamp(await file.stat()), stamp)
   ) {
-    throw Error("Import source changed");
+    throw new Error("Import source changed");
   }
 }

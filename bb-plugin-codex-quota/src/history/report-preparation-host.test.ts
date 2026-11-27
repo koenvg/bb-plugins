@@ -70,17 +70,17 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
     now: () => now,
     bodyRead,
     collector: async () => {
-      throw Error("no asset checks");
+      throw new Error("no asset checks");
     },
   });
   const harness = experimental_createHostEntryHarness(
     createQuotaHostEntry({
       history,
       auth: async () => {
-        throw Error("no account");
+        throw new Error("no account");
       },
       read: async () => {
-        throw Error("no quota");
+        throw new Error("no quota");
       },
     }),
     { experimental_paths: { dataDir, tempDir: join(dataDir, "temp") } },
@@ -110,14 +110,14 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
       });
       expect(result.state).toBe("available");
       if (result.state !== "available") {
-        throw Error(JSON.stringify(result));
+        throw new Error(JSON.stringify(result));
       }
       progress.add(result.progress);
     } while (result.state === "available" && result.attribution.backlog && (calls += 1) < 20);
     expect(calls).toBe(4);
     expect(progress.size).toBe(5);
     if (result.state !== "available") {
-      throw Error("Preparation unavailable");
+      throw new Error("Preparation unavailable");
     }
     expect(result.attribution).toMatchObject({
       discovery: "complete",

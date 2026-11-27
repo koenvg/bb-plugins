@@ -55,6 +55,7 @@ export type TextContextResult = z.infer<typeof textContextResultSchema>;
 export type ContextFailure = Extract<TextContextResult, { kind: "error" }>;
 
 export class ContextError extends Error {
+  override name = "ContextError";
   constructor(
     readonly code: ContextFailure["code"],
     message: string,

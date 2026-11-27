@@ -43,7 +43,8 @@ describe("self-contained collector compatibility", () => {
     vi.spyOn(Date, "now").mockReturnValue(timestamp);
     const handlers = new Map<string, (event?: unknown, context?: unknown) => Promise<void>>();
     const module = await import(
-      /* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root)).toString("base64")}`
+      /* @vite-ignore */
+      `data:text/javascript;base64,${Buffer.from(packagedCollectorAsset(root)).toString("base64")}`
     );
     module.default({
       on: (event: string, handler: (event?: unknown, context?: unknown) => Promise<void>) =>

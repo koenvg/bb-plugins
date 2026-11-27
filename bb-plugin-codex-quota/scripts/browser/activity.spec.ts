@@ -50,7 +50,8 @@ test("activity early desktop and 375px preview", async ({ page }, info) => {
   await summary.focus();
   await page.keyboard.press("Space");
   await expect(summary.locator("..")).not.toHaveAttribute("open");
-  await page.waitForTimeout(1100); // Original poll-stop regression window.
+  // Original poll-stop regression window.
+  await page.waitForTimeout(1100);
   await expect(page.locator("body")).toHaveAttribute("data-activity-calls", "1");
   await expect(page.getByText("Lifetime tokens", { exact: true })).not.toBeVisible();
   await officialLink(page);

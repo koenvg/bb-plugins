@@ -70,7 +70,8 @@ describe("shared badge/dashboard selection", () => {
     expect(store.getSnapshot().loading).toBe(false);
     await returning;
     await store.refresh(api);
-    expect(reads).toBe(2); // The host cache can answer the second RPC without another quota GET.
+    // The host cache can answer the second RPC without another quota GET.
+    expect(reads).toBe(2);
     expect(store.getSnapshot().view.state).toBe("fresh");
   });
   it("discards the retained percentage when a host read reports an account switch", async () => {

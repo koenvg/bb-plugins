@@ -52,7 +52,7 @@ export function createCollectorMaintenance(deps: Dependencies) {
         dispatchFailure = await eligibility(hostId);
         signal.throwIfAborted();
         if (dispatchFailure) {
-          throw Error("Collector maintenance target unavailable");
+          throw new Error("Collector maintenance target unavailable");
         }
         dispatched = true;
       };

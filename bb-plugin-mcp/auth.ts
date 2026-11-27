@@ -70,7 +70,7 @@ export function authenticator(fetcher: typeof fetch = fetch) {
               url.hash ||
               url.search
             )
-              throw new Error();
+              throw new Error("OAuth metadata endpoint must be a canonical HTTPS URL");
           }
           return {
             id,
@@ -107,12 +107,12 @@ export function authenticator(fetcher: typeof fetch = fetch) {
         cloudflare ? /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/ : /^Bearer [A-Za-z0-9_.-]+$/
       ).test(credential)
     )
-      throw new Error();
+      throw new Error("Credential format is invalid");
     const token = cloudflare ? credential : credential.slice(7);
     if (cloudflare) {
       const header = decodeProtectedHeader(token);
       if (typeof header.kid !== "string" || !header.kid || header.kid.length > 256)
-        throw new Error();
+        throw new Error("Token key ID is invalid");
     }
     const audience = cloudflare ? config.accessAudience : connection.publicOrigin + "/mcp";
     const { payload } = await jwtVerify(token, await keys(config), {
@@ -122,7 +122,8 @@ export function authenticator(fetcher: typeof fetch = fetch) {
       requiredClaims: ["exp", "sub", "iss", "aud"],
       clockTolerance: 0,
     });
-    if (payload.sub !== config.owner || typeof payload.exp !== "number") throw new Error();
+    if (payload.sub !== config.owner || typeof payload.exp !== "number")
+      throw new Error("Token owner or expiry is invalid");
     let control = false;
     if (cloudflare) {
       if (
@@ -131,7 +132,7 @@ export function authenticator(fetcher: typeof fetch = fetch) {
         (payload.iat !== undefined &&
           (!Number.isFinite(payload.iat) || payload.iat > Date.now() / 1000))
       )
-        throw new Error();
+        throw new Error("Access token claims are invalid");
       control = config.accessPermission === "read-control";
     } else {
       if (typeof payload.scope !== "string" || !payload.scope.split(" ").includes("bb.read"))

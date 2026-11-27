@@ -22,7 +22,7 @@ try {
   }
   process.env.PI_CODING_AGENT_DIR = join(root, "agent");
   globalThis.fetch = async () => {
-    throw Error("Network forbidden");
+    throw new Error("Network forbidden");
   };
   const artifact = join(root, "host.mjs");
   copyFileSync(new URL("../dist/host.js", import.meta.url), artifact);

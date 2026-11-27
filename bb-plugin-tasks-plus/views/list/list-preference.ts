@@ -171,5 +171,7 @@ export function storeListPreference(scope: ListPreferenceScope, preference: List
       scopes,
     };
     window.localStorage.setItem(LIST_PREFERENCE_STORAGE_KEY, JSON.stringify(document));
-  } catch {}
+  } catch {
+    // Keep list preferences in memory when persistence fails.
+  }
 }

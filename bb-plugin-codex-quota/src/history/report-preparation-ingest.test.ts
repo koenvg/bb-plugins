@@ -120,7 +120,7 @@ async function fixture(collector = true, ingestRows?: number) {
   }
   const bodyRead = vi.fn();
   const forbidden = vi.fn(async () => {
-    throw Error("No management, collector assets, or account requests allowed");
+    throw new Error("No management, collector assets, or account requests allowed");
   });
   const history = createHostHistory({ now: () => now, ingestRows, bodyRead, collector: forbidden });
   const harness = experimental_createHostEntryHarness(
@@ -138,7 +138,7 @@ async function fixture(collector = true, ingestRows?: number) {
     async read() {
       const value = await harness.experimental_call("calendarReport", query);
       if (value.state === "unavailable") {
-        throw Error(value.reason);
+        throw new Error(value.reason);
       }
       return value;
     },
@@ -201,7 +201,7 @@ it("walks an old owned-log gap through bounded public preparation without prunin
     for (let round = 0; round < 8; round += 1) {
       const result = await f.prepare();
       if (result.state !== "available") {
-        throw Error(result.reason);
+        throw new Error(result.reason);
       }
       progress.add(result.progress);
       if (round === 0) {
@@ -220,7 +220,7 @@ it("walks an old owned-log gap through bounded public preparation without prunin
     for (const startDate of ["2026-07-01", "2026-08-01"]) {
       const view = await f.harness.experimental_call("calendarReport", { ...query, startDate });
       if (view.state === "unavailable") {
-        throw Error(view.reason);
+        throw new Error(view.reason);
       }
       expect(view.summary.totalTokens).toBe(startDate === "2026-07-01" ? 90 : 48);
     }
@@ -290,7 +290,7 @@ it("keeps a partly loaded old slice until its confirmations are drained", async 
     for (let n = 0; n < 3; n += 1) {
       const result = await f.prepare();
       if (result.state !== "available") {
-        throw Error(result.reason);
+        throw new Error(result.reason);
       }
       expect(result.ingestionPending).toBe(true);
       progress.add(result.progress);
@@ -301,7 +301,7 @@ it("keeps a partly loaded old slice until its confirmations are drained", async 
       startDate: "2026-07-01",
     });
     if (partial.state === "unavailable") {
-      throw Error(partial.reason);
+      throw new Error(partial.reason);
     }
     expect(partial.summary.totalTokens).toBe(9);
     for (let n = 0; n < 3; n += 1) {
@@ -313,7 +313,7 @@ it("keeps a partly loaded old slice until its confirmations are drained", async 
       startDate: "2026-07-01",
     });
     if (final.state === "unavailable") {
-      throw Error(final.reason);
+      throw new Error(final.reason);
     }
     expect(final.summary.totalTokens).toBe(12);
     const reads = f.bodyRead.mock.calls.length;
@@ -376,7 +376,7 @@ it("does not advance old discovery past a canceled source read", async () => {
       startDate: "2026-07-01",
     });
     if (view.state === "unavailable") {
-      throw Error(view.reason);
+      throw new Error(view.reason);
     }
     expect(view.summary.totalTokens).toBe(3);
   } finally {
@@ -461,7 +461,7 @@ it("resumes report preparation after an archived thread disappears without losin
           return result;
         }
       }
-      throw Error("Report preparation did not finish");
+      throw new Error("Report preparation did not finish");
     }
     const append = (n: number, claimedThreadId: string) =>
       f.append(n, 0.125, {
@@ -622,7 +622,7 @@ it("advances durable multi-batch ingestion progress with identity already comple
     for (;;) {
       const result = await f.prepare();
       if (result.state !== "available") {
-        throw Error(result.reason);
+        throw new Error(result.reason);
       }
       progress.add(result.progress);
       rounds += 1;
@@ -753,7 +753,7 @@ it("leaves an incomplete source pending without spinning or losing invalid-data 
     for (let n = 0; n < 4; n += 1) {
       const result = await f.prepare();
       if (result.state !== "available") {
-        throw Error(result.reason);
+        throw new Error(result.reason);
       }
       expect(result.ingestionPending).toBe(true);
       progress.add(result.progress);

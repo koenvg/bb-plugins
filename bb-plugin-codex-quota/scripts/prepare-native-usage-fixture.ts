@@ -66,13 +66,13 @@ export async function prepareNativeUsageFixture(
     for (let i = 0; i < 30; i += 1) {
       const result = await history.prepare!(context);
       if (result.state !== "available") {
-        throw Error(result.reason);
+        throw new Error(result.reason);
       }
       if (!result.ingestionPending && !result.attribution.backlog) {
         break;
       }
       if (i === 29) {
-        throw Error("Native usage fixture did not settle");
+        throw new Error("Native usage fixture did not settle");
       }
     }
     const query: CalendarQuery = {
@@ -90,7 +90,7 @@ export async function prepareNativeUsageFixture(
           context,
         );
         if (report.state === "unavailable") {
-          throw Error(report.reason);
+          throw new Error(report.reason);
         }
         reports.push(report);
       }

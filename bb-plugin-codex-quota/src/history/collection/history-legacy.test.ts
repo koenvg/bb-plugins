@@ -207,7 +207,7 @@ it.each(["output-written", "published", "source-removed"])(
     const f = await fixture((point) => {
       if (armed && !fired && point === step) {
         fired = true;
-        throw Object.assign(Error("private-secret"), { code: "EIO" });
+        throw Object.assign(new Error("private-secret"), { code: "EIO" });
       }
     });
     const token = await f.prepare();
@@ -299,7 +299,8 @@ it("fences actual obsolete writer handlers before retirement and after explicit 
   async function oldWriter() {
     const handlers = new Map<string, Function>();
     const module = await import(
-      /* @vite-ignore */ `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`)}`
+      /* @vite-ignore */
+      `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`)}`
     );
     module.default(
       { on: (name: string, handler: Function) => handlers.set(name, handler) },

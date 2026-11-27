@@ -82,7 +82,8 @@ describe("browse delayed focus and save safety", () => {
       await act(() => Promise.try(() => loaded.resolve({ task: tasks[0] })));
       expect(document.activeElement).toBe(other);
       other.remove();
-      detail(slot).focus(); // Re-render must not resurrect deferred focus after dismissal.
+      // Re-render must not resurrect deferred focus after dismissal.
+      detail(slot).focus();
       press("Escape");
       expect(document.activeElement).toBe(row(slot, 1));
     },

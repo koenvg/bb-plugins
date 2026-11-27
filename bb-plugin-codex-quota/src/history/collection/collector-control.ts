@@ -16,7 +16,7 @@ export async function safeDirectory(path: string) {
   await mkdir(path, { recursive: true, mode: 0o700 });
   const stat = await lstat(path);
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
-    throw Error("Collector path unavailable");
+    throw new Error("Collector path unavailable");
   }
 }
 export type CollectorControl =
@@ -29,16 +29,18 @@ export async function readControlRecord(directory: string): Promise<CollectorCon
       join(directory, "collector-control-v1.json"),
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
-  } catch (e) {
-    if (e && typeof e === "object" && "code" in e && e.code === "ENOENT") {
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return null;
     }
-    throw Error("Collector control unavailable");
+  }
+  if (!file) {
+    throw new Error("Collector control unavailable");
   }
   try {
     const stat = await file.stat();
     if (!stat.isFile() || stat.size > 1024) {
-      throw Error("Collector control unavailable");
+      throw new Error("Collector control unavailable");
     }
     const bytes = Buffer.alloc(1025);
     const { bytesRead } = await file.read(bytes, 0, bytes.length, 0);
@@ -50,7 +52,7 @@ export async function readControlRecord(directory: string): Promise<CollectorCon
       typeof value.revision === "string" &&
       /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value.revision);
     if (bytesRead > 1024 || typeof value?.enabled !== "boolean" || (!legacy && !fenced)) {
-      throw Error("Collector control unavailable");
+      throw new Error("Collector control unavailable");
     }
     return value as CollectorControl;
   } finally {
@@ -68,7 +70,7 @@ export async function readHistoryControl(
   const enabled = await readControl(directory);
   const established = db.prepare("SELECT first_observed FROM collector_meta WHERE id=1").get();
   if ((enabled === null && established) || (enabled !== null && !established)) {
-    throw Error("Collector control unavailable");
+    throw new Error("Collector control unavailable");
   }
   return enabled;
 }
@@ -87,11 +89,11 @@ export async function atomicWrite(
   try {
     const stat = await lstat(path);
     if (!stat.isFile() || stat.isSymbolicLink()) {
-      throw Error("Collector path unavailable");
+      throw new Error("Collector path unavailable");
     }
-  } catch (e) {
-    if (!(e && typeof e === "object" && "code" in e && e.code === "ENOENT")) {
-      throw e;
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
+      throw error;
     }
   }
   const temporary = `${path}.${randomUUID()}.tmp`;
@@ -124,16 +126,16 @@ export async function controlCollector(
   initialSetup: boolean,
 ) {
   if (action === "prepare-legacy" || action === "retire-legacy") {
-    throw Error("Collector control unavailable");
+    throw new Error("Collector control unavailable");
   }
   if (!validHostDataDir(agentDir)) {
-    throw Error("Collector path unavailable");
+    throw new Error("Collector path unavailable");
   }
   const directory = join(dataDir, "history");
   const current = await readControl(directory);
   signal.throwIfAborted();
   if ((!initialSetup || action !== "install") && current === null) {
-    throw Error("Collector control unavailable");
+    throw new Error("Collector control unavailable");
   }
   if (action === "install" || action === "repair") {
     await safeDirectory(agentDir);
@@ -164,21 +166,21 @@ export async function replaceExistingCollector(
   const directory = join(dataDir, "history");
   const current = await readControlRecord(directory);
   if (!current || current.enabled !== enabled) {
-    throw Error("Collector control unavailable");
+    throw new Error("Collector control unavailable");
   }
   const check = async (asset: "repairable-existing" | "compatible") => {
     signal.throwIfAborted();
     for (const path of [dataDir, directory, agentDir]) {
       const stat = await lstat(path);
       if (!stat.isDirectory() || stat.isSymbolicLink()) {
-        throw Error("Collector path unavailable");
+        throw new Error("Collector path unavailable");
       }
     }
     if (
       (await inspectCollectorAsset(agentDir, dataDir, true)) !== asset ||
       JSON.stringify(await readControlRecord(directory)) !== JSON.stringify(current)
     ) {
-      throw Error("Collector control unavailable");
+      throw new Error("Collector control unavailable");
     }
   };
   await check("repairable-existing");

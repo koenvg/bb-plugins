@@ -77,10 +77,12 @@ export function projectServer(
     async ({ limit, cursor }) => {
       try {
         const initial = policy();
-        if (signal.aborted || !hasAccess(initial, identity)) throw new Error();
+        if (signal.aborted || !hasAccess(initial, identity))
+          throw new Error("Project listing is no longer authorized");
         const result = await source.list();
         const current = policy();
-        if (signal.aborted || !hasAccess(current, identity)) throw new Error();
+        if (signal.aborted || !hasAccess(current, identity))
+          throw new Error("Project listing is no longer authorized");
         const all = result
           .filter(({ id }) => isRemoteProject(id))
           .sort((a, b) => a.id.localeCompare(b.id));
@@ -91,7 +93,8 @@ export function projectServer(
           nextCursor: offset + limit < all.length ? String(offset + limit) : null,
         };
         // Text and structured copies must fit the complete 64 KiB response.
-        if (Buffer.byteLength(JSON.stringify(data)) > 28000) throw new Error();
+        if (Buffer.byteLength(JSON.stringify(data)) > 28000)
+          throw new Error("Project listing exceeds the response limit");
         return {
           content: [{ type: "text" as const, text: JSON.stringify(data) }],
           structuredContent: data,
@@ -122,12 +125,13 @@ export function projectServer(
       try {
         const check = () => {
           if (signal.aborted || !hasAccess(policy(), identity) || !isRemoteProject(projectId))
-            throw new Error();
+            throw new Error("Provider listing is no longer authorized");
         };
         check();
         const projects = await source.list();
         check();
-        if (!projects.some(({ id }) => id === projectId)) throw new Error();
+        if (!projects.some(({ id }) => id === projectId))
+          throw new Error("Project is not available");
         const listed = await providers.list({ signal });
         check();
         const data = {
@@ -140,7 +144,8 @@ export function projectServer(
           content: [{ type: "text" as const, text: JSON.stringify(data) }],
           structuredContent: data,
         };
-        if (Buffer.byteLength(JSON.stringify(result)) >= 60000) throw new Error();
+        if (Buffer.byteLength(JSON.stringify(result)) >= 60000)
+          throw new Error("Provider listing exceeds the response limit");
         return result;
       } catch {
         onFailure("bb_list_providers");
@@ -156,7 +161,8 @@ export function projectServer(
     threads,
     () => {
       const current = policy();
-      if (signal.aborted || !hasAccess(current, identity)) throw new Error();
+      if (signal.aborted || !hasAccess(current, identity))
+        throw new Error("Thread access is no longer authorized");
       return current;
     },
     signal,

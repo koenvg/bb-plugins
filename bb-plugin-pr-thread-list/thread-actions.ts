@@ -8,8 +8,7 @@ import type { MenuItem } from "./action-menu";
 import type { ListItem } from "./list-model";
 import { snoozePresets, type SnoozeControls } from "./snooze-model";
 import { cancelPrPanelRequest } from "../bb-plugin-github-insight/pr-panel-navigation";
-
-const askName = (label: string, current = "") => window.prompt(label, current)?.trim() || null;
+import type { NameRequest } from "./name-dialog";
 
 export function threadMenuItems(
   thread: PluginSidebarThread,
@@ -19,6 +18,7 @@ export function threadMenuItems(
   pinned: readonly PluginSidebarThread[],
   splitAvailable: boolean,
   onNavigate: () => void,
+  requestName: (request: NameRequest) => void,
 ): MenuItem[] {
   const id = thread.id;
   const index = pinned.findIndex((row) => row.id === id);
@@ -33,10 +33,14 @@ export function threadMenuItems(
     },
     {
       label: "Rename",
-      run: () => {
-        const title = askName("Rename thread", thread.displayTitle);
-        if (title) return actions.rename(title);
-      },
+      run: () =>
+        requestName({
+          title: "Rename thread",
+          initialName: thread.displayTitle,
+          action: "Rename",
+          save: actions.rename,
+          failure: "Could not rename.",
+        }),
     },
   ];
   if (splitAvailable)
@@ -141,21 +145,21 @@ export function newThreadScope({
 export function groupMenuItems(
   group: Extract<ListItem, { kind: "group" }>,
   sdk: PluginBrowserBbSdk,
+  requestName: (request: NameRequest) => void,
 ): MenuItem[] {
   const { scope } = group;
   if (scope.kind !== "section") return [];
   return [
     {
       label: "Rename section",
-      run: () => {
-        const name = askName("Rename section", group.label);
-        if (name) return sdk.threadSections.update({ id: scope.sectionId, name });
-      },
+      run: () =>
+        requestName({
+          title: "Rename section",
+          initialName: group.label,
+          action: "Rename",
+          save: (name) => sdk.threadSections.update({ id: scope.sectionId, name }),
+          failure: "Could not rename section.",
+        }),
     },
   ];
-}
-
-export function createSection(sdk: PluginBrowserBbSdk): Promise<unknown> | undefined {
-  const name = askName("New section name");
-  if (name) return sdk.threadSections.create({ name });
 }

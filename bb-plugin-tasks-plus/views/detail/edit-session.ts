@@ -72,8 +72,8 @@ export function createTaskEditSession(
         let outcome: SaveOutcome;
         try {
           outcome = await options.save(taskId, attempt);
-        } catch (cause) {
-          outcome = { ok: false, errorMessage: errorMessage(cause) };
+        } catch (error) {
+          outcome = { ok: false, errorMessage: errorMessage(error) };
         }
         if (!outcome.ok) {
           clearTimer();

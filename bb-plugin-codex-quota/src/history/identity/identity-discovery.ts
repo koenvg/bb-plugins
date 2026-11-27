@@ -140,7 +140,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
                   : "available",
           });
           if (!row.success) {
-            throw Error("Identity metadata unavailable");
+            throw new Error("Identity metadata unavailable");
           }
           database
             .prepare(
@@ -318,7 +318,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             event.type !== "thread/identity" ||
             event.threadId !== next.thread_id
           ) {
-            throw Error("Identity page unavailable");
+            throw new Error("Identity page unavailable");
           }
           seq = event.seq;
           const row = identityRowSchema.safeParse({
@@ -328,7 +328,7 @@ export function createIdentityDiscovery(sdk: Sdk, database: () => HistoryDatabas
             state: next.state,
           });
           if (!row.success) {
-            throw Error("Identity evidence unavailable");
+            throw new Error("Identity evidence unavailable");
           }
           database
             .prepare(

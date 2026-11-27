@@ -89,7 +89,7 @@ export async function upgradeRetainedIdentityStorage(
           return { state: "current" };
         }
         if (!legacyIdentityUpgradeLayout(db, version)) {
-          throw Error("Identity upgrade layout changed");
+          throw new Error("Identity upgrade layout changed");
         }
         if (
           !(
@@ -98,7 +98,7 @@ export async function upgradeRetainedIdentityStorage(
             }
           ).backfill_done
         ) {
-          throw Error("Identity upgrade backfill changed");
+          throw new Error("Identity upgrade backfill changed");
         }
         const receipt = db.prepare("SELECT revision FROM identity_receipt WHERE id=1").get() as {
           revision: number;
@@ -108,7 +108,7 @@ export async function upgradeRetainedIdentityStorage(
           receipt.revision < 0 ||
           receipt.revision >= Number.MAX_SAFE_INTEGER
         ) {
-          throw Error("Identity revision unavailable");
+          throw new Error("Identity revision unavailable");
         }
         db.exec(`CREATE TABLE identity_uncertain (thread_id TEXT NOT NULL, provider_identity TEXT NOT NULL, PRIMARY KEY(thread_id,provider_identity));
           CREATE INDEX identity_uncertain_provider ON identity_uncertain(provider_identity);
@@ -118,7 +118,7 @@ export async function upgradeRetainedIdentityStorage(
         // can clear these conservative markers through normal bounded preparation.
         signal.throwIfAborted();
         if (!supportedHistoryLayout(db, version)) {
-          throw Error("Identity upgrade incomplete");
+          throw new Error("Identity upgrade incomplete");
         }
         return { state: "upgraded" };
       });

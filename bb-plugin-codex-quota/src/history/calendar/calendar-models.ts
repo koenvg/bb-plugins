@@ -44,7 +44,7 @@ export const compareId = (a: string, b: string) => {
 };
 function safeTotal(value: number) {
   if (!Number.isSafeInteger(value) || value < 0) {
-    throw Error("Model total unavailable");
+    throw new Error("Model total unavailable");
   }
   return value;
 }
@@ -53,7 +53,7 @@ export function mergeDayModels(days: readonly ModelDay[]): DayModels {
   let otherTokens = 0;
   for (const day of days) {
     if (day.models && modelTotal(day.models) > day.totalTokens) {
-      throw Error("Model attribution exceeds recorded tokens");
+      throw new Error("Model attribution exceeds recorded tokens");
     }
     otherTokens = safeTotal(otherTokens + (day.models?.otherTokens ?? 0));
     for (const row of day.models?.named ?? []) {
@@ -108,7 +108,7 @@ export function projectTokenModels(days: readonly ModelDay[]) {
     let other = day.models?.otherTokens ?? 0;
     const known = safeTotal(day.models ? modelTotal(day.models) : 0);
     if (known > day.totalTokens) {
-      throw Error("Model attribution exceeds recorded tokens");
+      throw new Error("Model attribution exceeds recorded tokens");
     }
     for (const row of day.models?.named ?? []) {
       if (!selected.includes(row.model)) {

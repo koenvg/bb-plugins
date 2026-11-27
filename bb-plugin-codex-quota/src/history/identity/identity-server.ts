@@ -42,7 +42,8 @@ export function createIdentityHistoryCall(
       bb.log.warn("Identity discovery unavailable");
     }
     await beforeDispatch?.();
-    signal.throwIfAborted(); // Required immediately before host dispatch.
+    // Required immediately before host dispatch.
+    signal.throwIfAborted();
     const result = await call(hostId, signal, batch ? { identities: batch } : null);
     signal.throwIfAborted();
     const parsed = historyReadinessSchema.safeParse(result);

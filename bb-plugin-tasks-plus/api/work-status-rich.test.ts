@@ -76,7 +76,7 @@ it("withholds Ready from fresh metadata when the current environment PR associat
     {
       host: () =>
         Promise.try(() => {
-          throw Error("offline");
+          throw new Error("offline");
         }),
     },
   );
@@ -112,7 +112,7 @@ it("retains a known conflict when current association uncertainty suppresses Rea
     {
       host: () =>
         Promise.try(() => {
-          throw Error("offline");
+          throw new Error("offline");
         }),
     },
   );
@@ -134,7 +134,7 @@ it.each(["merged", "closed"] as const)(
       {
         host: () =>
           Promise.try(() => {
-            throw Error("offline");
+            throw new Error("offline");
           }),
       },
     );
@@ -368,7 +368,7 @@ it.each([false, true])(
         ? {
             getMetadata: (id) =>
               Promise.try(() => {
-                if (id === "thr_b") throw Error("offline");
+                if (id === "thr_b") throw new Error("offline");
                 return { prSummary: clearSummary() };
               }),
           }
@@ -859,7 +859,8 @@ it("bounds combined thread/environment/metadata retention at 4096 with explicit 
   const { read, getMetadata, plugins } = setup(packets);
   const id = "00000000-0000-4000-8000-000000000001";
   const first = await read({ id, step: "start" });
-  expect(getMetadata).toHaveBeenCalledTimes(1296); // 1400 threads + 1400 environments + 1296 summaries.
+  // 1400 threads + 1400 environments + 1296 summaries.
+  expect(getMetadata).toHaveBeenCalledTimes(1296);
   expect(first.pullRequests.items[0]).toMatchObject({
     details: "incomplete",
     detailsReason: "budget_exceeded",
