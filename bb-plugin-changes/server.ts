@@ -62,7 +62,17 @@ async function environmentIdOf(sdk: Sdk, threadId: string): Promise<string> {
   return thread.environmentId;
 }
 
-async function baseBranchOf(sdk: Sdk, environmentId: string): Promise<string> {
+async function workspaceBasis(
+  sdk: Sdk,
+  environmentId: string,
+): Promise<{ baseBranch: string; headSha: string | null }> {
+  const branches = sdk.plugins.callRpc<{ remoteBranches: string[] }>({
+    pluginId: "bb--git",
+    method: "branches",
+    input: { environmentId },
+    outputSchema: gitBranchesSchema,
+  });
+  branches.catch(() => undefined);
   const status = await sdk.plugins.callRpc<GitStatus>({
     pluginId: "bb--git",
     method: "workspaceStatus",
@@ -76,15 +86,14 @@ async function baseBranchOf(sdk: Sdk, environmentId: string): Promise<string> {
     throw new ChangesUnavailableError(status.failure.message);
   }
   const defaultBranch = status.workspace.branch.defaultBranch;
-  const { remoteBranches } = await sdk.plugins.callRpc<{ remoteBranches: string[] }>({
-    pluginId: "bb--git",
-    method: "branches",
-    input: { environmentId },
-    outputSchema: gitBranchesSchema,
-  });
+  const { remoteBranches } = await branches;
   // A local default branch is often behind the remote, which would pull merged work into the diff.
   const remoteDefault = `origin/${defaultBranch}`;
-  return remoteBranches.includes(remoteDefault) ? remoteDefault : defaultBranch;
+  const { checkout } = status.workspace;
+  return {
+    baseBranch: remoteBranches.includes(remoteDefault) ? remoteDefault : defaultBranch,
+    headSha: "headSha" in checkout ? checkout.headSha : null,
+  };
 }
 
 async function branchCommits(
@@ -285,12 +294,12 @@ async function getChanges(
 ): Promise<ChangesResult> {
   try {
     const environmentId = await environmentIdOf(sdk, threadId);
-    const baseBranch = await baseBranchOf(sdk, environmentId);
+    const { baseBranch, headSha: startHead } = await workspaceBasis(sdk, environmentId);
     const query = diffQuery(target, baseBranch);
     const [commits, { diff, headSha, stable }] = await Promise.all([
       branchCommits(sdk, environmentId, baseBranch, warn),
       (async () => {
-        let headSha = await checkoutHead(sdk, environmentId);
+        let headSha = startHead;
         let diff = await sdk.plugins.callRpc<GitFiles>({
           pluginId: "bb--git",
           method: "files",

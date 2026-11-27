@@ -98,6 +98,7 @@ const AVAILABLE_FILES = {
 
 interface Calls {
   status: unknown[];
+  branches: unknown[];
   diffFiles: unknown[];
   diffPatch: unknown[];
   send: unknown[];
@@ -123,11 +124,11 @@ async function setup(
       path?: string;
     }>;
     send?: SendResult | Error;
-    remoteBranches?: string[];
+    remoteBranches?: string[] | Error;
     kv?: Record<string, unknown>;
   } = {},
 ) {
-  const calls: Calls = { status: [], diffFiles: [], diffPatch: [], send: [] };
+  const calls: Calls = { status: [], branches: [], diffFiles: [], diffPatch: [], send: [] };
   const { bb, harness } = createFakePluginHost({
     pluginId: "changes",
     sdk: {
@@ -187,6 +188,10 @@ async function setup(
               break;
             }
             case "branches":
+              calls.branches.push(input);
+              if (options.remoteBranches instanceof Error) {
+                throw options.remoteBranches;
+              }
               output = { remoteBranches: options.remoteBranches ?? ["origin/main"] };
               break;
             case "files": {
@@ -627,12 +632,12 @@ describe("getChanges", () => {
     });
     const loading = harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
     try {
-      await vi.waitFor(() => expect(events).toEqual(["commits", "head", "files"]));
+      await vi.waitFor(() => expect(events).toEqual(["commits", "files"]));
       files.resolve({
         ...AVAILABLE_FILES,
         mergeBaseRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       } as DiffFilesResult);
-      await vi.waitFor(() => expect(events).toEqual(["commits", "head", "files", "head"]));
+      await vi.waitFor(() => expect(events).toEqual(["commits", "files", "head"]));
     } finally {
       files.resolve(AVAILABLE_FILES);
       commits.resolve(status([COMMIT]));
@@ -689,7 +694,7 @@ describe("getChanges", () => {
     const { harness, calls } = await setup({
       status: ({ mergeBaseBranch }) => {
         const sha =
-          mergeBaseBranch === undefined && (read += 1) >= 3
+          mergeBaseBranch === undefined && (read += 1) >= 2
             ? "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
             : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         const base = status(null);
@@ -856,7 +861,6 @@ describe("getChanges", () => {
       { environmentId: "env-1" },
       { environmentId: "env-1", mergeBaseBranch: "origin/main" },
       { environmentId: "env-1" },
-      { environmentId: "env-1" },
     ]);
   });
 
@@ -919,6 +923,41 @@ describe("getChanges", () => {
     });
 
     expect(result).toEqual({ kind: "no_git" });
+  });
+
+  it("reports no_git when the branch list fails in a non-git environment", async () => {
+    const { harness } = await setup({
+      remoteBranches: new Error("not a git repository"),
+      status: () =>
+        ({
+          outcome: "not_applicable",
+          reason: "non_git_environment",
+          message: "Not a git environment",
+        }) as StatusResult,
+    });
+
+    const result = await harness.callRpc("getChanges", {
+      threadId: "thr_1",
+      target: { kind: "all" },
+    });
+
+    expect(result).toEqual({ kind: "no_git" });
+  });
+
+  it("asks for the branch list while the workspace status is still loading", async () => {
+    const first = deferred<StatusResult>();
+    const { harness, calls } = await setup({
+      status: (query) =>
+        calls.status.length === 1
+          ? first.promise
+          : status(query.mergeBaseBranch === undefined ? null : [COMMIT]),
+    });
+
+    const loading = harness.callRpc("getChanges", { threadId: "thr_1", target: { kind: "all" } });
+
+    await vi.waitFor(() => expect(calls.branches).toEqual([{ environmentId: "env-1" }]));
+    first.resolve(status(null));
+    expect(await loading).toMatchObject({ kind: "ok" });
   });
 
   it("reports a deleted file as deleted", async () => {
