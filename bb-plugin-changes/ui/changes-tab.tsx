@@ -1,5 +1,7 @@
 import { canMark } from "../core/viewed-files";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Virtualizer } from "@pierre/diffs";
+import { VirtualizerContext } from "@pierre/diffs/react";
 import type { ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
@@ -54,6 +56,11 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
   const scrollArea = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const navigation = useFileNavigation(scrollArea, content, paths);
+  const [virtualizer] = useState(() => new Virtualizer());
+  useLayoutEffect(() => {
+    virtualizer.setup(scrollArea.current!, content.current!);
+    return () => virtualizer.cleanUp();
+  }, [virtualizer]);
 
   const handleJumpTo = navigation.jumpTo;
   const handleSend = feedback.send;
@@ -109,31 +116,33 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
           />
         )}
         <div ref={scrollArea} data-diff-scroll-area className="min-h-0 flex-1 overflow-y-auto">
-          <div ref={content}>
-            {result === null ? (
-              <Notice>Loading changes…</Notice>
-            ) : result.kind === "no_git" ? (
-              <Notice>No git repository for this thread</Notice>
-            ) : result.kind === "error" ? (
-              <LoadError message={result.message} retry={refresh} busy={loading} />
-            ) : (
-              <FileList
-                threadId={threadId}
-                changes={sorted ?? result}
-                imageGeneration={generation}
-                imagesActive={
-                  !loading &&
-                  (!loaded?.imageBasis ||
-                    JSON.stringify(loaded.imageBasis.target) === JSON.stringify(target))
-                }
-                patches={patches}
-                viewed={viewed}
-                comments={review.comments}
-                openForms={review.openForms}
-                view={view}
-              />
-            )}
-          </div>
+          <VirtualizerContext.Provider value={virtualizer}>
+            <div ref={content}>
+              {result === null ? (
+                <Notice>Loading changes…</Notice>
+              ) : result.kind === "no_git" ? (
+                <Notice>No git repository for this thread</Notice>
+              ) : result.kind === "error" ? (
+                <LoadError message={result.message} retry={refresh} busy={loading} />
+              ) : (
+                <FileList
+                  threadId={threadId}
+                  changes={sorted ?? result}
+                  imageGeneration={generation}
+                  imagesActive={
+                    !loading &&
+                    (!loaded?.imageBasis ||
+                      JSON.stringify(loaded.imageBasis.target) === JSON.stringify(target))
+                  }
+                  patches={patches}
+                  viewed={viewed}
+                  comments={review.comments}
+                  openForms={review.openForms}
+                  view={view}
+                />
+              )}
+            </div>
+          </VirtualizerContext.Provider>
         </div>
       </div>
       {feedback.dialog !== null && (

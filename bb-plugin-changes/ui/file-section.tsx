@@ -67,7 +67,8 @@ export const FileSection = ({
   view,
   viewed,
 }: FileSectionProps) => {
-  const { visible, ref } = useNearView<HTMLElement>();
+  const { nearness, ref } = useNearness<HTMLElement>();
+  const visible = nearness.kind !== "unseen";
   const showsDiff = canMark(file);
   const openFileButton = <OpenFileButton environmentId={environmentId} file={file} />;
   useEffect(() => {
@@ -82,6 +83,9 @@ export const FileSection = ({
       aria-label={file.path}
       data-path={file.path}
       className="min-h-10 border-b border-border"
+      style={
+        nearness.kind === "parked" && !viewed.collapsed ? { height: nearness.height } : undefined
+      }
     >
       {isRasterPath(file.path) ||
       isRasterPath(file.previousPath ?? "") ||
@@ -121,6 +125,7 @@ export const FileSection = ({
           openForms={openForms}
           view={view}
           viewed={viewed}
+          parked={nearness.kind === "parked"}
         />
       )}
     </section>
@@ -228,9 +233,11 @@ const FileDiffWithComments = ({
   view,
   viewed,
   openFileButton,
+  parked,
 }: Omit<FileSectionProps, "patch" | "loadPatch" | "environmentId"> & {
   patch: string;
   openFileButton: ReactNode;
+  parked: boolean;
 }) => {
   const theme = useCodeTheme();
   const fileDiff = useMemo(() => parseFileDiff(patch), [patch]);
@@ -335,6 +342,9 @@ const FileDiffWithComments = ({
         Diff not available
       </FileNotice>
     );
+  }
+  if (parked && !viewed.collapsed) {
+    return <FileHeaderRow file={file} openFileButton={openFileButton} viewed={viewed} />;
   }
   return (
     <ReviewFileDiff
@@ -544,24 +554,46 @@ function parseFileDiff(patch: string): FileDiffMetadata | null {
   }
 }
 
-function useNearView<T extends Element>() {
+type Nearness = { kind: "unseen" } | { kind: "near" } | { kind: "parked"; height: number };
+
+const UNSEEN: Nearness = { kind: "unseen" };
+const NEAR: Nearness = { kind: "near" };
+
+function useNearness<T extends Element>() {
   const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
+  const [nearness, setNearness] = useState<Nearness>(UNSEEN);
   useEffect(() => {
     const element = ref.current;
-    if (visible || element === null) {
+    if (element === null) {
       return;
     }
-    const observer = new IntersectionObserver(
+    const root = element.closest("[data-diff-scroll-area]");
+    const enter = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          setVisible(true);
+          setNearness(NEAR);
         }
       },
-      { rootMargin: "800px 0px" },
+      { root, rootMargin: "800px 0px" },
     );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [visible]);
-  return { visible, ref };
+    const leave = new IntersectionObserver(
+      (entries) => {
+        const entry = entries.at(-1);
+        if (entry !== undefined && !entry.isIntersecting) {
+          const height = entry.boundingClientRect.height;
+          setNearness((current) =>
+            current.kind === "near" ? { kind: "parked", height } : current,
+          );
+        }
+      },
+      { root, rootMargin: "4000px 0px" },
+    );
+    enter.observe(element);
+    leave.observe(element);
+    return () => {
+      enter.disconnect();
+      leave.disconnect();
+    };
+  }, []);
+  return { nearness, ref };
 }
