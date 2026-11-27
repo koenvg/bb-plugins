@@ -172,12 +172,11 @@ for (const width of [1280, 390]) {
     expect(shape.width).toBeLessThanOrEqual(720);
     expect(shape.maxWidth).toBe("100%");
     expect(shape.source.startsWith("blob:")).toBe(true);
+    const placeholders = dialog.locator(".mr-image-placeholder");
     await Array.fromAsync(["BB private", "CORS chart", "Redirect chart", "Broken chart"], (name) =>
-      expect(dialog.getByRole("img", { name, exact: true })).toHaveText(
-        `${name} (image unavailable)`,
-      ),
+      expect(placeholders.getByText(`${name} (image unavailable)`, { exact: true })).toBeVisible(),
     );
-    await expect(dialog.getByRole("img", { name: "Relative chart" })).toHaveText("Relative chart");
+    await expect(placeholders.getByText("Relative chart", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Relative file", { exact: true })).toHaveJSProperty(
       "tagName",
       "SPAN",

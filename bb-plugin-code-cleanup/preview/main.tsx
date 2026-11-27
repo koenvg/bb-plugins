@@ -104,6 +104,7 @@ const FixtureDefault = () => {
           <div className="cleanup-control">
             <span id="fixture-default-label">{field.descriptor.label}</span>
             <button
+              type="button"
               role="switch"
               aria-labelledby="fixture-default-label"
               aria-checked={field.value}

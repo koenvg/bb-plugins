@@ -135,7 +135,7 @@ describe("project picker shell navigation", () => {
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe(
       "Unsaved project switch draft",
     );
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1");
     expect(browsePreference().load()).toEqual({
       kind: "project",
       projectId: project.id,

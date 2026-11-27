@@ -120,7 +120,7 @@ const ImageFigure = ({
         {label === null || shown.kind === "absent" ? (
           <span>Not present</span>
         ) : shown.kind === "loading" ? (
-          <span role="status">{active ? "Loading image…" : "Image preview paused"}</span>
+          <output>{active ? "Loading image…" : "Image preview paused"}</output>
         ) : shown.kind === "error" ? (
           <div className="flex max-w-full flex-col items-center gap-2 bg-background p-3 text-center">
             <span role="alert" className="text-destructive">

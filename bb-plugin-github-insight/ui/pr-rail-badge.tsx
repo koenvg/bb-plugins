@@ -16,12 +16,14 @@ export const PrRailBadge = () => {
     <span data-bb-plugin="github-insight" className="pointer-events-none relative w-0 self-stretch">
       <span className="absolute inset-y-0 right-0 aspect-square">
         {badge.count === null ? (
-          <span
-            role="img"
-            aria-label="Review agent came back"
-            style={CUTOUT}
-            className="absolute left-1/2 top-1/2 -mt-2.5 ml-1 size-2 rounded-full bg-primary"
-          />
+          <>
+            <span className="sr-only">Review agent came back</span>
+            <span
+              aria-hidden
+              style={CUTOUT}
+              className="absolute left-1/2 top-1/2 -mt-2.5 ml-1 size-2 rounded-full bg-primary"
+            />
+          </>
         ) : (
           <span
             data-testid="rail-review-count"

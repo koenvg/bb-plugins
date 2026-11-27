@@ -586,7 +586,7 @@ export const PersistentResponsiveDrawerShell = ({
   onContentAnimationEnd,
   children,
 }: PersistentResponsiveDrawerShellProps) => {
-  const panelRef = React.useRef<HTMLDivElement>(null);
+  const panelRef = React.useRef<HTMLDialogElement>(null);
   const backdropRef = React.useRef<HTMLDivElement>(null);
   const dragRef = React.useRef<PersistentDrawerDrag | null>(null);
   const settledStateRef = React.useRef<boolean | null>(null);
@@ -737,7 +737,8 @@ export const PersistentResponsiveDrawerShell = ({
         onClick={closeOnBackdropClick ? requestClose : undefined}
         onTouchMove={(event) => event.preventDefault()}
       />
-      <div
+      <dialog
+        open
         ref={panelRef}
         {...portalScopeProps}
         aria-hidden={!open}
@@ -748,10 +749,9 @@ export const PersistentResponsiveDrawerShell = ({
         data-persistent-drawer-content=""
         data-state={open ? "open" : "closed"}
         inert={!open}
-        role="dialog"
         tabIndex={-1}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--bb-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none",
+          "fixed inset-x-0 bottom-0 z-50 m-0 mt-24 flex w-full max-w-none max-h-[calc(92dvh-var(--bb-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none",
           contentClassName,
         )}
         style={{
@@ -781,7 +781,7 @@ export const PersistentResponsiveDrawerShell = ({
           </h2>
         )}
         {children}
-      </div>
+      </dialog>
     </>,
     portalTarget,
   );

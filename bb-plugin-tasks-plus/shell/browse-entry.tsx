@@ -57,12 +57,9 @@ export function useBrowseRoute(
 
 export const BrowseEntryState = ({ projects }: { projects: ProjectInventory }) => {
   if (projects.isLoading || projects.error === null) {
-    return (
-      <div role="status" className="p-6 text-sm text-muted-foreground">
-        Loading projects…
-      </div>
-    );
+    return <output className="block p-6 text-sm text-muted-foreground">Loading projects…</output>;
   }
+  const handleRefresh = projects.refresh;
   return (
     <div role="alert" className="h-full">
       <EmptyState
@@ -70,7 +67,7 @@ export const BrowseEntryState = ({ projects }: { projects: ProjectInventory }) =
         title="Could not load projects"
         description="Your last Tasks project is still remembered. Retry to open it."
         action={
-          <Button size="sm" onClick={projects.refresh}>
+          <Button size="sm" onClick={handleRefresh}>
             Retry
           </Button>
         }

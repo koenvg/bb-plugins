@@ -110,8 +110,7 @@ describe("safe standalone detail navigation", () => {
       updateTask: () => reply.promise,
     });
     const title = await slot.findByRole("textbox", { name: "Task title" });
-    title.textContent = "My title";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "My title" } });
     fireEvent.blur(title);
     current = {
       ...saved,
@@ -178,13 +177,13 @@ describe("safe standalone detail navigation", () => {
     await changeDescription(slot, "Saved A");
     slot.lifecycle.rerender(<Panel subPath="task/TSK-2" />);
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2"),
     );
     expect(slot.queryByText("a.txt")).toBeNull();
     expect(slot.container.textContent).not.toContain("Saved A");
     slot.lifecycle.rerender(<Panel subPath="task/TSK-1" />);
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1"),
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1"),
     );
     expect(slot.container.querySelector(".tiptap")).not.toBe(origin);
     expect(slot.container.querySelector(".tiptap")?.textContent).toBe("Saved A");
@@ -206,21 +205,22 @@ describe("safe standalone detail navigation", () => {
       },
     });
     const title = await slot.findByRole("textbox", { name: "Task title" });
-    title.textContent = "Unblurred title";
-    fireEvent.input(title);
+    fireEvent.change(title, { target: { value: "Unblurred title" } });
     slot.lifecycle.rerender(<Panel subPath="task/TSK-2" />);
     slot.lifecycle.rerender(<Panel subPath="task/TSK-3" />);
     await waitFor(() => expect(writes).toHaveLength(1));
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain(
-      "Unblurred title",
-    );
+    expect(
+      (slot.getByRole("textbox", { name: "Task title" }) as HTMLTextAreaElement).value,
+    ).toContain("Unblurred title");
     expect(writes[0]).toMatchObject({
       taskId: (tasks[0] ?? missingValue("Expected tasks[0]")).id,
       title: "Unblurred title",
     });
     await act(() => Promise.try(() => reply.resolve({ ok: true, task: tasks[0] })));
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 3"),
+      expect(
+        (slot.getByRole("textbox", { name: "Task title" }) as HTMLTextAreaElement).value,
+      ).toContain("Title 3"),
     );
     expect(
       slot.inspection.rpcCalls.some(
@@ -246,7 +246,7 @@ describe("safe standalone detail navigation", () => {
     fail = false;
     fireEvent.click(slot.getByRole("button", { name: "Retry" }));
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 2"),
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 2"),
     );
   });
   it("never renders late A data or A's local subtask form under B", async () => {
@@ -272,12 +272,16 @@ describe("safe standalone detail navigation", () => {
     await slot.behavior.emitRealtime("tasks:changed", {});
     slot.lifecycle.rerender(<Panel subPath="task/TSK-2" />);
     await waitFor(() =>
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2"),
+      expect(
+        (slot.getByRole("textbox", { name: "Task title" }) as HTMLTextAreaElement).value,
+      ).toContain("Title 2"),
     );
     expect(slot.queryByDisplayValue("Only A")).toBeNull();
     await act(() =>
       Promise.try(() => late.resolve({ task: tasks[0] ?? missingValue("Expected tasks[0]") })),
     );
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toContain("Title 2");
+    expect(
+      (slot.getByRole("textbox", { name: "Task title" }) as HTMLTextAreaElement).value,
+    ).toContain("Title 2");
   });
 });

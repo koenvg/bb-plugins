@@ -98,6 +98,7 @@ export const ProjectPicker = ({
     );
   }
 
+  const handleRefresh = inventory.refresh;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -147,7 +148,7 @@ export const ProjectPicker = ({
             );
           })}
           {inventory.error !== null ? (
-            <DropdownMenuItem className="min-h-9" onSelect={inventory.refresh}>
+            <DropdownMenuItem className="min-h-9" onSelect={handleRefresh}>
               Retry projects
             </DropdownMenuItem>
           ) : projects === undefined ? (

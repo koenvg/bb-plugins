@@ -191,18 +191,15 @@ export const SubmitPanel = ({
             </ErrorText>
           )}
           {outcome?.kind === "submitted" && (
-            <p
-              role="status"
-              className="flex items-center gap-1.5 text-xs text-muted-foreground duration-300 ease-out animate-in fade-in slide-in-from-top-1 motion-reduce:slide-in-from-top-0"
-            >
+            <output className="flex items-center gap-1.5 text-xs text-muted-foreground duration-300 ease-out animate-in fade-in slide-in-from-top-1 motion-reduce:slide-in-from-top-0">
               <Icon name="CircleCheck" className="size-3.5 text-success" />
               Review submitted
-            </p>
+            </output>
           )}
           {outcome?.kind === "submitted" && outcome.markError !== undefined && (
             <ErrorText>
-              Could not mark the PR reviewed: {outcome.markError}. Use "Mark reviewed" in the Pull
-              Requests panel.
+              Could not mark the PR reviewed: {outcome.markError}. Use &quot;Mark reviewed&quot; in
+              the Pull Requests panel.
             </ErrorText>
           )}
         </div>

@@ -18,6 +18,7 @@ export const Button = ({
         : "text-foreground hover:bg-state-hover";
   return (
     <button
+      type="button"
       {...props}
       className={`inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 ${tone} ${className}`}
     />

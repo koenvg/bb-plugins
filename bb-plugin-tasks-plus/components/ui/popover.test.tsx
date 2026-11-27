@@ -32,11 +32,13 @@ const Fixture = ({
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <>
-      <button>Other control</button>
+      <button type="button">Other control</button>
       <Popover open={open} onOpenChange={setOpen}>
         {!removeTrigger ? (
           <PopoverTrigger asChild>
-            <button ref={trigger}>Summary</button>
+            <button type="button" ref={trigger}>
+              Summary
+            </button>
           </PopoverTrigger>
         ) : null}
         <PopoverContent
@@ -47,7 +49,9 @@ const Fixture = ({
             if (event.defaultPrevented) trigger.current?.focus();
           }}
         >
-          <button onClick={() => setOpen(false)}>Close details</button>
+          <button type="button" onClick={() => setOpen(false)}>
+            Close details
+          </button>
         </PopoverContent>
       </Popover>
     </>

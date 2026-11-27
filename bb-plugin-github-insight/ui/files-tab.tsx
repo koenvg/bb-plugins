@@ -374,9 +374,9 @@ const ReviewContent = ({
         <CommentStepper navigation={navigation} />
         <div className="ml-auto flex items-center gap-2">
           {agent.outcome?.result.kind === "sent" && (
-            <span role="status" className="text-muted-foreground">
+            <output className="text-muted-foreground">
               {sentText(agent.outcome.result, agent.outcome.requested)}
-            </span>
+            </output>
           )}
           <ShowResolvedSwitch checked={showResolved} onChange={setShowResolved} />
           <SubmitReviewToggle open={submitOpen} toggle={() => setSubmitOpen((open) => !open)} />
@@ -519,13 +519,13 @@ const CommentStepper = ({ navigation }: { navigation: CommentNavigation }) => {
     return null;
   }
   return (
-    <div role="group" aria-label="Comment navigation" className="flex items-center gap-0.5">
+    <fieldset aria-label="Comment navigation" className="flex items-center gap-0.5">
       <StepButton label="Previous comment" icon="ChevronUp" onClick={() => navigation.step(-1)} />
       <span className="min-w-12 text-center text-muted-foreground tabular-nums">
         {navigation.position + 1} / {navigation.total}
       </span>
       <StepButton label="Next comment" icon="ChevronDown" onClick={() => navigation.step(1)} />
-    </div>
+    </fieldset>
   );
 };
 

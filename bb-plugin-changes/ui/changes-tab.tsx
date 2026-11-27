@@ -55,6 +55,9 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
   const content = useRef<HTMLDivElement>(null);
   const navigation = useFileNavigation(scrollArea, content, paths);
 
+  const handleJumpTo = navigation.jumpTo;
+  const handleSend = feedback.send;
+  const handleClose = feedback.close;
   return (
     <div className="@container flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2">
@@ -69,9 +72,7 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
             </span>
           )}
           {feedback.status !== null && (
-            <span role="status" className="mr-1.5 text-xs text-muted-foreground">
-              {feedback.status}
-            </span>
+            <output className="mr-1.5 text-xs text-muted-foreground">{feedback.status}</output>
           )}
           <ViewToggle view={view} onChange={setView} />
           <button
@@ -104,7 +105,7 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
             files={files}
             commentCounts={commentCounts}
             current={navigation.current}
-            onSelect={navigation.jumpTo}
+            onSelect={handleJumpTo}
           />
         )}
         <div ref={scrollArea} data-diff-scroll-area className="min-h-0 flex-1 overflow-y-auto">
@@ -140,8 +141,8 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
           initialPrompt={feedback.dialog.prompt}
           sending={feedback.dialog.sending}
           error={feedback.dialog.error}
-          onSend={feedback.send}
-          onClose={feedback.close}
+          onSend={handleSend}
+          onClose={handleClose}
         />
       )}
     </div>
@@ -385,8 +386,7 @@ const VIEWS = [
 
 const ViewToggle = ({ view, onChange }: { view: DiffView; onChange: (view: DiffView) => void }) => {
   return (
-    <div
-      role="group"
+    <fieldset
       aria-label="Diff view"
       className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
     >
@@ -406,7 +406,7 @@ const ViewToggle = ({ view, onChange }: { view: DiffView; onChange: (view: DiffV
           <Icon name={option.icon} className="size-3.5" />
         </button>
       ))}
-    </div>
+    </fieldset>
   );
 };
 
@@ -437,12 +437,9 @@ const DiffSummary = ({
 
 const Notice = ({ children }: { children: ReactNode }) => {
   return (
-    <div
-      role="status"
-      className="m-3 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground"
-    >
+    <output className="block m-3 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
       {children}
-    </div>
+    </output>
   );
 };
 

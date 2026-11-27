@@ -61,6 +61,7 @@ const PrSidePanel = ({
   const navigation = usePullRequestsNavigation();
   const insight = usePrInsight(pr);
   const { maximized } = overview.layout;
+  const handleToggleMaximized = overview.toggleMaximized;
   return (
     <aside
       aria-label="Pull request overview"
@@ -79,7 +80,7 @@ const PrSidePanel = ({
           type="button"
           aria-label={maximized ? "Restore overview" : "Maximize overview"}
           className={cn(ICON_ACTION_CLASS, "hidden @3xl:inline-flex")}
-          onClick={overview.toggleMaximized}
+          onClick={handleToggleMaximized}
         >
           <Icon name={maximized ? "Minimize2" : "Maximize2"} className="size-4" />
         </button>
@@ -103,7 +104,7 @@ const ResizeHandle = ({ overview }: { overview: OverviewLayoutControls }) => {
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+  function onPointerDown(event: PointerEvent<HTMLHRElement>) {
     if (event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -112,7 +113,7 @@ const ResizeHandle = ({ overview }: { overview: OverviewLayoutControls }) => {
     setDragging(true);
   }
 
-  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+  function onPointerMove(event: PointerEvent<HTMLHRElement>) {
     if (drag.current === null) return;
     drag.current.width = drag.current.startWidth - (event.clientX - drag.current.startX);
     overview.previewWidth(drag.current.width);
@@ -125,16 +126,16 @@ const ResizeHandle = ({ overview }: { overview: OverviewLayoutControls }) => {
     setDragging(false);
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function onKeyDown(event: KeyboardEvent<HTMLHRElement>) {
     const step = event.key === "ArrowLeft" ? 10 : event.key === "ArrowRight" ? -10 : 0;
     if (step === 0) return;
     event.preventDefault();
     overview.commitWidth(renderedWidth(event.currentTarget) + step);
   }
 
+  const handleResetWidth = overview.resetWidth;
   return (
-    <div
-      role="separator"
+    <hr
       aria-orientation="vertical"
       aria-label="Resize overview"
       aria-valuemin={OVERVIEW_WIDTH.min}
@@ -142,12 +143,12 @@ const ResizeHandle = ({ overview }: { overview: OverviewLayoutControls }) => {
       aria-valuenow={overview.layout.width}
       tabIndex={0}
       data-dragging={dragging}
-      className="absolute inset-y-0 -left-0.5 z-10 hidden w-1 cursor-col-resize touch-none transition-colors duration-150 hover:bg-ring/40 focus-visible:bg-ring/60 focus-visible:outline-none data-[dragging=true]:bg-ring/60 motion-reduce:transition-none @3xl:block"
+      className="absolute inset-y-0 -left-0.5 z-10 m-0 border-0 hidden w-1 cursor-col-resize touch-none transition-colors duration-150 hover:bg-ring/40 focus-visible:bg-ring/60 focus-visible:outline-none data-[dragging=true]:bg-ring/60 motion-reduce:transition-none @3xl:block"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onLostPointerCapture={endDrag}
-      onDoubleClick={overview.resetWidth}
+      onDoubleClick={handleResetWidth}
       onKeyDown={onKeyDown}
     />
   );

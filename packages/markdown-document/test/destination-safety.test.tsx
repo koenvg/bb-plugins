@@ -15,7 +15,11 @@ function policyFixture(kind: DispatchPolicy) {
   const activate = vi.fn(() => true);
   const resolve = vi.fn((request: { url: string }) => ({
     kind: "bound-link" as const,
-    render: (props: React.ComponentProps<"a">) => <a {...props} href={request.url} />,
+    render: (props: React.ComponentProps<"a">) => (
+      <a {...props} href={request.url}>
+        {props.children}
+      </a>
+    ),
   }));
   const permissions = { localFragments: true, openExternal: open };
   const policy: DestinationPolicy =

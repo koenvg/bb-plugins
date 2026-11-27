@@ -113,6 +113,7 @@ const ProjectChoices = ({
             ? "No matching projects"
             : null;
 
+  const handleRefresh = inventory.refresh;
   return (
     <>
       <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
@@ -164,9 +165,7 @@ const ProjectChoices = ({
         />
         <CommandList className="max-h-[min(300px,50dvh)] p-1" label="Projects">
           {status !== null ? (
-            <div role="status" className="px-3 py-5 text-sm text-muted-foreground">
-              {status}
-            </div>
+            <output className="block px-3 py-5 text-sm text-muted-foreground">{status}</output>
           ) : null}
           {matches.map((project) => {
             const folder = folders.data?.find((item) => item.id === project.folderId);
@@ -197,7 +196,7 @@ const ProjectChoices = ({
       </Command>
       {inventory.error !== null && !inventory.isLoading ? (
         <div className="border-t px-4 py-2">
-          <Button variant="outline" size="sm" onClick={inventory.refresh}>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
             Retry projects
           </Button>
         </div>
@@ -210,8 +209,8 @@ const SelectionAnnouncement = ({ projects }: { projects: Project[] }) => {
   const selectedId = useCommandState((state) => state.value);
   const project = projects.find((item) => item.id === selectedId);
   return (
-    <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+    <output aria-live="polite" aria-atomic="true" className="sr-only">
       {project ? `Selected ${project.name}, ${project.prefix}` : ""}
-    </span>
+    </output>
   );
 };

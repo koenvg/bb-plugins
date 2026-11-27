@@ -204,13 +204,6 @@ const ImageDialog = ({
         event.stopPropagation();
         dismiss();
       }}
-      onKeyDown={(event) => {
-        if (event.key === "Tab") {
-          event.preventDefault();
-          event.stopPropagation();
-          closeButton.current?.focus({ preventScroll: true });
-        }
-      }}
       onPointerDown={(event) => {
         event.stopPropagation();
         backdrop.current =
@@ -231,17 +224,26 @@ const ImageDialog = ({
         event.stopPropagation();
         backdrop.current = null;
       }}
-      onClick={(event) => event.stopPropagation()}
-      onAuxClick={(event) => event.stopPropagation()}
     >
       <div className="mr-image-dialog-toolbar">
         <span>{label}</span>
-        <button ref={closeButton} type="button" onClick={dismiss} aria-label="Close image preview">
+        <button
+          ref={closeButton}
+          type="button"
+          onClick={dismiss}
+          aria-label="Close image preview"
+          onKeyDown={(event) => {
+            if (event.key === "Tab") {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
+        >
           Close
         </button>
       </div>
       {failed ? (
-        <p role="status">Image preview unavailable. Close and reopen to retry.</p>
+        <output className="block">Image preview unavailable. Close and reopen to retry.</output>
       ) : (
         <img {...requestAttributes(source)} alt={label} onError={() => setFailed(true)} />
       )}

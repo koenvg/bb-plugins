@@ -217,7 +217,7 @@ const ThreadActionsView = ({ thread }: { thread: ReviewThread }) => {
         </p>
       )}
       {pendingReviewUrl !== null && (
-        <p role="status" className="text-xs text-muted-foreground">
+        <output className="block text-xs text-muted-foreground">
           Reply added to your pending review.{" "}
           <UrlLink
             href={pendingReviewUrl}
@@ -225,7 +225,7 @@ const ThreadActionsView = ({ thread }: { thread: ReviewThread }) => {
           >
             Open the PR
           </UrlLink>
-        </p>
+        </output>
       )}
       <div className="flex items-center gap-1.5">
         {thread.resolved ? (

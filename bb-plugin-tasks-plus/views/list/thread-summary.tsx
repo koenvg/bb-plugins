@@ -241,7 +241,8 @@ export const ThreadSummary = ({
         <h3 className="mb-2 text-sm font-semibold">Threads for {taskKey}</h3>
         {meta.availability === "unavailable" ? (
           <p className="mb-2 text-xs text-muted-foreground">
-            Couldn't refresh these attachments. Current activity and archive state are unavailable.
+            Couldn&apos;t refresh these attachments. Current activity and archive state are
+            unavailable.
           </p>
         ) : null}
         <ul className="space-y-3">

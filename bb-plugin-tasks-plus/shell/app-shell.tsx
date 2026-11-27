@@ -148,6 +148,7 @@ const TasksAppShellContent = ({ subPath: requestedSubPath }: PluginNavPanelProps
     "detail.back": route.kind === "task" ? backFromTask : null,
   });
 
+  const handleGo = navigation.go;
   return (
     <TaskCommandProvider taskKey={route.kind === "task" ? route.taskKey : null} rootRef={mainRef}>
       <div className="relative flex h-full min-h-0 bg-background text-foreground">
@@ -171,7 +172,7 @@ const TasksAppShellContent = ({ subPath: requestedSubPath }: PluginNavPanelProps
                         : null,
                   }
             }
-            onNavigate={navigation.go}
+            onNavigate={handleGo}
             onNewTask={() => setNewTaskOpen(true)}
             onNewProject={() => setNewProjectOpen(true)}
             onBack={backFromTask}

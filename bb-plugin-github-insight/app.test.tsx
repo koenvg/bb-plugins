@@ -214,7 +214,7 @@ describe("PR tab", () => {
     );
 
     const heading = await slot.findByRole("heading", { name: "Pull request merged" });
-    expect(heading.closest('[role="status"]')).toBeTruthy();
+    expect(heading.closest("output")).toBeTruthy();
     expect(slot.getByText("#25337")).toBeTruthy();
     expect(slot.getByRole("heading", { name: pr.title })).toBeTruthy();
     expect(slot.getByRole("link", { name: "Open on GitHub" }).getAttribute("href")).toBe(pr.url);

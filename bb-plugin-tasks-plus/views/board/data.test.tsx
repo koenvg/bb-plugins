@@ -16,7 +16,9 @@ const Probe = () => {
   const board = useBoardData(projectId);
   return (
     <>
-      <button onClick={() => setProjectId("project-2")}>Switch tracker</button>
+      <button type="button" onClick={() => setProjectId("project-2")}>
+        Switch tracker
+      </button>
       <output>
         {JSON.stringify({
           tasks: board.tasks?.map((task) => task.key),

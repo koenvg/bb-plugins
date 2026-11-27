@@ -3,11 +3,11 @@ import type { FileIconName } from "./svgs";
 
 export const FileTypeIcon = ({ name }: { name: FileIconName }) => {
   return (
-    <span
-      aria-hidden
+    <img
+      alt=""
       data-icon={name}
-      className="inline-flex size-4 shrink-0 [&>svg]:size-full"
-      dangerouslySetInnerHTML={{ __html: FILE_ICON_SVGS[name] }}
+      className="size-4 shrink-0"
+      src={`data:image/svg+xml,${encodeURIComponent(FILE_ICON_SVGS[name])}`}
     />
   );
 };

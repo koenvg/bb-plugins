@@ -96,12 +96,12 @@ export const Reader = ({
   return (
     <section ref={root} className="markdown-reader" aria-label="Markdown Reader">
       <header className="mr-toolbar">
-        <div className="mr-identity" role="group" aria-label={path} title={path}>
+        <fieldset className="mr-identity" aria-label={path} title={path}>
           <span className="mr-filename">{filename}</span>
           {directory && <span className="mr-path">{directory}</span>}
-        </div>
-        <div className="mr-controls" role="group" aria-label="Document controls">
-          <div className="mr-view-controls" role="group" aria-label="Document view">
+        </fieldset>
+        <fieldset className="mr-controls" aria-label="Document controls">
+          <fieldset className="mr-view-controls" aria-label="Document view">
             <IconAction
               icon="Eye"
               label="Preview"
@@ -114,8 +114,8 @@ export const Reader = ({
               aria-pressed={view === "raw"}
               onClick={() => setView("raw")}
             />
-          </div>
-          <div className="mr-reader-actions" role="group" aria-label="Reader actions">
+          </fieldset>
+          <fieldset className="mr-reader-actions" aria-label="Reader actions">
             {view === "preview" && !!model?.headings.length && (
               <IconAction
                 icon="ListView"
@@ -125,8 +125,8 @@ export const Reader = ({
               />
             )}
             <IconAction icon="RotateCcw" label="Refresh" onClick={refresh} />
-          </div>
-        </div>
+          </fieldset>
+        </fieldset>
       </header>
       <div className="mr-content">
         <DestinationProvider
@@ -138,11 +138,11 @@ export const Reader = ({
           {(destinations) => (
             <>
               {loading && (
-                <p className="mr-state" role="status">
+                <output className="block mr-state">
                   {snapshot
                     ? "Refreshing Markdown. Showing previous snapshot, not verified current."
                     : "Loading Markdown..."}
-                </p>
+                </output>
               )}
               {result && result.kind !== "ready" && (
                 <div className="mr-state" role="alert">
@@ -158,9 +158,7 @@ export const Reader = ({
               )}
               {snapshot &&
                 (snapshot.text === "" && view === "preview" ? (
-                  <p className="mr-state" role="status">
-                    This file is empty.
-                  </p>
+                  <output className="block mr-state">This file is empty.</output>
                 ) : (
                   <MarkdownDocument
                     model={model!}

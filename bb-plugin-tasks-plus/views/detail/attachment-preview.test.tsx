@@ -38,7 +38,7 @@ it("uses BB URL preferences once and local heading focus without another saved-I
   fireEvent.click(within(dialog).getByRole("link", { name: "jump" }), { ctrlKey: true });
   expect(document.activeElement).toBe(within(dialog).getByRole("heading", { name: "Target" }));
   expect(within(dialog).getByText("relative").tagName).toBe("SPAN");
-  expect(within(dialog).getByRole("img", { name: "alt" }).textContent).toBe("alt");
+  expect(within(dialog).getByText("alt").textContent).toBe("alt");
   expect(pending.map((request) => request.url)).toEqual([
     "/api/v1/plugins/tasks-plus/http/attachments/preview?attachmentId=attachment-a",
   ]);
@@ -112,17 +112,21 @@ const Fixture = ({
     confirmedAttachments: confirmed,
     fallbackRef: fallback,
   });
+  const handleOpen = preview.open;
   return (
     <CompactViewportOverrideProvider isCompactViewport={compact}>
-      <button ref={fallback}>Task control</button>
+      <button type="button" ref={fallback}>
+        Task control
+      </button>
       <input aria-label="Draft" defaultValue="unfinished" />
       <AttachmentsGrid
         attachments={confirmed ?? [a, b]}
-        onPreview={preview.open}
+        onPreview={handleOpen}
         onRemove={(item) => Promise.try(() => preview.removed(item.id))}
         onError={() => {}}
       />
       <button
+        type="button"
         onClick={() =>
           preview.open(a, fallback.current ?? missingValue("Expected fallback.current"))
         }
@@ -130,26 +134,27 @@ const Fixture = ({
         Replace with A
       </button>
       <button
+        type="button"
         onClick={() =>
           preview.open(b, fallback.current ?? missingValue("Expected fallback.current"))
         }
       >
         Replace with B
       </button>
-      <button onClick={() => preview.removed(a.id)}>Confirm removed A</button>
+      <button type="button" onClick={() => preview.removed(a.id)}>
+        Confirm removed A
+      </button>
       {preview.dialog}
       {listbox ? (
-        <div role="listbox" aria-label="Newer choices" tabIndex={0}>
-          <div role="option" aria-selected="true">
-            Selected choice
-          </div>
-        </div>
+        <select size={2} aria-label="Newer choices" defaultValue="selected">
+          <option value="selected">Selected choice</option>
+        </select>
       ) : null}
       {another ? (
         <Dialog open>
           <DialogContent>
             <DialogTitle>Newer overlay</DialogTitle>
-            <button>Newer action</button>
+            <button type="button">Newer action</button>
           </DialogContent>
         </Dialog>
       ) : null}
@@ -378,7 +383,8 @@ describe("task-scoped attachment owner", () => {
       await resolve(1, reply(b, "# Current"));
       const heading = await screen.findByRole("heading", { name: "Current", level: 1 });
       const dialog =
-        heading.closest('[role="dialog"]') ?? missingValue("Expected a non-null value");
+        heading.closest('dialog[open], [role="dialog"]') ??
+        missingValue("Expected a non-null value");
       const target = within(dialog as HTMLElement).getByRole("button", { name: "Raw" });
       target.focus();
       await act(async () => {});
@@ -515,11 +521,12 @@ describe("saved file activation", () => {
           confirmedAttachments: [item],
           fallbackRef: fallback,
         });
+        const handleOpen = preview.open;
         return (
           <>
             <AttachmentsGrid
               attachments={[item]}
-              onPreview={preview.open}
+              onPreview={handleOpen}
               onRemove={async () => {}}
               onError={() => {}}
             />

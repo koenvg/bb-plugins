@@ -27,7 +27,7 @@ async function move(slot: ReturnType<typeof setup>, key: string, n: number) {
   await waitFor(() => expect(document.activeElement).toBe(row(slot, n)));
   expect(row(slot, n).getAttribute("aria-current")).toBe("true");
   await waitFor(() =>
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(`Title ${n}`),
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", `Title ${n}`),
   );
 }
 

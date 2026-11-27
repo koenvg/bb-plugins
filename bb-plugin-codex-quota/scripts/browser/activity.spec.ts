@@ -26,7 +26,7 @@ test("activity early desktop and 375px preview", async ({ page }, info) => {
   await capture(page, info, "early-375-open");
   await noOverflow(page);
   const metrics = await page.evaluate(() => {
-    const region = document.querySelector('[role="region"]')!;
+    const region = document.querySelector('section[aria-label="Account-wide daily token table"]')!;
     return {
       width: innerWidth,
       pageWidth: document.documentElement.scrollWidth,
@@ -36,9 +36,14 @@ test("activity early desktop and 375px preview", async ({ page }, info) => {
   });
   expect(metrics.pageWidth).toBe(375);
   await jsonEvidence(info, "early-layout.json", metrics);
-  await page.getByRole("region", { name: "Account-wide daily token table" }).focus();
+  await page.getByRole("combobox", { name: "Account activity period" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("region", { name: "Account-wide daily token table" })).toBeFocused();
   await page.keyboard.press("ArrowDown");
-  await page.waitForFunction(() => document.querySelector('[role="region"]')!.scrollTop > 0);
+  await page.waitForFunction(
+    () =>
+      document.querySelector('section[aria-label="Account-wide daily token table"]')!.scrollTop > 0,
+  );
   await page.getByRole("combobox", { name: "Account activity period" }).selectOption("weekly");
   await expect(page.getByText("weekly activity unknown.", { exact: true })).toBeVisible();
   await expect(page.locator("body")).toHaveAttribute("data-activity-calls", "1");

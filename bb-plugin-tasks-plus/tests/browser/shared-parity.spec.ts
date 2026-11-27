@@ -69,7 +69,7 @@ for (const width of [390, 960])
         document.documentElement.dataset.theme =
           document.documentElement.dataset.theme === "light" ? "dark" : "light";
         const prose = document.querySelector(".mr-prose");
-        const dialog = document.querySelector('[role="dialog"]');
+        const dialog = document.querySelector('dialog[open], [role="dialog"]');
         if (!prose) throw new Error("Missing preview prose after theme change");
         if (!dialog) throw new Error("Missing preview dialog after theme change");
         return {

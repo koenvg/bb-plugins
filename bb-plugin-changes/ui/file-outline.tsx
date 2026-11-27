@@ -86,7 +86,7 @@ const ResizeHandle = ({ outline, controls }: { outline: OutlineWidth; controls: 
   const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+  function onPointerDown(event: PointerEvent<HTMLHRElement>) {
     if (event.button !== 0) {
       return;
     }
@@ -97,7 +97,7 @@ const ResizeHandle = ({ outline, controls }: { outline: OutlineWidth; controls: 
     setDragging(true);
   }
 
-  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+  function onPointerMove(event: PointerEvent<HTMLHRElement>) {
     if (drag.current === null) {
       return;
     }
@@ -114,7 +114,7 @@ const ResizeHandle = ({ outline, controls }: { outline: OutlineWidth; controls: 
     setDragging(false);
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function onKeyDown(event: KeyboardEvent<HTMLHRElement>) {
     const step = event.key === "ArrowRight" ? 10 : event.key === "ArrowLeft" ? -10 : 0;
     if (step === 0) {
       return;
@@ -123,9 +123,9 @@ const ResizeHandle = ({ outline, controls }: { outline: OutlineWidth; controls: 
     outline.commit(renderedWidth(event.currentTarget) + step);
   }
 
+  const handleReset = outline.reset;
   return (
-    <div
-      role="separator"
+    <hr
       aria-orientation="vertical"
       aria-label="Resize file outline"
       aria-controls={controls}
@@ -134,12 +134,12 @@ const ResizeHandle = ({ outline, controls }: { outline: OutlineWidth; controls: 
       aria-valuenow={outline.width}
       tabIndex={0}
       data-dragging={dragging}
-      className="absolute inset-y-0 -right-0.5 z-10 w-1 cursor-col-resize touch-none transition-colors duration-150 hover:bg-ring/40 focus-visible:bg-ring/60 focus-visible:outline-none data-[dragging=true]:bg-ring/60 motion-reduce:transition-none"
+      className="absolute inset-y-0 -right-0.5 z-10 m-0 border-0 w-1 cursor-col-resize touch-none transition-colors duration-150 hover:bg-ring/40 focus-visible:bg-ring/60 focus-visible:outline-none data-[dragging=true]:bg-ring/60 motion-reduce:transition-none"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onLostPointerCapture={endDrag}
-      onDoubleClick={outline.reset}
+      onDoubleClick={handleReset}
       onKeyDown={onKeyDown}
     />
   );
@@ -246,12 +246,11 @@ const StatusBadge = ({ status }: { status: ChangedFile["status"] }) => {
   const { letter, label, className } = STATUS[status];
   return (
     <span
-      role="img"
-      aria-label={label}
       title={label}
       className={cn("w-3 shrink-0 text-center font-mono text-xs font-semibold", className)}
     >
-      {letter}
+      <span className="sr-only">{label}</span>
+      <span aria-hidden>{letter}</span>
     </span>
   );
 };

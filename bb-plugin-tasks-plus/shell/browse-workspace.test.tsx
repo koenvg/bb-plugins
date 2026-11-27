@@ -67,7 +67,7 @@ describe("editable browse workspace", () => {
       expect(scroll.scrollTop).toBe(170);
       expect(firstRow.getAttribute("aria-current")).toBe("true");
       expect(slot.container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
-      expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe("Title 1");
+      expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", "Title 1");
       expect(document.activeElement).toBe(firstRow);
       expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({
         options: {
@@ -83,7 +83,8 @@ describe("editable browse workspace", () => {
       await select(slot, 2);
       expect(firstRow.getAttribute("aria-current")).toBeNull();
       expect(row(slot, 2).getAttribute("aria-current")).toBe("true");
-      expect(within(detail).getByRole("textbox", { name: "Task title" }).textContent).toBe(
+      expect(within(detail).getByRole("textbox", { name: "Task title" })).toHaveProperty(
+        "value",
         "Title 2",
       );
     },

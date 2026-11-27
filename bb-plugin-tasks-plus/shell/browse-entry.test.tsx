@@ -204,7 +204,7 @@ describe("remembered Tasks entry", () => {
       listTaskDependencies: () => ({ blockers: [], blocking: [] }),
     });
     const byRole = await slot.findByRole("textbox", { name: "Task title" });
-    expect(byRole.textContent).toBe("Cross-project task");
+    expect(byRole).toHaveProperty("value", "Cross-project task");
     expect(slot.navigateCalls).toEqual([]);
     expect(remembered()).toEqual({ kind: "project", projectId: project.id });
     slot.lifecycle.unmount();

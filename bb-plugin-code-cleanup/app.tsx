@@ -27,6 +27,7 @@ const ProjectSettings = () => {
     }
   }
 
+  const handleConfirmPrompt = overview.confirmPrompt;
   return (
     <section className="code-cleanup-settings" aria-label="Code Cleanup project settings">
       <ProjectOverview
@@ -42,7 +43,7 @@ const ProjectSettings = () => {
           trigger={editor.trigger}
           writeLock={editorLock}
           onPending={setEditorPending}
-          onConfirmed={overview.confirmPrompt}
+          onConfirmed={handleConfirmPrompt}
           onClose={() => {
             setEditorPending(false);
             setEditor(null);
@@ -59,16 +60,16 @@ const ProjectSettings = () => {
           onClick={() => setShowHelp((value) => !value)}
         />
       </div>
-      <p
+      <section
         id="cleanup-help"
         className="cleanup-help"
-        role="region"
+
         aria-label="Task recording requirements"
         hidden={!showHelp}
       >
         The default records cleanup through agents. BB Tasks needs an available CLI and one linked
         tracker. These controls do not create tasks or trackers.
-      </p>
+      </section>
     </section>
   );
 };

@@ -167,7 +167,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 export function hasOpenOverlay(exclude: HTMLElement | null = null): boolean {
   return Array.from(
     document.querySelectorAll(
-      '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+      'dialog[open], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], select[multiple], select[size]:not([size="1"])',
     ),
   ).some(
     (overlay) =>

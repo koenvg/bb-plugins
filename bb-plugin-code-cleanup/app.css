@@ -74,6 +74,12 @@
   color: var(--background);
   background: var(--foreground);
 }
+.code-cleanup-settings fieldset.cleanup-toolbar {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
 .code-cleanup-settings .cleanup-toolbar {
   display: flex;
   align-items: center;

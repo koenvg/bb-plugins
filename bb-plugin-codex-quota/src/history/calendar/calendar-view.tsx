@@ -59,7 +59,7 @@ export const CalendarValues = ({
 }) => {
   const query = JSON.stringify(view.query);
   const helpId = useId();
-  const group = useRef<HTMLDivElement>(null);
+  const group = useRef<HTMLFieldSetElement>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const lastToggled = useRef<string | null>(null);
   const restoreButton = useRef<HTMLButtonElement | null>(null);
@@ -116,9 +116,8 @@ export const CalendarValues = ({
     removedFocusedRestore.current = false;
   });
   return (
-    <div
-      className="mt-4 min-w-0 text-muted-foreground"
-      role="group"
+    <fieldset
+      className="mt-4 mx-0 mb-0 min-w-0 border-0 p-0 text-muted-foreground"
       aria-label="Daily recorded values"
       ref={group}
       tabIndex={-1}
@@ -132,11 +131,10 @@ export const CalendarValues = ({
       />
       {stacked && (
         <>
-          <p
-            role="group"
+          <fieldset
             aria-label="Models"
             aria-describedby={helpId}
-            className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs [overflow-wrap:anywhere]"
+            className="m-0 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-0 p-0 text-xs [overflow-wrap:anywhere]"
           >
             {entries.map(({ id, series, hidden }) => (
               <button
@@ -195,21 +193,17 @@ export const CalendarValues = ({
                 Restore all series
               </button>
             )}
-          </p>
+          </fieldset>
           <p id={helpId} className="sr-only">
             {graphFilterHelp}
           </p>
-          <p
-            role="status"
-            aria-live="polite"
-            className={allCurrentHidden ? "mt-1 text-xs" : "sr-only"}
-          >
+          <output aria-live="polite" className={allCurrentHidden ? "mt-1 text-xs" : "sr-only"}>
             {models.length === 0
               ? `No recorded ${seriesName} series.`
               : allCurrentHidden
                 ? `All ${seriesName} series hidden. Recorded usage is not zero.`
                 : `${currentHiddenCount} ${seriesName} series hidden.`}
-          </p>
+          </output>
         </>
       )}
       <div className="sr-only">
@@ -306,6 +300,6 @@ export const CalendarValues = ({
           </tbody>
         </table>
       </div>
-    </div>
+    </fieldset>
   );
 };

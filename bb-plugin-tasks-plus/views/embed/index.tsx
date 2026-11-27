@@ -156,8 +156,7 @@ export const TaskDirectiveCard = ({ attributes }: PluginMessageDirectiveProps) =
   if (state.kind === "loading") {
     return (
       <CardShell>
-        <div
-          role="status"
+        <output
           aria-label={`Loading task ${taskKey}`}
           className="flex min-w-0 flex-1 items-center gap-2 px-1"
         >
@@ -170,7 +169,7 @@ export const TaskDirectiveCard = ({ attributes }: PluginMessageDirectiveProps) =
           ) : (
             <Skeleton className="h-3.5 w-1/2" />
           )}
-        </div>
+        </output>
       </CardShell>
     );
   }
@@ -199,7 +198,7 @@ export const TaskDirectiveCard = ({ attributes }: PluginMessageDirectiveProps) =
           <Icon name="AlertCircle" className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="shrink-0 font-mono text-xs text-muted-foreground">{taskKey}</span>
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-            Couldn't load this task
+            Couldn&apos;t load this task
           </span>
         </div>
         <Button variant="ghost" size="sm" className="shrink-0" onClick={retry}>
@@ -264,13 +263,13 @@ const TaskEmbedPanelContent = ({ params, threadId }: ExperimentalThreadActionTab
   const taskKey = useSafeTaskTarget(resolvedKey ?? lastResolvedKey);
   const feedback = !requestedKey ? (
     linked.isLoading ? (
-      <div role="status" aria-label="Loading linked task" className="text-sm text-muted-foreground">
+      <output aria-label="Loading linked task" className="block text-sm text-muted-foreground">
         Loading linked task...
-      </div>
+      </output>
     ) : linked.error ? (
       <div role="alert" className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>Couldn't load the linked task.</span>
-        <Button variant="ghost" size="sm" onClick={linked.refresh}>
+        <span>Couldn&apos;t load the linked task.</span>
+        <Button variant="ghost" size="sm" onClick={() => linked.refresh()}>
           Retry
         </Button>
       </div>

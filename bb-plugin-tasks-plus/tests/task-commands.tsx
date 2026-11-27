@@ -179,6 +179,7 @@ const Fixture = () => {
           <output aria-label="Preview reads">{previewReads}</output>
           <output aria-label="Delivered events">{deliveredEvents}</output>
           <button
+            type="button"
             onClick={() => {
               tasks[0] = {
                 ...requireFixture(tasks[0], "tasks[0]"),

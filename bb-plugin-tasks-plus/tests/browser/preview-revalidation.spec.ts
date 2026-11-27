@@ -8,7 +8,7 @@ for (const order of ["event-first", "reply-first"]) {
     await page.setViewportSize({ width: 1200, height: 900 });
     await page.goto(`/tests/task-commands.html?refreshOrder=${order}`);
     const title = page.getByRole("textbox", { name: "Task title" });
-    await expect(title).toHaveText("Task 1");
+    await expect(title).toHaveValue("Task 1");
     await expect(page.getByLabel("Preview reads")).toHaveText("1");
     const titleNode = await title.elementHandle();
     const editorNode = await page.locator(".tiptap").elementHandle();
@@ -28,7 +28,7 @@ for (const order of ["event-first", "reply-first"]) {
       ),
     ).toBe(true);
     await page.getByRole("button", { name: "External task edit" }).click();
-    await expect(title).toHaveText("External edit");
+    await expect(title).toHaveValue("External edit");
     await expect(page.getByLabel("Delivered events")).toHaveText("2");
     await expect(page.getByLabel("Preview reads")).toHaveText("3");
     await page.screenshot({ path: testInfo.outputPath(`${order}.png`) });

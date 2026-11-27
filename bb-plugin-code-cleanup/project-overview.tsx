@@ -23,6 +23,7 @@ export const ProjectOverview = ({
     }
     void overview.persist(row, value);
   }
+  const handleRefresh = overview.refresh;
   return (
     <section className="cleanup-overview" aria-labelledby="cleanup-overview-title">
       <h3 id="cleanup-overview-title" tabIndex={-1}>
@@ -32,7 +33,9 @@ export const ProjectOverview = ({
         Saved values, not unsaved prompt drafts. Applies to new agent sessions only.
       </p>
       {reading && (
-        <p role="status">{rows ? "Refreshing project overview…" : "Loading project overview…"}</p>
+        <output className="block">
+          {rows ? "Refreshing project overview…" : "Loading project overview…"}
+        </output>
       )}
       {readError && (
         <div>
@@ -42,7 +45,7 @@ export const ProjectOverview = ({
               ? " Last saved values are shown. Reload before changing settings."
               : " Settings are unknown."}
           </p>
-          <button disabled={!!pending || blocked || reading} onClick={overview.refresh}>
+          <button type="button" disabled={!!pending || blocked || reading} onClick={handleRefresh}>
             Retry overview
           </button>
         </div>
@@ -66,6 +69,7 @@ export const ProjectOverview = ({
               <tr key={row.id} data-editing={activeProjectId === row.id}>
                 <th scope="row">
                   <button
+                    type="button"
                     className="cleanup-project-name"
                     aria-label={`Open cleanup prompt for ${row.name}`}
                     aria-haspopup="dialog"
@@ -104,6 +108,7 @@ export const ProjectOverview = ({
                 </td>
                 <td data-label="Actions">
                   <button
+                    type="button"
                     aria-label={`Edit prompt for ${row.name}`}
                     aria-haspopup="dialog"
                     disabled={blocked || !!pending}
@@ -111,7 +116,7 @@ export const ProjectOverview = ({
                   >
                     Edit prompt
                   </button>
-                  {pending === row.id && <p role="status">Saving for {row.name}…</p>}
+                  {pending === row.id && <output className="block">Saving for {row.name}…</output>}
                   {writeError?.id === row.id && (
                     <p role="alert">
                       Could not save settings for {row.name}: {writeError.message} Last saved values
@@ -124,7 +129,7 @@ export const ProjectOverview = ({
           </tbody>
         </table>
       )}
-      {saved && <p role="status">{saved}</p>}
+      {saved && <output className="block">{saved}</output>}
     </section>
   );
 };

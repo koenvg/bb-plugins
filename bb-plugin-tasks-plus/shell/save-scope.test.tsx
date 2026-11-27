@@ -118,7 +118,10 @@ describe("save-before-switch with remembered browse scope", () => {
       await editDescription(slot.container, "Pending description");
       const target = destination === "all" ? "all" : taskProject.id;
       const assertOrigin = (draft: string) => {
-        expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(task.title);
+        expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty(
+          "value",
+          task.title,
+        );
         expect(slot.container.querySelector("header")?.textContent).toContain(task.key);
         expect(slot.container.querySelector(".tiptap")?.textContent).toBe(draft);
         expect(window.localStorage.getItem(BROWSE_PREFERENCE_STORAGE_KEY)).toBe(storedBefore);

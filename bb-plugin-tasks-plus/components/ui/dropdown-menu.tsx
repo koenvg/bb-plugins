@@ -56,8 +56,9 @@ const DropdownMenu = ({
     return <ResponsiveMenuContext.Provider value={ctx}>{children}</ResponsiveMenuContext.Provider>;
   }
 
+  const handleOpenChange = ctx.onOpenChange;
   return (
-    <DropdownMenuPrimitive.Root open={ctx.open} onOpenChange={ctx.onOpenChange} {...props}>
+    <DropdownMenuPrimitive.Root open={ctx.open} onOpenChange={handleOpenChange} {...props}>
       <ResponsiveMenuContext.Provider value={ctx}>{children}</ResponsiveMenuContext.Provider>
     </DropdownMenuPrimitive.Root>
   );
@@ -477,27 +478,21 @@ const DropdownMenuSeparator = React.forwardRef<
 });
 DropdownMenuSeparator.displayName = "DropdownMenuSeparator";
 
-const DropdownMenuGroup = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Group>
->(function ({ children, ...props }, ref) {
+const DropdownMenuGroup = ({
+  children,
+  "aria-label": label,
+}: {
+  children: React.ReactNode;
+  "aria-label"?: string;
+}) => {
   const { isCompactViewport } = useResponsiveMenu();
 
   if (isCompactViewport) {
-    return (
-      <div ref={ref} role="group" {...props}>
-        {children}
-      </div>
-    );
+    return <fieldset aria-label={label}>{children}</fieldset>;
   }
 
-  return (
-    <DropdownMenuPrimitive.Group ref={ref} {...props}>
-      {children}
-    </DropdownMenuPrimitive.Group>
-  );
-});
-DropdownMenuGroup.displayName = "DropdownMenuGroup";
+  return <DropdownMenuPrimitive.Group aria-label={label}>{children}</DropdownMenuPrimitive.Group>;
+};
 
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 

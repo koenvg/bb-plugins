@@ -149,7 +149,7 @@ it("keeps the reading anchor when an availability notice appears and clears", ()
       state={{ ...available, availability: "unavailable", reason: accountingReason }}
     />,
   );
-  expect(view.getByText(accountingReason).getAttribute("role")).toBe("status");
+  expect(view.getByRole("status")).toBe(view.getByText(accountingReason));
   expect(reader.scrollTop).toBe(1822);
   expect(view.getByRole("region", { name: "Captured conversation" })).toBe(reader);
   expect(view.container.querySelector(".pi-subagents-tool")).toBe(tool);
@@ -332,7 +332,7 @@ it("leaves an unscrolled reader at the beginning when a notice arrives", () => {
     />,
   );
   expect(reader.scrollTop).toBe(0);
-  expect(view.getByText(accountingReason).getAttribute("role")).toBe("status");
+  expect(view.getByRole("status")).toBe(view.getByText(accountingReason));
 });
 
 it("leads with the agent label and keeps actual model provenance in capture details", () => {

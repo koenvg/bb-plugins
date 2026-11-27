@@ -47,7 +47,9 @@ function setupPicker(inventory = readyInventory(), compact = false) {
           <ShortcutProvider rootRef={root}>
             <div ref={root} tabIndex={-1} aria-label="Tasks">
               <Background />
-              <button onClick={() => setOpen(true)}>Open picker</button>
+              <button type="button" onClick={() => setOpen(true)}>
+                Open picker
+              </button>
               <ProjectSwitcher
                 open={open}
                 onOpenChange={setOpen}

@@ -105,7 +105,7 @@ function fixture({
 }
 async function ready(slot: ReturnType<typeof fixture>["slot"], title = "Task 1") {
   await waitFor(() =>
-    expect(slot.getByRole("textbox", { name: "Task title" }).textContent).toBe(title),
+    expect(slot.getByRole("textbox", { name: "Task title" })).toHaveProperty("value", title),
   );
 }
 function properties(slot: ReturnType<typeof fixture>["slot"], layout = shown) {

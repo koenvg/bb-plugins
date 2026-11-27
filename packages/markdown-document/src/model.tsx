@@ -123,15 +123,11 @@ export function createDocumentModel(text: string, namespace: string): DocumentMo
     },
     img: ({ src = "", alt, title }) => <DestinationImage url={src} alt={alt} title={title} />,
     table: ({ children }) => (
-      <div className="mr-table-scroll" tabIndex={0} role="region" aria-label="Markdown table">
+      <section className="mr-table-scroll" aria-label="Markdown table">
         <table>{children}</table>
-      </div>
+      </section>
     ),
-    pre: ({ children }) => (
-      <pre tabIndex={0} aria-label="Code block">
-        {children}
-      </pre>
-    ),
+    pre: ({ children }) => <pre aria-label="Code block">{children}</pre>,
   };
   function collectHeadings() {
     return (tree: Root) => {

@@ -299,8 +299,8 @@ export const HistoryReadinessPanel = ({
             </p>
           ))}
           <p className="mt-2">
-            Only confirmed corruption moves this plugin's database and sidecars into quarantine.
-            Newer schemas and unrelated storage stay unchanged. No transcript scan runs.
+            Only confirmed corruption moves this plugin&apos;s database and sidecars into
+            quarantine. Newer schemas and unrelated storage stay unchanged. No transcript scan runs.
           </p>
         </details>
       )}
@@ -362,9 +362,9 @@ export const HistoryReadinessPanel = ({
           this extension. No session restarts automatically.
         </p>
         <p className="mt-2">
-          The installed Pi extension can outlive BB's UI or plugin. Closing this page or disabling
-          BB does not stop capture. Pause on the selected host to stop new writes. Already-owned
-          writes can finish.
+          The installed Pi extension can outlive BB&apos;s UI or plugin. Closing this page or
+          disabling BB does not stop capture. Pause on the selected host to stop new writes.
+          Already-owned writes can finish.
         </p>
         <p className="mt-2">
           Repair preserves earlier events, the first boundary, and paused state. Unknown or zero
@@ -399,7 +399,9 @@ export const HistoryReadinessPanel = ({
             ))}
           </div>
         )}
-        {controlling === key && <p role="status">Updating selected-host collector…</p>}
+        {controlling === key && (
+          <output className="block">Updating selected-host collector…</output>
+        )}
       </details>
       {importCall && (
         <ImportPanel
