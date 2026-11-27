@@ -469,6 +469,17 @@ export default defineConfig({
       rules: { "node/callback-return": "error" },
     },
     {
+      files: ["review-ui/image-diff.tsx", "review-ui/video-diff.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["review-ui/video-diff.tsx"],
+      rules: { "react/exhaustive-deps": react.rules["react/exhaustive-deps"] },
+    },
+    {
       files: [
         "bb-plugin-pi-subagents-provider/src/bridge/provider-maintenance.ts",
         "bb-plugin-pi-subagents-provider/src/bridge/rpc-session.settlement.test.ts",
