@@ -485,6 +485,56 @@ export default defineConfig({
     },
     {
       files: [
+        "bb-plugin-codex-quota/src/machines/report-view.tsx",
+        "bb-plugin-pi-subagents-provider/src/ui/subagents-view.tsx",
+      ],
+      rules: { "react/hook-use-state": react.rules["react/hook-use-state"] },
+    },
+    {
+      files: ["bb-plugin-changes/ui/use-file-context.ts"],
+      rules: {
+        "react/refs": react.rules["react/refs"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: [
+        "bb-plugin-changes/ui/file-section.tsx",
+        "bb-plugin-changes/ui/use-file-navigation.ts",
+      ],
+      rules: { "react/set-state-in-effect": react.rules["react/set-state-in-effect"] },
+    },
+    {
+      files: ["bb-plugin-changes/ui/file-section.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+      },
+    },
+    {
+      files: ["bb-plugin-changes/ui/use-file-navigation.ts"],
+      rules: {
+        "react/preserve-manual-memoization": react.rules["react/preserve-manual-memoization"],
+      },
+    },
+    {
+      files: [
+        "bb-plugin-changes/ui/use-changes.ts",
+        "bb-plugin-code-cleanup/use-project-overview.ts",
+        "bb-plugin-code-cleanup/use-project-settings.ts",
+        "bb-plugin-codex-quota/src/plugin/app.tsx",
+      ],
+      rules: { "react/exhaustive-deps": react.rules["react/exhaustive-deps"] },
+    },
+    {
+      files: [
+        "bb-plugin-github-insight/ui/overview-tab.tsx",
+        "bb-plugin-tasks-plus/shell/sidebar-accessory.tsx",
+        "bb-plugin-tasks-plus/views/list/work-status-data.ts",
+      ],
+      rules: { "react/todo": react.rules["react/todo"] },
+    },
+    {
+      files: [
         "bb-plugin-pi-subagents-provider/src/bridge/provider-maintenance.ts",
         "bb-plugin-pi-subagents-provider/src/bridge/rpc-session.settlement.test.ts",
         "bb-plugin-pi-subagents-provider/src/bridge/rpc-session.ts",

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import { parsePatchFiles, processFile } from "@pierre/diffs";
 import type { FileDiffMetadata } from "@pierre/diffs";
@@ -19,9 +19,44 @@ export type ContextState =
   | { kind: "failed"; snapshot: Snapshot; error: ContextFailure };
 const IDLE: ContextState = { kind: "idle" };
 
+function expandContext(
+  captured: Snapshot,
+  texts: ReturnType<typeof validateContext>,
+  cacheKey: string,
+): FileDiffMetadata {
+  let original: FileDiffMetadata[];
+  let diff: FileDiffMetadata | undefined;
+  try {
+    original = parsePatchFiles(captured.patch, undefined, true).flatMap((entry) => entry.files);
+    diff = processFile(captured.patch, {
+      oldFile: { name: captured.file.previousPath ?? captured.file.path, contents: texts.old },
+      newFile: { name: captured.file.path, contents: texts.new },
+      throwOnError: true,
+      cacheKey,
+    });
+  } catch {
+    throw new ContextError("unsupported", "Context could not be displayed. Refresh changes.");
+  }
+  if (
+    original.length !== 1 ||
+    !diff ||
+    diff.isPartial !== false ||
+    diff.name !== captured.file.path ||
+    diff.name !== original[0].name ||
+    diff.prevName !== original[0].prevName ||
+    diff.type !== original[0].type ||
+    diff.hunks.map((hunk) => hunk.hunkSpecs).join("") !==
+      original[0].hunks.map((hunk) => hunk.hunkSpecs).join("") ||
+    diff.additionLines.join("") !== texts.new ||
+    diff.deletionLines.join("") !== texts.old
+  ) {
+    throw new ContextError("unsupported", "Context could not be displayed. Refresh changes.");
+  }
+  return diff;
+}
+
 interface Session {
-  key: string | null;
-  snapshot: Snapshot | null;
+  key: string;
   state: ContextState;
   requestId: number;
 }
@@ -30,31 +65,30 @@ export function useFileContext(snapshot: Snapshot | null) {
   const rpc = useRpc<typeof rpcContract>();
   const id = useId();
   const key = snapshot === null ? null : JSON.stringify(snapshot);
-  const session = useRef<Session>({ key, snapshot, state: IDLE, requestId: 0 });
-  if (session.current.key !== key) {
-    session.current = { key, snapshot, state: IDLE, requestId: 0 };
-  }
-  const [published, setPublished] = useState<{
-    session: Session;
-    state: ContextState;
-  } | null>(null);
-  if (published !== null && published.session !== session.current) {
+  const session = useRef<Session | null>(null);
+  const [published, setPublished] = useState<{ key: string; state: ContextState } | null>(null);
+  if (published !== null && published.key !== key) {
     setPublished(null);
   }
-  const mounted = useRef(false);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      session.current.requestId += 1;
-    };
-  }, []);
+  useLayoutEffect(() => {
+    if (session.current?.key !== key) {
+      session.current = key === null ? null : { key, state: IDLE, requestId: 0 };
+    }
+  }, [key]);
+  useEffect(
+    () => () => {
+      session.current = null;
+    },
+    [],
+  );
 
   async function activate() {
     const source = session.current;
-    const captured = source.snapshot;
+    const captured = snapshot;
     if (
       !captured ||
+      !source ||
+      source.key !== key ||
       source.state.kind === "loading" ||
       source.state.kind === "ready" ||
       (source.state.kind === "failed" && source.state.error.code !== "read")
@@ -62,14 +96,13 @@ export function useFileContext(snapshot: Snapshot | null) {
       return;
     }
     const requestId = (source.requestId += 1);
-    const current = () =>
-      mounted.current && session.current === source && source.requestId === requestId;
+    const current = () => session.current === source && source.requestId === requestId;
     const publish = (state: ContextState) => {
       if (!current()) {
         return;
       }
       source.state = state;
-      setPublished({ session: source, state });
+      setPublished({ key: source.key, state });
     };
     publish({ kind: "loading", snapshot: captured, requestId });
     try {
@@ -83,41 +116,18 @@ export function useFileContext(snapshot: Snapshot | null) {
         return;
       }
       const texts = validateContext(captured, result);
-      let original: FileDiffMetadata[];
-      let diff: FileDiffMetadata | undefined;
-      try {
-        original = parsePatchFiles(captured.patch, undefined, true).flatMap((entry) => entry.files);
-        diff = processFile(captured.patch, {
-          oldFile: { name: captured.file.previousPath ?? captured.file.path, contents: texts.old },
-          newFile: { name: captured.file.path, contents: texts.new },
-          throwOnError: true,
-          cacheKey: `context-${id}-${captured.generation}-${requestId}`,
-        });
-      } catch {
-        throw new ContextError("unsupported", "Context could not be displayed. Refresh changes.");
-      }
-      if (
-        original.length !== 1 ||
-        !diff ||
-        diff.isPartial !== false ||
-        diff.name !== captured.file.path ||
-        diff.name !== original[0].name ||
-        diff.prevName !== original[0].prevName ||
-        diff.type !== original[0].type ||
-        diff.hunks.map((hunk) => hunk.hunkSpecs).join("") !==
-          original[0].hunks.map((hunk) => hunk.hunkSpecs).join("") ||
-        diff.additionLines.join("") !== texts.new ||
-        diff.deletionLines.join("") !== texts.old
-      ) {
-        throw new ContextError("unsupported", "Context could not be displayed. Refresh changes.");
-      }
+      const diff = expandContext(
+        captured,
+        texts,
+        `context-${id}-${captured.generation}-${requestId}`,
+      );
       publish({ kind: "ready", snapshot: captured, diff });
     } catch (error) {
       publish({ kind: "failed", snapshot: captured, error: contextFailure(error) });
     }
   }
   return {
-    state: published?.session === session.current ? published.state : IDLE,
+    state: published?.key === key ? published.state : IDLE,
     activate: () => void activate(),
   };
 }

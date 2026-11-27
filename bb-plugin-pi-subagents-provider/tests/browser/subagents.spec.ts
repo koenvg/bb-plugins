@@ -50,6 +50,93 @@ async function paintedReference(locator: Locator, text: string) {
   expect(facts.visibility).toBe("visible");
 }
 
+test("live captures preserve the reading position and focus", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 520 });
+  await page.goto("/?scenario=reader");
+  const agents = page.getByRole("tab", { name: "Agents", exact: true });
+  await page.getByRole("button", { name: /Review alpha captured attribution.*Entry 4/ }).click();
+  const alpha = page.getByRole("tab", { name: label, exact: true });
+  const reader = page.getByRole("region", { name: "Captured conversation" });
+  await reader.locator(".pi-subagents-conversation > summary").click();
+  const anchor = reader.locator("summary").filter({ hasText: /^Captured tool 9\s*Call/ });
+  await anchor.evaluate((node) => {
+    node.scrollIntoView({ block: "center" });
+    (node as HTMLElement).focus({ preventScroll: true });
+  });
+  await expect(anchor).toBeFocused();
+  const position = () => anchor.evaluate((node) => node.getBoundingClientRect().top);
+  const before = await position();
+  const bounds = await reader.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(before).toBeGreaterThan(bounds?.y ?? 0);
+  expect(before).toBeLessThan((bounds?.y ?? 0) + (bounds?.height ?? 0));
+
+  // Keep native scroll anchoring from making a missing reader snapshot pass.
+  await reader.evaluate((node) => node.style.setProperty("overflow-anchor", "none"));
+  await page.evaluate(() => window.postMessage("prepend captured messages", location.origin));
+  await expect(reader.getByText("Newly available capture from earlier in the run.")).toBeAttached();
+  await expect(anchor).toBeFocused();
+  await expect.poll(async () => Math.abs((await position()) - before)).toBeLessThan(2);
+
+  const scroll = await reader.evaluate((node) => node.scrollTop);
+  expect(scroll).toBeGreaterThan(0);
+  await agents.click();
+  await alpha.click();
+  await expect.poll(() => reader.evaluate((node) => node.scrollTop)).toBe(scroll);
+
+  await anchor.focus();
+  await page.evaluate(() => window.postMessage("evict alpha capture", location.origin));
+  await expect(
+    page.getByText(/This agent is outside the available captured history/),
+  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Unavailable agent" })).toBeFocused();
+});
+
+for (const scenario of ["reader", "reader-layout"]) {
+  test(`live captures preserve the unfocused midpoint in ${scenario}`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 520 });
+    await page.goto(`/?scenario=${scenario}`);
+    await page.getByRole("button", { name: /Review alpha captured attribution.*Entry 4/ }).click();
+    const tab = page.getByRole("tab", { name: label, exact: true });
+    const reader = page.getByRole("region", { name: "Captured conversation" });
+    await reader.locator(".pi-subagents-conversation > summary").click();
+    await tab.focus();
+    const anchor = await reader.evaluateHandle((node) => {
+      node.style.setProperty("overflow-anchor", "none");
+      const rect = node.getBoundingClientRect();
+      const middle = (Math.max(0, rect.top) + Math.min(innerHeight, rect.bottom)) / 2;
+      const summary = Array.from(node.querySelectorAll("summary")).find((item) =>
+        item.textContent.startsWith("Captured tool 9"),
+      );
+      if (!summary) throw new Error("Missing test anchor");
+      const bounds = summary.getBoundingClientRect();
+      node.scrollTop += bounds.top + bounds.height / 2 - middle;
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, middle);
+      if (!node.scrollTop || !hit || !summary.contains(hit))
+        throw new Error("Summary missed reader midpoint");
+      return hit;
+    });
+    const before = await anchor.evaluate((node) => node.getBoundingClientRect().top);
+    await expect(tab).toBeFocused();
+    await page.evaluate(() => window.postMessage("prepend captured messages", location.origin));
+    await expect(
+      reader.getByText("Newly available capture from earlier in the run."),
+    ).toBeAttached();
+    if (scenario === "reader-layout")
+      await expect(page.getByText("Host header expanded")).toBeVisible();
+    await expect(tab).toBeFocused();
+    await expect
+      .poll(() =>
+        anchor.evaluate(
+          (node, top) =>
+            node.isConnected ? Math.abs(node.getBoundingClientRect().top - top) : Infinity,
+          before,
+        ),
+      )
+      .toBeLessThan(2);
+  });
+}
+
 for (const size of [
   { name: "wide", width: 1280, path: "/", narrow: false },
   { name: "360px panel in wide viewport", width: 1280, path: "/?layout=panel", narrow: true },

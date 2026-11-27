@@ -237,7 +237,7 @@ const CapturedConversation = ({
 }) => {
   const output = useRef<HTMLElement>(null);
   const capture = row.capture;
-  const [conversationOpenOnMount] = useState(() => !capture?.finalOutput?.trim());
+  const [conversationOpen, setConversationOpen] = useState(() => !capture?.finalOutput?.trim());
   const occurrences = new Map<string, number>();
   return (
     <article aria-label="Child detail" className="pi-subagents-detail">
@@ -293,7 +293,11 @@ const CapturedConversation = ({
             <Markdown className="pi-subagents-prose" content={capture.task} />
           </details>
         )}
-        <details className="pi-subagents-conversation" open={conversationOpenOnMount}>
+        <details
+          className="pi-subagents-conversation"
+          open={conversationOpen}
+          onToggle={(event) => setConversationOpen(event.currentTarget.open)}
+        >
           <summary>
             Conversation{" "}
             <span className="pi-subagents-muted">{capture?.messages?.length ?? 0} entries</span>
@@ -410,13 +414,13 @@ export const SubagentsView = ({
       : target !== undefined
         ? { kind: "root", id: target }
         : { kind: overview ? "overview" : "default" };
-  const [storedTabs, setTabs] = useState<Tabs>({
+  const [storedTabs, setStoredTabs] = useState<Tabs>({
     opened: [],
     active: agentsTab,
     external: { kind: "settled", consumed: { kind: "default" } },
   });
   const tabs = transition(storedTabs, { kind: "observe", navigation, rows });
-  if (tabs !== storedTabs) setTabs(tabs);
+  if (tabs !== storedTabs) setStoredTabs(tabs);
   const root = useRef<HTMLElement>(null);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const tabButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -460,11 +464,11 @@ export const SubagentsView = ({
   });
   function activate(tab: Tab) {
     focusRequested.current = true;
-    setTabs((current) => transition(current, { kind: "activate", tab }));
+    setStoredTabs((current) => transition(current, { kind: "activate", tab }));
   }
   function open(id: string) {
     focusRequested.current = true;
-    setTabs((current) => transition(current, { kind: "open", id }));
+    setStoredTabs((current) => transition(current, { kind: "open", id }));
   }
   function close(id: string, button?: HTMLButtonElement) {
     if (
@@ -473,7 +477,7 @@ export const SubagentsView = ({
     ) {
       focusRequested.current = true;
     }
-    setTabs((current) => transition(current, { kind: "close", id }));
+    setStoredTabs((current) => transition(current, { kind: "close", id }));
   }
   const allTabs: Tab[] = [agentsTab, ...tabs.opened.map((id) => ({ kind: "row" as const, id }))];
   function tabKeyDown(event: KeyboardEvent<HTMLButtonElement>, tab: Tab) {
@@ -670,7 +674,7 @@ export const SubagentsView = ({
                         else if (event.key === "End") next = overviewEntries.length - 1;
                         else return;
                         event.preventDefault();
-                        setTabs((current) => transition(current, { kind: "cancel-wait" }));
+                        setStoredTabs((current) => transition(current, { kind: "cancel-wait" }));
                         buttons.current[next]?.focus();
                         buttons.current[next]?.scrollIntoView({
                           block: "nearest",

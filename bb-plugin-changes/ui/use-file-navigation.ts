@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { pinToTop } from "../../review-ui/pin-to-top";
 
@@ -14,64 +14,66 @@ export function useFileNavigation(
 ): FileNavigation {
   const [current, setCurrent] = useState<string | null>(null);
   const stopPin = useRef<(() => void) | null>(null);
-
-  const updateCurrent = useCallback(() => {
-    const area = scrollArea.current;
-    if (area === null) {
-      return;
-    }
-    setCurrent(topSectionPath(area) ?? paths[0] ?? null);
-  }, [scrollArea, paths]);
+  const frame = useRef<number | null>(null);
 
   useEffect(() => {
     const area = scrollArea.current;
     if (area === null) {
       return;
     }
-    updateCurrent();
-    let frame: number | null = null;
-    const onScroll = () => {
-      if (stopPin.current !== null || frame !== null) {
+    const measure = () => {
+      if (frame.current !== null) {
         return;
       }
-      frame = requestAnimationFrame(() => {
-        frame = null;
-        updateCurrent();
+      frame.current = requestAnimationFrame(() => {
+        frame.current = null;
+        setCurrent(topSectionPath(area) ?? paths[0] ?? null);
       });
     };
+    const onScroll = () => {
+      if (stopPin.current === null) {
+        measure();
+      }
+    };
+    measure();
     area.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       area.removeEventListener("scroll", onScroll);
-      if (frame !== null) {
-        cancelAnimationFrame(frame);
+      if (frame.current !== null) {
+        cancelAnimationFrame(frame.current);
+        frame.current = null;
       }
     };
-  }, [scrollArea, updateCurrent]);
+  }, [scrollArea, paths]);
 
   useEffect(() => () => stopPin.current?.(), []);
 
-  const jumpTo = useCallback(
-    (path: string) => {
-      stopPin.current?.();
-      const area = scrollArea.current;
-      const section = area?.querySelector<HTMLElement>(`section[data-path="${CSS.escape(path)}"]`);
-      if (area == null || section == null) {
-        return;
-      }
-      setCurrent(path);
-      stopPin.current = pinToTop(
-        area,
-        content.current,
-        () => ({ element: section, inset: 0 }),
-        () => {
-          stopPin.current = null;
-        },
-      );
-    },
-    [scrollArea, content],
-  );
+  function jumpTo(path: string) {
+    stopPin.current?.();
+    const area = scrollArea.current;
+    const section = area?.querySelector<HTMLElement>(`section[data-path="${CSS.escape(path)}"]`);
+    if (area == null || section == null) {
+      return;
+    }
+    if (frame.current !== null) {
+      cancelAnimationFrame(frame.current);
+      frame.current = null;
+    }
+    setCurrent(path);
+    stopPin.current = pinToTop(
+      area,
+      content.current,
+      () => ({ element: section, inset: 0 }),
+      () => {
+        stopPin.current = null;
+      },
+    );
+  }
 
-  return { current, jumpTo };
+  return {
+    current: current !== null && paths.includes(current) ? current : (paths[0] ?? null),
+    jumpTo,
+  };
 }
 
 function topSectionPath(area: HTMLElement): string | null {
