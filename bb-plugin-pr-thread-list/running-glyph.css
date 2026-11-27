@@ -1,23 +1,32 @@
-.bb-thread-lattice-cell {
-  opacity: 0.25;
-  animation: bb-thread-lattice 972ms cubic-bezier(0.77, 0, 0.175, 1) infinite;
+.bb-thread-lattice {
+  display: inline-block;
+  position: relative;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  overflow: hidden;
 }
 
-@keyframes bb-thread-lattice {
-  0%,
-  35%,
-  100% {
-    opacity: 0.25;
-  }
-  10%,
-  24% {
-    opacity: 1;
+.bb-thread-lattice-strip {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 108px;
+  height: 12px;
+  /* Rest on the last (center) frame when motion is reduced. */
+  transform: translateX(-96px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-thread-lattice-strip {
+    animation: bb-thread-spiral 1.6s steps(9, end) infinite;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .bb-thread-lattice-cell {
-    animation: none;
-    opacity: 0.7;
+@keyframes bb-thread-spiral {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
   }
 }

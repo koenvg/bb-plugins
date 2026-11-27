@@ -56,13 +56,13 @@
     0 12px var(--compose-lattice-idle),
     0 6px var(--compose-lattice-idle),
     6px 6px var(--compose-lattice-idle);
-  animation: compose-lattice-arrow 648ms linear infinite;
+  animation: compose-lattice-arrow 1.6s step-end infinite;
   /* Inherit BB's pause state when its HeightTransition collapses. */
   animation-play-state: inherit;
 }
 
 /* Row-major arrow phases match the reference's [1,2,3, 0,1,2, 1,2,3].
-   A left-center dot opens into a chevron, then sweeps right in 90ms steps. */
+   A left-center dot opens into a chevron, then sweeps right in steps. */
 @keyframes compose-lattice-arrow {
   0%,
   100% {

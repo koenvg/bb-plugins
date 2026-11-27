@@ -109,7 +109,7 @@ describe("Native working-state lattice", () => {
       });
     });
     expect(frames).toEqual(groups.map((group) => group.join(",")));
-    expect(css).toContain("animation: compose-lattice-arrow 648ms linear infinite");
+    expect(css).toContain("animation: compose-lattice-arrow 1.6s step-end infinite");
     expect(css).toContain('content: ""');
     expect(css).toContain("border-radius: 50%");
     expect(css).not.toMatch(/content:\s*["'](?:Working|Thinking)/);

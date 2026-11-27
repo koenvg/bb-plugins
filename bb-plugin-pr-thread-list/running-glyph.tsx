@@ -1,32 +1,35 @@
 import "./running-glyph.css";
 
-// Clockwise outside-in, matching React Bits' 3×3 spiral lattice.
-const SPIRAL = [0, 1, 2, 7, 8, 3, 6, 5, 4];
+// Each frame is one glyph-width wide, with one bright cell in spiral order.
+const spiral = [0, 1, 2, 5, 8, 7, 6, 3, 4];
 
-export const RunningGlyph = () => {
-  return (
-    <svg
-      data-running-glyph=""
-      aria-hidden="true"
-      focusable="false"
-      width="12"
-      height="12"
-      viewBox="0 0 16 16"
-      className="size-3 shrink-0"
-    >
-      {SPIRAL.map((step, index) => (
+export const RunningGlyph = () => (
+  <span data-running-glyph="" aria-hidden="true" className="bb-thread-lattice">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" opacity=".35">
+      {spiral.map((cell) => (
         <rect
-          key={index}
-          className="bb-thread-lattice-cell"
-          x={(index % 3) * 6}
-          y={Math.floor(index / 3) * 6}
+          key={cell}
+          x={(cell % 3) * 6}
+          y={Math.floor(cell / 3) * 6}
           width="4"
           height="4"
           rx="1"
-          fill="currentColor"
-          style={{ animationDelay: `${step * 108 - 972}ms` }}
         />
       ))}
     </svg>
-  );
-};
+    <span className="bb-thread-lattice-strip">
+      <svg width="108" height="12" viewBox="0 0 144 16" fill="currentColor">
+        {spiral.map((cell, frame) => (
+          <rect
+            key={cell}
+            x={frame * 16 + (cell % 3) * 6}
+            y={Math.floor(cell / 3) * 6}
+            width="4"
+            height="4"
+            rx="1"
+          />
+        ))}
+      </svg>
+    </span>
+  </span>
+);
