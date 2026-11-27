@@ -282,8 +282,19 @@ const FileDiffWithComments = ({
       .find((element) => element.getAttribute("aria-label") === headerLabels[control])
       ?.focus();
   });
-  const [commentNotice, setCommentNotice] = useState<string | null>(null);
-  useEffect(() => setCommentNotice(null), [patch, imageGeneration, threadId]);
+  const [commentNotice, setCommentNotice] = useState({
+    patch,
+    imageGeneration,
+    threadId,
+    show: false,
+  });
+  const sameNoticeScope =
+    commentNotice.patch === patch &&
+    commentNotice.imageGeneration === imageGeneration &&
+    commentNotice.threadId === threadId;
+  if (!sameNoticeScope) {
+    setCommentNotice({ patch, imageGeneration, threadId, show: false });
+  }
   const contextAction = unavailable === null && context.state.kind !== "ready" && (
     <button
       type="button"
@@ -349,21 +360,21 @@ const FileDiffWithComments = ({
               {contextNotice}
             </output>
           )}
-          {commentNotice && (
+          {sameNoticeScope && commentNotice.show && (
             <output className="block px-4 pb-2 text-xs text-muted-foreground">
-              {commentNotice}
+              Revealed context is read-only. Comment on a line in the original diff.
             </output>
           )}
         </div>
       }
       onAddComment={(side, line) => {
         if (!originalLines[side].has(line)) {
-          setCommentNotice(
-            "Revealed context is read-only. Comment on a line in the original diff.",
-          );
+          setCommentNotice({ patch, imageGeneration, threadId, show: true });
           return;
         }
-        setCommentNotice(null);
+        if (commentNotice.show) {
+          setCommentNotice({ patch, imageGeneration, threadId, show: false });
+        }
         pendingReviews.openForm(threadId, {
           path: file.path,
           ...commentAnchorLine(originalLines, side, line),

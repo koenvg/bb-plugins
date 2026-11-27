@@ -95,7 +95,8 @@ const state: ViewState = {
     },
   ],
 };
-if (new URLSearchParams(location.search).get("scenario") === "activity") {
+const scenario = new URLSearchParams(location.search).get("scenario");
+if (scenario === "activity") {
   state.omitted = 0;
   const scenarios: Pick<
     ViewState["rows"][number],
@@ -177,16 +178,75 @@ if (new URLSearchParams(location.search).get("scenario") === "activity") {
     ...row,
   }));
 }
-if (!boundedValue(state, VIEW_BYTES)) throw new Error("Synthetic capture exceeds VIEW_BYTES");
-viewSchema.parse(state);
+const readingFixture = scenario === "reader" || scenario === "reader-layout";
+if (readingFixture) {
+  const alpha = state.rows.find((row) => row.id === "alpha");
+  if (!alpha?.capture) throw new Error("Missing synthetic alpha capture");
+  alpha.capture.messages = Array.from({ length: 16 }, (_, index) => ({
+    kind: "toolCall",
+    role: "assistant",
+    name: `Captured tool ${index + 1}`,
+    text: `Synthetic tool input ${index + 1}`,
+  }));
+}
 installTestPluginRuntime();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing preview root");
 if (new URLSearchParams(location.search).get("layout") === "panel") root.style.width = "360px";
-createRoot(root).render(
-  <SubagentsView
-    state={state}
-    warning="Available history is bounded to the newest 64 extension-state events. Older observations may be absent."
-  />,
-);
+const app = createRoot(root);
+function render(next: ViewState, growHeader = false) {
+  if (!boundedValue(next, VIEW_BYTES)) throw new Error("Synthetic capture exceeds VIEW_BYTES");
+  const view = (
+    <SubagentsView
+      state={viewSchema.parse(next)}
+      warning="Available history is bounded to the newest 64 extension-state events. Older observations may be absent."
+    />
+  );
+  app.render(
+    scenario === "reader-layout" ? (
+      <div style={{ height: "100%", display: "grid", gridTemplateRows: "auto minmax(0,1fr)" }}>
+        <header style={{ height: growHeader ? 40 : 0, overflow: "hidden" }}>
+          {growHeader ? "Host header expanded" : null}
+        </header>
+        {view}
+      </div>
+    ) : (
+      view
+    ),
+  );
+}
+render(state);
+if (readingFixture) {
+  window.addEventListener("message", (event) => {
+    if (event.origin !== location.origin || event.source !== window) return;
+    if (event.data === "prepend captured messages") {
+      render(
+        {
+          ...state,
+          rows: state.rows.map((row) =>
+            row.id !== "alpha" || !row.capture
+              ? row
+              : {
+                  ...row,
+                  capture: {
+                    ...row.capture,
+                    messages: [
+                      {
+                        kind: "text",
+                        role: "user",
+                        text: "Newly available capture from earlier in the run.",
+                      },
+                      ...(row.capture.messages ?? []),
+                    ],
+                  },
+                },
+          ),
+        },
+        true,
+      );
+    } else if (event.data === "evict alpha capture") {
+      render({ ...state, rows: state.rows.filter((row) => row.id !== "alpha") });
+    }
+  });
+}

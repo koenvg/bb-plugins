@@ -18,21 +18,28 @@ interface Props {
 }
 /** Existing visible-page preparation owns ingestion. Date and metric changes remain read-only. */
 export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
-  const [timezone] = useState(() => {
+  const [range, setRange] = useState(() => {
+    let timezone: string;
     try {
       const value = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      return validTimezone(value) ? value : "";
+      timezone = validTimezone(value) ? value : "";
     } catch {
-      return "";
+      timezone = "";
     }
+    return { timezone, start: timezone ? latestStart(now, timezone) : "1970-01-01" };
   });
+  const { timezone, start } = range;
+  function selectStart(next: string) {
+    if (next !== start) {
+      setRange({ timezone, start: next });
+    }
+  }
   const preparation = useReportPreparation(
     timezone ? allMachines : { hostId: null, generation: 0 },
     false,
     0,
     prepare,
   );
-  const [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : "1970-01-01"));
   const [metric, setMetric] = useState<"tokens" | "cost">("tokens");
   const query = useMemo<CalendarQuery>(
     () => ({
@@ -87,7 +94,7 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
             className={reportButton}
             aria-label="Previous 30 days"
             disabled={loading || !view?.previous}
-            onClick={() => setStart(shiftDate(start, -30))}
+            onClick={() => selectStart(shiftDate(start, -30))}
           >
             Previous
           </button>
@@ -96,14 +103,14 @@ export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
             className={reportButton}
             aria-label="Next 30 days"
             disabled={loading || !view?.next}
-            onClick={() => setStart(shiftDate(start, 30))}
+            onClick={() => selectStart(shiftDate(start, 30))}
           >
             Next
           </button>
           <button
             type="button"
             className={reportButton}
-            onClick={() => setStart(latestStart(Date.now(), timezone))}
+            onClick={() => selectStart(latestStart(Date.now(), timezone))}
           >
             Latest
           </button>

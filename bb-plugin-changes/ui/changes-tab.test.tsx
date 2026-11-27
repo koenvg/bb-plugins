@@ -1973,6 +1973,41 @@ describe("file outline", () => {
       expect(row(slot, "c.ts").getAttribute("aria-current")).toBe("true");
     });
 
+    it("keeps the clicked file marked when a queued measurement sees clamped scroll", async () => {
+      const frames = new Map<number, FrameRequestCallback>();
+      let nextFrame = 0;
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+        nextFrame += 1;
+        frames.set(nextFrame, callback);
+        return nextFrame;
+      });
+      vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frame) => {
+        frames.delete(frame);
+      });
+      const slot = await renderFiles(["a.ts", "b.ts"]);
+      layOut({ "a.ts": 500, "b.ts": 100 });
+      let scrollTop = 0;
+      Object.defineProperty(slot.area, "scrollTop", {
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = Math.min(value, 200);
+        },
+      });
+
+      expect(frames.size).toBeGreaterThan(0);
+      fireEvent.click(row(slot, "b.ts"));
+      expect(slot.area.scrollTop).toBe(200);
+      expect(row(slot, "b.ts").getAttribute("aria-current")).toBe("true");
+
+      act(() => {
+        for (const [id, callback] of frames) {
+          frames.delete(id);
+          callback(0);
+        }
+      });
+      expect(row(slot, "b.ts").getAttribute("aria-current")).toBe("true");
+    });
+
     it("scrolls the outline to the marked row only when the row is out of view", async () => {
       const slot = await renderFiles(["a.ts", "b.ts", "c.ts", "d.ts"]);
 
@@ -2044,6 +2079,9 @@ describe("Changes text context", () => {
       "Send feedback (1)",
     );
     fireEvent.click(slot.getByRole("button", { name: "+ deletions 2" }));
+    expect(
+      slot.queryByText("Revealed context is read-only. Comment on a line in the original diff."),
+    ).toBeNull();
     expect(slot.getByRole("textbox", { name: "Comment" }).getAttribute("placeholder")).toBe(
       "Leave a comment",
     );

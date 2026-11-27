@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { startTransition, Suspense } from "react";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parsePatchFiles } from "@pierre/diffs";
@@ -54,8 +55,9 @@ function deferred() {
   });
   return { promise, resolve };
 }
-const Harness = ({ source }: { source: Snapshot | null }) => {
+const Harness = ({ source, wait }: { source: Snapshot | null; wait?: () => never }) => {
   const context = useFileContext(source);
+  wait?.();
   return (
     <>
       <button
@@ -159,6 +161,29 @@ describe("per-file lazy context", () => {
     await waitFor(() =>
       expect(screen.getByRole("status").textContent).toBe("prefix\nnew\nsuffix\n"),
     );
+  });
+  it("keeps the request for the visible file when a replacement render suspends", async () => {
+    const pending = deferred();
+    const replacement = deferred();
+    const wait = vi.fn(() => {
+      throw replacement.promise;
+    });
+    const display = (source: Snapshot, suspend?: () => never) => (
+      <Suspense fallback={<p>Loading replacement</p>}>
+        <Harness source={source} wait={suspend} />
+      </Suspense>
+    );
+    transport.call.mockReturnValue(pending.promise);
+    const screen = render(display(snapshot));
+    fireEvent.click(screen.getByRole("button", { name: "Load context" }));
+    await act(async () => {
+      startTransition(() => screen.rerender(display({ ...snapshot, generation: 2 }, wait)));
+    });
+    expect(wait).toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe("loading");
+    await act(async () => pending.resolve(response()));
+    expect(screen.getByRole("status").textContent).toBe("prefix\nnew\nsuffix\n");
+    expect(transport.call).toHaveBeenCalledTimes(1);
   });
   it("discards replies after unmount", async () => {
     const pending = deferred();
