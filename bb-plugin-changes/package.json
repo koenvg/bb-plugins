@@ -13,6 +13,7 @@
     "typecheck": "bun --bun tsc --noEmit",
     "test:bb-renderer": "bb plugin types . --check && bb plugin build . && bun tests/bb-renderer/run.ts",
     "test:video-browser": "bun tests/video-browser/run.mjs",
+    "test:perf-browser": "bun tests/perf-browser/run.mjs",
     "build": "bb plugin build"
   },
   "engines": {

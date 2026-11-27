@@ -67,6 +67,15 @@ A binary file SHALL show "Binary file" instead of a diff. A file that is too lar
 - **WHEN** a file has an on-demand patch and the user scrolls to it
 - **THEN** the tab loads that patch and shows its lines
 
+### Requirement: Diffs far from view
+
+The tab SHALL put in the page only the diff lines near the visible area. A section more than 4000px from the visible area SHALL show only its header and keep its last height. When the section comes within 800px of the visible area, its diff SHALL show again, with its comments, open forms and loaded context.
+
+#### Scenario: Scroll away and back
+
+- **WHEN** the user comments on `src/a.ts`, scrolls far down, and scrolls back
+- **THEN** `src/a.ts` shows its lines and the comment again, and the diff does not jump while the section is away
+
 ### Requirement: Refresh the diff
 
 The tab SHALL load the diff when it opens and when the user clicks the refresh button. While a load runs, the last diff SHALL stay visible. When a load fails, the tab SHALL show the error and a retry button.
