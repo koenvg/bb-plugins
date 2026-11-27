@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { QuotaSelectionStore } from "./selection-store.js";
 import type { QuotaApi } from "./selection-store.js";
 import type { QuotaStatus } from "../quota/contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const observedAt = new Date(Date.now() - 1000).toISOString();
 const view: QuotaStatus = {
@@ -126,7 +127,10 @@ describe("shared badge/dashboard selection", () => {
   it("publishes minute ticks for fresh and stale snapshots without fetching", async () => {
     const start = Date.UTC(2026, 8, 27, 12);
     const store = new QuotaSelectionStore(() => start);
-    const snapshot = { ...view.snapshot!, observedAt: new Date(start).toISOString() };
+    const snapshot = {
+      ...requireFixtureValue(view.snapshot),
+      observedAt: new Date(start).toISOString(),
+    };
     let reads = 0;
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
@@ -168,7 +172,10 @@ describe("shared badge/dashboard selection", () => {
 
   it("labels a mounted view stale at five minutes and removes it at 24 hours without a refresh error", async () => {
     const store = new QuotaSelectionStore(() => 1000000);
-    const snapshot = { ...view.snapshot!, observedAt: new Date(1000000).toISOString() };
+    const snapshot = {
+      ...requireFixtureValue(view.snapshot),
+      observedAt: new Date(1000000).toISOString(),
+    };
     const api: QuotaApi = {
       selection: async () => ({ hostId: "host_a", generation: 1 }),
       selectHost: async ({ hostId }) => ({ hostId, generation: 2 }),

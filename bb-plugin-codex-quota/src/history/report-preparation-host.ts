@@ -47,9 +47,9 @@ export async function prepareHostReport(
           maintainHistory(db, now, deps.maintenanceRows);
         }
         let nativeProgress = { pending: false, progress: "" };
-        if (nativeAvailable) {
+        if (nativeAvailable && native) {
           try {
-            nativeProgress = await native!.prepare(db, context.signal);
+            nativeProgress = await native.prepare(db, context.signal);
           } catch {
             context.signal.throwIfAborted();
             nativeFailed = true;

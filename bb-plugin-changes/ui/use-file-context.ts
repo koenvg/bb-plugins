@@ -19,12 +19,12 @@ export type ContextState =
   | { kind: "failed"; snapshot: Snapshot; error: ContextFailure };
 const IDLE: ContextState = { kind: "idle" };
 
-type Session = {
+interface Session {
   key: string | null;
   snapshot: Snapshot | null;
   state: ContextState;
   requestId: number;
-};
+}
 
 export function useFileContext(snapshot: Snapshot | null) {
   const rpc = useRpc<typeof rpcContract>();
@@ -101,11 +101,11 @@ export function useFileContext(snapshot: Snapshot | null) {
         !diff ||
         diff.isPartial !== false ||
         diff.name !== captured.file.path ||
-        diff.name !== original[0]!.name ||
-        diff.prevName !== original[0]!.prevName ||
-        diff.type !== original[0]!.type ||
+        diff.name !== original[0].name ||
+        diff.prevName !== original[0].prevName ||
+        diff.type !== original[0].type ||
         diff.hunks.map((hunk) => hunk.hunkSpecs).join("") !==
-          original[0]!.hunks.map((hunk) => hunk.hunkSpecs).join("") ||
+          original[0].hunks.map((hunk) => hunk.hunkSpecs).join("") ||
         diff.additionLines.join("") !== texts.new ||
         diff.deletionLines.join("") !== texts.old
       ) {

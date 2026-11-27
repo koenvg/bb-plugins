@@ -5,6 +5,7 @@ import type { PullRequestResult } from "../pr-status";
 import type { GhFailure } from "../github/gh-failure";
 import prHead from "./fixtures/pr-43-head.json";
 import plugin from "../server";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 export type { PullRequestResult } from "../pr-status";
 type AvailablePullRequest = Extract<PullRequestResult, { outcome: "available" }>;
@@ -87,7 +88,7 @@ export async function setup(options: {
   environments?: Record<string, Partial<Environment>>;
 }) {
   const threadResponse = (id: string) => {
-    const thread = options.threads.find((candidate) => candidate.id === id)!;
+    const thread = requireFixtureValue(options.threads.find((candidate) => candidate.id === id));
     return makeThreadResponse(thread);
   };
   const { bb, harness } = createFakePluginHost({

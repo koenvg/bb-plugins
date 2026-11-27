@@ -39,11 +39,11 @@ const IDLE: LocalState = {
 };
 
 interface ThreadActions {
-  stateOf(reviewThreadId: string): ThreadActionState;
-  setReplyText(reviewThreadId: string, text: string): void;
-  post(reviewThreadId: string, options: { resolve: boolean }): Promise<void>;
-  setResolved(reviewThreadId: string, resolved: boolean): Promise<void>;
-  discardDraft(reviewThreadId: string): Promise<void>;
+  stateOf: (reviewThreadId: string) => ThreadActionState;
+  setReplyText: (reviewThreadId: string, text: string) => void;
+  post: (reviewThreadId: string, options: { resolve: boolean }) => Promise<void>;
+  setResolved: (reviewThreadId: string, resolved: boolean) => Promise<void>;
+  discardDraft: (reviewThreadId: string) => Promise<void>;
 }
 
 const ThreadActionsContext = createContext<ThreadActions | null>(null);

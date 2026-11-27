@@ -9,8 +9,8 @@ import { annotatorCallScript, annotatorInstallScript } from "./page/script";
 import type { PageScripting, TabCapture } from "./sdk-adapter";
 
 export interface PillWriter {
-  insert(pill: { id: string; label: string }): void;
-  remove(id: string): void;
+  insert: (pill: { id: string; label: string }) => void;
+  remove: (id: string) => void;
 }
 
 export interface ControllerDeps {
@@ -18,12 +18,12 @@ export interface ControllerDeps {
   tabId: string;
   page: PageScripting;
   rpc: AnnotationsRpc;
-  capture(tab: { threadId: string; tabId: string }): Promise<TabCapture>;
-  render(capture: TabCapture, plan: CropPlan, number: number): Promise<string>;
-  pills(): PillWriter | null;
-  isHidden(id: string): boolean;
-  onModeChange(on: boolean): void;
-  onError(error: unknown): void;
+  capture: (tab: { threadId: string; tabId: string }) => Promise<TabCapture>;
+  render: (capture: TabCapture, plan: CropPlan, number: number) => Promise<string>;
+  pills: () => PillWriter | null;
+  isHidden: (id: string) => boolean;
+  onModeChange: (on: boolean) => void;
+  onError: (error: unknown) => void;
 }
 
 export const NO_COMPOSER_MESSAGE = "Open this thread's chat to add annotations.";

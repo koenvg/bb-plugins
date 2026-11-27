@@ -31,17 +31,17 @@ export interface ThreadRef {
 }
 
 export interface InsightServiceDeps {
-  listThreads(): Promise<ThreadRef[]>;
-  resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
-  resolveEnvironmentPr(environmentId: string): Promise<PrResolution>;
-  fetchInsight(target: PrTarget): Promise<PrReading>;
-  primaryHostId(): Promise<string | null>;
-  publish(update: InsightUpdated): void;
-  writeSummary(threadId: string, summary: PrSummary): Promise<void>;
-  removeSummary(threadId: string): Promise<void>;
+  listThreads: () => Promise<ThreadRef[]>;
+  resolvePr: (threadId: string, options?: LookupOptions) => Promise<PrResolution>;
+  resolveEnvironmentPr: (environmentId: string) => Promise<PrResolution>;
+  fetchInsight: (target: PrTarget) => Promise<PrReading>;
+  primaryHostId: () => Promise<string | null>;
+  publish: (update: InsightUpdated) => void;
+  writeSummary: (threadId: string, summary: PrSummary) => Promise<void>;
+  removeSummary: (threadId: string) => Promise<void>;
   kv: Pick<PluginKvStorage, "get" | "set" | "delete" | "list">;
   pause: RateLimitPause;
-  warn(message: string): void;
+  warn: (message: string) => void;
 }
 
 type CacheEntry = (

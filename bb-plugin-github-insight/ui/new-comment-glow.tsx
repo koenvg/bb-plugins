@@ -18,8 +18,8 @@ const SAVE_DELAY_MS = 300;
 interface NewCommentGlow {
   root: RefObject<HTMLElement | null>;
   glowingIds: ReadonlySet<string>;
-  watches(commentId: string): boolean;
-  markSeen(commentId: string): void;
+  watches: (commentId: string) => boolean;
+  markSeen: (commentId: string) => void;
 }
 
 const NO_GLOW: NewCommentGlow = {

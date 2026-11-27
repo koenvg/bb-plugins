@@ -30,6 +30,13 @@ describe("createViewedStore", () => {
     expect(store.get(THREAD).error).toBeNull();
   });
 
+  it("does not show a Viewed mark for the prototype key", async () => {
+    const store = createViewedStore();
+    await store.setViewed(THREAD, "__proto__", "1:aa", ok);
+
+    expect(Object.hasOwn(marksOf(store, {}), "__proto__")).toBe(false);
+  });
+
   it("reverts a failed save and reports the error", async () => {
     const store = createViewedStore();
 

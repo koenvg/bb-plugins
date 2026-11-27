@@ -3,7 +3,9 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import type { Annotation } from "../lib/annotation";
 import plugin from "../server";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString("base64");
 const disposers: (() => Promise<void>)[] = [];
@@ -17,11 +19,13 @@ function setup() {
   const { bb, harness } = createFakePluginHost({ pluginId: "browser-annotate" });
   disposers.push(() => harness.lifecycle.dispose());
   plugin(bb);
-  const call = (method: string, input: unknown) =>
-    harness.behavior.callRpc(method, input) as Promise<any>;
-  const provider = harness.inspection.registrations.mentionProviders.find(
-    (registered) => registered.id === "annotation",
-  )!;
+  const call = <T = unknown>(method: string, input: unknown) =>
+    harness.behavior.callRpc(method, input) as Promise<T>;
+  const provider = requireFixtureValue(
+    harness.inspection.registrations.mentionProviders.find(
+      (registered) => registered.id === "annotation",
+    ),
+  );
   return { harness, call, provider };
 }
 
@@ -41,7 +45,7 @@ describe("annotation RPC", () => {
   it("creates an annotation with a pill label and lists it by URL and thread", async () => {
     const { call } = setup();
 
-    const created = await call("create", createInput);
+    const created = await call<Annotation>("create", createInput);
 
     expect(created).toMatchObject({
       number: 1,
@@ -52,8 +56,8 @@ describe("annotation RPC", () => {
     expect(
       await call("listForUrl", { threadId: "thr", url: "https://example.com/page#other" }),
     ).toHaveLength(1);
-    expect(await call("listForThread", { threadId: "thr" })).toHaveLength(1);
-    expect(await call("listForThread", { threadId: "other" })).toEqual([]);
+    expect(await call<Annotation[]>("listForThread", { threadId: "thr" })).toHaveLength(1);
+    expect(await call<Annotation[]>("listForThread", { threadId: "other" })).toEqual([]);
   });
 
   it.each([
@@ -69,7 +73,7 @@ describe("annotation RPC", () => {
 
   it("updates a comment only within its thread", async () => {
     const { call } = setup();
-    const { id } = await call("create", createInput);
+    const { id } = await call<Annotation>("create", createInput);
 
     await expect(call("update", { threadId: "other", id, comment: "x" })).rejects.toThrow(
       "Unknown annotation",
@@ -85,25 +89,25 @@ describe("annotation RPC", () => {
 
   it("removes an annotation of its own thread and ignores unknown ids", async () => {
     const { call } = setup();
-    const { id } = await call("create", createInput);
+    const { id } = await call<Annotation>("create", createInput);
 
     expect(await call("remove", { threadId: "other", id })).toEqual({ removed: [] });
     expect(await call("remove", { threadId: "thr", id: "missing" })).toEqual({ removed: [] });
     expect(await call("remove", { threadId: "thr", id })).toEqual({ removed: [id] });
-    expect(await call("listForThread", { threadId: "thr" })).toEqual([]);
+    expect(await call<Annotation[]>("listForThread", { threadId: "thr" })).toEqual([]);
   });
 
   it("rejects a number that is not the next one", async () => {
     const { call } = setup();
-    await call("create", createInput);
+    await call<Annotation>("create", createInput);
 
     await expect(call("create", createInput)).rejects.toThrow("Save again");
-    expect(await call("listForThread", { threadId: "thr" })).toHaveLength(1);
+    expect(await call<Annotation[]>("listForThread", { threadId: "thr" })).toHaveLength(1);
   });
 
   it("publishes a change for each mutation", async () => {
     const { call, harness } = setup();
-    const { id } = await call("create", createInput);
+    const { id } = await call<Annotation>("create", createInput);
     await call("update", { threadId: "thr", id, comment: "x" });
     await call("remove", { threadId: "thr", id });
 
@@ -126,7 +130,7 @@ describe("annotation mention provider", () => {
 
   it("gives the agent the image and the comment at send time", async () => {
     const { call, provider } = setup();
-    const { id } = await call("create", createInput);
+    const { id } = await call<Annotation>("create", createInput);
     await call("update", { threadId: "thr", id, comment: "Use 8px padding" });
 
     const resolved = await provider.resolve(id);
@@ -144,9 +148,9 @@ describe("annotation mention provider", () => {
 
   it("sends the text with a note when the image is missing", async () => {
     const { call, provider } = setup();
-    const { id } = await call("create", createInput);
+    const { id } = await call<Annotation>("create", createInput);
     const first = await provider.resolve(id);
-    const image = first.experimental_images![0]!;
+    const image = requireFixtureValue(first.experimental_images)[0];
     if (image.type !== "localImage") {
       throw new Error("Expected a local image.");
     }
@@ -170,21 +174,23 @@ describe("annotation mention provider", () => {
     "preserves sent captures when mentions resolve %s submission cleanup",
     async (order) => {
       const { call, provider } = setup();
-      const sent = await call("create", createInput);
-      const kept = await call("create", { ...createInput, number: 2 });
+      const sent = await call<Annotation>("create", createInput);
+      const kept = await call<Annotation>("create", { ...createInput, number: 2 });
       if (order === "after") {
         expect(await call("clearResolved", { threadId: "thr" })).toEqual({ removed: [] });
       }
       const resolved = await provider.resolve(sent.id);
       expect(resolved.context).toContain("Too much padding");
-      const image = resolved.experimental_images![0]!;
+      const image = requireFixtureValue(resolved.experimental_images)[0];
       if (image.type !== "localImage") {
         throw new Error("Expected a local image.");
       }
 
       expect(await call("clearResolved", { threadId: "thr" })).toEqual({ removed: [sent.id] });
       expect(
-        (await call("listForThread", { threadId: "thr" })).map((found: { id: string }) => found.id),
+        (await call<Annotation[]>("listForThread", { threadId: "thr" })).map(
+          (found: { id: string }) => found.id,
+        ),
       ).toEqual([kept.id]);
       expect(existsSync(image.path)).toBe(true);
     },
@@ -192,9 +198,9 @@ describe("annotation mention provider", () => {
 
   it("deletes the image of an unsent annotation right away", async () => {
     const { call, provider } = setup();
-    const unsent = await call("create", createInput);
-    const probe = await call("create", { ...createInput, number: 2 });
-    const image = (await provider.resolve(probe.id)).experimental_images![0]!;
+    const unsent = await call<Annotation>("create", createInput);
+    const probe = await call<Annotation>("create", { ...createInput, number: 2 });
+    const image = requireFixtureValue((await provider.resolve(probe.id)).experimental_images)[0];
     if (image.type !== "localImage") {
       throw new Error("Expected a local image.");
     }

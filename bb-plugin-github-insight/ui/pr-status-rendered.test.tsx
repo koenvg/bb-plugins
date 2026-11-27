@@ -6,14 +6,17 @@ import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { InsightResult, rpcContract } from "../contract";
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 type StatusMethods = Pick<
   typeof rpcContract,
   "getInsight" | "refresh" | "runPrAction" | "prefetchPr"
 >;
 const app = await loadPluginApp(() => import("../app"));
-const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
-const tab = app.threadPanelActions.find((action) => action.id === "pr")!;
+const banner = requireFixtureValue(
+  requireFixtureValue(app.composerCustomizations.find((c) => c.id === "pr-insight")).banners,
+)[0];
+const tab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
 const pr = {
   number: 7,
   title: "Status parity",

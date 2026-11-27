@@ -1,5 +1,6 @@
 import { test, expect, capture, results } from "./fixture";
 import { RESET, measure } from "./ui-measures";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const cases = [
   ...[390, 760, 1440].flatMap((width) =>
@@ -66,8 +67,8 @@ for (const { width, theme, viewport, zoom, name } of cases) {
       expect(measured.fullPath).toBe(path);
       expect(measured.title).toBe(path);
       expect(measured.filename).toBe("actual-document-name.md");
-      expect(parseFloat(measured.filenameSize!)).toBeGreaterThan(
-        parseFloat(measured.directorySize!),
+      expect(parseFloat(requireFixtureValue(measured.filenameSize))).toBeGreaterThan(
+        parseFloat(requireFixtureValue(measured.directorySize)),
       );
       expect(measured.buttons.map((b) => b.name)).toEqual(["Preview", "Raw", "Outline", "Refresh"]);
       expect(measured.outlineBackground).not.toBeNull();
@@ -78,19 +79,19 @@ for (const { width, theme, viewport, zoom, name } of cases) {
       expect(measured.identity).not.toBeNull();
       expect(measured.actions).not.toBeNull();
       if (measured.width <= 600)
-        expect(measured.identity!.bottom).toBeLessThanOrEqual(measured.view.y);
+        expect(requireFixtureValue(measured.identity).bottom).toBeLessThanOrEqual(measured.view.y);
       else
         expect(
           Math.abs(
-            measured.identity!.y +
-              measured.identity!.height / 2 -
+            requireFixtureValue(measured.identity).y +
+              requireFixtureValue(measured.identity).height / 2 -
               measured.view.y -
               measured.view.height / 2,
           ),
         ).toBeLessThan(2);
       expect(
-        measured.actions!.x - measured.view.right >= 16 ||
-          measured.actions!.y >= measured.view.bottom,
+        requireFixtureValue(measured.actions).x - measured.view.right >= 16 ||
+          requireFixtureValue(measured.actions).y >= measured.view.bottom,
       ).toBe(true);
       for (const b of measured.buttons) {
         expect(b.height).toBeGreaterThanOrEqual(28 * zoom);
@@ -103,8 +104,10 @@ for (const { width, theme, viewport, zoom, name } of cases) {
       await expect(tooltip).toHaveText("Preview");
       let tipBox = await tooltip.boundingBox();
       expect(tipBox).not.toBeNull();
-      expect(tipBox!.x).toBeGreaterThanOrEqual(0);
-      expect(tipBox!.x + tipBox!.width).toBeLessThanOrEqual(viewport);
+      expect(requireFixtureValue(tipBox).x).toBeGreaterThanOrEqual(0);
+      expect(requireFixtureValue(tipBox).x + requireFixtureValue(tipBox).width).toBeLessThanOrEqual(
+        viewport,
+      );
       await page.keyboard.press("Tab");
       expect(
         await reader
@@ -147,8 +150,8 @@ for (const { width, theme, viewport, zoom, name } of cases) {
         const box = await action.boundingBox();
         expect(box).not.toBeNull();
         const target = name.endsWith("coarse") ? 36 : 28;
-        expect(box!.width).toBe(target * zoom);
-        expect(box!.height).toBe(target * zoom);
+        expect(requireFixtureValue(box).width).toBe(target * zoom);
+        expect(requireFixtureValue(box).height).toBe(target * zoom);
         await expect(action).toHaveText("");
       }
       await preview.focus();
@@ -160,7 +163,7 @@ for (const { width, theme, viewport, zoom, name } of cases) {
       await expect(tooltip).toHaveText("Outline");
       await expect(outline).toHaveAttribute(
         "aria-describedby",
-        (await tooltip.getAttribute("id"))!,
+        requireFixtureValue(await tooltip.getAttribute("id")),
       );
       await page.keyboard.press("Escape");
       await expect(tooltip).toHaveCount(0);
@@ -185,8 +188,10 @@ for (const { width, theme, viewport, zoom, name } of cases) {
       await expect(tooltip).toHaveText("Outline");
       tipBox = await tooltip.boundingBox();
       expect(tipBox).not.toBeNull();
-      expect(tipBox!.x).toBeGreaterThanOrEqual(0);
-      expect(tipBox!.x + tipBox!.width).toBeLessThanOrEqual(viewport);
+      expect(requireFixtureValue(tipBox).x).toBeGreaterThanOrEqual(0);
+      expect(requireFixtureValue(tipBox).x + requireFixtureValue(tipBox).width).toBeLessThanOrEqual(
+        viewport,
+      );
       await tooltip.hover();
       await expect(tooltip).toBeVisible();
       await page.mouse.move(0, 999);

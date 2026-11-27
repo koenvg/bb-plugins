@@ -13,8 +13,8 @@ import { MENTION_PROVIDER_ID } from "./annotation";
 export const PLUGIN_ID = "browser-annotate";
 
 export interface PageScripting {
-  evaluate(expression: string): Promise<unknown>;
-  onMessage(listener: (data: unknown) => void): () => void;
+  evaluate: (expression: string) => Promise<unknown>;
+  onMessage: (listener: (data: unknown) => void) => () => void;
 }
 
 export interface BrowserTabProps {
@@ -75,7 +75,7 @@ type TabRequest = Parameters<DesktopBrowsers["captureTab"]>[0];
 type TabLocation = Omit<TabRequest, "tabId" | "threadId">;
 
 export interface TabCapturer {
-  capture(tab: { threadId: string; tabId: string }): Promise<TabCapture>;
+  capture: (tab: { threadId: string; tabId: string }) => Promise<TabCapture>;
 }
 
 export function createTabCapturer(

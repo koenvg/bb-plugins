@@ -43,12 +43,12 @@ import {
 import { maintenanceUnavailable, repairResultSchema } from "./collector-maintenance-contract.js";
 import type { RepairResult } from "./collector-maintenance-contract.js";
 
-export type HistoryReadContext = {
+export interface HistoryReadContext {
   signal: AbortSignal;
   dataDir: string;
   identities?: IdentityBatch;
-};
-export type HistoryDependencies = {
+}
+export interface HistoryDependencies {
   storage?: () => Promise<HistoryDatabaseFactory | null>;
   codexHome?: () => string;
   nativeRead?: () => void;
@@ -62,7 +62,7 @@ export type HistoryDependencies = {
   maintenanceRows?: number;
   retirementRows?: number;
   retirementCheckpoint?: (step: string) => void;
-};
+}
 const missing = (error: unknown) =>
   !!error && typeof error === "object" && "code" in error && error.code === "ENOENT";
 

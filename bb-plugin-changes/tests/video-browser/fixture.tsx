@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ReviewVideoDiff } from "../../../review-ui/video-diff";
 import { imageBlobResult } from "../../../review-ui/image-diff";
 import type { ImageSide } from "../../../review-ui/image-diff";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const Fixture = () => {
   const load = useCallback(async (side: ImageSide, signal: AbortSignal) => {
@@ -21,4 +22,4 @@ const Fixture = () => {
     />
   );
 };
-createRoot(document.getElementById("root")!).render(<Fixture />);
+createRoot(requireFixtureValue(document.getElementById("root"))).render(<Fixture />);

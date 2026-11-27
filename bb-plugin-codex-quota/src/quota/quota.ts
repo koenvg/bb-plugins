@@ -1,12 +1,12 @@
-export type QuotaWindow = {
+export interface QuotaWindow {
   id: string;
   name: string;
   remainingPercent: number;
   resetAt: string | null;
-};
+}
 export const creditBalancePattern = /^[0-9]{1,32}(?:\.[0-9]{1,32})?(?![\s\S])/;
 export type AccountCredits = { kind: "balance"; balance: string } | { kind: "unlimited" };
-export type QuotaSnapshot = {
+export interface QuotaSnapshot {
   observedAt: string;
   plan: "free" | "plus" | "pro" | "team" | "business" | "enterprise" | "edu" | null;
   general: QuotaWindow[];
@@ -15,7 +15,7 @@ export type QuotaSnapshot = {
   bindingRemainingPercent: number | null;
   bankedResets: number | null;
   credits?: AccountCredits;
-};
+}
 
 type RecordValue = Record<string, unknown>;
 const asRecord = (value: unknown): RecordValue | null =>

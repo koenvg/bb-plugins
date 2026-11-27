@@ -25,7 +25,11 @@ export class ActivityCache {
   private generation = 0;
   private lastAttempt = -Infinity;
   private disposed = false;
-  constructor(private readonly now: () => number = Date.now) {}
+  private readonly now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.now = now;
+  }
   invalidate(): void {
     this.generation += 1;
     this.epoch.abort();

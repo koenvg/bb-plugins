@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { PullRequestRef } from "../core/pr-ref";
 import { reviewQueueBatchArgs } from "./review-queue-query";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 function firstRequest(tracked: PullRequestRef[]): string[] {
-  return reviewQueueBatchArgs(tracked)[0]!;
+  return reviewQueueBatchArgs(tracked)[0];
 }
 
 function queryOf(args: string[]): string {
-  return args.find((arg) => arg.startsWith("query="))!;
+  return requireFixtureValue(args.find((arg) => arg.startsWith("query=")));
 }
 
 describe("reviewQueueBatchArgs first request", () => {
@@ -74,13 +75,13 @@ describe("reviewQueueBatchArgs", () => {
   it("asks for the review requests in the first request only", () => {
     const batches = reviewQueueBatchArgs(trackedRefs(9));
 
-    expect(queryOf(batches[0]!)).toContain("reviewRequests: search(");
-    expect(queryOf(batches[1]!)).not.toContain("reviewRequests: search(");
-    expect(queryOf(batches[1]!)).toContain("viewer { login }");
+    expect(queryOf(batches[0])).toContain("reviewRequests: search(");
+    expect(queryOf(batches[1])).not.toContain("reviewRequests: search(");
+    expect(queryOf(batches[1])).toContain("viewer { login }");
   });
 
   it("keeps each tracked PR at its own alias and variables across requests", () => {
-    const second = reviewQueueBatchArgs(trackedRefs(9))[1]!;
+    const second = reviewQueueBatchArgs(trackedRefs(9))[1];
 
     expect(queryOf(second)).toContain(
       "t8: repository(owner: $o8, name: $r8) { pullRequest(number: $n8)",

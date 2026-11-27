@@ -38,17 +38,17 @@ interface CommentDraftState {
 
 interface CommentDrafts {
   draftMedia: DisplayedDrafts["draftMedia"];
-  stateOf(draft: ListedCommentDraft): CommentDraftState;
-  setText(draftId: string, text: string): void;
-  remove(draftId: string): Promise<void>;
-  flushAll(): Promise<void>;
+  stateOf: (draft: ListedCommentDraft) => CommentDraftState;
+  setText: (draftId: string, text: string) => void;
+  remove: (draftId: string) => Promise<void>;
+  flushAll: () => Promise<void>;
 }
 
 interface NewComments {
-  create(path: string, side: DiffSide, line: number): Promise<void>;
+  create: (path: string, side: DiffSide, line: number) => Promise<void>;
   createError: string | null;
   focusDraftId: string | null;
-  clearFocus(): void;
+  clearFocus: () => void;
 }
 
 const CommentDraftsContext = createContext<CommentDrafts | null>(null);

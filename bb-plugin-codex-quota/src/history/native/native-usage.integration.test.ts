@@ -24,6 +24,7 @@ import type { IdentityBatch } from "../identity/identity-contract.js";
 import type { HistoryReadContext } from "../history-maintenance.js";
 import type { CalendarQuery } from "../calendar/calendar-contract.js";
 import { createHash } from "node:crypto";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 const histories: HostHistory[] = [];
@@ -133,7 +134,7 @@ async function fixture(rows: unknown[], options: { lines?: number; read?: () => 
   async function prepare(h = history) {
     let result;
     for (let i = 0; i < 500; i += 1) {
-      result = await h.prepare!(context);
+      result = await requireFixtureValue(h.prepare)(context);
       if (result.state !== "available") {
         throw new Error(result.reason);
       }
@@ -177,19 +178,21 @@ it("feeds public prepare/report with mixed legacy Pi and native usage, preservin
     small,
   ]);
   await f.prepare();
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   db.transaction(() => {
-    projectCompactRecord(db, parseCompact(JSON.stringify(pi()), false)!);
+    projectCompactRecord(db, requireFixtureValue(parseCompact(JSON.stringify(pi()), false)));
     projectCompactRecord(
       db,
-      parseCompact(
-        JSON.stringify({
-          version: 2,
-          usage: pi(2, 60),
-          metadata: { responseId: "resp_pi-fast", serviceTier: "priority" },
-        }),
-        false,
-      )!,
+      requireFixtureValue(
+        parseCompact(
+          JSON.stringify({
+            version: 2,
+            usage: pi(2, 60),
+            metadata: { responseId: "resp_pi-fast", serviceTier: "priority" },
+          }),
+          false,
+        ),
+      ),
     );
   });
   db.close();
@@ -216,7 +219,7 @@ it("feeds public prepare/report with mixed legacy Pi and native usage, preservin
   expect(await readFile(f.file)).toEqual(source);
   expect(await readdir(join(f.dataDir, "history"))).toEqual(names);
   expect(names).not.toContain("collector-control-v1.json");
-  const checked = (await openHistoryDatabase(f.path, true))!;
+  const checked = requireFixtureValue(await openHistoryDatabase(f.path, true));
   expect(
     checked.prepare("SELECT observed_events,unconfirmed_events FROM history_counters").get(),
   ).toEqual({ observed_events: 2, unconfirmed_events: 2 });
@@ -229,9 +232,9 @@ it("feeds public prepare/report with mixed legacy Pi and native usage, preservin
 it("preserves historical metadata and native proof bytes while stripping legacy resumed context tier", async () => {
   const f = await fixture([header(), turn(), usage("proof")]);
   await f.prepare();
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
-  const row = db.prepare("SELECT * FROM usage_metadata").get() as any;
+  const row = db.prepare("SELECT * FROM usage_metadata").get() as { event_id: string };
   expect(row).toMatchObject({
     source: "codex-native",
     speed: "",
@@ -239,7 +242,9 @@ it("preserves historical metadata and native proof bytes while stripping legacy 
     speed_conflict: 0,
     classes_available: 1,
   });
-  const owner = db.prepare("SELECT * FROM usage_response_owners").get() as any;
+  const owner = db.prepare("SELECT * FROM usage_response_owners").get() as {
+    native_evidence: string;
+  };
   const expected = JSON.stringify({
     eventId: row.event_id,
     occurredAt: "2026-09-15T12:00:00.000Z",
@@ -260,7 +265,7 @@ it("preserves historical metadata and native proof bytes while stripping legacy 
   db.close();
   await appendFile(f.file, text([usage("proof", 120, { service_tier: "future" })]));
   await f.prepare(f.make());
-  const checked = (await openHistoryDatabase(f.path, true))!;
+  const checked = requireFixtureValue(await openHistoryDatabase(f.path, true));
   expect(checked.prepare("SELECT * FROM usage_metadata").all()).toEqual(historic);
   expect(checked.prepare("SELECT * FROM usage_response_owners").get()).toEqual(owner);
   const resumed = checked.prepare("SELECT context FROM native_sources").get() as {
@@ -367,18 +372,20 @@ for (const order of ["pi-first", "native-first"]) {
       order === "pi-first" ? [header(), turn()] : [header(), turn(), usage("alias")],
     );
     await f.prepare();
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     db.transaction(() =>
       projectCompactRecord(
         db,
-        parseCompact(
-          JSON.stringify({
-            version: 2,
-            usage: pi(2, 120),
-            metadata: { responseId: "resp_alias", serviceTier: "fast" },
-          }),
-          false,
-        )!,
+        requireFixtureValue(
+          parseCompact(
+            JSON.stringify({
+              version: 2,
+              usage: pi(2, 120),
+              metadata: { responseId: "resp_alias", serviceTier: "fast" },
+            }),
+            false,
+          ),
+        ),
       ),
     );
     db.close();
@@ -414,7 +421,7 @@ it("does not acknowledge partial lines, handles replacement/truncation, and neve
   await f.prepare();
   const full = JSON.stringify(usage("partial"));
   await appendFile(f.file, full.slice(0, 80));
-  const pending = await f.history.prepare!(f.context);
+  const pending = await requireFixtureValue(f.history.prepare)(f.context);
   expect(pending).toMatchObject({ state: "available", ingestionPending: true });
   expect((await f.report()).summary.totalTokens).toBe(0);
   await appendFile(f.file, full.slice(80) + "\n");
@@ -436,7 +443,9 @@ it("rolls back unacknowledged admission on cancellation and reopens without repl
       }
     },
   });
-  expect(await f.history.prepare!({ ...f.context, signal: controller.signal })).toEqual({
+  expect(
+    await requireFixtureValue(f.history.prepare)({ ...f.context, signal: controller.signal }),
+  ).toEqual({
     state: "unavailable",
     reason: "selection-changed",
   });
@@ -452,7 +461,7 @@ it("rejects symlink escapes and oversized lines with visible incomplete work", a
     join(f.sessions, "oversize.jsonl"),
     text([header(), turn()]) + "x".repeat(1024 * 1024 + 1) + "\n",
   );
-  const result = await f.history.prepare!(f.context);
+  const result = await requireFixtureValue(f.history.prepare)(f.context);
   expect(result).toMatchObject({ state: "available", ingestionPending: true });
   const view = await f.report();
   expect(view.summary.totalTokens).toBe(120);
@@ -470,7 +479,7 @@ it("bounds discovery and resumes it before ingesting usage from a deferred direc
     await writeFile(join(f.sessions, `${i}.txt`), "");
   }
 
-  const first = await f.history.prepare!(f.context);
+  const first = await requireFixtureValue(f.history.prepare)(f.context);
   expect(first).toMatchObject({ state: "available", ingestionPending: true });
   expect((await f.report()).summary.totalTokens).toBeLessThanOrEqual(120);
   await f.prepare();
@@ -482,7 +491,7 @@ it("bounds lines, revisits pending files, and gives native identity only to the 
   for (let i = 0; i < 4; i += 1) {
     await writeFile(join(f.sessions, `${i}.jsonl`), text([header(), turn(), usage(`file${i}`)]));
   }
-  const first = await f.history.prepare!(f.context);
+  const first = await requireFixtureValue(f.history.prepare)(f.context);
   expect(first).toMatchObject({ state: "available", ingestionPending: true });
   expect((await f.report()).summary.totalTokens).toBeLessThanOrEqual(480);
   await f.prepare();
@@ -520,8 +529,10 @@ it("bounds lines, revisits pending files, and gives native identity only to the 
 it("supports schema-4 read-only scalar projection and transactional writer migration", async () => {
   const f = await fixture([header(), turn()]);
   await f.prepare();
-  let db = (await openHistoryDatabase(f.path))!;
-  db.transaction(() => projectCompactRecord(db, parseCompact(JSON.stringify(pi()), false)!));
+  let db = requireFixtureValue(await openHistoryDatabase(f.path));
+  db.transaction(() =>
+    projectCompactRecord(db, requireFixtureValue(parseCompact(JSON.stringify(pi()), false))),
+  );
   db.exec(
     "DROP TABLE usage_metadata;DROP TABLE usage_response_owners;DROP TABLE native_sources;DROP TABLE native_discovery;PRAGMA user_version=4",
   );
@@ -530,19 +541,19 @@ it("supports schema-4 read-only scalar projection and transactional writer migra
   expect((await f.report()).summary.totalTokens).toBe(20);
   expect(await readFile(f.path)).toEqual(before);
   await f.prepare();
-  db = (await openHistoryDatabase(f.path, true))!;
+  db = requireFixtureValue(await openHistoryDatabase(f.path, true));
   expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
   db.close();
 });
 it("compact usage survives detail expiry, physical expiry removes numbers, and expired rescans cannot restore them", async () => {
   const f = await fixture([header(), turn(), usage("retained", 120)]);
   await f.prepare();
-  let db = (await openHistoryDatabase(f.path))!;
+  let db = requireFixtureValue(await openHistoryDatabase(f.path));
   maintainHistory(db, Date.parse("2026-11-10T12:00:00Z"));
   db.close();
   expect((await f.report()).summary.totalTokens).toBe(120);
   expect((await f.report()).days[14].classes.state).toBe("unavailable");
-  db = (await openHistoryDatabase(f.path))!;
+  db = requireFixtureValue(await openHistoryDatabase(f.path));
   maintainHistory(db, Date.parse("2027-02-01T12:00:00Z"));
   expect(db.prepare("SELECT count(*) AS n FROM usage_metadata").get()).toEqual({ n: 0 });
   expect(db.prepare("SELECT count(*) AS n FROM usage_compact").get()).toEqual({ n: 0 });
@@ -556,7 +567,7 @@ it("compact usage survives detail expiry, physical expiry removes numbers, and e
     state: "unavailable",
     reason: "range-unavailable",
   });
-  db = (await openHistoryDatabase(f.path, true))!;
+  db = requireFixtureValue(await openHistoryDatabase(f.path, true));
   expect(db.prepare("SELECT count(*) AS n FROM usage_compact").get()).toEqual({ n: 0 });
   expect(db.prepare("SELECT count(*) AS n FROM usage_metadata").get()).toEqual({ n: 0 });
   expect(db.prepare("SELECT * FROM usage_response_owners").all()).toEqual(replayOwners);
@@ -566,7 +577,7 @@ it("compact usage survives detail expiry, physical expiry removes numbers, and e
 it("drains existing Pi logs even while native oversized work stays pending", async () => {
   const f = await fixture([header(), turn(), usage()]);
   await f.prepare();
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   db.prepare("INSERT INTO collector_meta VALUES (1,?)").run(new Date(now).toISOString());
   db.close();
   await writeFile(
@@ -579,7 +590,7 @@ it("drains existing Pi logs even while native oversized work stays pending", asy
   );
   await writeFile(join(f.dataDir, "history", "events-v1-2026-10-01.jsonl"), text([pi()]));
   await writeFile(join(f.sessions, "oversize.jsonl"), "x".repeat(1024 * 1024 + 1) + "\n");
-  const pending = await f.history.prepare!(f.context);
+  const pending = await requireFixtureValue(f.history.prepare)(f.context);
   expect(pending).toMatchObject({ state: "available", ingestionPending: true });
   expect((await f.report()).summary).toMatchObject({
     totalTokens: 140,
@@ -591,7 +602,9 @@ it("rejects a symlinked native root without admitting outside records", async ()
   const outside = join(f.root, "outside-sessions");
   await rename(f.sessions, outside);
   await symlink(outside, f.sessions);
-  expect(await f.history.prepare!(f.context)).toMatchObject({ state: "available" });
+  expect(await requireFixtureValue(f.history.prepare)(f.context)).toMatchObject({
+    state: "available",
+  });
   const report = await f.report();
   expect(report.summary.totalTokens).toBe(0);
   expect(report.days[14].coverage.state).toBe("incomplete");
@@ -609,7 +622,7 @@ it("does not acknowledge or admit a source replaced after its descriptor opens",
       writeFileSync(f.file, text([header(), turn(), usage("replacement")]));
     },
   });
-  expect(await f.history.prepare!(f.context)).toEqual({
+  expect(await requireFixtureValue(f.history.prepare)(f.context)).toEqual({
     state: "unavailable",
     reason: "storage-unavailable",
   });
@@ -621,14 +634,16 @@ it("does not acknowledge or admit a source replaced after its descriptor opens",
 it("rolls back schema-4 migration, facts and controls when version publication fails", async () => {
   const f = await fixture([header(), turn()]);
   await f.prepare();
-  const db = (await openHistoryDatabase(f.path))!;
-  db.transaction(() => projectCompactRecord(db, parseCompact(JSON.stringify(pi()), false)!));
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
+  db.transaction(() =>
+    projectCompactRecord(db, requireFixtureValue(parseCompact(JSON.stringify(pi()), false))),
+  );
   db.exec(
     "DROP TABLE usage_metadata;DROP TABLE usage_response_owners;DROP TABLE native_sources;DROP TABLE native_discovery;PRAGMA user_version=4",
   );
   db.close();
   const before = await readFile(f.path);
-  const real = (await loadHistoryStorage())!;
+  const real = requireFixtureValue(await loadHistoryStorage());
   const failing = createHostHistory({
     now: () => now,
     codexHome: () => f.home,
@@ -646,7 +661,7 @@ it("rolls back schema-4 migration, facts and controls when version publication f
     },
   });
   histories.push(failing);
-  expect(await failing.prepare!(f.context)).toEqual({
+  expect(await requireFixtureValue(failing.prepare)(f.context)).toEqual({
     state: "unavailable",
     reason: "storage-unavailable",
   });
@@ -668,7 +683,7 @@ it("drains the 80-token Pi backlog when native descriptor replacement fails and 
     },
   });
   await f.prepare();
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   db.prepare("INSERT INTO collector_meta VALUES (1,?)").run(new Date(now).toISOString());
   db.close();
   await writeFile(
@@ -682,7 +697,7 @@ it("drains the 80-token Pi backlog when native descriptor replacement fails and 
   await writeFile(join(f.dataDir, "history", "events-v1-2026-10-01.jsonl"), text([pi(3, 80)]));
   await appendFile(f.file, text([usage("unacknowledged")]));
   replace = true;
-  expect(await f.history.prepare!(f.context)).toEqual({
+  expect(await requireFixtureValue(f.history.prepare)(f.context)).toEqual({
     state: "unavailable",
     reason: "storage-unavailable",
   });

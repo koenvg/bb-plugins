@@ -204,9 +204,9 @@ describe("latestCheckCandidates", () => {
         }),
       ];
       const candidates = latestCheckCandidates([
-        attempts[first]!,
-        attempts[second]!,
-        attempts[third]!,
+        attempts[first],
+        attempts[second],
+        attempts[third],
       ]);
       const annotations = new Map([
         ["old-cancelled", [{ path: "old.ts", line: 1, message: "old failure" }]],
@@ -260,7 +260,7 @@ describe("latestCheckCandidates", () => {
             isRequired: true,
           }),
         ];
-        const candidates = latestCheckCandidates([nodes[first]!, nodes[second]!, nodes[third]!]);
+        const candidates = latestCheckCandidates([nodes[first], nodes[second], nodes[third]]);
 
         expect(candidates.map((candidate) => candidate.runId)).toEqual([expected.runId]);
         expect(candidates.map((candidate) => toCheck(candidate, new Map()))).toEqual([
@@ -321,7 +321,7 @@ describe("toCheck", () => {
     const [candidate] = latestCheckCandidates([checkRun({ id: "CR_9", conclusion: "FAILURE" })]);
     const annotation = { path: "src/a.ts", line: 3, message: "boom" };
 
-    const check = toCheck(candidate!, new Map([["CR_9", [annotation]]]));
+    const check = toCheck(candidate, new Map([["CR_9", [annotation]]]));
 
     expect(check.failure).toEqual({
       reason: "boom",

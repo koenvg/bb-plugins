@@ -9,6 +9,7 @@ import {
 } from "./text-context";
 import type { Snapshot } from "./text-context";
 import type { ChangedFile } from "./changes";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const file: ChangedFile = {
   path: "a.txt",
@@ -66,16 +67,18 @@ const STALE = "Context does not match this diff. Refresh changes.";
 describe("complete text context", () => {
   it("retains original hunks and enables native expansion with complete prefix and suffix", () => {
     const texts = validateContext(snapshot, pair());
-    const diff = processFile(patch, {
-      oldFile: { name: "a.txt", contents: texts.old },
-      newFile: { name: "a.txt", contents: texts.new },
-      throwOnError: true,
-    })!;
+    const diff = requireFixtureValue(
+      processFile(patch, {
+        oldFile: { name: "a.txt", contents: texts.old },
+        newFile: { name: "a.txt", contents: texts.new },
+        throwOnError: true,
+      }),
+    );
     expect({
       partial: diff.isPartial,
       old: diff.deletionLines.join(""),
       new: diff.additionLines.join(""),
-      start: diff.hunks[0]!.additionStart,
+      start: diff.hunks[0].additionStart,
     }).toEqual({ partial: false, old: oldText, new: newText, start: 2 });
   });
   it.each(["prefix", "gap", "suffix"])("rejects drift outside the patch in the %s", (position) => {

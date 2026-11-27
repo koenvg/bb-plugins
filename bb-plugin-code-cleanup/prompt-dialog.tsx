@@ -51,7 +51,10 @@ export const PromptDialog = ({
   const busy = pending || reloading;
 
   useEffect(() => {
-    const modal = dialog.current!;
+    const modal = dialog.current;
+    if (!modal) {
+      throw new Error("Prompt dialog is not mounted.");
+    }
     alive.current = true;
     modal.showModal();
     title.current?.focus();

@@ -16,6 +16,7 @@ import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
 import { latestStart, shiftDate } from "../history/calendar/calendar-time.js";
 import { preparationUnavailable } from "../history/report-preparation-contract.js";
 import { comparisonReasons } from "../history/calendar/calendar-comparison.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const now = Date.UTC(2026, 9, 1, 12);
 const query: CalendarQuery = {
@@ -74,7 +75,7 @@ describe("footer allowance selection", () => {
     "includes stale $stalePercent percent in the minimum without claiming fresh coverage",
     ({ stalePercent, label, state, reason }) => {
       const data = accountsFixture(now, true);
-      data.accounts[1]!.quota = {
+      data.accounts[1].quota = {
         ...quotaFixture(now, stalePercent),
         state: "stale",
         reason: "network",
@@ -89,7 +90,7 @@ describe("footer allowance selection", () => {
 
   it.each(["fresh", "stale"] as const)("excludes %s snapshots without a binding value", (state) => {
     const data = accountsFixture(now, true);
-    data.accounts[1]!.quota = {
+    data.accounts[1].quota = {
       state,
       reason: state === "fresh" ? "ok" : "network",
       snapshot: { ...quotaFixture(now).snapshot, bindingRemainingPercent: null },
@@ -105,7 +106,7 @@ describe("footer allowance selection", () => {
 
   it("uses only current accounts after replacement and removal", () => {
     const data = accountsFixture(now);
-    data.accounts[0]!.quota = { ...quotaFixture(now, 0), state: "stale", reason: "network" };
+    data.accounts[0].quota = { ...quotaFixture(now, 0), state: "stale", reason: "network" };
     expect(footerAllowance(data, now)).toMatchObject({ label: "0%", known: true });
     data.accounts = accountsFixture(now, true).accounts;
     expect(footerAllowance(data, now)).toMatchObject({ label: "38%", known: false });
@@ -119,7 +120,7 @@ describe("footer allowance selection", () => {
 
   it("does not show a retained stale snapshot without an active owner", () => {
     const data = accountsFixture(now);
-    data.accounts[0]!.quota = { ...quotaFixture(now), state: "stale", reason: "network" };
+    data.accounts[0].quota = { ...quotaFixture(now), state: "stale", reason: "network" };
     expect(footerAllowance(data, now, true)).toMatchObject({ label: "63%", known: true });
     expect(footerAllowance(data, now, false)).toEqual({
       label: "—",
@@ -206,10 +207,12 @@ describe("all-machine public reports", () => {
     ]);
     const next = f.create();
     const shifted = { ...query, startDate: shiftDate(query.startDate, -1) };
-    const result = combineReports(
-      await next.reports({ query: shifted, prepare: false, refresh: false }),
-      shifted,
-    )!;
+    const result = requireFixtureValue(
+      combineReports(
+        await next.reports({ query: shifted, prepare: false, refresh: false }),
+        shifted,
+      ),
+    );
     expect(result.summary.totalTokens).toBe(1200);
     expect(result.days[15]?.totalTokens).toBe(1200);
     expect(result.days[14]?.totalTokens).toBe(0);
@@ -246,10 +249,9 @@ describe("all-machine public reports", () => {
     const service = f.create();
     const accounts = await service.accounts({ refresh: false, includeActivity: false });
     expect(footerAllowance(accounts, now)).toMatchObject({ label: "63%", known: true });
-    const result = combineReports(
-      await service.reports({ query, prepare: false, refresh: false }),
-      query,
-    )!;
+    const result = requireFixtureValue(
+      combineReports(await service.reports({ query, prepare: false, refresh: false }), query),
+    );
     expect(result.summary.totalTokens).toBe(600);
     expect(result.incomplete).toBe(true);
     expect(result.days.every((day) => day.coverage.zero === false)).toBe(true);
@@ -320,7 +322,7 @@ describe("all-machine public reports", () => {
       truncated: false,
       cache: "saved" as const,
     };
-    input.machines[0]!.report.days[14]!.totalTokens = Number.MAX_SAFE_INTEGER;
+    input.machines[0].report.days[14].totalTokens = Number.MAX_SAFE_INTEGER;
     expect(() => combineReports(input, query)).toThrow();
   });
 });

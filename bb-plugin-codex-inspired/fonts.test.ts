@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("./themes/codex-inspired.css", import.meta.url), "utf8");
 
@@ -13,7 +13,7 @@ function declaration(selector: string): string {
 
 describe("Libron reading typography", () => {
   it("embeds the original regular and bold web faces without runtime downloads", () => {
-    const faces = [...css.matchAll(/@font-face\s*\{([^}]+)\}/g)].map((match) => match[1]!);
+    const faces = [...css.matchAll(/@font-face\s*\{([^}]+)\}/g)].map((match) => match[1]);
     expect(faces).toHaveLength(2);
     const hashes = [
       "e64c8420f5d21deb3fce8d45a6d9165827067de8c36262922ad5f56e6b0c37f4",
@@ -24,7 +24,9 @@ describe("Libron reading typography", () => {
       expect(face).toContain(`font-weight: ${index === 0 ? 400 : 700};`);
       expect(face).toContain("font-style: normal;");
       expect(face).toContain("font-display: swap;");
-      const payload = /data:font\/woff2;base64,([A-Za-z0-9+/=]+)/.exec(face)![1]!;
+      const font = /data:font\/woff2;base64,([A-Za-z0-9+/=]+)/.exec(face);
+      assert.exists(font, "Expected embedded WOFF2 data");
+      const payload = font[1];
       const bytes = Buffer.from(payload, "base64");
       expect(bytes.subarray(0, 4).toString()).toBe("wOF2");
       expect(createHash("sha256").update(bytes).digest("hex")).toBe(hashes[index]);

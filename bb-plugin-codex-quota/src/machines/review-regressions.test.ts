@@ -8,6 +8,7 @@ import { memorySummaries, recordedFixture, reportsFixture } from "./machines.tes
 import { latestStart } from "../history/calendar/calendar-time.js";
 import { calendarReportSchema } from "../history/calendar/calendar-contract.js";
 import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const now = Date.UTC(2026, 9, 1, 12);
 const query: CalendarQuery = {
@@ -58,7 +59,7 @@ it("rejects joint accepted and uncertain sums even when each subtotal is safe", 
       throw new Error("Fixture must be available");
     }
     const report = row.report;
-    const day = report.days[14]!;
+    const day = report.days[14];
     day.totalTokens = 4e15;
     day.classes = {
       state: "available",
@@ -137,8 +138,8 @@ it.each([false, true])(
       const offline = (await harness.behavior.callRpc("machineReports", request)) as {
         machines: { cached: boolean; report: { state: string } }[];
       };
-      expect(offline.machines[0]!.cached).toBe(false);
-      expect(offline.machines[0]!.report.state).toBe("unavailable");
+      expect(offline.machines[0].cached).toBe(false);
+      expect(offline.machines[0].report.state).toBe("unavailable");
     } finally {
       await harness.lifecycle.dispose();
     }
@@ -156,7 +157,7 @@ it("merges model IDs across machines while retaining an older report remainder",
     throw new Error("Fixture unavailable");
   }
   first.days[14].models = { named: [{ model: "gpt-5", totalTokens: 400 }], otherTokens: 100 };
-  const day = combineReports(data, query)!.days[14];
+  const day = requireFixtureValue(combineReports(data, query)).days[14];
   expect(day.totalTokens).toBe(1200);
   expect(day.models).toEqual({
     named: [{ model: "gpt-5", totalTokens: 400 }],
@@ -173,7 +174,7 @@ it("merges model IDs across machines while retaining an older report remainder",
     ],
     otherTokens: 0,
   };
-  expect(combineReports(data, query)!.days[14].models).toEqual({
+  expect(requireFixtureValue(combineReports(data, query)).days[14].models).toEqual({
     named: [
       { model: "gpt-5", totalTokens: 700 },
       { model: "gpt-6", totalTokens: 300 },
@@ -231,7 +232,7 @@ it("merges new captured model money with an old cached report without inferring 
   }
   data.machines[0].report = newReport;
   data.machines[1].report = oldReport;
-  const combined = combineReports(data, query)!;
+  const combined = requireFixtureValue(combineReports(data, query));
   expect(combined.incomplete).toBe(true);
   expect(combined.days[14].money.capturedCost).toBe(7);
   expect(combined.days[14].modelCosts).toEqual({
@@ -283,7 +284,7 @@ it("caps model dollars again across machines and withholds unsafe sums without l
       unknown: empty,
     };
   }
-  const day = combineReports(data, query)!.days[14];
+  const day = requireFixtureValue(combineReports(data, query)).days[14];
   expect(day.money.capturedCost).toBe(10);
   expect(day.modelCosts?.named.map((row) => row.model)).toEqual([
     "model-0",
@@ -313,7 +314,7 @@ it("caps model dollars again across machines and withholds unsafe sums without l
       records: 1,
       pricedRecords: 1,
     };
-    value.modelCosts!.named = [
+    requireFixtureValue(value.modelCosts).named = [
       {
         model: "same",
         money: {
@@ -326,7 +327,7 @@ it("caps model dollars again across machines and withholds unsafe sums without l
       },
     ];
   }
-  const unsafe = combineReports(data, query)!.days[14];
+  const unsafe = requireFixtureValue(combineReports(data, query)).days[14];
   expect(unsafe.money).toMatchObject({ capturedCost: null, reason: "unsafe-sum" });
   expect(unsafe.modelCosts?.named[0]).toEqual({
     model: "same",

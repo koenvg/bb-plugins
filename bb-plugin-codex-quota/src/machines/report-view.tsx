@@ -10,12 +10,12 @@ import { useMachineReport } from "./use-report.js";
 import type { SnapshotReader } from "./use-report.js";
 
 const allMachines = { hostId: "all-machines", generation: 0 };
-type Props = {
+interface Props {
   now: number;
-  read(input: { query: CalendarQuery; prepare: boolean; refresh: boolean }): Promise<unknown>;
+  read: (input: { query: CalendarQuery; prepare: boolean; refresh: boolean }) => Promise<unknown>;
   snapshot?: SnapshotReader;
-  prepare(input: PreparationRequest): Promise<unknown>;
-};
+  prepare: (input: PreparationRequest) => Promise<unknown>;
+}
 /** Existing visible-page preparation owns ingestion. Date and metric changes remain read-only. */
 export const MachineReportPanel = ({ now, read, snapshot, prepare }: Props) => {
   const [timezone] = useState(() => {

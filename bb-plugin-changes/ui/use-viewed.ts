@@ -11,14 +11,14 @@ export interface FileViewedState {
   viewed: boolean;
   collapsed: boolean;
   canToggleViewed: boolean;
-  toggleViewed(): void;
-  toggleCollapsed(): void;
+  toggleViewed: () => void;
+  toggleCollapsed: () => void;
 }
 
 export interface Viewed {
   counts: { viewed: number; markable: number } | null;
   error: string | null;
-  of(path: string): FileViewedState;
+  of: (path: string) => FileViewedState;
 }
 
 export function useViewed(

@@ -39,7 +39,7 @@ const contentsUrl =
   "repos/private-owner/private-repo/contents/images/a%20b%23%3F.png?ref=1111111111111111111111111111111111111111";
 function serve(contents: object, blob: object = {}) {
   state.stdout = (args) =>
-    JSON.stringify(args[1]!.includes("/git/blobs/") ? blob : { sha: blobSha, ...contents });
+    JSON.stringify(args[1].includes("/git/blobs/") ? blob : { sha: blobSha, ...contents });
 }
 const readyPng = {
   kind: "ready",

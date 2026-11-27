@@ -1,13 +1,16 @@
 import type { QuotaStatus } from "../quota/contract.js";
 import { visibleView } from "../account/freshness.js";
 
-export type Selection = { hostId: string | null; generation: number };
-export type QuotaApi = {
-  selection(): Promise<Selection>;
-  selectHost(input: { hostId: string | null }): Promise<Selection>;
-  read(input: { hostId: string; generation: number; refresh?: boolean }): Promise<QuotaStatus>;
-};
-type State = {
+export interface Selection {
+  hostId: string | null;
+  generation: number;
+}
+export interface QuotaApi {
+  selection: () => Promise<Selection>;
+  selectHost: (input: { hostId: string | null }) => Promise<Selection>;
+  read: (input: { hostId: string; generation: number; refresh?: boolean }) => Promise<QuotaStatus>;
+}
+interface State {
   selection: Selection;
   selectionPending: boolean;
   selectionRevision: number;
@@ -16,15 +19,15 @@ type State = {
   ready: boolean;
   hasActiveOwner: boolean;
   now: number;
-};
-type RefreshOwner = {
+}
+interface RefreshOwner {
   api: QuotaApi;
   timer: ReturnType<typeof setTimeout> | null;
   aging: ReturnType<typeof setInterval> | null;
   dueAt: number;
   failures: number;
   release: () => void;
-};
+}
 const unavailable = (reason: "no-selection" | "foreign-host" | "host-offline"): QuotaStatus => ({
   state: "unavailable",
   reason,
@@ -46,7 +49,10 @@ export class QuotaSelectionStore {
   private owner: RefreshOwner | null = null;
   private disposed = false;
 
-  constructor(private readonly now: () => number = () => Date.now()) {
+  private readonly now: () => number;
+
+  constructor(now: () => number = () => Date.now()) {
+    this.now = now;
     this.state = {
       selection: { hostId: null, generation: 0 },
       selectionPending: false,

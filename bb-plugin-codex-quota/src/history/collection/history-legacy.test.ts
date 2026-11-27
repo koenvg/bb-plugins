@@ -10,6 +10,7 @@ import type { HistoryReadiness } from "../history-contract.js";
 // Frozen BBP-18 installed writer. This fixture must retain its protocol-1 behavior.
 import { COLLECTOR_ENTRY as LEGACY_ENTRY } from "../../../fixtures/legacy-collector-v1.fixture.js";
 import { writeFileSync } from "node:fs";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -37,7 +38,11 @@ const record = (n: number, occurredAt = "2026-09-30T00:00:00.000Z") => ({
   totalTokens: 5,
   capturedCost: 0.25,
 });
-type Status = { phase: string; token?: string; reason?: string };
+interface Status {
+  phase: string;
+  token?: string;
+  reason?: string;
+}
 const status = (view: HistoryReadiness) =>
   (view.health as unknown as { legacyRetirement: Status })?.legacyRetirement;
 async function fixture(hook?: (step: string) => void) {
@@ -86,7 +91,7 @@ async function fixture(hook?: (step: string) => void) {
     await pause();
     const view = await control("prepare-legacy");
     expect(status(view)?.phase).toBe("awaiting-confirmation");
-    return status(view)!.token!;
+    return requireFixtureValue(status(view).token);
   };
   const confirm = (token: string, stopped = true) =>
     control("retire-legacy", { token, legacyWritersStopped: stopped });
@@ -152,7 +157,7 @@ it("reconciles the final tail and retains original in-window bodies, prices, own
   expect(await readFile(join(f.directory, "events-legacy-retained-v1.jsonl"), "utf8")).toBe(
     JSON.stringify(record(2)) + "\n",
   );
-  const db = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")));
   try {
     expect(
       db
@@ -235,7 +240,7 @@ it("retains invalid-source uncertainty after retirement and expires sealed bodie
   const token = await f.prepare();
   await f.confirm(token);
   await f.finish();
-  let db = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
+  let db = requireFixtureValue(await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")));
   try {
     recordCoverage(db, {
       id: "empty",
@@ -260,7 +265,7 @@ it("retains invalid-source uncertainty after retirement and expires sealed bodie
   f.setNow(Date.parse("2026-11-17T12:00:00.000Z"));
   await f.finish();
   expect(await readFile(join(f.directory, "events-legacy-retained-v1.jsonl"), "utf8")).toBe("");
-  db = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
+  db = requireFixtureValue(await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")));
   try {
     expect(
       db
@@ -297,13 +302,15 @@ it("fences actual obsolete writer handlers before retirement and after explicit 
     JSON.stringify({ protocol: 1, enabled: true }),
   );
   async function oldWriter() {
-    const handlers = new Map<string, Function>();
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
     const module = await import(
       /* @vite-ignore */
       `data:text/javascript,${encodeURIComponent(`export default ${LEGACY_ENTRY}`)}`
     );
     module.default(
-      { on: (name: string, handler: Function) => handlers.set(name, handler) },
+      {
+        on: (name: string, handler: (...args: unknown[]) => unknown) => handlers.set(name, handler),
+      },
       { protocol: 1, dataDir: f.dataDir },
     );
     return handlers;
@@ -327,22 +334,22 @@ it("fences actual obsolete writer handlers before retirement and after explicit 
     },
   });
   const old = await oldWriter();
-  await old.get("message_end")!({ message: message() }, context);
-  await old.get("session_shutdown")!({}, context);
+  await requireFixtureValue(old.get("message_end"))({ message: message() }, context);
+  await requireFixtureValue(old.get("session_shutdown"))({}, context);
   const before = await readFile(join(f.directory, "events-v1.jsonl"), "utf8");
   expect(before.split("\n").filter(Boolean)).toHaveLength(3);
   const token = await f.prepare();
   const fenced = await oldWriter();
-  await fenced.get("message_end")!({ message: message() }, context);
-  await fenced.get("session_shutdown")!({}, context);
+  await requireFixtureValue(fenced.get("message_end"))({ message: message() }, context);
+  await requireFixtureValue(fenced.get("session_shutdown"))({}, context);
   expect(await readFile(join(f.directory, "events-v1.jsonl"), "utf8")).toBe(before);
   await f.confirm(token);
   await f.finish();
   await f.control("resume");
   await f.control("install");
   const restarted = await oldWriter();
-  await restarted.get("message_end")!({ message: message() }, context);
-  await restarted.get("session_shutdown")!({}, context);
+  await requireFixtureValue(restarted.get("message_end"))({ message: message() }, context);
+  await requireFixtureValue(restarted.get("session_shutdown"))({}, context);
   await expect(access(join(f.directory, "events-v1.jsonl"))).rejects.toThrow();
 });
 it("requires fresh consent for a changed source and merges already retained bodies without loss", async () => {
@@ -375,7 +382,7 @@ it("rebuilds retained legacy detail after corruption without enabling capture or
     enabled: false,
     workspaces: [{ workspace: "/original", totalTokens: 5, events: 1 }],
   });
-  const db = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")));
   try {
     expect(db.prepare("SELECT captured_cost,occurred_at FROM usage_compact").get()).toEqual({
       captured_cost: 0.25,
@@ -477,7 +484,7 @@ it("upgrades checkpoint schema 2 without new backfill or changing scalar ownersh
   const f = await fixture();
   await f.read();
   await f.read();
-  const db = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")));
   try {
     db.exec("DROP TABLE history_legacy_pending; PRAGMA user_version=2");
   } finally {
@@ -488,7 +495,9 @@ it("upgrades checkpoint schema 2 without new backfill or changing scalar ownersh
   expect(view.collection?.workspaces).toEqual([
     { workspace: "/original", totalTokens: 10, events: 2 },
   ]);
-  const reopened = (await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")))!;
+  const reopened = requireFixtureValue(
+    await openHistoryDatabase(join(f.directory, "usage-v1.sqlite")),
+  );
   try {
     expect(reopened.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
     expect(

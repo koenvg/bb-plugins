@@ -1,6 +1,8 @@
 import { expect, it } from "vitest";
 import { createFakePluginHost, makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "../../plugin/server.js";
+import type { CalendarSnapshot } from "./calendar-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const query = {
   startDate: "2026-09-01",
@@ -307,32 +309,34 @@ it.each([
 });
 
 it.each([
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    v.comparison!.query.startDate = "2026-08-01";
+  (v: CalendarSnapshot) => {
+    requireFixtureValue(v.comparison).query.startDate = "2026-08-01";
   },
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    v.comparison!.query.timezone = "America/New_York";
+  (v: CalendarSnapshot) => {
+    requireFixtureValue(v.comparison).query.timezone = "America/New_York";
   },
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    v.comparison!.query.scope = { kind: "workspace", workspace: "/other" };
+  (v: CalendarSnapshot) => {
+    requireFixtureValue(v.comparison).query.scope = { kind: "workspace", workspace: "/other" };
   },
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    v.comparison!.observedAt = "2026-09-01T00:00:00.000Z";
+  (v: CalendarSnapshot) => {
+    requireFixtureValue(v.comparison).observedAt = "2026-09-01T00:00:00.000Z";
   },
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
+  (v: CalendarSnapshot) => {
     delete v.comparison;
   },
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    v.comparison!.reasons.tokens = "zero-baseline";
+  (v: CalendarSnapshot) => {
+    requireFixtureValue(v.comparison).reasons.tokens = "zero-baseline";
   },
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    if (v.comparison!.prior.state !== "unavailable") {
-      v.comparison!.prior.summary.money.pricedEntities = 61;
+  (v: CalendarSnapshot) => {
+    const { prior } = requireFixtureValue(v.comparison);
+    if (prior.state !== "unavailable") {
+      prior.summary.money.pricedEntities = 61;
     }
   },
-  (v: import("./calendar-contract.js").CalendarSnapshot) => {
-    if (v.comparison!.prior.state !== "unavailable") {
-      v.comparison!.prior.coverage.zero = true;
+  (v: CalendarSnapshot) => {
+    const { prior } = requireFixtureValue(v.comparison);
+    if (prior.state !== "unavailable") {
+      prior.coverage.zero = true;
     }
   },
 ])("rejects incompatible, stale, absent or contradictory prior DTOs %#", async (change) => {
@@ -472,8 +476,11 @@ it.each(
       const value = calendarEmptySnapshot(input, "observed-inactivity");
       if (location === "day") {
         value.days[14].coverage = { ...value.days[14].coverage, ...change };
-      } else if (value.comparison!.prior.state !== "unavailable") {
-        value.comparison!.prior.coverage = { ...value.comparison!.prior.coverage, ...change };
+      } else {
+        const { prior } = requireFixtureValue(value.comparison);
+        if (prior.state !== "unavailable") {
+          prior.coverage = { ...prior.coverage, ...change };
+        }
       }
       return value;
     },

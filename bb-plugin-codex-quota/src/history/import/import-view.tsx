@@ -3,13 +3,13 @@ import { importViewSchema, importUnavailable } from "./import-contract.js";
 import type { ImportCommand, ImportView } from "./import-contract.js";
 import type { HistoryRequest } from "../history-contract.js";
 
-type Props = {
+interface Props {
   selection: { hostId: string | null; generation: number };
   selectionPending?: boolean;
   selectionRevision?: number;
-  isActive?(): boolean;
-  call(input: HistoryRequest & { command: ImportCommand }): Promise<unknown>;
-};
+  isActive?: () => boolean;
+  call: (input: HistoryRequest & { command: ImportCommand }) => Promise<unknown>;
+}
 const reasonText: Record<ImportView["reason"], string> = {
   ok: "Configured sources are not proof of complete host coverage.",
   "not-configured": "BB Pi source root is not configured.",

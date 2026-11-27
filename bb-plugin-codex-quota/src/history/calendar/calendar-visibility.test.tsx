@@ -4,6 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { CalendarValues, UsageTooltip } from "./calendar-view.js";
 import { chartData } from "./calendar-chart-data.js";
 import { calendarMixedMagnitudeSnapshot } from "./calendar-test-support.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const query = {
   startDate: "2026-09-01",
@@ -93,7 +94,7 @@ it("marks an original positive cost even when its drawing ratio underflows", () 
   expect(data.rows[15].height).toBe(0);
   expect(data.rows[15].value).toBe(5e-324);
   const page = render(<CalendarValues view={view} metric="cost" />);
-  const marker = page.container.querySelector(".calendar-positive-usage")!;
+  const marker = requireFixtureValue(page.container.querySelector(".calendar-positive-usage"));
   expect(marker.getAttribute("data-ts-key")).toBe(`positive:${view.days[15].date}`);
   expect(marker.getAttribute("width")).toBe("6");
   expect(marker.getAttribute("height")).toBe("2");

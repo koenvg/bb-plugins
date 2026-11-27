@@ -6,6 +6,7 @@ import { UsageTooltip } from "./calendar-tooltip.js";
 import { calendarDaySchema } from "./calendar-contract.js";
 import { chartData } from "./calendar-chart-data.js";
 import { calendarModelCostSnapshot } from "./calendar-test-support.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const query = {
   startDate: "2026-09-01",
@@ -82,8 +83,8 @@ it.each([
   day.money = { ...money, pricedEntities: 1 };
   day.modelCosts = {
     named: [{ model: "A", money }],
-    other: day.modelCosts!.other,
-    unknown: day.modelCosts!.unknown,
+    other: requireFixtureValue(day.modelCosts).other,
+    unknown: requireFixtureValue(day.modelCosts).unknown,
   };
   render(<UsageTooltip day={day} metric="cost" />);
   const row = within(screen.getByLabelText("Captured cost by model")).getByRole("listitem");

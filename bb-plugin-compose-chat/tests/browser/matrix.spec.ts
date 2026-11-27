@@ -125,7 +125,7 @@ const cases = [
     touch: true,
     split: "draft",
   },
-] satisfies Array<{
+] satisfies {
   name: string;
   width: number;
   height: number;
@@ -137,7 +137,7 @@ const cases = [
   long?: boolean;
   split?: string;
   screenshot?: string;
-}>;
+}[];
 
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
@@ -199,7 +199,11 @@ for (const entry of cases) {
       if (entry.screenshot) {
         await page.evaluate(() => {
           scrollTo(0, 0);
-          document.querySelector(".thread")!.scrollTop = 0;
+          const element2 = document.querySelector(".thread");
+          if (element2 == null) {
+            throw new Error('Missing browser fixture value: document.querySelector(".thread")');
+          }
+          element2.scrollTop = 0;
           (document.activeElement as HTMLElement).blur();
         });
         // Match the old capture settling interval after blur and scroll.

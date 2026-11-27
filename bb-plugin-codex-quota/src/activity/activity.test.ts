@@ -1,24 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { normalizeActivity } from "./activity.js";
 import { activityViewSchema } from "./activity-contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const time = Date.UTC(2026, 3, 23, 12);
 describe("independent account activity normalization", () => {
   it("keeps each missing/invalid summary unknown, not zero", () => {
-    const snapshot = normalizeActivity(
-      {
-        profile: {
-          stats: {
-            lifetime_tokens: 0,
-            peak_daily_tokens: -1,
-            longest_running_turn_sec: 1.5,
-            current_streak_days: "3",
-            longest_streak_days: Infinity,
+    const snapshot = requireFixtureValue(
+      normalizeActivity(
+        {
+          profile: {
+            stats: {
+              lifetime_tokens: 0,
+              peak_daily_tokens: -1,
+              longest_running_turn_sec: 1.5,
+              current_streak_days: "3",
+              longest_streak_days: Infinity,
+            },
           },
         },
-      },
-      time,
-    )!;
+        time,
+      ),
+    );
     expect(snapshot.summary).toEqual({
       lifetimeTokens: 0,
       peakDailyTokens: null,
@@ -34,18 +37,20 @@ describe("independent account activity normalization", () => {
     );
   });
   it("sorts supported dates, derives UTC Monday weeks and returned-bucket cumulative totals", () => {
-    const snapshot = normalizeActivity(
-      {
-        stats: {
-          daily_usage_buckets: [
-            { start_date: "2026-04-20", tokens: 10 },
-            { date: "2026-04-19", tokens: 5 },
-            { date: "2026-04-22", tokens: 0 },
-          ],
+    const snapshot = requireFixtureValue(
+      normalizeActivity(
+        {
+          stats: {
+            daily_usage_buckets: [
+              { start_date: "2026-04-20", tokens: 10 },
+              { date: "2026-04-19", tokens: 5 },
+              { date: "2026-04-22", tokens: 0 },
+            ],
+          },
         },
-      },
-      time,
-    )!;
+        time,
+      ),
+    );
     expect(snapshot.daily).toEqual([
       { date: "2026-04-19", tokens: 5 },
       { date: "2026-04-20", tokens: 10 },
@@ -79,10 +84,9 @@ describe("independent account activity normalization", () => {
   )(
     "does not claim complete derived data from malformed/duplicate/oversize buckets",
     (daily_usage_buckets) => {
-      const snapshot = normalizeActivity(
-        { stats: { lifetime_tokens: 4, daily_usage_buckets } },
-        time,
-      )!;
+      const snapshot = requireFixtureValue(
+        normalizeActivity({ stats: { lifetime_tokens: 4, daily_usage_buckets } }, time),
+      );
       expect(snapshot.summary.lifetimeTokens).toBe(4);
       expect(snapshot.daily).toBeNull();
       expect(snapshot.weekly).toBeNull();
@@ -90,32 +94,36 @@ describe("independent account activity normalization", () => {
     },
   );
   it("keeps valid daily buckets when derived sums overflow", () => {
-    const snapshot = normalizeActivity(
-      {
-        stats: {
-          daily_usage_buckets: [
-            { date: "2026-04-20", tokens: Number.MAX_SAFE_INTEGER },
-            { date: "2026-04-21", tokens: 1 },
-          ],
+    const snapshot = requireFixtureValue(
+      normalizeActivity(
+        {
+          stats: {
+            daily_usage_buckets: [
+              { date: "2026-04-20", tokens: Number.MAX_SAFE_INTEGER },
+              { date: "2026-04-21", tokens: 1 },
+            ],
+          },
         },
-      },
-      time,
-    )!;
+        time,
+      ),
+    );
     expect(snapshot.daily).toHaveLength(2);
     expect(snapshot.weekly).toBeNull();
     expect(snapshot.cumulative).toBeNull();
   });
   it("never copies arbitrary strings, claims, emails or raw fields", () => {
     const secret = "sentinel-sensitive@example.invalid";
-    const snapshot = normalizeActivity(
-      {
-        email: secret,
-        profile: { email: secret },
-        stats: { lifetime_tokens: 4, raw: secret },
-        metadata: { generated_at: secret },
-      },
-      time,
-    )!;
+    const snapshot = requireFixtureValue(
+      normalizeActivity(
+        {
+          email: secret,
+          profile: { email: secret },
+          stats: { lifetime_tokens: 4, raw: secret },
+          metadata: { generated_at: secret },
+        },
+        time,
+      ),
+    );
     expect(JSON.stringify(snapshot)).not.toContain(secret);
     expect(
       activityViewSchema.safeParse({

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 
 export type Metric = "tokens" | "cost";
-export type AxNode = {
+export interface AxNode {
   nodeId: string;
   ignored?: boolean;
   role?: { value?: string };
   name?: { value?: string };
   childIds?: string[];
-};
+}
 export function accessibleFacts(
   nodes: AxNode[],
   rows: string[][],

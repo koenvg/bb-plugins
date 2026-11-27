@@ -11,6 +11,7 @@ import { footerFixture } from "./footer-fixture.test-support.js";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import { accountsFixture } from "../machines/machines.test-support.js";
 import type { QuotaStatus } from "../quota/contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("../plugin/app.js"));
 const disposers: (() => void | Promise<void>)[] = [];
@@ -28,14 +29,14 @@ const options = {
 };
 function mountRefresh(config: Parameters<typeof renderSlot>[2]) {
   const owner = renderSlot(
-    app.appOverlays.find((slot) => slot.id === "quota-refresh")!,
+    requireFixtureValue(app.appOverlays.find((slot) => slot.id === "quota-refresh")),
     {},
     config,
   );
   disposers.push(() => owner.lifecycle.unmount());
   return owner;
 }
-const footerSlot = app.appOverlays.find((slot) => slot.id === "quota-footer")!;
+const footerSlot = requireFixtureValue(app.appOverlays.find((slot) => slot.id === "quota-footer"));
 const host = makeHostResponse({ id: "host_1", name: "My Mac", status: "connected" });
 const fresh = (remainingPercent: number) => ({
   state: "fresh" as const,
@@ -54,8 +55,8 @@ const fresh = (remainingPercent: number) => ({
 function accountResult(quota: QuotaStatus) {
   const data = accountsFixture(Date.now());
   data.machines = [{ id: host.id, name: host.name, status: "connected" }];
-  data.accounts[0]!.machines = [host.id];
-  data.accounts[0]!.quota = quota;
+  data.accounts[0].machines = [host.id];
+  data.accounts[0].quota = quota;
   return data;
 }
 describe("Codex quota footer integration", () => {
@@ -67,7 +68,7 @@ describe("Codex quota footer integration", () => {
     expect(app.navPanels[0]?.icon).toBe(branding.icon);
     const icon = app.icons.find(({ name }) => name === branding.icon);
     expect(icon).toBeDefined();
-    const Battery = icon!.component;
+    const Battery = requireFixtureValue(icon).component;
     const timers = vi.spyOn(globalThis, "setInterval");
     const rendered = render(<Battery className="size-4" />);
     expect(rendered.container.querySelector("[data-quota-battery]")?.getAttribute("class")).toBe(
@@ -119,7 +120,9 @@ describe("Codex quota footer integration", () => {
           `${percentage}%`,
         ),
       );
-      const value = button.querySelector<HTMLElement>("[data-codex-quota-badge] > [title]")!;
+      const value = requireFixtureValue(
+        button.querySelector<HTMLElement>("[data-codex-quota-badge] > [title]"),
+      );
       expect(getComputedStyle(value).minWidth).toBe("4ch");
       expect(getComputedStyle(value).width).toBe("auto");
       expect(getComputedStyle(value).whiteSpace).toBe("nowrap");
@@ -154,9 +157,9 @@ describe("Codex quota footer integration", () => {
         reason,
         snapshot: state === "stale" ? fresh(72).snapshot : null,
       });
-      data.accounts[0]!.identity = identity;
+      data.accounts[0].identity = identity;
       if (reason === "host-offline") {
-        data.machines[0]!.status = "disconnected";
+        data.machines[0].status = "disconnected";
       }
       const config = { rpc: { machineAccountsV2: async () => data } };
       mountRefresh(config);
@@ -254,9 +257,9 @@ describe("Codex quota footer integration", () => {
     const config = { rpc: { machineAccountsV2: api } };
     mountRefresh(config);
     renderSlot(footerSlot, {}, config);
-    const Battery = app.icons[0]!.component;
+    const Battery = app.icons[0].component;
     const icon = render(<Battery />);
-    renderSlot(app.navPanels[0]!, { subPath: "" }, config);
+    renderSlot(app.navPanels[0], { subPath: "" }, config);
     await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
     await act(async () => {
       resolve(accountResult(fresh(72)));
@@ -279,7 +282,7 @@ describe("Codex quota footer integration", () => {
     expect(clocks).toHaveLength(1);
     clock.mockReturnValue(initial + 6 * 60_000);
     act(() => {
-      (clocks[0]![0] as () => void)();
+      (clocks[0][0] as () => void)();
     });
     expect(button.querySelector("[data-codex-quota-badge] > [title]")?.textContent).toBe("72%");
     expect(icon.container.querySelector("[data-battery-fill]")).toBeNull();
@@ -295,7 +298,7 @@ describe("Codex quota footer integration", () => {
       }),
     ).toBe(button);
     clock.mockReturnValue(initial + 86_400_001);
-    act(() => (clocks[0]![0] as () => void)());
+    act(() => (clocks[0][0] as () => void)());
     expect(within(tooltip).getByText("unavailable · Observation expired").textContent).toBe(
       "unavailable · Observation expired",
     );
@@ -342,7 +345,7 @@ describe("Codex quota footer integration", () => {
       const owner = mountRefresh({
         rpc: { machineAccountsV2: async () => accountResult(fresh(72)) },
       });
-      const Battery = app.icons[0]!.component;
+      const Battery = app.icons[0].component;
       const icon = render(<Battery />);
       await waitFor(() => expect(icon.container.querySelector("[data-battery-fill]")).toBeTruthy());
       owner.lifecycle.unmount();

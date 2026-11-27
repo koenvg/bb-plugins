@@ -2,22 +2,24 @@ import { test as base, expect, type Locator, type TestInfo } from "@playwright/t
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { crc32, deflateSync } from "node:zlib";
+import type { Page } from "@playwright/test";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 // All browser contexts are fresh and owned by Playwright. Unexpected traffic is
 // blocked, then fails the test. Suite-specific page routes supply synthetic images.
-export const test = base.extend<{ localTraffic: void; pageErrors: string[] }>({
+export const test = base.extend<{ localTraffic: undefined; pageErrors: string[] }>({
   localTraffic: [
     async ({ context, baseURL }, use) => {
       const blocked: string[] = [];
       await context.route("**/*", async (route) => {
         const url = new URL(route.request().url());
-        if (url.origin === new URL(baseURL!).origin) await route.continue();
+        if (url.origin === new URL(requireFixtureValue(baseURL)).origin) await route.continue();
         else {
           blocked.push(url.href);
           await route.abort("blockedbyclient");
         }
       });
-      await use();
+      await use(undefined);
       expect(blocked, "No real remote traffic is allowed").toEqual([]);
     },
     { auto: true },
@@ -44,7 +46,7 @@ export async function results(info: TestInfo, value: object) {
   });
 }
 
-export async function capture(page: import("@playwright/test").Page, info: TestInfo, name: string) {
+export async function capture(page: Page, info: TestInfo, name: string) {
   const path = info.outputPath(`${name}.png`);
   const bytes = await page.screenshot({ path });
   await info.attach(name, { path, contentType: "image/png" });
@@ -100,8 +102,14 @@ export async function focusProof(locator: Locator) {
 
 export const revealed = (target: Locator) =>
   target.evaluate((e) => {
-    const panel = e.closest(".markdown-reader")!,
+    const ancestor = e.closest(".markdown-reader");
+    if (ancestor == null)
+      throw new Error('Missing browser fixture value: e.closest(".markdown-reader")');
+    const panel = ancestor,
       r = e.getBoundingClientRect();
-    const toolbar = panel.querySelector(".mr-toolbar")!.getBoundingClientRect();
+    const element = panel.querySelector(".mr-toolbar");
+    if (element == null)
+      throw new Error('Missing browser fixture value: panel.querySelector(".mr-toolbar")');
+    const toolbar = element.getBoundingClientRect();
     return r.top >= toolbar.bottom && r.top < panel.getBoundingClientRect().bottom;
   });

@@ -5,11 +5,11 @@ import type { HistoryRequest } from "../history-contract.js";
 import { historyReadinessSchema } from "../history-contract.js";
 import type { SelectedHost } from "../../selection/selected-host.js";
 
-type Dependencies = {
+interface Dependencies {
   session: SelectedHost;
   sdk: Pick<BbPluginApi["sdk"], "environments">;
-  prepare(input: HistoryRequest): Promise<unknown>;
-  call(
+  prepare: (input: HistoryRequest) => Promise<unknown>;
+  call: (
     hostId: string,
     signal: AbortSignal,
     input: {
@@ -17,8 +17,8 @@ type Dependencies = {
       command: ImportCommand;
       knownWorkspaces: string[];
     },
-  ): Promise<unknown>;
-};
+  ) => Promise<unknown>;
+}
 export function createImportHandler(deps: Dependencies) {
   const work = new Map<AbortController, HistoryRequest>();
   return async (input: HistoryRequest & { command: ImportCommand }) => {

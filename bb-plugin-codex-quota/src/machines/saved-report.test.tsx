@@ -32,8 +32,8 @@ function observation(q: CalendarQuery, tokens = 1200, cached = false) {
       throw new Error("Fixture unavailable");
     }
     const report = row.report;
-    report.days[14]!.totalTokens = report.summary.totalTokens = tokens / 2;
-    report.days[14]!.classes = { state: "unavailable" };
+    report.days[14].totalTokens = report.summary.totalTokens = tokens / 2;
+    report.days[14].classes = { state: "unavailable" };
   }
   return value;
 }
@@ -72,7 +72,7 @@ it("renders saved 1200 and cost 6 in the real dashboard before live and preparat
   expect(f.machineReports.mock.calls.length).toBe(count);
   await act(async () =>
     live.resolve(
-      observation((f.machineReports.mock.calls[0]![0] as { query: CalendarQuery }).query, 1800),
+      observation((f.machineReports.mock.calls[0][0] as { query: CalendarQuery }).query, 1800),
     ),
   );
   await waitFor(() =>

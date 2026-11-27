@@ -287,7 +287,7 @@ function parseFileDiff(file: ReviewFile): FileDiffMetadata | null {
   }
   try {
     const files = parsePatchFiles(patch, undefined, true).flatMap((parsed) => parsed.files);
-    return files.length === 1 ? files[0]! : null;
+    return files.length === 1 ? files[0] : null;
   } catch {
     return null;
   }

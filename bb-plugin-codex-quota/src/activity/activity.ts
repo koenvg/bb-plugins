@@ -2,7 +2,10 @@
 import { MAX_ACTIVITY_BUCKETS } from "./activity-contract.js";
 import type { ActivitySnapshot } from "./activity-contract.js";
 
-type Bucket = { date: string; tokens: number };
+interface Bucket {
+  date: string;
+  tokens: number;
+}
 const record = (value: unknown): Record<string, unknown> | null =>
   value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

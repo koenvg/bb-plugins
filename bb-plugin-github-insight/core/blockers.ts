@@ -87,7 +87,7 @@ export function buildBlockers(input: BlockerInput): Blocker[] {
       waiting.length > 0,
       {
         code: "checks_waiting",
-        text: `${waiting.length === 1 ? waiting[0]!.name : countOf(waiting.length, "check")} waiting for you`,
+        text: `${waiting.length === 1 ? waiting[0].name : countOf(waiting.length, "check")} waiting for you`,
       },
     ],
     [

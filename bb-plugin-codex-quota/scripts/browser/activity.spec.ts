@@ -26,7 +26,10 @@ test("activity early desktop and 375px preview", async ({ page }, info) => {
   await capture(page, info, "early-375-open");
   await noOverflow(page);
   const metrics = await page.evaluate(() => {
-    const region = document.querySelector('section[aria-label="Account-wide daily token table"]')!;
+    const region = document.querySelector('section[aria-label="Account-wide daily token table"]');
+    if (!region) {
+      throw new Error("Missing account-wide daily token table");
+    }
     return {
       width: innerWidth,
       pageWidth: document.documentElement.scrollWidth,
@@ -40,10 +43,10 @@ test("activity early desktop and 375px preview", async ({ page }, info) => {
   await page.keyboard.press("Tab");
   await expect(page.getByRole("region", { name: "Account-wide daily token table" })).toBeFocused();
   await page.keyboard.press("ArrowDown");
-  await page.waitForFunction(
-    () =>
-      document.querySelector('section[aria-label="Account-wide daily token table"]')!.scrollTop > 0,
-  );
+  await page.waitForFunction(() => {
+    const section = document.querySelector('section[aria-label="Account-wide daily token table"]');
+    return section !== null && section.scrollTop > 0;
+  });
   await page.getByRole("combobox", { name: "Account activity period" }).selectOption("weekly");
   await expect(page.getByText("weekly activity unknown.", { exact: true })).toBeVisible();
   await expect(page.locator("body")).toHaveAttribute("data-activity-calls", "1");

@@ -7,6 +7,7 @@ import type { HistoryDatabase } from "../storage/history-storage.js";
 import { initializeHistory } from "../storage/history-projection.js";
 import { acceptIdentityBatch } from "../identity/identity-storage.js";
 import { executeImport } from "./import-engine.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 it.each([false, true])(
   "commits missing headers atomically and yields to cancellation=%s",
@@ -20,7 +21,7 @@ it.each([false, true])(
       const workspace = join(root, "workspace");
       await mkdir(source);
       await mkdir(workspace);
-      db = (await openHistoryDatabase(path))!;
+      db = requireFixtureValue(await openHistoryDatabase(path));
       initializeHistory(db, "2026-10-01T00:00:00Z", false);
       acceptIdentityBatch(db, {
         hostId: "host-a",
@@ -50,9 +51,13 @@ it.each([false, true])(
       expect(started.generation).toMatchObject({ state: "stopped", candidates: 50, finished: 0 });
       // A second connection observes real commits. SQLite can elide unchanged
       // UPDATEs, so counting statements alone overstates durable disk work.
-      observer = (await openHistoryDatabase(path, true))!;
+      observer = requireFixtureValue(await openHistoryDatabase(path, true));
       const dataVersion = () =>
-        (observer!.prepare("PRAGMA data_version").get() as { data_version: number }).data_version;
+        (
+          requireFixtureValue(observer).prepare("PRAGMA data_version").get() as {
+            data_version: number;
+          }
+        ).data_version;
       let version = dataVersion();
       let durableCommits = 0;
       const observeCommit = () => {
@@ -125,7 +130,7 @@ it.each([false, true])(
       expect(standalone).toBe(cancel ? 1 : 0);
       db.close();
       db = undefined;
-      db = (await openHistoryDatabase(path))!;
+      db = requireFixtureValue(await openHistoryDatabase(path));
       expect(
         db
           .prepare(

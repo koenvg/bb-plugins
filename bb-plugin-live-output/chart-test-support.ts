@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, vi } from "vitest";
 import { fireEvent } from "@testing-library/react";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 let restore = () => {};
 beforeEach(() => {
@@ -16,7 +17,7 @@ beforeEach(() => {
   };
   const html = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(bounds);
   const svg = vi.spyOn(SVGElement.prototype, "getBoundingClientRect").mockReturnValue(bounds);
-  const width = Object.getOwnPropertyDescriptor(window, "innerWidth")!;
+  const width = requireFixtureValue(Object.getOwnPropertyDescriptor(window, "innerWidth"));
   Object.defineProperty(window, "innerWidth", { configurable: true, value: 2400 });
   restore = () => {
     html.mockRestore();
@@ -37,5 +38,8 @@ export function move(chart: Element, options: { clientX: number; clientY?: numbe
   fireEvent(chart, new MouseEvent("pointermove", { bubbles: true, clientY: 110, ...options }));
 }
 export function leave(chart: Element) {
-  fireEvent(chart.parentElement!, new MouseEvent("mouseleave", { bubbles: false }));
+  fireEvent(
+    requireFixtureValue(chart.parentElement),
+    new MouseEvent("mouseleave", { bubbles: false }),
+  );
 }

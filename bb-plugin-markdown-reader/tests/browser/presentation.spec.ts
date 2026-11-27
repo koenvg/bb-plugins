@@ -1,5 +1,6 @@
 import { test, expect, raster, capture, results, focusProof } from "./fixture";
 import { geometry as measureGeometry, contrast as measureContrast } from "./presentation-measures";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const png = raster(1200, 600, [100, 130, 150]);
 const cases = [
@@ -71,8 +72,12 @@ for (const { width, theme, viewport, name } of cases) {
       expect(geometry.pathTruncated).toBe(true);
       expect(geometry.buttons.every((b) => b.inside && b.height === 28)).toBe(true);
       expect(geometry.buttons).toHaveLength(4);
-      expect(geometry.code.at(-1)!.scrollWidth).toBeGreaterThan(geometry.code.at(-1)!.width);
-      expect(geometry.tables.at(-1)!.scrollWidth).toBeGreaterThan(geometry.tables.at(-1)!.width);
+      expect(requireFixtureValue(geometry.code.at(-1)).scrollWidth).toBeGreaterThan(
+        requireFixtureValue(geometry.code.at(-1)).width,
+      );
+      expect(requireFixtureValue(geometry.tables.at(-1)).scrollWidth).toBeGreaterThan(
+        requireFixtureValue(geometry.tables.at(-1)).width,
+      );
       expect(geometry.image.width).toBeLessThanOrEqual(geometry.proseWidth);
       expect(Math.abs(geometry.image.width / geometry.image.height - 2)).toBeLessThan(0.01);
       const headingCounts = await Promise.all(
@@ -211,8 +216,10 @@ for (const { width, theme, viewport, name } of cases) {
         toolbar = await page.locator(".mr-toolbar").boundingBox();
       expect(hr).not.toBeNull();
       expect(toolbar).not.toBeNull();
-      expect(hr!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height - 2);
-      expect(hr!.y).toBeLessThan(1000);
+      expect(requireFixtureValue(hr).y).toBeGreaterThanOrEqual(
+        requireFixtureValue(toolbar).y + requireFixtureValue(toolbar).height - 2,
+      );
+      expect(requireFixtureValue(hr).y).toBeLessThan(1000);
       await page.getByRole("link", { name: "Go to the final section", exact: true }).focus();
       await page.keyboard.press("Enter");
       expect(await heading.evaluate((e) => document.activeElement === e)).toBe(true);
@@ -240,11 +247,22 @@ for (const { width, theme, viewport, name } of cases) {
         ),
       ).toBe(1);
       expect(await page.evaluate("presentationFixture.inspection.navigateCalls.length")).toBe(0);
-      const sentinelStyles = await page.locator(".fixture-sentinel").evaluate((e) => ({
-        heading: getComputedStyle(e.querySelector("h2")!).fontSize,
-        paragraphMargin: getComputedStyle(e.querySelector("p")!).marginTop,
-        buttonOutline: getComputedStyle(e.querySelector("button")!).outlineStyle,
-      }));
+      const sentinelStyles = await page.locator(".fixture-sentinel").evaluate((e) => {
+        const element = e.querySelector("h2");
+        if (element == null)
+          throw new Error('Missing browser fixture value: e.querySelector("h2")');
+        const element2 = e.querySelector("p");
+        if (element2 == null)
+          throw new Error('Missing browser fixture value: e.querySelector("p")');
+        const element3 = e.querySelector("button");
+        if (element3 == null)
+          throw new Error('Missing browser fixture value: e.querySelector("button")');
+        return {
+          heading: getComputedStyle(element).fontSize,
+          paragraphMargin: getComputedStyle(element2).marginTop,
+          buttonOutline: getComputedStyle(element3).outlineStyle,
+        };
+      });
       expect(sentinelStyles).toEqual({
         heading: "13px",
         paragraphMargin: "0px",

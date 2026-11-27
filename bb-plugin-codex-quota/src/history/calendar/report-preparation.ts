@@ -81,7 +81,7 @@ export function useReportPreparation(
       try {
         const refresh = batches === 0;
         batches += 1;
-        const value = await api.current!({ ...frozen, refresh });
+        const value = await api.current?.({ ...frozen, refresh });
         if (!valid() || epoch !== visibilityEpoch) {
           return;
         }

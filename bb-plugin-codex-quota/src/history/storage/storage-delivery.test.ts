@@ -10,13 +10,14 @@ import { openHistoryDatabase } from "./history-storage.js";
 import { createIdentityHistoryCall } from "../identity/identity-server.js";
 import { historyReadinessSchema } from "../history-contract.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 it("redelivers an unchanged cached catalog after host recovery without changing its fingerprint or generation", async () => {
   const root = await mkdtemp(join(tmpdir(), "bbp16-delivery-"));
   const directory = join(root, "data/history");
   const dataDir = join(root, "data");
   await mkdir(directory, { recursive: true });
-  const db = (await openHistoryDatabase(join(root, "server.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "server.sqlite")));
   let sdkCalls = 0;
   const fake = createFakePluginHost({
     pluginId: "storage-delivery",

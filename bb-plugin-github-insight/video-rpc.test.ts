@@ -3,6 +3,7 @@ import { setup, linkedPr, ok, prHeadResponse } from "./test/plugin-harness";
 import { imageBasisKey } from "./core/pr-image-basis";
 import type { ReviewResult } from "./contract";
 import threads from "./test/fixtures/pr-25259-review-threads.json";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const headSha = "1111111111111111111111111111111111111111";
 const baseSha = "2222222222222222222222222222222222222222";
@@ -46,7 +47,11 @@ async function fixture(status = "renamed", path = "new.webm") {
   return {
     harness,
     review,
-    request: { threadId: "thr_1", expectedBasisKey: imageBasisKey(review.imageBasis!), path },
+    request: {
+      threadId: "thr_1",
+      expectedBasisKey: imageBasisKey(requireFixtureValue(review.imageBasis)),
+      path,
+    },
   };
 }
 describe("PR video public loader", () => {

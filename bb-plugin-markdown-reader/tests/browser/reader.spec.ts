@@ -11,16 +11,26 @@ for (const [width, theme] of [
     await page.goto(`/?width=${width}&theme=${theme}`);
     await page.getByRole("heading", { name: "Reading a workspace document" }).waitFor();
     const geometry = await page.locator(".markdown-reader").evaluate((e) => {
-      const prose = e.querySelector<HTMLElement>(".mr-prose")!;
+      const prose = e.querySelector<HTMLElement>(".mr-prose");
+      if (prose == null)
+        throw new Error('Missing browser fixture value: e.querySelector<HTMLElement>(".mr-prose")');
+      const element = e.querySelector<HTMLElement>(".mr-toolbar");
+      if (element == null)
+        throw new Error(
+          'Missing browser fixture value: e.querySelector<HTMLElement>(".mr-toolbar")',
+        );
       const ps = getComputedStyle(prose),
-        toolbar = e.querySelector<HTMLElement>(".mr-toolbar")!;
+        toolbar = element;
+      const element2 = e.querySelector(".mr-content");
+      if (element2 == null)
+        throw new Error('Missing browser fixture value: e.querySelector(".mr-content")');
       return {
         width: e.clientWidth,
         scrollWidth: e.scrollWidth,
         proseWidth: prose.clientWidth,
         fontSize: ps.fontSize,
         lineHeight: ps.lineHeight,
-        contentPadding: getComputedStyle(e.querySelector(".mr-content")!).padding,
+        contentPadding: getComputedStyle(element2).padding,
         toolbarHeight: toolbar.clientHeight,
         buttonsInside: Array.from(toolbar.querySelectorAll("button")).every((b) => {
           const r = b.getBoundingClientRect(),

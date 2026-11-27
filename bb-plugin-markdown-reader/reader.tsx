@@ -12,7 +12,8 @@ import type { ReaderTarget, ReadResult, TextSnapshot } from "./source";
 import { revealInReader } from "./navigation";
 import { DestinationProvider, type ResolveDocumentDestinations } from "./destination-view";
 import { SelectionAction, type ExcerptDestination } from "./selection";
-const NO_DESTINATIONS: import("./destination-types").DestinationRequest[] = [];
+import type { DestinationRequest } from "./destination-types";
+const NO_DESTINATIONS: DestinationRequest[] = [];
 
 export type ReadDocument = (target: ReaderTarget) => Promise<ReadResult>;
 export interface ReaderProps {
@@ -157,11 +158,12 @@ export const Reader = ({
                 </div>
               )}
               {snapshot &&
+                model &&
                 (snapshot.text === "" && view === "preview" ? (
                   <output className="block mr-state">This file is empty.</output>
                 ) : (
                   <MarkdownDocument
-                    model={model!}
+                    model={model}
                     view={view}
                     destinations={destinations}
                     outline={showOutline}

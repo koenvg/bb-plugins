@@ -1,6 +1,7 @@
 import { test, expect, jsonEvidence } from "./fixtures.js";
 import { chart, rows, tooltip } from "./calendar-driver.js";
 import { layout } from "./chart-layout.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 test("large mobile token tooltip fits when the cost subtotal wraps", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
@@ -10,9 +11,9 @@ test("large mobile token tooltip fits when the cost subtotal wraps", async ({ pa
     content: '[aria-label="Captured cost subtotal"] { max-width: 300px; }',
   });
   await chart(page);
-  expect((await page.getByLabel("Captured cost subtotal").boundingBox())!.height).toBeGreaterThan(
-    40,
-  );
+  expect(
+    requireFixtureValue(await page.getByLabel("Captured cost subtotal").boundingBox()).height,
+  ).toBeGreaterThan(40);
   await tooltip(page, "tokens", await rows(page));
   expect((await layout(page)).tooltipContained).toBe(true);
 });
@@ -91,7 +92,7 @@ test("metric switch waits for keyboard frames before proving hover", async ({ pa
   expect(keyboardFrames.length).toBeGreaterThan(0);
   expect(keyboardFrames.every((pending) => pending === 0)).toBe(true);
   expect(facts.pointer).not.toBeNull();
-  expect(facts.pointer!.fromDate).toBe(dailyRows[13][0]);
+  expect(facts.pointer.fromDate).toBe(dailyRows[13][0]);
   await jsonEvidence(info, "deferred-frame-tooltip.json", facts);
 });
 
@@ -122,9 +123,18 @@ for (const metric of ["tokens", "cost"] as const) {
         ) {
           return;
         }
-        const container = document.querySelector<HTMLElement>(".ts-chart-host")!;
+        const container = document.querySelector<HTMLElement>(".ts-chart-host");
+        if (container == null) {
+          throw new Error(
+            'Missing browser fixture value: document.querySelector<HTMLElement>(".ts-chart-host")',
+          );
+        }
         const before = container.getBoundingClientRect().top;
-        container.parentElement!.style.paddingTop = "60px";
+        const parentElement2 = container.parentElement;
+        if (parentElement2 == null) {
+          throw new Error("Missing browser fixture value: container.parentElement");
+        }
+        parentElement2.style.paddingTop = "60px";
         window.tooltipLayoutShift = {
           before,
           after: container.getBoundingClientRect().top,
@@ -138,10 +148,10 @@ for (const metric of ["tokens", "cost"] as const) {
     const facts = await tooltip(page, metric, dailyRows);
     const shift = await page.evaluate(() => window.tooltipLayoutShift);
     expect(shift).toBeDefined();
-    expect(shift!.after - shift!.before).toBe(60);
-    expect(shift!.trusted).toBe(true);
+    expect(requireFixtureValue(shift).after - requireFixtureValue(shift).before).toBe(60);
+    expect(requireFixtureValue(shift).trusted).toBe(true);
     expect(facts.pointer).not.toBeNull();
-    expect(facts.pointer!.fromDate).toBe(dailyRows[13][0]);
+    expect(facts.pointer.fromDate).toBe(dailyRows[13][0]);
     await expect(page.locator(".calendar-tooltip time")).toHaveAttribute(
       "datetime",
       dailyRows[14][0],

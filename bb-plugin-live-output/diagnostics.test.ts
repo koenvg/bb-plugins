@@ -179,9 +179,9 @@ describe("safe read failure diagnostics", () => {
         at: epoch + (i + 1) * 3000,
       })),
     );
-    snapshot.recentFailures[0]!.at = 1;
+    snapshot.recentFailures[0].at = 1;
     snapshot.recentFailures.length = 0;
-    expect(s.collector.snapshot().recentFailures[0]!.at).toBe(epoch + 3000);
+    expect(s.collector.snapshot().recentFailures[0].at).toBe(epoch + 3000);
     expect(s.collector.snapshot().recentFailures).toHaveLength(20);
   });
 

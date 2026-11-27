@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { PluginSettingsSectionProps } from "@get-bb/plugin-sdk/app";
 import "./dialog-test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, screen, within } from "@testing-library/react";
@@ -6,14 +7,15 @@ import userEvent from "@testing-library/user-event";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
-import type { ProjectState, PromptResult, SettingsContract } from "./rpc";
+import type { ProjectSummary, ProjectState, PromptResult, SettingsContract } from "./rpc";
 import plugin from "./server";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
-const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
+const hosts: ReturnType<typeof createFakePluginHost>["harness"][] = [];
 afterEach(async () => {
   cleanup();
   while (hosts.length) {
-    await hosts.pop()!.lifecycle.dispose();
+    await requireFixtureValue(hosts.pop()).lifecycle.dispose();
   }
 });
 const choices = [
@@ -39,7 +41,7 @@ function deferred<T>() {
 }
 async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>> = {}) {
   const app = await loadPluginApp(() => import("./app"));
-  return renderSlot<{}, SettingsContract>(
+  return renderSlot<PluginSettingsSectionProps, SettingsContract>(
     app.settingsSections[0],
     {},
     {
@@ -99,7 +101,7 @@ async function setupHost() {
   const handlers: PluginRpcTestHandlers<SettingsContract> = {
     listProjects: async (input) => (await call("listProjects", input)) as typeof choices,
     listProjectSummaries: async (input) =>
-      (await call("listProjectSummaries", input)) as import("./rpc").ProjectSummary[],
+      (await call("listProjectSummaries", input)) as ProjectSummary[],
     getProject: async (input) => (await call("getProject", input)) as ProjectState,
     setEnablement: async (input) => (await call("setEnablement", input)) as ProjectState,
     setPrompt: async (input) => (await call("setPrompt", input)) as PromptResult,
@@ -119,7 +121,7 @@ describe("Settings invalidation and conflict recovery", () => {
     await userEvent.click(uiA.getByRole("button", { name: "Save" }));
     expect(uiA.queryByRole("dialog")).toBeNull();
     await select(a);
-    const signal = host.harness.inspection.realtimeSignals.at(-1)!;
+    const signal = requireFixtureValue(host.harness.inspection.realtimeSignals.at(-1));
     await b.behavior.emitRealtime(signal.channel, signal.payload);
     await uiB.findByText(/Saved settings changed/);
     expect(draftB.value).toBe("Client B\n");
@@ -153,7 +155,7 @@ describe("Settings invalidation and conflict recovery", () => {
     expect(uiB.queryByText(/Prompt conflict/)).toBeNull();
     expect(b.inspection.rpcCalls.filter((c) => c.method === "setPrompt")).toHaveLength(1);
     await host.harness.behavior.runCli(["prompt", "set", "--project", "proj_a", "--text", "CLI\n"]);
-    const cliSignal = host.harness.inspection.realtimeSignals.at(-1)!;
+    const cliSignal = requireFixtureValue(host.harness.inspection.realtimeSignals.at(-1));
     await a.behavior.emitRealtime(cliSignal.channel, cliSignal.payload);
     await b.behavior.emitRealtime(cliSignal.channel, cliSignal.payload);
     expect((uiA.getByRole("textbox") as HTMLTextAreaElement).value).toBe("CLI\n");

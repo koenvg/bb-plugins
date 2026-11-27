@@ -1,16 +1,19 @@
 // No provider identity/Pi session ID equality, path heuristics or timestamp joins.
-export type IdentityEdge = { providerIdentity: string; threadId: string };
-export type ConfirmedRelationship = {
+export interface IdentityEdge {
+  providerIdentity: string;
+  threadId: string;
+}
+export interface ConfirmedRelationship {
   sessionId: string;
   providerIdentity: string;
   workspace: string;
-};
-export type IdentityRecord = {
+}
+export interface IdentityRecord {
   sessionId: string;
   providerSessionKey: string | null;
   claimedThreadId: string | null;
   workspace: string | null;
-};
+}
 export type AttributionGrade = "exact-thread" | "workspace-only" | "ambiguous" | "unattributed";
 export const validThreadId = (id: string) => /^thr_[A-Za-z0-9_-]{1,124}$/.test(id);
 export function resolveIdentity(
@@ -55,7 +58,7 @@ export function resolveCandidates(
   if (!complete || candidates.size !== 1) {
     return fallback;
   }
-  const threadId = [...candidates][0]!;
+  const threadId = [...candidates][0];
   return validThreadId(threadId)
     ? { grade: "exact-thread", threadId }
     : { grade: "ambiguous", threadId: null };

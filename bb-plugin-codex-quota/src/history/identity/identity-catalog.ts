@@ -3,13 +3,13 @@ import type { HistoryDatabase } from "../storage/history-storage.js";
 
 // Catalog freshness and host delivery versions are independent. A canonical
 // fingerprint lets an unchanged host keep its delivery cursor across refreshes.
-export type CatalogCursor = {
+export interface CatalogCursor {
   host: string;
   thread: string;
   provider: string;
   digest: string;
   total: number;
-};
+}
 export const emptyCatalogCursor = (): CatalogCursor => ({
   host: "",
   thread: "",

@@ -20,15 +20,15 @@ export interface PageTheme {
 }
 
 export interface AnnotatorApi {
-  ping(): void;
-  setTheme(theme: PageTheme): void;
-  setMode(on: boolean): void;
-  setPins(pins: PagePin[]): void;
-  saved(): void;
-  saveFailed(message: string): void;
-  hide(): Promise<void>;
-  show(): void;
-  teardown(): void;
+  ping: () => void;
+  setTheme: (theme: PageTheme) => void;
+  setMode: (on: boolean) => void;
+  setPins: (pins: PagePin[]) => void;
+  saved: () => void;
+  saveFailed: (message: string) => void;
+  hide: () => Promise<void>;
+  show: () => void;
+  teardown: () => void;
 }
 
 export const ANNOTATOR_GLOBAL = "__bbBrowserAnnotate";
@@ -45,8 +45,17 @@ export function installAnnotator(
   const doc = win.document;
   const DRAG_THRESHOLD = 6;
   const MAX_COMMENT = 4000;
-  type Box = { x: number; y: number; width: number; height: number };
-  type Selection = { kind: string; pageRect: Box; isFixed: boolean };
+  interface Box {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+  interface Selection {
+    kind: string;
+    pageRect: Box;
+    isFixed: boolean;
+  }
 
   const host = doc.createElement("bb-browser-annotate");
   host.style.cssText =
@@ -104,7 +113,12 @@ export function installAnnotator(
   let dragBox: HTMLDivElement | null = null;
   let hovered: Element | null = null;
   let pointerStart: { x: number; y: number } | null = null;
-  type Form = { submit(): void; dismiss(): void; showError(message: string): void; close(): void };
+  interface Form {
+    submit: () => void;
+    dismiss: () => void;
+    showError: (message: string) => void;
+    close: () => void;
+  }
   let form: Form | null = null;
   let pendingSave: Form | null = null;
   let frame = 0;

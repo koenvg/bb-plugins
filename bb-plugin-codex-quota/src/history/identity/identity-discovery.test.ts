@@ -14,6 +14,7 @@ import {
   reconcileIdentity,
   identityView,
 } from "./identity-storage.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -24,7 +25,7 @@ afterEach(async () => {
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp19-discovery-"));
-  const db = (await openHistoryDatabase(join(root, "discovery.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "discovery.sqlite")));
   fixtures.push({ root, db });
   return db;
 }
@@ -35,28 +36,30 @@ it("resolves removed worktrees with bounded metadata reads and keeps unknown own
   initializeHistory(usage, "2026-10-01T00:00:00.000Z");
   initializeIdentityStorage(usage);
   for (const [n, provider] of ["active", "removed", "unknown", "shared"].entries()) {
-    const record = parseCompact(
-      JSON.stringify({
-        version: 1,
-        eventId: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
-        provenance: "observed",
-        occurredAt: "2026-10-01T00:00:00.000Z",
-        sessionId: `pi-${n}`,
-        workspace: "/original",
-        providerSessionKey: `${provider}.jsonl`,
-        claimedThreadId: null,
-        provider: "openai-codex",
-        model: "synthetic",
-        inputTokens: 1,
-        outputTokens: 2,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        reasoningTokens: 0,
-        totalTokens: 3,
-        capturedCost: null,
-      }),
-      false,
-    )!;
+    const record = requireFixtureValue(
+      parseCompact(
+        JSON.stringify({
+          version: 1,
+          eventId: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+          provenance: "observed",
+          occurredAt: "2026-10-01T00:00:00.000Z",
+          sessionId: `pi-${n}`,
+          workspace: "/original",
+          providerSessionKey: `${provider}.jsonl`,
+          claimedThreadId: null,
+          provider: "openai-codex",
+          model: "synthetic",
+          inputTokens: 1,
+          outputTokens: 2,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          reasoningTokens: 0,
+          totalTokens: 3,
+          capturedCost: null,
+        }),
+        false,
+      ),
+    );
     usage.transaction(() => projectCompactRecord(usage, record));
   }
   let now = 1;

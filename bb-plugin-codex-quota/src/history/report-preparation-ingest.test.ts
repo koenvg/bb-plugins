@@ -22,12 +22,14 @@ import { usageRecordSchema } from "./collection/usage-record.js";
 import type { CalendarQuery } from "./calendar/calendar-contract.js";
 import type { IdentityBatch } from "./identity/identity-contract.js";
 import type { Preparation } from "./report-preparation-contract.js";
+import type * as FileSystemPromises from "node:fs/promises";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const heldRead = vi.hoisted(() => ({
   gate: null as null | { entered: () => void; wait: Promise<void>; name?: string },
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
-  const fs = await importOriginal<typeof import("node:fs/promises")>();
+  const fs = await importOriginal<typeof FileSystemPromises>();
   return {
     ...fs,
     open: async (...args: Parameters<typeof fs.open>) => {
@@ -86,7 +88,7 @@ function record(n: number, capturedCost: number | null = 0.125) {
 it("rejects a legacy identity layout before accepting metadata or ingesting recorded events", async () => {
   const f = await fixture();
   await f.append(1);
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   db.exec("DROP TABLE identity_uncertain");
   db.close();
   const before = await readFile(f.path);
@@ -103,7 +105,7 @@ async function fixture(collector = true, ingestRows?: number) {
   const directory = join(dataDir, "history");
   await mkdir(directory);
   const path = join(directory, "usage-v1.sqlite");
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, new Date(now).toISOString(), collector);
   maintainHistory(db, now);
   db.close();
@@ -166,7 +168,7 @@ async function fixture(collector = true, ingestRows?: number) {
 it("walks an old owned-log gap through bounded public preparation without pruning", async () => {
   const f = await fixture();
   try {
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     db.prepare("UPDATE collector_meta SET first_observed=? WHERE id=1").run(
       "2026-06-01T00:00:00.000Z",
     );
@@ -224,7 +226,7 @@ it("walks an old owned-log gap through bounded public preparation without prunin
       }
       expect(view.summary.totalTokens).toBe(startDate === "2026-07-01" ? 90 : 48);
     }
-    const after = (await openHistoryDatabase(f.path))!;
+    const after = requireFixtureValue(await openHistoryDatabase(f.path));
     expect(
       after.prepare("SELECT count(*) AS n FROM usage_compact WHERE confirmed=1").get(),
     ).toEqual({ n: 49 });
@@ -250,7 +252,7 @@ it("walks an old owned-log gap through bounded public preparation without prunin
 it("keeps a partly loaded old slice until its confirmations are drained", async () => {
   const f = await fixture(true, 2);
   try {
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     db.prepare("UPDATE collector_meta SET first_observed=? WHERE id=1").run(
       "2026-07-01T00:00:00.000Z",
     );
@@ -319,7 +321,7 @@ it("keeps a partly loaded old slice until its confirmations are drained", async 
     const reads = f.bodyRead.mock.calls.length;
     await f.prepare();
     expect(f.bodyRead).toHaveBeenCalledTimes(reads);
-    const after = (await openHistoryDatabase(f.path))!;
+    const after = requireFixtureValue(await openHistoryDatabase(f.path));
     expect(after.prepare("SELECT * FROM collector_log_retention").get()).toBeUndefined();
     after.close();
   } finally {
@@ -331,7 +333,7 @@ it("does not advance old discovery past a canceled source read", async () => {
   const f = await fixture();
   let release!: () => void;
   try {
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     db.prepare("UPDATE collector_meta SET first_observed=? WHERE id=1").run(
       "2026-07-01T00:00:00.000Z",
     );
@@ -350,7 +352,7 @@ it("does not advance old discovery past a canceled source read", async () => {
     });
     heldRead.gate = { entered, wait, name };
     const controller = new AbortController();
-    const preparing = f.history.prepare!({
+    const preparing = requireFixtureValue(f.history.prepare)({
       dataDir: join(f.directory, ".."),
       signal: controller.signal,
       identities,
@@ -361,7 +363,7 @@ it("does not advance old discovery past a canceled source read", async () => {
     release();
     // This read waits for actual cancellation completion and storage close.
     await f.read();
-    const after = (await openHistoryDatabase(f.path))!;
+    const after = requireFixtureValue(await openHistoryDatabase(f.path));
     expect(after.prepare("SELECT * FROM collector_sources").all()).toEqual([]);
     expect(after.prepare("SELECT * FROM collector_log_retention").get()).toBeUndefined();
     after.close();
@@ -388,7 +390,7 @@ it("does not advance old discovery past a canceled source read", async () => {
 
 it("resumes report preparation after an archived thread disappears without losing retained usage or attribution", async () => {
   const f = await fixture();
-  const discovery = (await openHistoryDatabase(":memory:"))!;
+  const discovery = requireFixtureValue(await openHistoryDatabase(":memory:"));
   const clock = vi.spyOn(Date, "now").mockReturnValue(now);
   const archived = (id: string) =>
     makeThreadResponse({ id, environmentId: "env_a", providerId: "pi", archivedAt: now });
@@ -565,7 +567,7 @@ it.each([false, true])(
     try {
       await f.append(1);
       heldRead.gate = { entered, wait };
-      const preparing = f.history.prepare!({
+      const preparing = requireFixtureValue(f.history.prepare)({
         dataDir: join(f.directory, ".."),
         signal: controller.signal,
         identities,
@@ -653,7 +655,7 @@ it("advances durable multi-batch ingestion progress with identity already comple
 it("drains paused logs without removing pause coverage and keeps current-day usage unpriced", async () => {
   const f = await fixture();
   try {
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     recordPause(db, "2026-10-01T00:00:00.000Z");
     db.close();
     const control = await readFile(f.controlPath);
@@ -678,7 +680,7 @@ it("drains paused logs without removing pause coverage and keeps current-day usa
 it("prepares retained import-only values without creating control or reading collector bodies", async () => {
   const f = await fixture(false);
   try {
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     projectCompactRecord(db, { ...record(1), provenance: "imported" });
     db.close();
     const before = await f.read();
@@ -701,7 +703,7 @@ it.each(["missing", "version", "backfill"])(
       if (mode === "missing") {
         await rm(f.path);
       } else {
-        const db = (await openHistoryDatabase(f.path))!;
+        const db = requireFixtureValue(await openHistoryDatabase(f.path));
         db.exec(
           mode === "version"
             ? "PRAGMA user_version=99"
@@ -723,7 +725,7 @@ it.each(["missing", "version", "backfill"])(
       if (mode === "missing") {
         await expect(readFile(f.path)).rejects.toMatchObject({ code: "ENOENT" });
       } else {
-        const db = (await openHistoryDatabase(f.path))!;
+        const db = requireFixtureValue(await openHistoryDatabase(f.path));
         expect(
           (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version,
         ).toBe(mode === "version" ? 99 : 5);
@@ -792,7 +794,7 @@ it("accepts confirmation-before-event ordering while preserving exclusions and l
     await appendFile(join(f.directory, "events-v1-2026-10-01.jsonl"), JSON.stringify(usage) + "\n");
     await f.prepare();
     expect((await f.read()).summary.totalTokens).toBe(3);
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     // Keep a recorded exclusion and replay tombstone. Preparation must not repair them.
     db.prepare("UPDATE usage_compact SET accepted=0 WHERE event_id=?").run(usage.eventId);
     db.prepare("INSERT INTO usage_expired VALUES (?)").run(record(2).eventId);
@@ -809,7 +811,7 @@ it("accepts confirmation-before-event ordering while preserving exclusions and l
     await f.prepare();
     const view = await f.read();
     expect(view.summary).toMatchObject({ totalTokens: 0, excludedTokens: 3 });
-    const after = (await openHistoryDatabase(f.path))!;
+    const after = requireFixtureValue(await openHistoryDatabase(f.path));
     expect(after.prepare("SELECT event_id,accepted FROM usage_compact").all()).toEqual([
       { event_id: usage.eventId, accepted: 0 },
     ]);

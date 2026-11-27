@@ -9,6 +9,7 @@ import type { rpcContract } from "./server";
 import { Reader, type ReadDocument } from "./reader";
 import type { ExcerptDestination } from "./selection";
 import "./app.css";
+import type { ResolveDocumentDestinations } from "./destination-view";
 
 const FileReader = ({ path, source, Original, experimental_lineRange }: PluginFileOpenerProps) => {
   const composer = useComposer();
@@ -53,7 +54,7 @@ const FileReader = ({ path, source, Original, experimental_lineRange }: PluginFi
     (target) => rpc.call("read_document", target),
     [rpc],
   );
-  const resolveDestinations = useCallback<import("./destination-view").ResolveDocumentDestinations>(
+  const resolveDestinations = useCallback<ResolveDocumentDestinations>(
     (target, requests) => rpc.call("resolve_destinations", { target, requests }),
     [rpc],
   );

@@ -4,13 +4,14 @@ import { loadPluginApp, mountPluginContentScripts } from "@get-bb/plugin-sdk/tes
 import appDefinition from "./app.js";
 import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import type { PluginCommandRegistration } from "@get-bb/plugin-sdk/app";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const context = {
   threadId: "thread",
   projectId: "project",
   experimental_panel: experimental_makePanelController(),
 };
-const mounts: Array<() => Promise<void>> = [];
+const mounts: (() => Promise<void>)[] = [];
 const settle = async () => {
   await Promise.resolve();
   await Promise.resolve();
@@ -23,8 +24,10 @@ function fixture(version: "0.44" | "0.45" = "0.44") {
     <button type="button" aria-label="Start voice input">Mic</button>
     <button type="submit" data-promptbox-submit-action>Send</button><span data-attachment>file.txt</span>`;
   document.body.append(form);
-  const editor = form.querySelector<HTMLElement>('[role="textbox"]')!;
-  const mic = form.querySelector<HTMLButtonElement>('[aria-label="Start voice input"]')!;
+  const editor = requireFixtureValue(form.querySelector<HTMLElement>('[role="textbox"]'));
+  const mic = requireFixtureValue(
+    form.querySelector<HTMLButtonElement>('[aria-label="Start voice input"]'),
+  );
   const starts = vi.fn();
   const confirms = vi.fn();
   const voiceSends = vi.fn();
@@ -55,11 +58,11 @@ function fixture(version: "0.44" | "0.45" = "0.44") {
       <button type="button" aria-label="${state === "transcribing" && !sending ? "Transcribing voice input" : draftLabel}" ${state === "transcribing" ? "disabled" : ""}>Confirm</button>
       ${version === "0.45" ? `<button type="button" aria-label="${sending ? "Transcribing and sending" : "Send voice input"}" ${state === "transcribing" ? "disabled" : ""}>Send voice</button>` : ""}`;
     form.append(controls);
-    controls.querySelector<HTMLButtonElement>("button")!.onclick = () => {
+    requireFixtureValue(controls.querySelector<HTMLButtonElement>("button")).onclick = () => {
       cancels();
       finish();
     };
-    controls.querySelectorAll<HTMLButtonElement>("button")[1]!.onclick = () => {
+    controls.querySelectorAll<HTMLButtonElement>("button")[1].onclick = () => {
       confirms();
       active("transcribing");
     };
@@ -95,7 +98,9 @@ async function mount() {
   // The public harness returns validated commands, but omits them from its declaration.
   const commands = (app as typeof app & { commandPaletteActions: PluginCommandRegistration[] })
     .commandPaletteActions;
-  const command = commands.find((command) => command.id === "start-voice-input")!;
+  const command = requireFixtureValue(
+    commands.find((command) => command.id === "start-voice-input"),
+  );
   return { app, command, mounted };
 }
 beforeEach(() => {
@@ -224,7 +229,9 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await command.run(context);
     f.active();
     await settle();
-    const send = f.form.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]')!;
+    const send = requireFixtureValue(
+      f.form.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]'),
+    );
     expect(send.hasAttribute("aria-keyshortcuts")).toBe(false);
     expect(key(f.editor, "Enter").defaultPrevented).toBe(true);
     expect(f.confirms).toHaveBeenCalledOnce();
@@ -246,11 +253,15 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await mount();
     f.active();
     await settle();
-    f.form.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]')!.click();
+    requireFixtureValue(
+      f.form.querySelector<HTMLButtonElement>('[aria-label="Send voice input"]'),
+    ).click();
     await settle();
     expect(f.voiceSends).toHaveBeenCalledOnce();
     expect(key(f.editor, "Enter").defaultPrevented).toBe(true);
-    const cancel = f.form.querySelector<HTMLButtonElement>('[aria-label="Cancel transcription"]')!;
+    const cancel = requireFixtureValue(
+      f.form.querySelector<HTMLButtonElement>('[aria-label="Cancel transcription"]'),
+    );
     cancel.focus();
     key(cancel, "Enter");
     expect(f.cancels).toHaveBeenCalledOnce();
@@ -270,7 +281,7 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
       extra.setAttribute("aria-label", label);
       const extraConfirm = vi.fn();
       extra.onclick = extraConfirm;
-      f.form.querySelector("[data-promptbox-voice-controls]")!.append(extra);
+      requireFixtureValue(f.form.querySelector("[data-promptbox-voice-controls]")).append(extra);
       await settle();
       key(f.editor, "Enter");
       expect(f.confirms).not.toHaveBeenCalled();
@@ -285,9 +296,9 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await mount();
     f.active();
     await settle();
-    const confirm = f.form.querySelector<HTMLButtonElement>(
-      '[aria-label="Stop and transcribe recording"]',
-    )!;
+    const confirm = requireFixtureValue(
+      f.form.querySelector<HTMLButtonElement>('[aria-label="Stop and transcribe recording"]'),
+    );
     confirm.onclick = () => {
       f.confirms();
     };
@@ -304,7 +315,9 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await mount();
     f.active();
     await settle();
-    const cancel = f.form.querySelector<HTMLButtonElement>('[aria-label="Cancel recording"]')!;
+    const cancel = requireFixtureValue(
+      f.form.querySelector<HTMLButtonElement>('[aria-label="Cancel recording"]'),
+    );
     cancel.focus();
     key(cancel, "Enter");
     await settle();
@@ -403,10 +416,12 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     const { mounted } = await mount();
     f.active();
     await settle();
-    const confirm = f.form.querySelector<HTMLButtonElement>(
-      '[aria-label="Stop and transcribe recording"]',
-    )!;
-    const cancel = f.form.querySelector<HTMLButtonElement>('[aria-label="Cancel recording"]')!;
+    const confirm = requireFixtureValue(
+      f.form.querySelector<HTMLButtonElement>('[aria-label="Stop and transcribe recording"]'),
+    );
+    const cancel = requireFixtureValue(
+      f.form.querySelector<HTMLButtonElement>('[aria-label="Cancel recording"]'),
+    );
     expect(confirm.getAttribute("aria-keyshortcuts")).toBe("Enter");
     expect(cancel.getAttribute("aria-keyshortcuts")).toBe("Escape");
     cancel.setAttribute("aria-keyshortcuts", "Alt+Escape");
@@ -420,14 +435,18 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await mount();
     f.active();
     await settle();
-    const controls = f.form.querySelector<HTMLElement>("[data-promptbox-voice-controls]")!;
+    const controls = requireFixtureValue(
+      f.form.querySelector<HTMLElement>("[data-promptbox-voice-controls]"),
+    );
     controls.setAttribute("inert", "");
     key(f.editor, "Enter");
     controls.removeAttribute("inert");
     controls.hidden = true;
     key(f.editor, "Enter");
     controls.hidden = false;
-    controls.append(controls.querySelector("button:last-child")!.cloneNode(true));
+    controls.append(
+      requireFixtureValue(controls.querySelector("button:last-child")).cloneNode(true),
+    );
     key(f.editor, "Enter");
     controls.remove();
     key(f.editor, "Enter");
@@ -478,9 +497,14 @@ describe("Compose Chat voice keyboard controls through the public app boundary",
     await mount();
     f.active();
     await settle();
-    const controls = f.form.querySelector<HTMLElement>("[data-promptbox-voice-controls]")!;
+    const controls = requireFixtureValue(
+      f.form.querySelector<HTMLElement>("[data-promptbox-voice-controls]"),
+    );
     if (mismatch === "transcription cancel with recording confirm") {
-      controls.querySelector("button")!.setAttribute("aria-label", "Cancel transcription");
+      requireFixtureValue(controls.querySelector("button")).setAttribute(
+        "aria-label",
+        "Cancel transcription",
+      );
     } else {
       const extra = document.createElement("button");
       extra.type = "button";

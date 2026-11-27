@@ -18,6 +18,7 @@ import {
 import { parseCompact } from "./collection/usage-record.js";
 import { reconcileCollector } from "./storage/history-ingest.js";
 import { pruneCollectorLogs, collectorLogNames } from "./collection/history-logs.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const fixtures: { root: string; db: HistoryDatabase }[] = [];
 afterEach(async () => {
@@ -28,7 +29,7 @@ afterEach(async () => {
 });
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bbp23-maintenance-"));
-  const db = (await openHistoryDatabase(join(root, "usage.sqlite")))!;
+  const db = requireFixtureValue(await openHistoryDatabase(join(root, "usage.sqlite")));
   const f = { root, db };
   fixtures.push(f);
   initializeHistory(db, "2026-08-10T00:00:00.000Z");
@@ -61,7 +62,10 @@ it("backfills supported v1 in durable bounded transactions before pruning; origi
   const f = await fixture();
   for (let i = 1; i <= 5; i += 1) {
     f.db.transaction(() =>
-      projectCompactRecord(f.db, parseCompact(JSON.stringify(event(i)), false)!),
+      projectCompactRecord(
+        f.db,
+        requireFixtureValue(parseCompact(JSON.stringify(event(i)), false)),
+      ),
     );
   }
   f.db.exec(
@@ -72,7 +76,7 @@ it("backfills supported v1 in durable bounded transactions before pruning; origi
   expect(f.db.prepare("SELECT count(*) AS n FROM usage_compact").get()).toMatchObject({ n: 2 });
   expect(collectionView(f.db, true, false).workspaces[0].totalTokens).toBe(25);
   f.db.close();
-  f.db = (await openHistoryDatabase(join(f.root, "usage.sqlite")))!;
+  f.db = requireFixtureValue(await openHistoryDatabase(join(f.root, "usage.sqlite")));
   for (let i = 0; i < 8; i += 1) {
     maintainHistory(f.db, now, 2);
   }
@@ -111,19 +115,23 @@ it("late conflicting replay after detail expiry excludes totals without replacin
     f.db.transaction(() => {
       projectCompactRecord(
         f.db,
-        parseCompact(JSON.stringify({ ...event(n), capturedCost: cost }), false)!,
+        requireFixtureValue(
+          parseCompact(JSON.stringify({ ...event(n), capturedCost: cost }), false),
+        ),
       );
       projectCompactRecord(
         f.db,
-        parseCompact(
-          JSON.stringify({
-            version: 1,
-            eventId: event(n).eventId,
-            sessionId: "session",
-            entryId: "original-entry",
-          }),
-          true,
-        )!,
+        requireFixtureValue(
+          parseCompact(
+            JSON.stringify({
+              version: 1,
+              eventId: event(n).eventId,
+              sessionId: "session",
+              entryId: "original-entry",
+            }),
+            true,
+          ),
+        ),
       );
     });
   put(1);
@@ -146,7 +154,10 @@ it("regroups repeated DST instants and indexes executed compact aggregate and mo
   const f = await fixture();
   for (const [i, at] of ["2026-11-01T08:30:00Z", "2026-11-01T09:30:00Z"].entries()) {
     f.db.transaction(() =>
-      projectCompactRecord(f.db, parseCompact(JSON.stringify(event(i + 1, at)), false)!),
+      projectCompactRecord(
+        f.db,
+        requireFixtureValue(parseCompact(JSON.stringify(event(i + 1, at)), false)),
+      ),
     );
   }
   const capture = recordHistoryExecutions(f.db);

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { imagePathSchema, imageShaSchema } from "./image-content";
 import { imageRepoSchema } from "./pr-image-basis";
 

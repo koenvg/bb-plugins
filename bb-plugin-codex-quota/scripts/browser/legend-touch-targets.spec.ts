@@ -1,4 +1,5 @@
 import { test, expect, capture, jsonEvidence, reportTheme } from "./fixtures.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 for (const coarse of [false, true]) {
   test.describe(coarse ? "coarse pointer" : "fine pointer", () => {
@@ -26,7 +27,11 @@ for (const coarse of [false, true]) {
               nodes.map((node) => {
                 const box = node.getBoundingClientRect();
                 const style = getComputedStyle(node);
-                const swatch = node.querySelector("span")!.getBoundingClientRect();
+                const element = node.querySelector("span");
+                if (element == null) {
+                  throw new Error('Missing browser fixture value: node.querySelector("span")');
+                }
+                const swatch = element.getBoundingClientRect();
                 return {
                   x: box.x,
                   y: box.y,
@@ -81,7 +86,7 @@ for (const coarse of [false, true]) {
                 false,
               );
             }
-            const box = (await model.boundingBox())!;
+            const box = requireFixtureValue(await model.boundingBox());
             const position = { x: box.width / 2, y: box.height - 2 };
             if (coarse) {
               await model.tap({ position });
@@ -90,7 +95,7 @@ for (const coarse of [false, true]) {
             }
             await expect(model).toHaveAttribute("aria-pressed", "false");
             const restore = legend.getByRole("button", { name: "Restore all series", exact: true });
-            const restoreBox = (await restore.boundingBox())!;
+            const restoreBox = requireFixtureValue(await restore.boundingBox());
             expect(restoreBox.height).toBe(expectedHeight);
             if (coarse) {
               expect(restoreBox.width).toBeGreaterThanOrEqual(44);

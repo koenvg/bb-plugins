@@ -44,7 +44,7 @@ export function initializeIdentityStorage(db: HistoryDatabase) {
       END;`);
   }
 }
-type Receipt = {
+interface Receipt {
   host_id: string | null;
   generation: number;
   received: number;
@@ -54,7 +54,7 @@ type Receipt = {
   backfilled: number;
   expected_total: number | null;
   evidence_changed: number;
-};
+}
 const receipt = (db: HistoryDatabase) =>
   db.prepare("SELECT * FROM identity_receipt WHERE id=1").get() as Receipt;
 export function acceptIdentityBatch(db: HistoryDatabase, input: IdentityBatch) {
@@ -232,7 +232,7 @@ export async function verifyWorkspaceAlias(
     return false;
   }
 }
-type Usage = {
+interface Usage {
   workspace: string;
   event_id: string;
   session_id: string;
@@ -244,7 +244,7 @@ type Usage = {
   grade: AttributionGrade;
   thread_id: string | null;
   projected: number;
-};
+}
 function adjust(
   db: HistoryDatabase,
   grade: AttributionGrade,

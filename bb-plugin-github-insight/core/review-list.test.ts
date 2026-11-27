@@ -33,7 +33,7 @@ describe("reviewListEntries", () => {
   it("keeps each comment's author, time, body, and url", () => {
     const [first] = reviewListEntries(placement, {});
 
-    expect(first!.comments[0]).toEqual({
+    expect(first.comments[0]).toEqual({
       author: "a-bandziuk",
       createdAt: "2026-09-18T14:31:50Z",
       body: expect.stringMatching(/^\S/),
@@ -44,18 +44,18 @@ describe("reviewListEntries", () => {
   it("cuts a comment body at 4000 characters", () => {
     const [placed] = placement.placed;
     const longComment = {
-      ...placed!.thread.comments[0]!,
+      ...placed.thread.comments[0],
       body: "x".repeat(MAX_COMMENT_BODY_CHARS + 1),
     };
     const entries = reviewListEntries(
       {
-        placed: [{ ...placed!, thread: { ...placed!.thread, comments: [longComment] } }],
+        placed: [{ ...placed, thread: { ...placed.thread, comments: [longComment] } }],
         outdated: [],
       },
       {},
     );
 
-    expect(entries[0]!.comments[0]!.body).toBe(
+    expect(entries[0].comments[0].body).toBe(
       `${"x".repeat(MAX_COMMENT_BODY_CHARS)}\n[cut at 4000 characters]`,
     );
   });

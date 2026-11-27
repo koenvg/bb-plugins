@@ -91,7 +91,7 @@ export function prStatusView(insight: PrInsight): PrStatusView {
       kind: "blockers",
       text: parts.join(" · "),
       icon: "AlertCircle",
-      iconClassName: blockerTone(compactBlockers[0]!.code),
+      iconClassName: blockerTone(compactBlockers[0].code),
     };
   } else if (
     insight.pr.state === "open" &&

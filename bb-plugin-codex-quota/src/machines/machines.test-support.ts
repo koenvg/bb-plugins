@@ -85,8 +85,8 @@ export function recordedFixture(query: CalendarQuery, now: number) {
     reason: "ok" as const,
   };
   report.summary.money = priced;
-  report.days[14]!.activeEntities = 1;
-  report.days[14]!.money = priced;
+  report.days[14].activeEntities = 1;
+  report.days[14].money = priced;
   report.truncated = false;
   return report;
 }

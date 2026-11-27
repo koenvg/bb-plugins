@@ -8,10 +8,13 @@ import type { PrInsight } from "../core/overview";
 import { GITHUB_COMMANDS } from "./commands";
 import { forgetInsights, rememberInsight } from "./pr-availability";
 import { forgetSubTabs } from "./pr-sub-tab";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const banner = app.composerCustomizations.find((c) => c.id === "pr-insight")!.banners![0]!;
-const tab = app.threadPanelActions.find((t) => t.id === "pr")!;
+const banner = requireFixtureValue(
+  requireFixtureValue(app.composerCustomizations.find((c) => c.id === "pr-insight")).banners,
+)[0];
+const tab = requireFixtureValue(app.threadPanelActions.find((t) => t.id === "pr"));
 const pr = {
   number: 7,
   title: "Shared progress",
@@ -86,7 +89,7 @@ function fixture(initial: InsightResult = ok()) {
   };
 }
 const mounted: ReturnType<typeof renderSlot>[] = [];
-const command = GITHUB_COMMANDS.find((c) => c.id === "merge-pr")!;
+const command = requireFixtureValue(GITHUB_COMMANDS.find((c) => c.id === "merge-pr"));
 const openPanel = vi.fn(() => true);
 async function merge(threadId = "flow") {
   await act(async () => {

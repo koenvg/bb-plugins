@@ -6,6 +6,7 @@ import { createHostHistory } from "../src/history/history-host.js";
 import { initializeHistory } from "../src/history/storage/history-projection.js";
 import { openHistoryDatabase } from "../src/history/storage/history-storage.js";
 import type { CalendarQuery } from "../src/history/calendar/calendar-contract.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 export async function prepareNativeUsageFixture(
   fixtures = fileURLToPath(new URL("../fixtures/", import.meta.url)),
@@ -23,7 +24,9 @@ export async function prepareNativeUsageFixture(
       join(home, "sessions", "rollout.jsonl"),
       await readFile(join(fixtures, "native-legacy-usage.jsonl")),
     );
-    const db = (await openHistoryDatabase(join(dataDir, "history", "usage-v1.sqlite")))!;
+    const db = requireFixtureValue(
+      await openHistoryDatabase(join(dataDir, "history", "usage-v1.sqlite")),
+    );
     initializeHistory(db, new Date(now).toISOString());
     db.close();
     await writeFile(
@@ -64,7 +67,7 @@ export async function prepareNativeUsageFixture(
       },
     };
     for (let i = 0; i < 30; i += 1) {
-      const result = await history.prepare!(context);
+      const result = await requireFixtureValue(history.prepare)(context);
       if (result.state !== "available") {
         throw new Error(result.reason);
       }

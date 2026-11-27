@@ -6,6 +6,7 @@ import plugin from "../server";
 import { failed, linkedPr, ok, prHeadResponse, setup } from "../test/plugin-harness";
 import type { HostCall, PullRequestResult } from "../test/plugin-harness";
 import { ok as okQueue, queuePr, reviewThread, view } from "../test/review-queue-fixtures";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -475,7 +476,7 @@ describe("review CLI", () => {
 
       expect(result.exitCode).toBe(0);
       const [draft] = await commentDraftsOf(harness);
-      expect(result.stdout).toBe(`Saved comment draft ${draft!.id}\n`);
+      expect(result.stdout).toBe(`Saved comment draft ${draft.id}\n`);
       expect(draft).toEqual({
         id: expect.stringMatching(/^[a-z0-9]{8}$/),
         path: FILE,
@@ -777,7 +778,7 @@ describe("review CLI", () => {
         ["review", "comment", FILE, "--start-line", "2", "--line", "3", "--body", body],
         { threadId: "thr_1" },
       );
-      return saved.stdout.trim().split(" ").at(-1)!;
+      return requireFixtureValue(saved.stdout.trim().split(" ").at(-1));
     }
 
     it("lists edit and delete in the review help", async () => {
@@ -928,7 +929,7 @@ describe("review CLI", () => {
         ["review", "comment", FILE, "--line", "3", "--attach", "shot.png"],
         { threadId: "thr_1" },
       );
-      const draftId = saved.stdout.trim().split(" ").at(-1)!;
+      const draftId = requireFixtureValue(saved.stdout.trim().split(" ").at(-1));
 
       const result = await harness.behavior.runCli(["review", "comment", "delete", draftId], {
         threadId: "thr_1",
@@ -978,7 +979,7 @@ describe("review CLI", () => {
         await saveComment(harness, "Keep");
 
         const result = await harness.behavior.runCli(
-          ["review", "comment", command!, "nope1234", ...args],
+          ["review", "comment", command, "nope1234", ...args],
           { threadId: "thr_1" },
         );
 

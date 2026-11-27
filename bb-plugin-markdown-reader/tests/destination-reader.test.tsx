@@ -6,6 +6,8 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import pluginApp from "../app";
 import pluginServer from "../server";
 import { destinationsResultSchema, readResultSchema, type ReaderTarget } from "../source";
+import type { DestinationResult } from "../destination-types";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const targets: ReaderTarget[] = [
   {
@@ -35,11 +37,9 @@ afterEach(async () => {
   for (const dispose of disposers.splice(0)) await dispose();
 });
 async function mount(
-  target = targets[0]!,
+  target = targets[0],
   text = "# Note",
-  resolve?: (
-    result: import("../destination-types").DestinationResult,
-  ) => Promise<import("../destination-types").DestinationResult>,
+  resolve?: (result: DestinationResult) => Promise<DestinationResult>,
 ) {
   let readFailure = false;
   const { bb, harness } = createFakePluginHost({
@@ -75,9 +75,9 @@ async function mount(
   disposers.push(() => harness.lifecycle.dispose());
   pluginServer(bb);
   const app = await loadPluginApp(pluginApp);
-  const Opener = app.fileOpeners[0]!.component;
+  const Opener = app.fileOpeners[0].component;
   const slot = renderSlot(
-    app.fileOpeners[0]!,
+    app.fileOpeners[0],
     { ...target, Original: () => <p>Bound Original</p> },
     {
       rpc: {
@@ -248,7 +248,7 @@ describe("rendered destinations and source-owned image transport", () => {
   });
   it("discards late image URLs on source switching and unmount without cross-source reuse", async () => {
     const pending: {
-      result: import("../destination-types").DestinationResult;
+      result: DestinationResult;
       complete: () => void;
     }[] = [];
     const { slot, Opener } = await mount(
@@ -258,20 +258,20 @@ describe("rendered destinations and source-owned image transport", () => {
         new Promise((resolve) => pending.push({ result, complete: () => resolve(result) })),
     );
     await waitFor(() => expect(pending).toHaveLength(1));
-    slot.lifecycle.rerender(<Opener {...targets[1]!} Original={() => <p>Bound Original</p>} />);
+    slot.lifecycle.rerender(<Opener {...targets[1]} Original={() => <p>Bound Original</p>} />);
     await waitFor(() => expect(pending).toHaveLength(2));
-    pending[1]!.complete();
+    pending[1].complete();
     const image = await slot.findByRole("img", { name: "Picture" });
     const src = image.getAttribute("src");
-    pending[0]!.complete();
+    pending[0].complete();
     await Promise.resolve();
     expect(slot.getByRole("img", { name: "Picture" }).getAttribute("src")).toBe(src);
-    expect(pending[0]!.result.identity?.rootPath).toBe("/work");
-    expect(pending[1]!.result.identity?.rootPath).toBe("/notes");
+    expect(pending[0].result.identity?.rootPath).toBe("/work");
+    expect(pending[1].result.identity?.rootPath).toBe("/notes");
     fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(pending).toHaveLength(3));
     slot.lifecycle.unmount();
-    pending[2]!.complete();
+    pending[2].complete();
     await Promise.resolve();
     expect(document.querySelector("img")).toBeNull();
   });
@@ -348,7 +348,9 @@ describe("rendered destinations and source-owned image transport", () => {
       expect(slot.container.querySelectorAll("img")).toHaveLength(1);
       expect(slot.inspection.navigateCalls).toHaveLength(0);
       expect(harness.inspection.sdk.callsTo("files.createPreview")).toHaveLength(0);
-      const resolution = slot.inspection.rpcCalls.find((c) => c.method === "resolve_destinations")!;
+      const resolution = requireFixtureValue(
+        slot.inspection.rpcCalls.find((c) => c.method === "resolve_destinations"),
+      );
       expect(JSON.stringify(resolution)).not.toContain(oversized);
       fireEvent.click(slot.getByRole("button", { name: "Raw" }));
       expect(slot.getByLabelText("Raw Markdown").textContent).toBe(text);

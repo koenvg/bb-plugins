@@ -29,7 +29,7 @@ export function effectiveMarks(entry: ViewedEntry, base: ViewedMarks): ViewedMar
   if (entry.overrides.size === 0) return base;
   const marks: Record<string, string> = { ...base };
   for (const [path, { identity }] of entry.overrides) {
-    if (identity === null) delete marks[path];
+    if (identity === null) Reflect.deleteProperty(marks, path);
     else marks[path] = identity;
   }
   return marks;
@@ -91,7 +91,7 @@ export function createViewedStore() {
       const overrides = new Map(entry.overrides);
       for (const path of paths)
         overrides.set(path, {
-          identity: changes[path]!,
+          identity: changes[path],
           write,
           state: "pending",
           previous: entry.overrides.get(path),

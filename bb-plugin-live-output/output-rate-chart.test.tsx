@@ -5,6 +5,7 @@ import * as renderer from "@tanstack/charts/renderer";
 import { OutputRateChart } from "./output-rate-chart";
 import { projectOutputRates, type RateMode } from "./output-rate";
 import { readout, queryReadout, move, leave } from "./chart-test-support";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 vi.mock("@tanstack/charts/renderer", { spy: true });
 const frame = (offset = 0, mode: RateMode = { window: 30, unit: "tokens" }) =>
@@ -26,7 +27,7 @@ afterEach(() => {
 it("mounts the real native renderer with exactly 600 observations and exact scene domains", () => {
   const mounted = vi.mocked(renderer.mountChartRenderer);
   const view = render(<OutputRateChart view={frame()} availability="connected" />);
-  const host = mounted.mock.results[0]!.value;
+  const host = mounted.mock.results[0].value;
   const scene = host.getScene();
   expect(scene.points).toHaveLength(600);
   expect(scene.points[0]).toMatchObject({ x: 0, y: 110, xValue: 0, yValue: 10 });
@@ -86,6 +87,8 @@ it("keeps the native body target and React readout mounted across sliding snapsh
   expect(card).not.toBeNull();
   view.rerender(<OutputRateChart view={frame(1)} availability="connected" />);
   expect(readout().querySelector(".live-output-rate-readout")).toBe(card);
-  expect(card!.isConnected).toBe(true);
-  expect(card!.querySelector("time")?.dateTime).toBe("1970-01-01T00:09:59.000Z");
+  expect(requireFixtureValue(card).isConnected).toBe(true);
+  expect(requireFixtureValue(card).querySelector("time")?.dateTime).toBe(
+    "1970-01-01T00:09:59.000Z",
+  );
 });

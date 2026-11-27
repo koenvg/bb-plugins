@@ -5,7 +5,7 @@ export interface FilesJump {
 }
 
 export interface FilesJumpRequest extends FilesJump {
-  onHandled(): void;
+  onHandled: () => void;
 }
 
 const ShowFilesContext = createContext<(jump: FilesJump) => void>(() => {});

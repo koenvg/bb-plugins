@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { loadPluginApp, mountPluginContentScripts } from "@get-bb/plugin-sdk/testing/app";
 import appDefinition from "./app.js";
 import { mountStyles } from "./styles-lifecycle.js";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 const marker = "data-compose-chat";
 afterEach(() => {
@@ -35,8 +36,8 @@ describe("Compose Chat's public content-script lifecycle", () => {
   it("leaves the existing input, controls, and event handlers untouched", async () => {
     document.body.innerHTML =
       '<form data-promptbox><textarea>Keep my draft</textarea><button type="button">Stop run</button></form>';
-    const field = document.querySelector("textarea")!;
-    const button = document.querySelector("button")!;
+    const field = requireFixtureValue(document.querySelector("textarea"));
+    const button = requireFixtureValue(document.querySelector("button"));
     let clicks = 0;
     button.addEventListener("click", () => {
       clicks += 1;

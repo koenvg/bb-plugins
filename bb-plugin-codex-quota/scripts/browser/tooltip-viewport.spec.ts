@@ -1,6 +1,7 @@
 import { test, expect, jsonEvidence, reportTheme } from "./fixtures.js";
 import { chart, calls, rows } from "./calendar-driver.js";
 import { layout } from "./chart-layout.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 for (const theme of ["light", "dark"] as const) {
   for (const portalMode of ["popover", "fallback"] as const) {
@@ -29,15 +30,22 @@ for (const theme of ["light", "dark"] as const) {
             const spacer = document.createElement("div");
             spacer.style.height = "900px";
             document.body.append(shell);
-            shell.append(spacer, document.getElementById("root")!);
-            shell.scrollTop =
-              document.querySelector(".ts-chart")!.getBoundingClientRect().top - 532;
+            const element2 = document.getElementById("root");
+            if (element2 == null) {
+              throw new Error('Missing browser fixture value: document.getElementById("root")');
+            }
+            shell.append(spacer, element2);
+            const element3 = document.querySelector(".ts-chart");
+            if (element3 == null) {
+              throw new Error('Missing browser fixture value: document.querySelector(".ts-chart")');
+            }
+            shell.scrollTop = element3.getBoundingClientRect().top - 532;
           });
           const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
           await expect
-            .poll(async () => Math.abs((await surface.boundingBox())!.y - 532))
+            .poll(async () => Math.abs(requireFixtureValue(await surface.boundingBox()).y - 532))
             .toBeLessThanOrEqual(1);
-          expect((await surface.boundingBox())!.height).toBe(280);
+          expect(requireFixtureValue(await surface.boundingBox()).height).toBe(280);
           const beforeCalls = await calls(page);
           const beforeRows = await rows(page);
           const card = page.locator('.calendar-tooltip [role="tooltip"]');
@@ -48,7 +56,9 @@ for (const theme of ["light", "dark"] as const) {
           const touchBounds = await card.boundingBox();
           await jsonEvidence(info, "touch-placement.json", touchBounds);
           await page.screenshot({ path: info.outputPath("touch-pinned.png") });
-          expect(touchBounds!.y + touchBounds!.height).toBeLessThanOrEqual(804);
+          expect(
+            requireFixtureValue(touchBounds).y + requireFixtureValue(touchBounds).height,
+          ).toBeLessThanOrEqual(804);
           await page.keyboard.press("Escape");
           await expect(native).toBeHidden();
           await surface.focus();
@@ -93,12 +103,20 @@ for (const theme of ["light", "dark"] as const) {
             }
           }
           const geometry = await native.evaluate((element) => {
-            const card = element.querySelector<HTMLElement>('[role="tooltip"]')!;
+            const card = element.querySelector<HTMLElement>('[role="tooltip"]');
+            if (card == null) {
+              throw new Error(
+                "Missing browser fixture value: element.querySelector<HTMLElement>('[role=\"tooltip\"]')",
+              );
+            }
+            const element4 = document.querySelector(".ts-chart-surface");
+            if (element4 == null) {
+              throw new Error(
+                'Missing browser fixture value: document .querySelector(".ts-chart-surface")',
+              );
+            }
             return {
-              surface: document
-                .querySelector(".ts-chart-surface")!
-                .getBoundingClientRect()
-                .toJSON(),
+              surface: element4.getBoundingClientRect().toJSON(),
               native: element.getBoundingClientRect().toJSON(),
               card: card.getBoundingClientRect().toJSON(),
               scrollHeight: card.scrollHeight,
@@ -124,12 +142,17 @@ for (const theme of ["light", "dark"] as const) {
             // Keep the pinned anchor inside both viewports so resize cannot hide it and drop focus.
             const originalScroll = await page.locator("#scrolling-shell").evaluate((shell) => {
               const original = shell.scrollTop;
-              shell.scrollTop +=
-                document.querySelector(".ts-chart")!.getBoundingClientRect().top - 300;
+              const element5 = document.querySelector(".ts-chart");
+              if (element5 == null) {
+                throw new Error(
+                  'Missing browser fixture value: document.querySelector(".ts-chart")',
+                );
+              }
+              shell.scrollTop += element5.getBoundingClientRect().top - 300;
               return original;
             });
             await expect
-              .poll(async () => Math.abs((await surface.boundingBox())!.y - 300))
+              .poll(async () => Math.abs(requireFixtureValue(await surface.boundingBox()).y - 300))
               .toBeLessThanOrEqual(1);
             await page.setViewportSize({ width: 375, height: 600 });
             await expect
@@ -189,7 +212,7 @@ for (const theme of ["light", "dark"] as const) {
               shell.scrollTop = top;
             }, originalScroll);
             await expect
-              .poll(async () => Math.abs((await surface.boundingBox())!.y - 532))
+              .poll(async () => Math.abs(requireFixtureValue(await surface.boundingBox()).y - 532))
               .toBeLessThanOrEqual(1);
             await expect(card).toBeFocused();
             await expect(native).toHaveAttribute("data-sticky", "true");
@@ -205,25 +228,41 @@ for (const theme of ["light", "dark"] as const) {
           await expect(native).toHaveAttribute("data-sticky", "true");
           await expect(card.locator("time")).toHaveAttribute("datetime", "2026-09-16");
           await expect
-            .poll(async () => (await card.boundingBox())!.y + (await card.boundingBox())!.height)
+            .poll(
+              async () =>
+                requireFixtureValue(await card.boundingBox()).y +
+                requireFixtureValue(await card.boundingBox()).height,
+            )
             .toBeLessThanOrEqual(804);
           await page.locator("#scrolling-shell").evaluate((shell) => {
             shell.scrollTop += 80;
           });
           await expect
-            .poll(async () => Math.abs((await surface.boundingBox())!.y - 452))
+            .poll(async () => Math.abs(requireFixtureValue(await surface.boundingBox()).y - 452))
             .toBeLessThanOrEqual(1);
           await expect
-            .poll(async () => (await card.boundingBox())!.y + (await card.boundingBox())!.height)
+            .poll(
+              async () =>
+                requireFixtureValue(await card.boundingBox()).y +
+                requireFixtureValue(await card.boundingBox()).height,
+            )
             .toBeLessThanOrEqual(804);
           await page.setViewportSize({ width: 375, height: 720 });
           await expect
-            .poll(async () => (await card.boundingBox())!.y + (await card.boundingBox())!.height)
+            .poll(
+              async () =>
+                requireFixtureValue(await card.boundingBox()).y +
+                requireFixtureValue(await card.boundingBox()).height,
+            )
             .toBeLessThanOrEqual(712);
-          await expect.poll(async () => (await card.boundingBox())!.y).toBeGreaterThanOrEqual(8);
+          await expect
+            .poll(async () => requireFixtureValue(await card.boundingBox()).y)
+            .toBeGreaterThanOrEqual(8);
           const resized = await card.boundingBox();
-          expect(resized!.x).toBeGreaterThanOrEqual(8);
-          expect(resized!.x + resized!.width).toBeLessThanOrEqual(367);
+          expect(requireFixtureValue(resized).x).toBeGreaterThanOrEqual(8);
+          expect(
+            requireFixtureValue(resized).x + requireFixtureValue(resized).width,
+          ).toBeLessThanOrEqual(367);
           await jsonEvidence(info, "resized-placement.json", resized);
           await page.keyboard.press("Escape");
           await expect(native).toBeHidden();
@@ -274,12 +313,20 @@ for (const portalMode of ["popover", "fallback"] as const) {
         const spacer = document.createElement("div");
         spacer.style.height = "900px";
         document.body.append(shell);
-        shell.append(spacer, document.getElementById("root")!);
-        shell.scrollTop = document.querySelector(".ts-chart")!.getBoundingClientRect().top - 300;
+        const element6 = document.getElementById("root");
+        if (element6 == null) {
+          throw new Error('Missing browser fixture value: document.getElementById("root")');
+        }
+        shell.append(spacer, element6);
+        const element7 = document.querySelector(".ts-chart");
+        if (element7 == null) {
+          throw new Error('Missing browser fixture value: document.querySelector(".ts-chart")');
+        }
+        shell.scrollTop = element7.getBoundingClientRect().top - 300;
       });
       const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
       await expect
-        .poll(async () => Math.abs((await surface.boundingBox())!.y - 300))
+        .poll(async () => Math.abs(requireFixtureValue(await surface.boundingBox()).y - 300))
         .toBeLessThanOrEqual(1);
       await surface.focus();
       await page.keyboard.press("Home");
@@ -354,7 +401,7 @@ for (const portalMode of ["popover", "fallback"] as const) {
       await expect(detail.last().locator("span.tabular-nums")).toBeInViewport({ ratio: 1 });
       await expect(native).toHaveAttribute("data-sticky", "true");
       await expect(surface).toBeInViewport({ ratio: 1 });
-      const bounds = (await card.boundingBox())!;
+      const bounds = requireFixtureValue(await card.boundingBox());
       expect(bounds.y).toBeGreaterThanOrEqual(8);
       expect(bounds.y + bounds.height).toBeLessThanOrEqual(592);
       await page.screenshot({ path: info.outputPath("keyboard-final-row.png") });

@@ -1,5 +1,6 @@
 import { test, expect, raster, capture, results } from "./fixture";
 import type { Route } from "@playwright/test";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const png = raster(1200, 220, [96, 132, 152]);
 for (const source of ["workspace", "host", "thread-storage"] as const) {
@@ -36,7 +37,12 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
         "[...document.images].find(e => e.alt === 'Local picture')?.naturalWidth === 1200",
       );
       expect(
-        await local.evaluate((e) => e.clientWidth <= e.closest(".mr-prose")!.clientWidth),
+        await local.evaluate((e) => {
+          const ancestor = e.closest(".mr-prose");
+          if (ancestor == null)
+            throw new Error('Missing browser fixture value: e.closest(".mr-prose")');
+          return e.clientWidth <= ancestor.clientWidth;
+        }),
       ).toBe(true);
       await page.getByText("Confined symlink alt", { exact: false }).waitFor();
       const enlarge = page.getByRole("button", {
@@ -56,7 +62,10 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
         exact: true,
       });
       await expect(viewer).toBeVisible();
-      await expect(viewer.getByRole("img")).toHaveAttribute("src", approvedSrc!);
+      await expect(viewer.getByRole("img")).toHaveAttribute(
+        "src",
+        requireFixtureValue(approvedSrc),
+      );
       await expect(viewer.getByRole("img")).toHaveAttribute("referrerpolicy", "no-referrer");
       const close = viewer.getByRole("button", { name: "Close image preview" });
       await expect(close).toBeFocused();
@@ -65,8 +74,10 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
       await page.keyboard.press("Shift+Tab");
       await expect(close).toBeFocused();
       const imageBounds = await viewer.getByRole("img").boundingBox();
-      expect(imageBounds!.width).toBeLessThanOrEqual(1200);
-      expect(imageBounds!.height / imageBounds!.width).toBeCloseTo(220 / 1200, 2);
+      expect(requireFixtureValue(imageBounds).width).toBeLessThanOrEqual(1200);
+      expect(
+        requireFixtureValue(imageBounds).height / requireFixtureValue(imageBounds).width,
+      ).toBeCloseTo(220 / 1200, 2);
       await capture(page, info, `image-preview-${source}-${width}-${theme}`);
       await page.keyboard.press("Escape");
       await expect(viewer).toHaveCount(0);
@@ -137,7 +148,7 @@ for (const source of ["workspace", "host", "thread-storage"] as const) {
       await expect(page.locator("html")).toHaveAttribute("data-fixture-resolutions", "1");
       await page.getByRole("button", { name: "Refresh", exact: true }).click();
       await page.waitForFunction("document.documentElement.dataset.fixtureResolutions === '2'");
-      await expect(local).not.toHaveAttribute("src", oldSrc!);
+      await expect(local).not.toHaveAttribute("src", requireFixtureValue(oldSrc));
       await local.scrollIntoViewIfNeeded();
       await page.waitForFunction(
         "[...document.images].find(e => e.alt === 'Local picture')?.naturalWidth === 1200",
@@ -213,8 +224,8 @@ for (const [width, theme] of [
     const small = page.getByRole("button", { name: "Enlarge image: Local picture", exact: true });
     await expect(small).toBeEnabled();
     const triggerBounds = await small.boundingBox();
-    expect(triggerBounds!.width).toBeGreaterThanOrEqual(44);
-    expect(triggerBounds!.height).toBeGreaterThanOrEqual(44);
+    expect(requireFixtureValue(triggerBounds).width).toBeGreaterThanOrEqual(44);
+    expect(requireFixtureValue(triggerBounds).height).toBeGreaterThanOrEqual(44);
     await small.click();
     const smallDialog = page.getByRole("dialog", {
       name: "Image preview: Local picture",
@@ -222,18 +233,25 @@ for (const [width, theme] of [
     });
     await expect(smallDialog.getByRole("img")).toHaveJSProperty("naturalWidth", 30);
     const smallBounds = await smallDialog.getByRole("img").boundingBox();
-    expect(smallBounds!.width).toBe(30);
-    expect(smallBounds!.height).toBe(15);
+    expect(requireFixtureValue(smallBounds).width).toBe(30);
+    expect(requireFixtureValue(smallBounds).height).toBe(15);
     await page.keyboard.press("Escape");
     const tall = page.getByRole("button", { name: "Enlarge image: Remote picture", exact: true });
     await expect(tall).toBeEnabled();
     await tall.scrollIntoViewIfNeeded();
     const inlineBounds = await tall.getByRole("img").boundingBox();
     const background = () =>
-      page.evaluate(() => ({
-        window: scrollY,
-        reader: document.querySelector(".markdown-reader")!.scrollTop,
-      }));
+      page.evaluate(() => {
+        const element2 = document.querySelector(".markdown-reader");
+        if (element2 == null)
+          throw new Error(
+            'Missing browser fixture value: document.querySelector(".markdown-reader")',
+          );
+        return {
+          window: scrollY,
+          reader: element2.scrollTop,
+        };
+      });
     const before = await background();
     await capture(page, info, `tall-image-inline-${width}-${theme}`);
     await tall.click();
@@ -248,12 +266,20 @@ for (const [width, theme] of [
     await page.setViewportSize({ width, height: 500 });
     const bounds = await image.boundingBox();
     const dialogBounds = await tallDialog.boundingBox();
-    expect(bounds!.width).toBe(width === 1440 ? 1200 : 324);
-    expect(bounds!.width).toBeLessThanOrEqual(1200);
-    if (width === 1440) expect(bounds!.width).toBeGreaterThan(inlineBounds!.width);
-    expect(bounds!.height / bounds!.width).toBeCloseTo(2, 2);
-    expect(dialogBounds!.y).toBeGreaterThanOrEqual(0);
-    expect(dialogBounds!.y + dialogBounds!.height).toBeLessThanOrEqual(500);
+    expect(requireFixtureValue(bounds).width).toBe(width === 1440 ? 1200 : 324);
+    expect(requireFixtureValue(bounds).width).toBeLessThanOrEqual(1200);
+    if (width === 1440)
+      expect(requireFixtureValue(bounds).width).toBeGreaterThan(
+        requireFixtureValue(inlineBounds).width,
+      );
+    expect(requireFixtureValue(bounds).height / requireFixtureValue(bounds).width).toBeCloseTo(
+      2,
+      2,
+    );
+    expect(requireFixtureValue(dialogBounds).y).toBeGreaterThanOrEqual(0);
+    expect(
+      requireFixtureValue(dialogBounds).y + requireFixtureValue(dialogBounds).height,
+    ).toBeLessThanOrEqual(500);
     const scroll = () =>
       tallDialog.evaluate((element) => ({
         top: element.scrollTop,
@@ -263,13 +289,16 @@ for (const [width, theme] of [
     const scrollEnd = () =>
       page.evaluate(
         () =>
-          new Promise<void>((resolve) =>
-            document
-              .querySelector(".mr-image-dialog")!
-              .addEventListener("scrollend", () => resolve(), {
-                once: true,
-              }),
-          ),
+          new Promise<void>((resolve) => {
+            const element3 = document.querySelector(".mr-image-dialog");
+            if (element3 == null)
+              throw new Error(
+                'Missing browser fixture value: document .querySelector(".mr-image-dialog")',
+              );
+            return element3.addEventListener("scrollend", () => resolve(), {
+              once: true,
+            });
+          }),
       );
     const initial = await scroll();
     expect(initial.height).toBeGreaterThan(initial.client);
@@ -281,7 +310,10 @@ for (const [width, theme] of [
     const afterPage = await scroll();
     await Promise.all([scrollEnd(), page.keyboard.press("PageUp")]);
     expect((await scroll()).top).toBe(0);
-    await page.mouse.move(bounds!.x + bounds!.width / 2, 350);
+    await page.mouse.move(
+      requireFixtureValue(bounds).x + requireFixtureValue(bounds).width / 2,
+      350,
+    );
     await Promise.all([scrollEnd(), page.mouse.wheel(0, 10000)]);
     await expect
       .poll(async () => {
@@ -291,13 +323,18 @@ for (const [width, theme] of [
       .toBeLessThanOrEqual(1);
     expect((await scroll()).top).toBeGreaterThan(100);
     const bottom = await image.boundingBox();
-    expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(dialogBounds!.y + dialogBounds!.height);
-    expect(bottom!.y + bottom!.height).toBeGreaterThan(400);
+    expect(requireFixtureValue(bottom).y + requireFixtureValue(bottom).height).toBeLessThanOrEqual(
+      requireFixtureValue(dialogBounds).y + requireFixtureValue(dialogBounds).height,
+    );
+    expect(requireFixtureValue(bottom).y + requireFixtureValue(bottom).height).toBeGreaterThan(400);
     await expect(close).toBeInViewport({ ratio: 1 });
-    expect((await close.boundingBox())!.y).toBeCloseTo(closeBounds!.y, 0);
+    expect(requireFixtureValue(await close.boundingBox()).y).toBeCloseTo(
+      requireFixtureValue(closeBounds).y,
+      0,
+    );
     await capture(page, info, `tall-image-bottom-${width}-${theme}`);
     expect(await background()).toEqual(before);
-    const stickyClose = (await close.boundingBox())!;
+    const stickyClose = requireFixtureValue(await close.boundingBox());
     await page.mouse.click(
       stickyClose.x + stickyClose.width / 2,
       stickyClose.y + stickyClose.height / 2,

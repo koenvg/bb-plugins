@@ -8,10 +8,10 @@ import plugin from "./server";
 
 type StatusResult = GitStatus;
 type DiffFilesResult = GitFiles;
-type DiffPatchResult = {
+interface DiffPatchResult {
   outcome: "available";
   patches: { path: string; patch: string; truncated: boolean }[];
-};
+}
 type SendResult = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["send"]>>;
 
 function deferred<T>() {
@@ -980,7 +980,7 @@ describe("getChanges", () => {
 describe("getPatches", () => {
   it("loads more than 50 requested patches through the bounded Git API", async () => {
     const files = Array.from({ length: 51 }, (_, index) => ({
-      ...AVAILABLE_FILES.files[0]!,
+      ...AVAILABLE_FILES.files[0],
       path: `file-${index}.ts`,
       revision: `revision-${index}`,
     }));

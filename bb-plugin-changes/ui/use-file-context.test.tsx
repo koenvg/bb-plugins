@@ -5,6 +5,7 @@ import { parsePatchFiles } from "@pierre/diffs";
 import type { Snapshot } from "../core/text-context";
 import { textRevisions } from "../core/text-context";
 import { contextEligibility, prepareContextControls, useFileContext } from "./use-file-context";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const transport = vi.hoisted(() => ({ call: vi.fn() }));
 vi.mock("@get-bb/plugin-sdk/app", () => ({ useRpc: () => transport }));
@@ -174,7 +175,7 @@ describe("per-file lazy context", () => {
     );
   });
   it("offers only supported partial text, with an explicit quoted-path limit", () => {
-    const partial = parsePatchFiles(snapshot.patch)[0]!.files[0]!;
+    const partial = parsePatchFiles(snapshot.patch)[0].files[0];
     expect(contextEligibility(snapshot, partial)).toBe(null);
     expect(
       contextEligibility({ ...snapshot, file: { ...snapshot.file, path: "my file.txt" } }, partial),
@@ -191,13 +192,13 @@ describe("per-file lazy context", () => {
     const root = node.attachShadow({ mode: "open" });
     root.innerHTML =
       '<div role="button" data-expand-button data-expand-down></div><div role="button" data-expand-button data-expand-up></div><output></output>';
-    const above = root.querySelector<HTMLElement>("[data-expand-down]")!;
-    const below = root.querySelector<HTMLElement>("[data-expand-up]")!;
+    const above = requireFixtureValue(root.querySelector<HTMLElement>("[data-expand-down]"));
+    const below = requireFixtureValue(root.querySelector<HTMLElement>("[data-expand-up]"));
     above.onclick = () => {
-      root.querySelector("output")!.textContent = "prefix revealed";
+      requireFixtureValue(root.querySelector("output")).textContent = "prefix revealed";
     };
     below.onclick = () => {
-      root.querySelector("output")!.textContent = "suffix revealed";
+      requireFixtureValue(root.querySelector("output")).textContent = "suffix revealed";
     };
     prepareContextControls(node);
     expect([
@@ -207,10 +208,10 @@ describe("per-file lazy context", () => {
     ]).toEqual([0, "Expand unchanged lines above", "Expand unchanged lines below"]);
     above.focus();
     fireEvent.keyDown(above, { key: "Enter" });
-    expect(root.querySelector("output")!.textContent).toBe("prefix revealed");
+    expect(requireFixtureValue(root.querySelector("output")).textContent).toBe("prefix revealed");
     below.focus();
     fireEvent.keyDown(below, { key: " " });
-    expect(root.querySelector("output")!.textContent).toBe("suffix revealed");
+    expect(requireFixtureValue(root.querySelector("output")).textContent).toBe("suffix revealed");
     node.remove();
   });
 });

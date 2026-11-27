@@ -8,6 +8,7 @@ import { acceptIdentityBatch } from "../identity/identity-storage.js";
 import { importedUsage } from "./import-parser.js";
 import { executeImport } from "./import-engine.js";
 import type { ImportCommand } from "./import-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const at = "2026-10-01T00:00:00.000Z";
 const message = (id: string, parentId: string | null = null) => ({
@@ -38,7 +39,7 @@ async function fixture() {
   const workspace = join(root, "workspace");
   await Promise.all([sources, ordinary, workspace].map((p) => mkdir(p)));
   const path = join(root, "usage.sqlite");
-  let db = (await openHistoryDatabase(path))!;
+  let db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, at, false);
   acceptIdentityBatch(db, {
     hostId: "host-synthetic",
@@ -112,11 +113,11 @@ async function fixture() {
         result = await run({ action: "resume" });
       }
       expect(result.generation?.state, JSON.stringify(result)).toBe("completed");
-      return result.generation!;
+      return requireFixtureValue(result.generation);
     },
     async reopen() {
       db.close();
-      db = (await openHistoryDatabase(path))!;
+      db = requireFixtureValue(await openHistoryDatabase(path));
     },
     async dispose() {
       db.close();

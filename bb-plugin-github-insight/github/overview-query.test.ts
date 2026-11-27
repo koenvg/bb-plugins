@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { overviewPageArgs } from "./overview-query";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const pr = { owner: "collibra", repo: "frontend", number: 25337 };
 
 function queryOf(args: string[]): string {
-  return args.find((arg) => arg.startsWith("query="))!;
+  return requireFixtureValue(args.find((arg) => arg.startsWith("query=")));
 }
 
 describe("overviewPageArgs", () => {

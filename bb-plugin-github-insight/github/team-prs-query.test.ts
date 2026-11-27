@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { teamPrPageArgs } from "./team-prs-query";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 function variable(args: string[], name: string): string | undefined {
   return args.find((arg) => arg.startsWith(`${name}=`))?.slice(name.length + 1);
@@ -15,7 +16,7 @@ describe("teamPrPageArgs", () => {
   });
 
   it("asks for who each PR requested a review from, people and teams", () => {
-    const query = variable(teamPrPageArgs(request), "query")!;
+    const query = requireFixtureValue(variable(teamPrPageArgs(request), "query"));
 
     expect(query).toContain("itemTypes: [REVIEW_REQUESTED_EVENT]");
     expect(query).toContain("... on User { login } ... on Team { combinedSlug }");

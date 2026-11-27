@@ -1,4 +1,4 @@
-export type SpeedTarget = {
+export interface SpeedTarget {
   id: number;
   frame: HTMLElement;
   mode: "Fast" | "Ultrafast";
@@ -11,7 +11,7 @@ export type SpeedTarget = {
   theme: "light" | "dark";
   visible: boolean;
   clip: string;
-};
+}
 
 const margin = 64;
 export const speedLayerMargin = margin;
@@ -30,8 +30,9 @@ function lightSurface(element: HTMLElement): boolean {
   }
   // Chromium computes modern theme colors as oklab/color(). Resolve through CSS,
   // not a theme-name assumption. No host pixels, text or images are read.
-  if (surfaceColors.has(color)) {
-    return surfaceColors.get(color)!;
+  const cached = surfaceColors.get(color);
+  if (cached !== undefined) {
+    return cached;
   }
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1;
@@ -151,9 +152,11 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
           }
         }
         const height = bottom - rect.top;
-        if (!ids.has(frame)) {
+        let id = ids.get(frame);
+        if (id === undefined) {
           nextId += 1;
-          ids.set(frame, nextId);
+          id = nextId;
+          ids.set(frame, id);
         }
         const visible =
           opaque &&
@@ -170,7 +173,7 @@ export function observeSpeedTargets(publish: (targets: SpeedTarget[]) => void): 
           clip.left - rect.left + margin,
         ].map((n) => Math.max(0, n));
         targets.push({
-          id: ids.get(frame)!,
+          id,
           frame,
           mode,
           left: rect.left,

@@ -4,9 +4,12 @@ import { cleanup, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { rpcContract } from "../contract";
 import { ok, panelRpc, queuePr, view, type QueueHandler } from "../test/review-queue-fixtures";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("../app"));
-const overlay = app.appOverlays.find((registration) => registration.id === "pr-rail-badge")!;
+const overlay = requireFixtureValue(
+  app.appOverlays.find((registration) => registration.id === "pr-rail-badge"),
+);
 
 afterEach(() => {
   cleanup();

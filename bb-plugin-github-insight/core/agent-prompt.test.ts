@@ -111,7 +111,7 @@ describe("buildAgentPrompt", () => {
         },
       ]);
 
-      const snippet = prompt.split("```diff\n")[1]!.split("\n```")[0]!.split("\n");
+      const snippet = prompt.split("```diff\n")[1].split("\n```")[0].split("\n");
       expect(snippet).toEqual(body.slice(-SNIPPET_LINES));
     },
   );

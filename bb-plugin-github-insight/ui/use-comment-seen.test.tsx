@@ -7,7 +7,10 @@ import { SEEN_AFTER_MS, useCommentSeen } from "./use-comment-seen";
 let report: (entry: Partial<IntersectionObserverEntry>) => void = () => {};
 
 class ManualObserver {
-  constructor(private readonly callback: IntersectionObserverCallback) {
+  private readonly callback: IntersectionObserverCallback;
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
     report = (entry) =>
       act(() =>
         this.callback(

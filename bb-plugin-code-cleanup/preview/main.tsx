@@ -3,6 +3,7 @@ import { FixtureIcon } from "./icons";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { PluginAppDefinition, PluginSettingsSectionRegistration } from "@get-bb/plugin-sdk";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const rpc = {
   async call(method: string, input: unknown) {
@@ -159,7 +160,7 @@ if (!section) {
   throw new Error("The actual app did not register Settings");
 }
 const Component = section.component;
-createRoot(document.getElementById("app")!).render(
+createRoot(requireFixtureValue(document.getElementById("app"))).render(
   <>
     <FixtureNotifications />
     <FixtureDefault />

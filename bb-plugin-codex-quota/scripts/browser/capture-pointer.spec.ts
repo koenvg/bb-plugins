@@ -71,7 +71,10 @@ for (const coarse of [false, true]) {
             const canvas = document.createElement("canvas");
             canvas.width = image.width;
             canvas.height = image.height;
-            const context = canvas.getContext("2d")!;
+            const context = canvas.getContext("2d");
+            if (context == null) {
+              throw new Error('Missing browser fixture value: canvas.getContext("2d")');
+            }
             context.drawImage(image, 0, 0);
             const rgb = (x: number, y: number) =>
               [...context.getImageData(x, y, 1, 1).data].slice(0, 3);
@@ -201,9 +204,7 @@ for (const coarse of [false, true]) {
       expect(page.viewportSize()).toEqual({ width: 375, height: 600 });
       expect(await page.evaluate(() => matchMedia("(pointer:coarse)").matches)).toBe(coarse);
       expect(context.pages()).toEqual(pages);
-      expect(await target!.evaluate((node) => node === document.querySelector("button"))).toBe(
-        true,
-      );
+      expect(await target.evaluate((node) => node === document.querySelector("button"))).toBe(true);
       const recovered = await capture(page, info, "recovered");
       expect(recovered).toMatchObject({ width: 375, height: 1900, nonSolid: true });
       expect(recovered.coverage.tiles).toEqual([
@@ -214,7 +215,7 @@ for (const coarse of [false, true]) {
       ]);
       await page.getByRole("button", { name: "Target" }).click();
       await expect(page.getByRole("button", { name: "Target" })).toBeFocused();
-      await target!.dispose();
+      await target.dispose();
     });
 
     test("full dashboard capture retains chart identity", async ({ page }, info) => {
@@ -231,13 +232,11 @@ for (const coarse of [false, true]) {
       const facts = await capture(page, info, "dashboard");
       expect(facts.height).toBeGreaterThan(600);
       expect(
-        await original!.evaluate(
-          (node) => node === document.querySelector('.ts-chart[role="img"]'),
-        ),
+        await original.evaluate((node) => node === document.querySelector('.ts-chart[role="img"]')),
       ).toBe(true);
       expect(page.viewportSize()).toEqual(viewport);
       expect(await page.evaluate(() => matchMedia("(pointer:coarse)").matches)).toBe(coarse);
-      await original!.dispose();
+      await original.dispose();
     });
   });
 }

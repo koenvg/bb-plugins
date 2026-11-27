@@ -33,7 +33,7 @@ function onlyPassingChecksPage(extraNodes: readonly unknown[] = []) {
                     contexts: {
                       pageInfo: { hasNextPage: false, endCursor: null },
                       nodes: [
-                        ...pageOne.data.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts.nodes.filter(
+                        ...pageOne.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts.nodes.filter(
                           (node) => node.conclusion === "SUCCESS",
                         ),
                         ...extraNodes,
@@ -350,8 +350,8 @@ describe("collectInsight merge action", () => {
   }
 
   const cancelledRun = {
-    ...requiredChecksPage.data.repository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup
-      .contexts.nodes[0]!,
+    ...requiredChecksPage.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup
+      .contexts.nodes[0],
     id: "cancelled-ci",
     databaseId: 1,
     name: "CI",

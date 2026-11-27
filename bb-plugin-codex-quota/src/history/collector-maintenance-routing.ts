@@ -6,18 +6,18 @@ import {
 } from "./collector-maintenance-contract.js";
 import type { MaintenanceRequest, MaintenanceResult } from "./collector-maintenance-contract.js";
 
-type Dependencies = {
-  get(
+interface Dependencies {
+  get: (
     hostId: string,
-  ): Promise<{ id: string; type: string; lifecycle: { phase: string }; status: string } | null>;
-  readiness(
+  ) => Promise<{ id: string; type: string; lifecycle: { phase: string }; status: string } | null>;
+  readiness: (
     hostId: string,
     signal: AbortSignal,
     beforeDispatch: () => Promise<void>,
-  ): Promise<unknown>;
-  repair(hostId: string, signal: AbortSignal): Promise<unknown>;
-  mutate<T>(hostId: string, work: () => Promise<T>): Promise<T>;
-};
+  ) => Promise<unknown>;
+  repair: (hostId: string, signal: AbortSignal) => Promise<unknown>;
+  mutate: <T>(hostId: string, work: () => Promise<T>) => Promise<T>;
+}
 export function createCollectorMaintenance(deps: Dependencies) {
   const lifetime = new AbortController();
   async function eligibility(hostId: string) {

@@ -168,16 +168,17 @@ export async function executeImport(
     db.prepare(
       "INSERT INTO import_generations VALUES (?,?,'stopped',?,?,?,'discover','',1,0,0,0,0,'[]')",
     ).run(randomUUID(), host, start.toISOString(), end.toISOString(), JSON.stringify(f));
-    g = unfinished(db, host)!;
-  } else if (!g) {
+    g = unfinished(db, host);
+  }
+  if (!g) {
     return importStatus(db, host, "no-generation");
   }
   try {
-    await cycle(db, g!, o);
+    await cycle(db, g, o);
   } catch {
     diagnostic(
       db,
-      g!,
+      g,
       o.signal.aborted ? "interrupted" : "source-changed",
       o.signal.aborted ? 0 : 1,
     );

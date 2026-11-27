@@ -41,13 +41,14 @@ export const ActivityPanel = ({
   now: number;
   loading?: boolean;
   selectionPending?: boolean;
-  onRefresh(): void;
+  onRefresh: () => void;
 }) => {
   const visible = selectionPending
     ? emptyActivity("selection-changed")
     : visibleActivity(view, now);
   const [mode, setMode] = useState<"daily" | "weekly" | "cumulative">("daily");
   const rows = visible.snapshot?.[mode];
+  const snapshot = visible.snapshot;
   return (
     <section
       className="min-w-0 pt-4"
@@ -73,12 +74,12 @@ export const ActivityPanel = ({
           Refresh activity
         </button>
       </div>
-      {visible.snapshot && (
+      {snapshot && (
         <>
           <p className="mt-2 break-words text-xs text-muted-foreground">
             {visible.state === "stale" ? "Stale. " : ""}Observed{" "}
-            <time dateTime={visible.snapshot.observedAt}>
-              {new Date(visible.snapshot.observedAt).toLocaleString()}
+            <time dateTime={snapshot.observedAt}>
+              {new Date(snapshot.observedAt).toLocaleString()}
             </time>
             . Failed updates do not change this time.
           </p>
@@ -87,7 +88,7 @@ export const ActivityPanel = ({
               <div key={key} className="min-w-0 rounded-md border border-border p-3">
                 <dt className="text-xs text-muted-foreground">{label}</dt>
                 <dd className="mt-1 break-words font-medium tabular-nums">
-                  {count(visible.snapshot!.summary[key as keyof typeof labels])}
+                  {count(snapshot.summary[key as keyof typeof labels])}
                 </dd>
               </div>
             ))}

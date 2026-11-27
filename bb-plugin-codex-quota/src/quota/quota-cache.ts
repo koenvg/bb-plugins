@@ -24,11 +24,11 @@ export type QuotaReason =
   | "network"
   | "service"
   | "unsupported";
-export type QuotaView = {
+export interface QuotaView {
   state: "fresh" | "stale" | "unavailable";
   reason: QuotaReason;
   snapshot: QuotaSnapshot | null;
-};
+}
 export type QuotaRead =
   | { status: "ok"; snapshot: QuotaSnapshot }
   | { status: "auth-expired" | "network" | "service" | "unsupported"; snapshot: null };
@@ -50,7 +50,11 @@ export class QuotaCache {
   private lastFailure: QuotaReason | null = null;
   private generation = 0;
   private lastAttempt = -Infinity;
-  constructor(private readonly now: () => number = Date.now) {}
+  private readonly now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.now = now;
+  }
 
   invalidate(): void {
     this.identity = null;
@@ -102,7 +106,8 @@ export class QuotaCache {
     if (
       !force &&
       current.state === "fresh" &&
-      this.now() - Date.parse(current.snapshot!.observedAt) < RENEW_AFTER_MS
+      current.snapshot &&
+      this.now() - Date.parse(current.snapshot.observedAt) < RENEW_AFTER_MS
     ) {
       return current;
     }

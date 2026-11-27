@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect, noOverflow, capture, jsonEvidence, reportTheme } from "./fixtures.js";
 import { chart, rows, calls, tooltip } from "./calendar-driver.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 const series = (page: Page, name: string) =>
   page
@@ -19,7 +20,10 @@ const bars = (page: Page) =>
       if (height <= 0) {
         continue;
       }
-      const key = node.getAttribute("data-ts-key")!;
+      const key = node.getAttribute("data-ts-key");
+      if (key == null) {
+        throw new Error('Missing browser fixture value: node.getAttribute("data-ts-key")');
+      }
       const identity = JSON.parse(key.slice(key.indexOf("[")))[1];
       const group = groups.get(identity) ?? [];
       group.push({
@@ -68,7 +72,7 @@ for (const width of [375, 1280]) {
         const original = Storage.prototype.setItem;
         Storage.prototype.setItem = function (key, value) {
           void (
-            window as unknown as { recordFilterStorageWrite(...args: unknown[]): void }
+            window as unknown as { recordFilterStorageWrite: (...args: unknown[]) => void }
           ).recordFilterStorageWrite(key, value);
           return original.call(this, key, value);
         };
@@ -83,8 +87,10 @@ for (const width of [375, 1280]) {
       expect(daily[14].slice(-2)).toEqual(["100", "500"]);
       const initial = await bars(page);
       const surface = page.getByRole("img", { name: /^Daily usage chart:/ });
-      const origin = (await surface.boundingBox())!;
-      const bar = (await page.locator(".ts-chart__bar rect").first().boundingBox())!;
+      const origin = requireFixtureValue(await surface.boundingBox());
+      const bar = requireFixtureValue(
+        await page.locator(".ts-chart__bar rect").first().boundingBox(),
+      );
       const point = { x: bar.x - origin.x + bar.width / 2, y: bar.y - origin.y + bar.height / 2 };
       expect(initial.map((group) => group.length)).toEqual([1, 1]);
       expect(initial.map((group) => ({ height: group[0].height, y: group[0].y }))).toEqual(
@@ -124,7 +130,11 @@ for (const width of [375, 1280]) {
         expect(
           await series(page, name).evaluate((node) => {
             const style = getComputedStyle(node);
-            const swatch = getComputedStyle(node.querySelector("span")!);
+            const element = node.querySelector("span");
+            if (element == null) {
+              throw new Error('Missing browser fixture value: node.querySelector("span")');
+            }
+            const swatch = getComputedStyle(element);
             return {
               border: style.borderWidth,
               background: style.backgroundColor,
@@ -155,7 +165,11 @@ for (const width of [375, 1280]) {
       const plotWithinPanel = () =>
         page.getByRole("region", { name: "All-machine recorded usage" }).evaluate((panel) => {
           const base = panel.getBoundingClientRect();
-          const rect = panel.querySelector(".ts-chart-host")!.getBoundingClientRect();
+          const chartHost = panel.querySelector(".ts-chart-host");
+          if (!chartHost) {
+            throw new Error("Missing fixture chart host");
+          }
+          const rect = chartHost.getBoundingClientRect();
           return { x: rect.x - base.x, y: rect.y - base.y, width: rect.width, height: rect.height };
         });
       const plot = await plotWithinPanel();
@@ -170,7 +184,7 @@ for (const width of [375, 1280]) {
           .evaluate((node) => getComputedStyle(node).textDecorationLine),
       ).toBe("line-through");
       expect(
-        await application!.evaluate((node) => node === document.querySelector('[role="img"]')),
+        await application.evaluate((node) => node === document.querySelector('[role="img"]')),
       ).toBe(true);
       expect(await plotWithinPanel()).toEqual(plot);
       expect(
@@ -212,7 +226,7 @@ for (const width of [375, 1280]) {
         await restore(page).click();
         expect(await bars(page)).toEqual(initial);
         expect(
-          await application!.evaluate((node) => node === document.querySelector('[role="img"]')),
+          await application.evaluate((node) => node === document.querySelector('[role="img"]')),
         ).toBe(true);
       }
       await fast.focus();
@@ -258,13 +272,13 @@ for (const width of [375, 1280]) {
         expect(allHiddenTip.tooltip).toBe(fullTip.tooltip);
         await page.mouse.move(0, 0);
         await surface.scrollIntoViewIfNeeded();
-        const box = (await surface.boundingBox())!;
+        const box = requireFixtureValue(await surface.boundingBox());
         await page.mouse.move(box.x + point.x, box.y + point.y);
         await expect(page.getByRole("tooltip").locator("time")).toHaveAttribute(
           "datetime",
           daily[14][0],
         );
-        await expect(page.getByRole("tooltip")).toHaveText(fullTip.tooltip!);
+        await expect(page.getByRole("tooltip")).toHaveText(requireFixtureValue(fullTip.tooltip));
         await restore(page).focus();
         await page.keyboard.press("Enter");
         await expect.poll(() => bars(page)).toEqual(initial);
@@ -395,7 +409,7 @@ for (const width of [375, 1280]) {
       );
       expect(initial[3][0].height).toBeLessThan(1);
       const long = series(page, names[2]);
-      const box = (await long.boundingBox())!;
+      const box = requireFixtureValue(await long.boundingBox());
       expect(box.height).toBe(width === 375 ? 64 : 44);
       expect(await long.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
       for (let index = 0; index < names.length; index += 1) {
@@ -422,14 +436,16 @@ for (const width of [375, 1280]) {
       expect(await bars(page)).toEqual(initial);
       await expect(series(page, names[6])).toBeFocused();
       await expect(restore(page)).toHaveCount(0);
-      const labelBox = (await long.locator("span").last().boundingBox())!;
+      const labelBox = requireFixtureValue(await long.locator("span").last().boundingBox());
       await page.touchscreen.tap(labelBox.x + labelBox.width - 1, labelBox.y + labelBox.height - 1);
       await expect(long).toHaveAttribute("aria-pressed", "false");
       for (const name of names.filter((name) => name !== names[2])) {
         await expect(series(page, name)).toHaveAttribute("aria-pressed", "true");
       }
       await long.click();
-      const swatchBox = (await series(page, names[0]).locator("span").first().boundingBox())!;
+      const swatchBox = requireFixtureValue(
+        await series(page, names[0]).locator("span").first().boundingBox(),
+      );
       await page.touchscreen.tap(swatchBox.x + 5, swatchBox.y + 5);
       await expect(series(page, names[0])).toHaveAttribute("aria-pressed", "false");
       for (const name of names.slice(1)) {

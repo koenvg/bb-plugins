@@ -6,6 +6,7 @@ import { reportsFixture } from "../../machines/machines.test-support.js";
 import { calendarEmptySnapshot, calendarSnapshot } from "./calendar-test-support.js";
 import { latestStart, shiftDate } from "./calendar-time.js";
 import type { CalendarQuery } from "./calendar-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 it("keeps the chart clear of generic notices during preparation", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -36,7 +37,7 @@ async function pageFixture() {
 it("opens the latest thirty dates through today", async () => {
   const f = await pageFixture();
   await f.q.findByRole("table", { name: "Daily recorded usage" });
-  expect(requested(f.machineReports.mock.lastCall![0]).startDate).toBe(
+  expect(requested(requireFixtureValue(f.machineReports.mock.lastCall)[0]).startDate).toBe(
     latestStart(Date.now(), "UTC"),
   );
   expect(f.q.getByText(/2026-09-02 – 2026-10-01/)).toBeTruthy();
@@ -45,16 +46,18 @@ it("opens the latest thirty dates through today", async () => {
 it("navigates the retained chart without opening collection or import controls", async () => {
   const f = await pageFixture();
   await f.q.findByRole("group", { name: "Daily recorded values" });
-  const old = requested(f.machineReports.mock.lastCall![0]);
+  const old = requested(requireFixtureValue(f.machineReports.mock.lastCall)[0]);
   fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
   await waitFor(() =>
-    expect(requested(f.machineReports.mock.lastCall![0]).startDate).toBe(
+    expect(requested(requireFixtureValue(f.machineReports.mock.lastCall)[0]).startDate).toBe(
       shiftDate(old.startDate, -30),
     ),
   );
   fireEvent.click(f.q.getByRole("button", { name: "Latest" }));
   await waitFor(() =>
-    expect(requested(f.machineReports.mock.lastCall![0]).startDate).toBe(old.startDate),
+    expect(requested(requireFixtureValue(f.machineReports.mock.lastCall)[0]).startDate).toBe(
+      old.startDate,
+    ),
   );
   expect(f.selectHost).not.toHaveBeenCalled();
   expect(f.historyReadiness).not.toHaveBeenCalled();
@@ -90,11 +93,11 @@ it("hides the previous date range immediately and ignores its late response", as
   fireEvent.click(f.q.getByRole("button", { name: "Previous 30 days" }));
   await waitFor(() => expect(done).toBeTypeOf("function"));
   expect(f.q.queryByRole("group", { name: "Daily recorded values" })).toBeNull();
-  const oldQuery = requested(f.machineReports.mock.lastCall![0]);
+  const oldQuery = requested(requireFixtureValue(f.machineReports.mock.lastCall)[0]);
   fireEvent.click(f.q.getByRole("button", { name: "Latest" }));
   await f.q.findByRole("group", { name: "Daily recorded values" });
   const old = reportsFixture(oldQuery);
-  old.machines[0]!.report = { state: "unavailable", reason: "host-offline" };
+  old.machines[0].report = { state: "unavailable", reason: "host-offline" };
   await act(async () => {
     done(old);
   });
@@ -149,8 +152,8 @@ it("retains recorded offline values with an incomplete-coverage notice", async (
   const f = await dashboardFixture();
   f.machineReports.mockImplementation(async (input) => {
     const data = reportsFixture(requested(input));
-    data.machines[0]!.cached = true;
-    data.machines[0]!.machine.status = "disconnected";
+    data.machines[0].cached = true;
+    data.machines[0].machine.status = "disconnected";
     return data;
   });
   const page = f.page();
@@ -217,7 +220,7 @@ it("ignores report completion after the public slot unmounts", async () => {
   );
   const page = f.page();
   await waitFor(() => expect(done).toBeTypeOf("function"));
-  const query = requested(f.machineReports.mock.lastCall![0]);
+  const query = requested(requireFixtureValue(f.machineReports.mock.lastCall)[0]);
   page.lifecycle.unmount();
   await act(async () => {
     done(reportsFixture(query));

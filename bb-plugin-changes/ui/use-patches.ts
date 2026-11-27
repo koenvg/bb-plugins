@@ -12,9 +12,9 @@ export type PatchState =
 export type LoadedChanges = Extract<ChangesResult, { kind: "ok" }>;
 
 export interface Patches {
-  stateOf(path: string): PatchState;
-  currentPatch(path: string): string | null;
-  load(path: string): void;
+  stateOf: (path: string) => PatchState;
+  currentPatch: (path: string) => string | null;
+  load: (path: string) => void;
 }
 
 interface Entry {

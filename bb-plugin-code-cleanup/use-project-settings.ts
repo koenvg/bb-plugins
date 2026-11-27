@@ -5,12 +5,12 @@ import type { ProjectState, SettingsContract } from "./rpc";
 export function message(error: unknown) {
   return error instanceof Error ? error.message : "Request failed";
 }
-type View = {
+interface View {
   snapshot: ProjectState;
   draft: string;
   changed: boolean;
   conflict: boolean;
-};
+}
 function loaded(snapshot: ProjectState): View {
   return { snapshot, draft: snapshot.effectivePrompt, changed: false, conflict: false };
 }
@@ -167,8 +167,9 @@ export function useProjectSettings(
     };
   }, [rpc, projectId, attempt, pending]);
 
-  const state = view?.snapshot.projectId === projectId ? view.snapshot : null;
-  const draft = state ? view!.draft : "";
+  const activeView = view?.snapshot.projectId === projectId ? view : null;
+  const state = activeView?.snapshot ?? null;
+  const draft = activeView?.draft ?? "";
   const dirty = !!state && draft !== state.effectivePrompt;
   async function persist(
     projectName: string,
@@ -251,8 +252,8 @@ export function useProjectSettings(
     state,
     draft,
     dirty,
-    changed: !!state && view!.changed,
-    conflict: !!state && view!.conflict,
+    changed: activeView?.changed ?? false,
+    conflict: activeView?.conflict ?? false,
     connection,
     reading,
     readError,

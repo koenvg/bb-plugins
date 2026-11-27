@@ -53,5 +53,8 @@ export const settingsContract = defineRpcContract({
 export type SettingsContract = typeof settingsContract;
 export type ProjectState = z.infer<typeof projectState>;
 export type ProjectSummary = z.infer<typeof projectSummary>;
-export type ProjectChoice = { id: string; name: string };
+export interface ProjectChoice {
+  id: string;
+  name: string;
+}
 export type PromptResult = z.infer<typeof settingsContract.setPrompt.output>;

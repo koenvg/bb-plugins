@@ -47,31 +47,31 @@ export type ReadResult =
 
 /** Only the source module knows how roots and hosts are selected. No writes. */
 export interface SourceAdapter {
-  environment(id: string): Promise<{
+  environment: (id: string) => Promise<{
     id: string;
     projectId: string;
     hostId: string;
     path: string | null;
     status: string;
   }>;
-  project(
+  project: (
     id: string,
-  ): Promise<{ id: string; sources: { hostId: string; path: string; isDefault: boolean }[] }>;
-  thread(id: string): Promise<{ id: string; projectId: string; environmentId: string | null }>;
-  storageLocation(threadId: string): Promise<{ hostId: string; storageRootPath: string }>;
-  resolveHostRoot(target: { hostId: string; rootPath: string }): Promise<string>;
-  read(target: { hostId: string; path: string; rootPath: string }): Promise<{
+  ) => Promise<{ id: string; sources: { hostId: string; path: string; isDefault: boolean }[] }>;
+  thread: (id: string) => Promise<{ id: string; projectId: string; environmentId: string | null }>;
+  storageLocation: (threadId: string) => Promise<{ hostId: string; storageRootPath: string }>;
+  resolveHostRoot: (target: { hostId: string; rootPath: string }) => Promise<string>;
+  read: (target: { hostId: string; path: string; rootPath: string }) => Promise<{
     content: string;
     contentEncoding: "base64" | "utf8";
     sha256: string;
     sizeBytes: number;
   }>;
-  imageUrl?(target: { hostId: string; rootPath: string; path: string }): Promise<string>;
-  findByName(target: { hostId: string; rootPath: string; name: string }): Promise<string[]>;
+  imageUrl?: (target: { hostId: string; rootPath: string; path: string }) => Promise<string>;
+  findByName: (target: { hostId: string; rootPath: string; name: string }) => Promise<string[]>;
 }
 export interface SourceReader {
-  read(target: unknown): Promise<ReadResult>;
-  destinations(input: unknown): Promise<DestinationResult>;
+  read: (target: unknown) => Promise<ReadResult>;
+  destinations: (input: unknown) => Promise<DestinationResult>;
 }
 export const destinationsInputSchema = z
   .object({
@@ -183,7 +183,7 @@ async function resolveSource(adapter: SourceAdapter, target: ReaderTarget) {
   );
   if (candidates.length !== 1)
     throw new Error("The workspace root is missing or ambiguous. Use BB preview.");
-  return { hostId: candidates[0]!.hostId, root: candidates[0]!.path };
+  return { hostId: candidates[0].hostId, root: candidates[0].path };
 }
 
 async function documentLocation(
@@ -244,7 +244,7 @@ async function findByName(adapter: SourceAdapter, target: ReaderTarget, cause: u
     throw new Error(
       `${target.path} is not at the source root. Matching files: ${matches.join(", ")}`,
     );
-  return await readAt(adapter, { ...target, path: matches[0]! });
+  return await readAt(adapter, { ...target, path: matches[0] });
 }
 
 export function createSourceReader(adapter: SourceAdapter): SourceReader {

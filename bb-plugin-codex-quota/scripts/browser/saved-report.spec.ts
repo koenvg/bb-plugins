@@ -2,12 +2,15 @@ import { test, expect, sizes, viewport, noOverflow, capture, jsonEvidence } from
 import { chart } from "./calendar-driver.js";
 import type { Page } from "@playwright/test";
 
-type Receipt = { event: string; query?: { group: string; startDate: string } };
-type Fixture = {
+interface Receipt {
+  event: string;
+  query?: { group: string; startDate: string };
+}
+interface Fixture {
   events: Receipt[];
   errors: string[];
-  release(name: string): void;
-};
+  release: (name: string) => void;
+}
 const receipts = (page: Page) =>
   page.evaluate(() => (window as unknown as { savedFixture: Fixture }).savedFixture.events);
 const release = (page: Page, name: string) =>

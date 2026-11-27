@@ -4,14 +4,14 @@ import { supportedHistoryLayout } from "./history-layout.js";
 // Internal host-local adapter. No BB server database or private SDK storage.
 export type SqlValue = string | number | bigint | null | Uint8Array;
 export interface HistoryDatabase {
-  exec(sql: string): void;
-  prepare(sql: string): {
-    get(...values: SqlValue[]): unknown;
-    all(...values: SqlValue[]): unknown[];
-    run(...values: SqlValue[]): unknown;
+  exec: (sql: string) => void;
+  prepare: (sql: string) => {
+    get: (...values: SqlValue[]) => unknown;
+    all: (...values: SqlValue[]) => unknown[];
+    run: (...values: SqlValue[]) => unknown;
   };
-  close(): void;
-  transaction<T>(work: () => T): T;
+  close: () => void;
+  transaction: <T>(work: () => T) => T;
 }
 export type HistoryDatabaseFactory = (path: string, readonly?: boolean) => HistoryDatabase;
 

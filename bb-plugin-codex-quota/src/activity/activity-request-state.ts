@@ -4,12 +4,19 @@ import { visibleActivity } from "./activity-cache.js";
 import { abortable } from "./activity-cancellation.js";
 import { FRESH_MS } from "../account/freshness.js";
 
-export type ActivitySelection = { hostId: string | null; generation: number };
+export interface ActivitySelection {
+  hostId: string | null;
+  generation: number;
+}
 export type ActivityApi = (
   input: { hostId: string; generation: number; refresh: boolean },
   signal: AbortSignal,
 ) => Promise<unknown>;
-type State = { view: ActivityView; loading: boolean; now: number };
+interface State {
+  view: ActivityView;
+  loading: boolean;
+  now: number;
+}
 /** Per disclosure. The host cache coalesces clients; no quota or history calls exist here. */
 export class ActivityRequestState {
   private selection: ActivitySelection = { hostId: null, generation: 0 };
@@ -21,10 +28,12 @@ export class ActivityRequestState {
   private dueAt = 0;
   private listeners = new Set<() => void>();
   private state: State;
-  constructor(
-    private readonly read: ActivityApi,
-    private readonly now: () => number = Date.now,
-  ) {
+  private readonly read: ActivityApi;
+  private readonly now: () => number;
+
+  constructor(read: ActivityApi, now: () => number = Date.now) {
+    this.read = read;
+    this.now = now;
     this.state = { view: emptyActivity(), loading: false, now: now() };
   }
   subscribe = (listener: () => void) => {

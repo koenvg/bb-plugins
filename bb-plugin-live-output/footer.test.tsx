@@ -4,6 +4,7 @@ import { act } from "@testing-library/react";
 import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import app from "./app";
 import type { OutputSnapshot } from "./contract";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 let slot: RenderedSlot | undefined;
 let fixture: HTMLElement | undefined;
@@ -41,9 +42,9 @@ const flush = async () => {
 it("adds the gauge footer beside Codex, displays the thirty-second estimate, opens the page and cleans up", async () => {
   vi.useFakeTimers();
   const captured = await loadPluginApp(app);
-  expect(captured.navPanels[0]!.icon).toBe("live-output/gauge");
+  expect(captured.navPanels[0].icon).toBe("live-output/gauge");
   expect(captured.experimentalSidebarFooterItems).toHaveLength(1);
-  const registration = captured.experimentalSidebarFooterItems[0]!;
+  const registration = captured.experimentalSidebarFooterItems[0];
   expect(registration).toMatchObject({ id: "rate", kind: "action", icon: "live-output/gauge" });
   fixture = document.createElement("div");
   fixture.innerHTML =
@@ -51,7 +52,7 @@ it("adds the gauge footer beside Codex, displays the thirty-second estimate, ope
   document.body.append(fixture);
   let next = snapshot();
   slot = renderSlot(
-    captured.appOverlays[0]!,
+    captured.appOverlays[0],
     {},
     {
       rpc: { snapshot: () => ({ ...next, at: Date.now() }) },
@@ -59,17 +60,20 @@ it("adds the gauge footer beside Codex, displays the thirty-second estimate, ope
     },
   );
   await flush();
-  const button = fixture.querySelector<HTMLButtonElement>(
-    '[data-footer-item="plugin:live-output/rate"] button',
-  )!;
+  const button = requireFixtureValue(
+    fixture.querySelector<HTMLButtonElement>('[data-footer-item="plugin:live-output/rate"] button'),
+  );
   expect(button.textContent).toContain("15 tok/s");
   expect(
-    window.getComputedStyle(button.querySelector("[data-live-output-rate]")!).pointerEvents,
+    window.getComputedStyle(requireFixtureValue(button.querySelector("[data-live-output-rate]")))
+      .pointerEvents,
   ).toBe("none");
   expect(button.textContent).not.toContain("200 tok/s");
   expect(button.getAttribute("aria-describedby")).toContain("host-description");
   expect(
-    fixture.querySelector('[data-footer-item="plugin:codex-quota/quota"] button')!.textContent,
+    requireFixtureValue(
+      fixture.querySelector('[data-footer-item="plugin:codex-quota/quota"] button'),
+    ).textContent,
   ).toBe("Codex");
   if (registration.kind !== "action") throw new Error("Expected an action");
   await act(async () => {
@@ -106,7 +110,7 @@ it("starts polling only when its footer exists and follows host button replaceme
   const captured = await loadPluginApp(app);
   let calls = 0;
   slot = renderSlot(
-    captured.appOverlays[0]!,
+    captured.appOverlays[0],
     {},
     {
       rpc: {
@@ -124,21 +128,24 @@ it("starts polling only when its footer exists and follows host button replaceme
   fixture.innerHTML =
     '<div data-sidebar="footer"><div data-footer-item="plugin:live-output/rate"><button data-sidebar="menu-button">Gauge</button></div></div>';
   await act(async () => {
-    document.body.append(fixture!);
+    document.body.append(requireFixtureValue(fixture));
   });
   expect(fixture.textContent).toContain("15 tok/s");
   expect(calls).toBe(1);
-  const old = fixture.querySelector("button")!;
+  const old = requireFixtureValue(fixture.querySelector("button"));
   await act(async () => {
     old.replaceWith(
       Object.assign(document.createElement("button"), { textContent: "Replacement" }),
     );
-    fixture!.querySelector("button")!.setAttribute("data-sidebar", "menu-button");
+    requireFixtureValue(requireFixtureValue(fixture).querySelector("button")).setAttribute(
+      "data-sidebar",
+      "menu-button",
+    );
   });
   expect(old.textContent).toBe("Gauge");
   expect(fixture.textContent).toContain("15 tok/s");
   await act(async () => {
-    fixture!.remove();
+    requireFixtureValue(fixture).remove();
   });
   expect(vi.getTimerCount()).toBe(0);
 });

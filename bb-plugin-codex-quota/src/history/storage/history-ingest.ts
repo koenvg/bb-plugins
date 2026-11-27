@@ -8,7 +8,7 @@ import { projectCompactRecord } from "./history-projection.js";
 import { collectorLogNames, completeCollectorDiscovery } from "../collection/history-logs.js";
 import { recordReconciliation, recordSourceUncertainty } from "../collection/history-coverage.js";
 
-export type IngestOptions = {
+export interface IngestOptions {
   signal: AbortSignal;
   bytes?: number;
   rows?: number;
@@ -16,8 +16,8 @@ export type IngestOptions = {
   now?: number;
   recoveryFloor?: string;
   legacyOnly?: boolean;
-};
-type Progress = {
+}
+interface Progress {
   identity: string;
   size: number;
   stamp: string;
@@ -26,7 +26,7 @@ type Progress = {
   edge: string;
   invalid: number;
   stalled: number;
-};
+}
 const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 const MAX_LINE = 64 * 1024;
 export async function reconcileCollector(

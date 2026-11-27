@@ -5,6 +5,7 @@ import { CalendarValues } from "./calendar-view.js";
 import { CalendarReportPanel } from "./calendar-panel.js";
 import { calendarEmptySnapshot, calendarSnapshot } from "./calendar-test-support.js";
 import type { CalendarQuery } from "./calendar-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const query: CalendarQuery = {
   startDate: "2026-09-01",
@@ -124,7 +125,7 @@ it("retains semantic selection through changed drawing keys, metrics and absent 
   page.rerender(<CalendarValues view={{ ...view, query: { ...query } }} metric="tokens" />);
   expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("false");
   const refreshed = snapshot();
-  refreshed.days[14].models!.named.push({
+  requireFixtureValue(refreshed.days[14].models).named.push({
     model: "a.new[model]",
     totalTokens: 1,
   });
@@ -202,7 +203,7 @@ it.each(["unknown", "observed-inactivity"] as const)(
     render(<CalendarValues view={calendarEmptySnapshot(query, state)} metric="tokens" />);
     expect(screen.getByRole("status").textContent).toBe("No recorded model series.");
     expect(screen.queryByRole("button", { name: "Restore all series" })).toBeNull();
-    expect(table().querySelector("tbody tr td")!.textContent).toBe(
+    expect(requireFixtureValue(table().querySelector("tbody tr td")).textContent).toBe(
       state === "unknown" ? "Unavailable" : "0",
     );
   },
@@ -315,7 +316,9 @@ it("keeps the default legend compact and exposes selection status without routin
   expect(fast.textContent).toBe("gpt-6.1-sol");
   fireEvent.click(fast);
   expect(fast.textContent).toBe("gpt-6.1-sol");
-  expect(fast.querySelector("span:last-child")!.className).toContain("line-through");
+  expect(requireFixtureValue(fast.querySelector("span:last-child")).className).toContain(
+    "line-through",
+  );
   expect(screen.getByRole("status").className).toBe("sr-only");
   fast.focus();
   fireEvent.click(fast);
@@ -335,7 +338,7 @@ it("restores focus before the trailing restore disappears", () => {
   button("Restore all series").focus();
   fireEvent.click(button("Restore all series"));
   expect(document.activeElement).toBe(screen.getByRole("group", { name: "Daily recorded values" }));
-  expect(document.activeElement!.getAttribute("tabindex")).toBe("-1");
+  expect(requireFixtureValue(document.activeElement).getAttribute("tabindex")).toBe("-1");
   page.rerender(<CalendarValues view={view} metric="tokens" />);
   expect(button("gpt-6.1-sol").getAttribute("aria-pressed")).toBe("true");
 });
@@ -357,7 +360,9 @@ it("falls back to the first current series if the last toggled identity is absen
   const page = render(<CalendarValues view={view} metric="tokens" />);
   fireEvent.click(button("gpt-6.1-sol"));
   const refreshed = snapshot();
-  refreshed.days[14].models!.named = refreshed.days[14].models!.named.slice(0, 1);
+  requireFixtureValue(refreshed.days[14].models).named = requireFixtureValue(
+    refreshed.days[14].models,
+  ).named.slice(0, 1);
   page.rerender(<CalendarValues view={refreshed} metric="tokens" />);
   expect(screen.getByRole("status").textContent).toBe("0 model series hidden.");
   button("Restore all series").focus();

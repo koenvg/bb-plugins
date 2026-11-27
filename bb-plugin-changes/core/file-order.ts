@@ -8,7 +8,7 @@ export function compareFilePaths(a: string, b: string): number {
       return leftIsFolder ? -1 : 1;
     }
     if (left[index] !== right[index]) {
-      return left[index]!.localeCompare(right[index]!);
+      return left[index].localeCompare(right[index]);
     }
   }
   return 0;

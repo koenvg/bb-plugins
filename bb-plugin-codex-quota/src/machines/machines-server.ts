@@ -26,19 +26,19 @@ const noQuota = (reason: "host-offline" | "unsupported" | "identity-changed") =>
 });
 const proofSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const aliasPrefix = "machine-account-v1/";
-type Dependencies = {
-  list(): Promise<Machine[]>;
-  get(id: string): Promise<Machine | null>;
+interface Dependencies {
+  list: () => Promise<Machine[]>;
+  get: (id: string) => Promise<Machine | null>;
   storage: SummaryStorage;
-  observe(
+  observe: (
     id: string,
     input: { challenge: string; refresh: boolean; includeActivity: boolean },
     signal: AbortSignal,
-  ): Promise<unknown>;
-  report(id: string, query: CalendarQuery, signal: AbortSignal): Promise<unknown>;
-  prepare(id: string, signal: AbortSignal, refresh: boolean): Promise<unknown>;
+  ) => Promise<unknown>;
+  report: (id: string, query: CalendarQuery, signal: AbortSignal) => Promise<unknown>;
+  prepare: (id: string, signal: AbortSignal, refresh: boolean) => Promise<unknown>;
   now?: () => number;
-};
+}
 
 /** Owns enrollment, account correlation and persistent last-known summaries, never source history. */
 export function createMachineCoordinator(deps: Dependencies) {
@@ -89,10 +89,13 @@ export function createMachineCoordinator(deps: Dependencies) {
       return fresh;
     })());
   const label = (proof: string) => {
-    if (!labels.has(proof)) {
-      labels.set(proof, `account-${randomUUID()}`);
+    const cached = labels.get(proof);
+    if (cached !== undefined) {
+      return cached;
     }
-    return labels.get(proof)!;
+    const next = `account-${randomUUID()}`;
+    labels.set(proof, next);
+    return next;
   };
   const catalog = async (savedOnly = false) => {
     lifetime.signal.throwIfAborted();
@@ -178,7 +181,7 @@ export function createMachineCoordinator(deps: Dependencies) {
       Array.from({ length: Math.min(4, machines.length) }, async () => {
         while (next < machines.length && !lifetime.signal.aborted) {
           const index = (next += 1) - 1;
-          results[index] = await work(machines[index]!);
+          results[index] = await work(machines[index]);
         }
       }),
     );
@@ -204,7 +207,8 @@ export function createMachineCoordinator(deps: Dependencies) {
           await invalidate(hostId);
         }
       } finally {
-        const remaining = mutations.get(hostId)! - 1;
+        const count = mutations.get(hostId);
+        const remaining = count === undefined ? 0 : count - 1;
         if (remaining) {
           mutations.set(hostId, remaining);
         } else {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { PluginSettingsSectionProps } from "@get-bb/plugin-sdk/app";
 import "./dialog-test-support";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -6,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginRpcTestHandlers } from "@get-bb/plugin-sdk/testing/app";
 import type { ProjectState, PromptResult, SettingsContract } from "./rpc";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 afterEach(() => {
   cleanup();
@@ -38,7 +40,7 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
     ["proj_b", state("proj_b", null)],
   ]);
   const app = await loadPluginApp(() => import("./app"));
-  const view = renderSlot<{}, SettingsContract>(
+  const view = renderSlot<PluginSettingsSectionProps, SettingsContract>(
     app.settingsSections[0],
     {},
     {
@@ -55,12 +57,12 @@ async function mount(overrides: Partial<PluginRpcTestHandlers<SettingsContract>>
             enabledOverride: s.enabledOverride,
             promptSource: s.prompt === null ? "default" : "custom",
           })),
-        getProject: ({ projectId }) => states.get(projectId)!,
+        getProject: ({ projectId }) => requireFixtureValue(states.get(projectId)),
         setEnablement: () => {
           throw new Error("Dialog must not write enablement");
         },
         setPrompt: ({ projectId, prompt, expectedPrompt }) => {
-          const current = states.get(projectId)!;
+          const current = requireFixtureValue(states.get(projectId));
           if (current.prompt !== expectedPrompt) {
             return { status: "conflict", state: current };
           }
@@ -232,7 +234,7 @@ describe("project-bound native prompt dialog", () => {
     expect(client.writes()).toEqual([
       { method: "setPrompt", input: { projectId: "proj_a", prompt: null, expectedPrompt: source } },
     ]);
-    const row = client.trigger.closest("tr")!;
+    const row = requireFixtureValue(client.trigger.closest("tr"));
     expect(within(row).getByText("Plugin default")).toBeTruthy();
   });
 

@@ -13,17 +13,23 @@ import type { CachedPr } from "../refresh/insight-service";
 import type { PrTarget } from "../pr-lookup";
 
 interface PrWritesDeps {
-  cachedPr(threadId: string): Promise<CachedPr>;
-  mergePullRequest(target: PrTarget, request: MergePullRequestRequest): Promise<unknown>;
-  enqueuePullRequest(target: PrTarget, request: EnqueuePullRequestRequest): Promise<unknown>;
-  updatePullRequestBranch(
+  cachedPr: (threadId: string) => Promise<CachedPr>;
+  mergePullRequest: (target: PrTarget, request: MergePullRequestRequest) => Promise<unknown>;
+  enqueuePullRequest: (target: PrTarget, request: EnqueuePullRequestRequest) => Promise<unknown>;
+  updatePullRequestBranch: (
     target: PrTarget,
     request: UpdatePullRequestBranchRequest,
-  ): Promise<unknown>;
-  enablePullRequestAutoMerge(target: PrTarget, request: EnableAutoMergeRequest): Promise<unknown>;
-  disablePullRequestAutoMerge(target: PrTarget, request: DisableAutoMergeRequest): Promise<unknown>;
-  refreshAfterWrite(threadId: string): Promise<void>;
-  warn(message: string): void;
+  ) => Promise<unknown>;
+  enablePullRequestAutoMerge: (
+    target: PrTarget,
+    request: EnableAutoMergeRequest,
+  ) => Promise<unknown>;
+  disablePullRequestAutoMerge: (
+    target: PrTarget,
+    request: DisableAutoMergeRequest,
+  ) => Promise<unknown>;
+  refreshAfterWrite: (threadId: string) => Promise<void>;
+  warn: (message: string) => void;
 }
 
 type GitHubWrite = (deps: PrWritesDeps) => Promise<unknown>;

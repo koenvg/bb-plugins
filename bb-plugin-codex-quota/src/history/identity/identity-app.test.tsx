@@ -7,6 +7,7 @@ import type { rpcContract } from "../../plugin/server.js";
 import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
 import { setHistoryManagementOpen } from "../history-test-support.js";
 import { metadataFixture } from "../../machines/app.test-support.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const app = await loadPluginApp(() => import("../../plugin/app.js"));
 
@@ -75,18 +76,18 @@ it("uses public BB navigation and clears verified totals during a host switch", 
     },
   };
   const owner = renderSlot(
-    app.appOverlays.find((s) => s.id === "quota-refresh")!,
+    requireFixtureValue(app.appOverlays.find((s) => s.id === "quota-refresh")),
     {},
     options,
   );
-  const panel = renderSlot(app.settingsSections[0]!, {}, options);
+  const panel = renderSlot(app.settingsSections[0], {}, options);
   const q = within(panel.container);
   await setHistoryManagementOpen(panel.container);
   fireEvent.click(await q.findByRole("button", { name: "Open thread thr_verified" }));
   expect(panel.inspection.navigateCalls).toEqual([
     { method: "toThread", threadId: "thr_verified" },
   ]);
-  fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[1]!);
+  fireEvent.click(q.getAllByRole("button", { name: "Manage history" })[1]);
   expect(q.queryByRole("button", { name: "Open thread thr_verified" })).toBeNull();
   await q.findByText(/Identity discovery: partial/);
   expect(q.queryByText("Verified synthetic thread")).toBeNull();

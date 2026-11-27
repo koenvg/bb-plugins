@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import recordedThreads from "../test/fixtures/pr-25259-review-threads.json";
 import { collectReviewThreads, MAX_THREAD_PAGES, parseReviewThreads } from "./review-threads";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 function threadsPage(
   nodes: unknown[],
@@ -26,7 +27,9 @@ function threadNode(id: string) {
 }
 
 function byId(id: string) {
-  return parseReviewThreads([recordedThreads]).find((thread) => thread.id === id)!;
+  return requireFixtureValue(
+    parseReviewThreads([recordedThreads]).find((thread) => thread.id === id),
+  );
 }
 
 describe("parseReviewThreads", () => {
@@ -82,14 +85,14 @@ describe("parseReviewThreads", () => {
     ] as never[];
     node.comments.totalCount = 1;
 
-    expect(parseReviewThreads([threadsPage([node])])[0]!.comments[0]!.author).toBe("ghost");
+    expect(parseReviewThreads([threadsPage([node])])[0].comments[0].author).toBe("ghost");
   });
 
   it("tells when GitHub has more comments than the page holds", () => {
     const node = threadNode("t1");
     node.comments.totalCount = 101;
 
-    expect(parseReviewThreads([threadsPage([node])])[0]!.hasMoreComments).toBe(true);
+    expect(parseReviewThreads([threadsPage([node])])[0].hasMoreComments).toBe(true);
     expect(byId("PRRT_kwDOHI7l-86jx0SN").hasMoreComments).toBe(false);
   });
 });

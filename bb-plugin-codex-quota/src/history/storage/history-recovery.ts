@@ -178,13 +178,13 @@ export async function recoverHistory(
   try {
     initializeHistory(db, receipt.boundary.firstObservedAt);
     db.transaction(() => {
-      db.prepare("UPDATE history_owner SET host_key=? WHERE id=1").run(receipt!.boundary.hostKey);
+      db.prepare("UPDATE history_owner SET host_key=? WHERE id=1").run(receipt.boundary.hostKey);
       db.prepare(
         "UPDATE history_retention SET detail_cutoff=max(detail_cutoff,?),compact_cutoff=max(compact_cutoff,?) WHERE id=1",
-      ).run(receipt!.boundary.detail, receipt!.start);
+      ).run(receipt.boundary.detail, receipt.start);
       db.prepare("INSERT OR REPLACE INTO history_recovery VALUES (1,?,?)").run(
-        receipt!.start,
-        receipt!.end,
+        receipt.start,
+        receipt.end,
       );
     });
     // The earlier pause start is lost. The recovery gap covers the past; this known

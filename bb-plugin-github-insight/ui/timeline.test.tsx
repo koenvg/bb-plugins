@@ -7,6 +7,7 @@ import { parseTimelinePage, type TimelineEvent } from "../core/timeline";
 import timelines from "../test/fixtures/pr-timelines.json";
 import { forgetPrViews } from "./pr-view-snapshots";
 import { TimelineSections } from "./timeline";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 class Unobserved {
   observe() {}
@@ -121,7 +122,7 @@ describe("conversation timeline", () => {
     const slot = renderTimeline(withEvents([comment("1", body)]));
 
     await loaded(slot);
-    const item = events(slot)[0]!;
+    const item = events(slot)[0];
 
     expect(within(item).getByTestId("bb-markdown").textContent).toBe(body);
     expect(within(item).getByRole("link").getAttribute("href")).toBe(
@@ -144,7 +145,7 @@ describe("conversation timeline", () => {
     const slot = renderTimeline(withEvents([review]));
 
     await loaded(slot);
-    const item = events(slot)[0]!;
+    const item = events(slot)[0];
 
     expect(within(item).getByText("Changes requested")).toBeTruthy();
     expect(within(item).getByText("Split this")).toBeTruthy();
@@ -155,7 +156,9 @@ describe("conversation timeline", () => {
     const slot = renderTimeline(page("cli-14578"));
     await loaded(slot);
 
-    const approval = events(slot).find((item) => /Approved/.test(item.textContent ?? ""))!;
+    const approval = requireFixtureValue(
+      events(slot).find((item) => /Approved/.test(item.textContent ?? "")),
+    );
 
     expect(within(approval).queryByRole("button")).toBeNull();
   });
@@ -163,13 +166,15 @@ describe("conversation timeline", () => {
   it("expands a commit group to its commits", async () => {
     const slot = renderTimeline(page("cli-14507"));
     await loaded(slot);
-    const group = events(slot).find((item) => /added 6 commits/.test(item.textContent ?? ""))!;
+    const group = requireFixtureValue(
+      events(slot).find((item) => /added 6 commits/.test(item.textContent ?? "")),
+    );
 
     fireEvent.click(within(group).getByText(/added 6 commits/));
 
     const commits = within(group).getAllByTestId("timeline-commit");
     expect(commits).toHaveLength(6);
-    expect(commits[0]!.textContent).toMatch(/^[0-9a-f]{7}/);
+    expect(commits[0].textContent).toMatch(/^[0-9a-f]{7}/);
   });
 
   it("shows closed and reopened events", async () => {
@@ -388,7 +393,11 @@ describe("new conversation comments", () => {
   const watched = new Map<Element, IntersectionObserverCallback>();
 
   class WatchCards {
-    constructor(private readonly callback: IntersectionObserverCallback) {}
+    private readonly callback: IntersectionObserverCallback;
+
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+    }
     observe(target: Element) {
       watched.set(target, this.callback);
     }
@@ -456,9 +465,9 @@ describe("new conversation comments", () => {
     );
     await loaded(slot);
 
-    expect(cardOf(slot, "3")!.classList).toContain("review-comment-new");
-    expect(cardOf(slot, "1")!.classList).not.toContain("review-comment-new");
-    expect(cardOf(slot, "2")!.classList).not.toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "3")).classList).toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "1")).classList).not.toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "2")).classList).not.toContain("review-comment-new");
   });
 
   it("glows a new review text", async () => {
@@ -467,16 +476,16 @@ describe("new conversation comments", () => {
     );
     await loaded(slot);
 
-    expect(cardOf(slot, "PRR_1")!.classList).toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "PRR_1")).classList).toContain("review-comment-new");
   });
 
   it("saves the comment as seen after the user reads it and keeps the glow", async () => {
     const slot = renderTimeline(withEvents([comment("1", "New")], null, ["1"]));
     await loaded(slot);
 
-    readFor(1800, true, cardOf(slot, "1")!);
+    readFor(1800, true, requireFixtureValue(cardOf(slot, "1")));
 
-    expect(cardOf(slot, "1")!.classList).toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "1")).classList).toContain("review-comment-new");
     await vi.waitFor(() =>
       expect(seenCalls(slot)).toEqual([{ threadId: "thr_1", commentIds: ["1"] }]),
     );
@@ -486,8 +495,8 @@ describe("new conversation comments", () => {
     const slot = renderTimeline(withEvents([comment("1", "New")], null, ["1"]));
     await loaded(slot);
 
-    readFor(500, true, cardOf(slot, "1")!);
-    readFor(1800, false, cardOf(slot, "1")!);
+    readFor(500, true, requireFixtureValue(cardOf(slot, "1")));
+    readFor(1800, false, requireFixtureValue(cardOf(slot, "1")));
 
     expect(seenCalls(slot)).toEqual([]);
   });
@@ -503,7 +512,7 @@ describe("new conversation comments", () => {
     );
     await vi.waitFor(() => expect(timelineCalls(slot)).toHaveLength(2));
 
-    expect(cardOf(slot, "1")!.classList).toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "1")).classList).toContain("review-comment-new");
   });
 
   it("glows a new comment from an older page", async () => {
@@ -518,7 +527,7 @@ describe("new conversation comments", () => {
       fireEvent.click(await slot.findByRole("button", { name: "Load older events" })),
     );
 
-    expect(cardOf(slot, "1")!.classList).toContain("review-comment-new");
-    expect(cardOf(slot, "2")!.classList).not.toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "1")).classList).toContain("review-comment-new");
+    expect(requireFixtureValue(cardOf(slot, "2")).classList).not.toContain("review-comment-new");
   });
 });

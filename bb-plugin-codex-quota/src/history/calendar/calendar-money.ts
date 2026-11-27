@@ -1,11 +1,11 @@
 import type { CalendarMoney } from "./calendar-contract.js";
 
-export type MoneyAggregate = {
+export interface MoneyAggregate {
   capturedCost: number | null;
   pricedEvents: number;
   events: number;
   pricedEntities: number;
-};
+}
 // Matches the original canonical capture/import price contract. Never consult model prices.
 export const eligiblePrice =
   "typeof(c.captured_cost) IN ('integer','real') AND c.captured_cost>0 AND c.captured_cost<=1e9";

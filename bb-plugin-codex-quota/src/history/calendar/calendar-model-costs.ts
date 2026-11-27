@@ -49,7 +49,10 @@ export const dayModelCostsSchema = z
     "Duplicate cost model",
   );
 export type DayModelCosts = z.infer<typeof dayModelCostsSchema>;
-type CostDay = { money: CalendarMoney; modelCosts?: DayModelCosts };
+interface CostDay {
+  money: CalendarMoney;
+  modelCosts?: DayModelCosts;
+}
 export function capturedSubtotal(
   capturedCost: number | null,
   records: number,
@@ -148,14 +151,14 @@ export function mergeModelCosts(days: readonly CostDay[]): DayModelCosts {
     unknown: sum(partitions.map((value) => value.unknown)),
   };
 }
-export type CostSeries = {
+export interface CostSeries {
   key: string;
   selectionId: string;
   label: string;
   color: string;
   model?: string;
   bucket: { kind: "named"; model: string } | { kind: "other" | "unknown" };
-};
+}
 export function projectCostModels(days: readonly CostDay[]) {
   const partitions = days.map(partition);
   const selected = mergeModelCosts(days)

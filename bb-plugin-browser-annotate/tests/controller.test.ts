@@ -120,7 +120,7 @@ const saveMessage = {
   viewport: { width: 1440, height: 900 },
 };
 
-async function flush(controller: { refreshPins(): Promise<void> }) {
+async function flush(controller: { refreshPins: () => Promise<void> }) {
   await controller.refreshPins();
 }
 

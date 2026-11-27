@@ -37,7 +37,7 @@ export function queryScope(query: CalendarQuery) {
       ? { verifiedThread: query.scope.threadId }
       : {};
 }
-export type CalendarAggregate = {
+export interface CalendarAggregate {
   date: string;
   models: DayModels;
   modelCosts: DayModelCosts;
@@ -53,7 +53,7 @@ export type CalendarAggregate = {
   reasoning: number;
   cacheRead: number;
   cacheWrite: number;
-};
+}
 /** Fixed number of indexed SQL aggregate queries. No event array or accepted-record cap. */
 export function aggregateDays(
   db: HistoryDatabase,
@@ -143,7 +143,10 @@ export function aggregateDays(
     for (const cost of costRows) {
       const money = capturedSubtotal(cost.capturedCost, cost.records, cost.pricedRecords);
       if (cost.bucket === "named") {
-        modelCosts.named.push({ model: cost.model!, money });
+        if (cost.model === null) {
+          throw new Error("Named calendar cost row has no model.");
+        }
+        modelCosts.named.push({ model: cost.model, money });
       } else {
         modelCosts[cost.bucket] = money;
       }

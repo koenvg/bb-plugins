@@ -4,6 +4,7 @@ import { CalendarReportPanel } from "../src/history/calendar/calendar-panel.js";
 import { MachineReportPanel } from "../src/machines/report-view.js";
 import type { CalendarQuery, CalendarSnapshot } from "../src/history/calendar/calendar-contract.js";
 import type { MachineReports } from "../src/machines/machines-contract.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 declare const __NATIVE_USAGE_REPORTS__: CalendarSnapshot[];
 const reports = __NATIVE_USAGE_REPORTS__;
@@ -107,4 +108,4 @@ const Preview = () => {
   );
 };
 Object.assign(window, { nativeUsageFixture: { calls, reports } });
-createRoot(document.getElementById("root")!).render(<Preview />);
+createRoot(requireFixtureValue(document.getElementById("root"))).render(<Preview />);

@@ -29,6 +29,17 @@ export function shiftDate(date: string, days: number): string {
   }
   return result;
 }
+function dateFromParts(parts: Intl.DateTimeFormatPart[]): string {
+  const part = (type: "year" | "month" | "day") => {
+    const value = parts.find((entry) => entry.type === type)?.value;
+    if (value === undefined) {
+      throw new Error(`Calendar date is missing ${type}.`);
+    }
+    return value;
+  };
+  return `${part("year").padStart(4, "0")}-${part("month")}-${part("day")}`;
+}
+
 export function localDate(instant: number, timezone: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
@@ -38,8 +49,7 @@ export function localDate(instant: number, timezone: string): string {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(instant);
-  const part = (type: string) => parts.find((p) => p.type === type)!.value;
-  return `${part("year").padStart(4, "0")}-${part("month")}-${part("day")}`;
+  return dateFromParts(parts);
 }
 export function dayBoundary(date: string, timezone: string): string {
   if (!validDate(date) || !validTimezone(timezone)) {
@@ -55,10 +65,7 @@ export function dayBoundary(date: string, timezone: string): string {
     month: "2-digit",
     day: "2-digit",
   });
-  const label = (n: number) => {
-    const p = format.formatToParts(n);
-    return `${p.find((x) => x.type === "year")!.value.padStart(4, "0")}-${p.find((x) => x.type === "month")!.value}-${p.find((x) => x.type === "day")!.value}`;
-  };
+  const label = (n: number) => dateFromParts(format.formatToParts(n));
   let low = nominal - 48 * 3600000;
   let high = nominal + 48 * 3600000;
   while (low < high) {

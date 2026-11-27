@@ -8,14 +8,14 @@ import { effectiveMarks, viewedFiles } from "./viewed-store";
 export interface FileViewedState {
   viewed: boolean;
   collapsed: boolean;
-  toggleViewed(): void;
-  toggleCollapsed(): void;
+  toggleViewed: () => void;
+  toggleCollapsed: () => void;
 }
 
 export interface PrViewed {
   counts: { viewed: number; markable: number };
   error: string | null;
-  of(file: ReviewFile): FileViewedState | undefined;
+  of: (file: ReviewFile) => FileViewedState | undefined;
 }
 
 export function usePrViewed(

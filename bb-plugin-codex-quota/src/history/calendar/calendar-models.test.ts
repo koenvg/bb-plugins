@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { calendarDaySchema } from "./calendar-contract.js";
 import { calendarSnapshot } from "./calendar-test-support.js";
 import { dayModelsSchema, mergeDayModels, projectTokenModels } from "./calendar-models.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const day = (model: string, totalTokens = 10) => ({
   totalTokens,
@@ -65,7 +66,7 @@ it("keeps Other distinct from Unknown and uses safe generated drawing keys", () 
 });
 it("keeps colors stable when ranks, dates, or neighboring models change", () => {
   const color = (days: ReturnType<typeof day>[]) =>
-    projectTokenModels(days).series.find((row) => row.model === "gpt")!.color;
+    requireFixtureValue(projectTokenModels(days).series.find((row) => row.model === "gpt")).color;
   expect(color([day("gpt")])).toBe(color([day("aaa", 20), day("gpt", 1)]));
   expect(color([day("gpt", Number.MAX_SAFE_INTEGER), day("gpt", Number.MAX_SAFE_INTEGER)])).toBe(
     color([day("gpt")]),

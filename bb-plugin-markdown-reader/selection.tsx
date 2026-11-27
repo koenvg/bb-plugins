@@ -108,9 +108,11 @@ export const SelectionAction = ({
     const selectionNow = panel.current?.ownerDocument.defaultView?.getSelection();
     dismissed.current = selectionNow?.rangeCount ? selectionNow.getRangeAt(0).cloneRange() : null;
     pending.current = null;
-    if (!snapshot || key === undefined || available === undefined) return;
-    const doc = panel.current!.ownerDocument;
-    const win = doc.defaultView!;
+    const element = panel.current;
+    const doc = element?.ownerDocument;
+    const win = doc?.defaultView;
+    if (!snapshot || key === undefined || available === undefined || !element || !doc || !win)
+      return;
     const coarse = win.matchMedia?.("(pointer: coarse)");
     let dragging = false;
     const dismiss = () => {
@@ -151,7 +153,7 @@ export const SelectionAction = ({
         dismiss();
         return;
       }
-      const rect = range.getBoundingClientRect?.() ?? panel.current!.getBoundingClientRect();
+      const rect = range.getBoundingClientRect?.() ?? element.getBoundingClientRect();
       const next = {
         text,
         rect,

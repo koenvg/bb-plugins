@@ -21,10 +21,14 @@ export function measure(root: HTMLElement) {
       disabled: li.querySelector<HTMLInputElement>('input[type="checkbox"]')?.disabled ?? null,
     })),
   }));
-  const toolbar = root.querySelector(".mr-toolbar")!,
-    identity = root.querySelector<HTMLElement>(".mr-identity");
-  const view = root.querySelector(".mr-view-controls")!,
-    actions = root.querySelector(".mr-reader-actions");
+  const toolbar = root.querySelector(".mr-toolbar");
+  const view = root.querySelector(".mr-view-controls");
+  const outsideList = document.querySelector("#outside-list");
+  if (!toolbar || !view || !outsideList) {
+    throw new Error("Markdown reader UI fixture is incomplete");
+  }
+  const identity = root.querySelector<HTMLElement>(".mr-identity");
+  const actions = root.querySelector(".mr-reader-actions");
   const filename = root.querySelector(".mr-filename"),
     directory = root.querySelector(".mr-path");
   const outline = Array.from(toolbar.querySelectorAll("button")).find(
@@ -53,6 +57,6 @@ export function measure(root: HTMLElement) {
       ...rect(b),
     })),
     lists,
-    outsideType: getComputedStyle(document.querySelector("#outside-list")!).listStyleType,
+    outsideType: getComputedStyle(outsideList).listStyleType,
   };
 }

@@ -18,7 +18,7 @@ export function buildFileTree(files: readonly ChangedFile[]): FileTreeRow[] {
   const root = emptyFolder();
   for (const file of [...files].sort((a, b) => compareFilePaths(a.path, b.path))) {
     const segments = file.path.split("/");
-    const name = segments.pop()!;
+    const name = segments.pop() ?? "";
     let folder = root;
     for (const segment of segments) {
       let child = folder.folders.get(segment);
@@ -40,7 +40,11 @@ function appendRows(folder: Folder, parentPath: string, depth: number, rows: Fil
     let label = name;
     let child = first;
     while (child.files.size === 0 && child.folders.size === 1) {
-      const [onlyChildName, onlyChild] = child.folders.entries().next().value!;
+      const entry = child.folders.entries().next();
+      if (entry.done) {
+        break;
+      }
+      const [onlyChildName, onlyChild] = entry.value;
       label = `${label}/${onlyChildName}`;
       child = onlyChild;
     }

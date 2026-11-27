@@ -8,7 +8,7 @@ export const SUMMARY_HEARTBEAT_MS = 30 * 60_000;
 const MAX_NAMES = 5;
 const MAX_TEXT_BYTES = 200;
 
-export type PrSummary = {
+export interface PrSummary {
   version: 1;
   updatedAt: string;
   pr: { number: number; url: string; state: PrInsight["pr"]["state"] };
@@ -22,7 +22,7 @@ export type PrSummary = {
   blockers: PrInsight["blockers"][number]["code"][];
   mergeQueue: PrInsight["mergeQueue"];
   error: string | null;
-};
+}
 
 const encoder = new TextEncoder();
 

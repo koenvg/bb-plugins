@@ -2,17 +2,18 @@ import type { Page } from "@playwright/test";
 import { expect } from "./fixtures.js";
 import { accessibleFacts, verifyTooltip } from "./proof.js";
 import type { Metric, AxNode } from "./proof.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
-export type Call = {
+export interface Call {
   method: string;
   input: {
     hostId?: string;
     query?: { group: string; scope: unknown; comparison?: unknown; includeUncertain?: boolean };
   };
-};
+}
 declare global {
   interface Window {
-    calendarFixture: { calls: Call[]; errors: string[]; pending(): number };
+    calendarFixture: { calls: Call[]; errors: string[]; pending: () => number };
   }
 }
 export const calls = (page: Page): Promise<Call[]> =>
@@ -26,20 +27,33 @@ export const rows = (page: Page): Promise<string[][]> =>
 export async function chart(page: Page) {
   await expect(page.locator('.ts-chart[role="img"]')).toBeVisible();
   await page.waitForFunction(() => {
-    const container = document.querySelector(".ts-chart-host")!.getBoundingClientRect();
-    const surface = document.querySelector(".ts-chart")!.getBoundingClientRect();
+    const element = document.querySelector(".ts-chart-host");
+    if (element == null) {
+      throw new Error('Missing browser fixture value: document.querySelector(".ts-chart-host")');
+    }
+    const container = element.getBoundingClientRect();
+    const element2 = document.querySelector(".ts-chart");
+    if (element2 == null) {
+      throw new Error('Missing browser fixture value: document.querySelector(".ts-chart")');
+    }
+    const surface = element2.getBoundingClientRect();
     return container.width > 250 && Math.abs(container.width - surface.width) < 1;
   });
 }
 async function tooltipFacts(page: Page, metric: Metric, row: string[], fromDate?: string | null) {
-  const definitions = await page
-    .locator(".calendar-tooltip dl > div")
-    .evaluateAll((elements) =>
-      elements.map((e) => [
-        e.querySelector("dt")!.textContent!,
-        e.querySelector("dd")!.textContent!,
-      ]),
-    );
+  const definitions = await page.locator(".calendar-tooltip dl > div").evaluateAll((elements) =>
+    elements.map((e) => {
+      const element3 = e.querySelector("dt");
+      if (element3 == null) {
+        throw new Error('Missing browser fixture value: e.querySelector("dt")');
+      }
+      const element4 = e.querySelector("dd");
+      if (element4 == null) {
+        throw new Error('Missing browser fixture value: e.querySelector("dd")');
+      }
+      return [element3.textContent, element4.textContent];
+    }),
+  );
   const lines = await page
     .locator(
       '.calendar-tooltip [role="tooltip"] > div:not([aria-label="Tokens by model"]):not([aria-label="Captured cost by model"]) p',
@@ -63,7 +77,12 @@ export async function pointAtDate(
   const point = await page.locator(".ts-chart").evaluate(
     (surface, { index, position }) => {
       const bounds = surface.getBoundingClientRect();
-      const grid = surface.querySelector<SVGLineElement>("[data-ts-key^='y-grid:']")!;
+      const grid = surface.querySelector<SVGLineElement>("[data-ts-key^='y-grid:']");
+      if (grid == null) {
+        throw new Error(
+          "Missing browser fixture value: surface.querySelector<SVGLineElement>(\"[data-ts-key^='y-grid:']\")",
+        );
+      }
       const left = grid.x1.baseVal.value;
       const right = grid.x2.baseVal.value;
       const lines = Array.from(
@@ -80,7 +99,7 @@ export async function pointAtDate(
     },
     { index, position },
   );
-  const viewport = page.viewportSize()!;
+  const viewport = requireFixtureValue(page.viewportSize());
   expect(point.x).toBeGreaterThan(0);
   expect(point.x).toBeLessThan(viewport.width);
   expect(point.y).toBeGreaterThan(0);
@@ -142,7 +161,9 @@ export async function interactions(page: Page, state: string, suite: string) {
   const daily = page.locator('table[aria-label="Daily recorded usage"]');
   const chartReads = async () =>
     (await calls(page)).filter(
-      (call) => call.method === "machineReports" && call.input.query!.group === "workspace",
+      (call) =>
+        call.method === "machineReports" &&
+        requireFixtureValue(call.input.query).group === "workspace",
     ).length;
   if (state === "partial" && suite === "calendar") {
     const start = await chartReads();

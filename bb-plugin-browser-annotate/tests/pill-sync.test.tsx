@@ -4,10 +4,11 @@ import type { PluginComposerApi } from "@get-bb/plugin-sdk/app";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { PillSync } from "../app";
 import { createHiddenPins } from "../lib/hidden-pins";
+import type * as AppSdk from "@get-bb/plugin-sdk/app";
 
 const host = vi.hoisted(() => ({ composers: [] as PluginComposerApi[] }));
 vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@get-bb/plugin-sdk/app")>()),
+  ...(await importOriginal<typeof AppSdk>()),
   useComposers: () => host.composers,
 }));
 

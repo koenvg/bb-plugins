@@ -45,14 +45,14 @@ function evidenceHashes(value: string): string[] {
   }
   const input = JSON.parse(value) as { v?: number; d?: string; o?: string; i?: string };
   const proof = input.v === 2 ? input : proofs(value);
+  const hashes = [proof.d, proof.o, proof.i];
   if (
-    ![proof.d, proof.o, proof.i].every(
-      (hash) => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash),
-    )
+    !hashes.every((hash) => typeof hash === "string") ||
+    !hashes.every((hash) => /^[a-f0-9]{64}$/.test(hash))
   ) {
     throw new Error("History evidence unavailable");
   }
-  return [proof.d!, proof.o!, proof.i!];
+  return hashes;
 }
 export function sameUsageEvidence(left: string, right: string) {
   const known = new Set(evidenceHashes(left));

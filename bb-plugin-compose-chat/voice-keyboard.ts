@@ -53,7 +53,7 @@ function button(root: HTMLElement, label: string): HTMLButtonElement | null {
   const matches = Array.from(root.querySelectorAll<HTMLButtonElement>("button")).filter(
     (button) => button.getAttribute("aria-label") === label,
   );
-  const candidate = matches.length === 1 ? matches[0]! : null;
+  const candidate = matches.length === 1 ? matches[0] : null;
   return candidate &&
     candidate.type === "button" &&
     !candidate.disabled &&
@@ -65,7 +65,7 @@ function button(root: HTMLElement, label: string): HTMLButtonElement | null {
 function voiceButtons(form: HTMLFormElement) {
   const empty = { cancel: null, confirm: null, indicator: null };
   const roots = form.querySelectorAll<HTMLElement>(CONTROLS);
-  const root = roots.length === 1 ? roots[0]! : null;
+  const root = roots.length === 1 ? roots[0] : null;
   if (!root || !visible(root)) {
     return empty;
   }
@@ -78,24 +78,26 @@ function voiceButtons(form: HTMLFormElement) {
   if (cancels.length !== 1 || confirms.length !== 1) {
     return empty;
   }
-  const cancelLabel = cancels[0]!.getAttribute("aria-label")!;
-  const confirm = confirms[0]!;
+  const cancelLabel = cancels[0].getAttribute("aria-label");
+  const confirm = confirms[0];
+  const confirmLabel = confirm.getAttribute("aria-label");
+  if (!cancelLabel || !confirmLabel) {
+    return empty;
+  }
   const cancel = button(root, cancelLabel);
   if (!cancel) {
     return empty;
   }
   if (
     cancelLabel === "Cancel recording" &&
-    (confirm.getAttribute("aria-label") === "Stop and transcribe recording" ||
-      confirm.getAttribute("aria-label") === "Stop and add to draft")
+    (confirmLabel === "Stop and transcribe recording" || confirmLabel === "Stop and add to draft")
   ) {
-    const enabledConfirm = button(root, confirm.getAttribute("aria-label")!);
+    const enabledConfirm = button(root, confirmLabel);
     return enabledConfirm ? { cancel, confirm: enabledConfirm, indicator: null } : empty;
   }
   if (
     cancelLabel === "Cancel transcription" &&
-    (confirm.getAttribute("aria-label") === "Transcribing voice input" ||
-      confirm.getAttribute("aria-label") === "Stop and add to draft") &&
+    (confirmLabel === "Transcribing voice input" || confirmLabel === "Stop and add to draft") &&
     confirm.type === "button" &&
     confirm.disabled &&
     visible(confirm)
@@ -112,13 +114,13 @@ function voiceErrors(): Set<HTMLElement> {
   );
 }
 
-type Session = {
+interface Session {
   form: HTMLFormElement;
   keyboard: boolean;
   restore: boolean;
   sawActive: boolean;
   confirmed: boolean;
-};
+}
 
 /** Delegate only to BB 0.44/0.45's named native controls. Never own audio or draft data. */
 export function createVoiceKeyboardControls() {
@@ -254,7 +256,10 @@ export function createVoiceKeyboardControls() {
     if (!canStart()) {
       return;
     }
-    const form = focusedForm()!;
+    const form = focusedForm();
+    if (!form) {
+      return;
+    }
     const mic = button(form, "Start voice input");
     if (!mic) {
       return;

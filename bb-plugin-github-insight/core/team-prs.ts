@@ -59,8 +59,8 @@ export interface TeamScan {
 }
 
 export interface TeamScanSource {
-  fetchViewerTeams(): Promise<unknown>;
-  fetchPage(page: RepoSince & { after: string | null }): Promise<unknown>;
+  fetchViewerTeams: () => Promise<unknown>;
+  fetchPage: (page: RepoSince & { after: string | null }) => Promise<unknown>;
 }
 
 export function parseViewerTeams(response: unknown): Set<string> {

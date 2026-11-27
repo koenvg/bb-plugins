@@ -10,6 +10,7 @@ import { maintainHistory } from "./history-retention.js";
 import { acceptIdentityBatch, reconcileIdentity } from "../identity/identity-storage.js";
 import { createHostHistory } from "../history-host.js";
 import { usageRecordSchema } from "../collection/usage-record.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 const now = Date.parse("2026-10-01T12:00:00Z");
@@ -31,7 +32,7 @@ async function fixture(collector = true) {
   const directory = join(dataDir, "history");
   await mkdir(directory);
   const path = join(directory, "usage-v1.sqlite");
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, new Date(now).toISOString(), collector);
   maintainHistory(db, now);
   projectCompactRecord(
@@ -90,14 +91,14 @@ it("inspects legacy storage without mutation, preserves all recorded data on app
   expect((await readFile(f.path)).equals(before)).toBe(true);
   const source = await readFile(join(f.directory, "events-v1-2026-10-01.jsonl"));
   const control = await readFile(join(f.directory, "collector-control-v1.json"));
-  let db = (await openHistoryDatabase(f.path, true))!;
+  let db = requireFixtureValue(await openHistoryDatabase(f.path, true));
   const facts = snapshot(db);
   const receipt = db.prepare("SELECT * FROM identity_receipt").get();
   db.close();
   expect(await upgradeRetainedIdentityStorage({ ...f, signal: signal(), apply: true })).toEqual({
     state: "upgraded",
   });
-  db = (await openHistoryDatabase(f.path, true))!;
+  db = requireFixtureValue(await openHistoryDatabase(f.path, true));
   expect(snapshot(db)).toEqual(facts);
   expect(db.prepare("SELECT * FROM identity_receipt").get()).toEqual({
     ...(receipt as object),
@@ -120,17 +121,17 @@ it("inspects legacy storage without mutation, preserves all recorded data on app
 it("requires fresh positive evidence to restore exact ownership and permits bounded preparation", async () => {
   const f = await fixture();
   await upgradeRetainedIdentityStorage({ ...f, signal: signal(), apply: true });
-  let db = (await openHistoryDatabase(f.path))!;
+  let db = requireFixtureValue(await openHistoryDatabase(f.path));
   reconcileIdentity(db, signal());
   expect(db.prepare("SELECT grade FROM identity_usage").get()).toEqual({ grade: "workspace-only" });
   db.close();
   // No source body reads: the fixture is import-only for preparation, but retains ownership evidence.
-  db = (await openHistoryDatabase(f.path))!;
+  db = requireFixtureValue(await openHistoryDatabase(f.path));
   db.exec("DELETE FROM collector_meta");
   db.close();
   await rm(join(f.directory, "collector-control-v1.json"));
   const history = createHostHistory({ now: () => now });
-  const prepared = await history.prepare!({
+  const prepared = await requireFixtureValue(history.prepare)({
     ...f,
     signal: signal(),
     identities: { hostId: "host_a", generation: 2, offset: 0, total: 1, rows: [row] },
@@ -140,7 +141,7 @@ it("requires fresh positive evidence to restore exact ownership and permits boun
     expect(prepared.ingestionPending).toBe(false);
     expect(prepared.attribution.backlog).toBe(false);
   }
-  db = (await openHistoryDatabase(f.path, true))!;
+  db = requireFixtureValue(await openHistoryDatabase(f.path, true));
   expect(db.prepare("SELECT grade FROM identity_usage").get()).toEqual({ grade: "exact-thread" });
   expect(db.prepare("SELECT count(*) AS n FROM identity_uncertain").get()).toEqual({ n: 0 });
   db.close();
@@ -166,7 +167,7 @@ for (const problem of [
 ] as const) {
   it(`refuses ${problem} storage without changing the index`, async () => {
     const f = await fixture();
-    const db = (await openHistoryDatabase(f.path))!;
+    const db = requireFixtureValue(await openHistoryDatabase(f.path));
     if (problem === "partial") {
       db.exec("DROP TABLE identity_aliases");
     }
@@ -232,7 +233,7 @@ it("stops before opening storage when already cancelled", async () => {
 it("rolls back the complete upgrade when cancellation follows DDL", async () => {
   const f = await fixture();
   const controller = new AbortController();
-  const factory = (await loadHistoryStorage())!;
+  const factory = requireFixtureValue(await loadHistoryStorage());
   const before = await readFile(f.path);
   const result = await upgradeRetainedIdentityStorage(
     { ...f, signal: controller.signal, apply: true },

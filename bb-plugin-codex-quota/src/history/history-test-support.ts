@@ -1,8 +1,9 @@
 import { fireEvent, waitFor, within } from "@testing-library/react";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 export async function setHistoryManagementOpen(container: HTMLElement, open = true) {
   const summary = within(container).getByText("Machine status and collection settings");
-  const details = summary.closest("details")!;
+  const details = requireFixtureValue(summary.closest("details"));
   if (details.open !== open) {
     fireEvent.click(summary);
   }
@@ -11,7 +12,7 @@ export async function setHistoryManagementOpen(container: HTMLElement, open = tr
       within(details).getAllByRole("button", { name: "Manage history" }),
     );
     if (!buttons.some((button) => button.getAttribute("aria-expanded") === "true")) {
-      fireEvent.click(buttons[0]!);
+      fireEvent.click(buttons[0]);
     }
   }
   await waitFor(() => {

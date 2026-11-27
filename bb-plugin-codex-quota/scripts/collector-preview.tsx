@@ -5,6 +5,7 @@ import { QuotaDashboard } from "../src/quota/quota-view.js";
 import { AccountActivity } from "../src/activity/activity-view.js";
 import { HistoryReadinessPanel } from "../src/history/history-view.js";
 import type { HistoryReadiness } from "../src/history/history-contract.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 const missing: HistoryReadiness = {
   state: "not-configured",
@@ -152,7 +153,7 @@ const Preview = () => {
               };
               if (previewState === "healthy" || previewState === "maintenance") {
                 history.health = {
-                  ...history.health!,
+                  ...requireFixtureValue(history.health),
                   state: previewState,
                   pending: previewState === "maintenance",
                   legacyLogsPending: previewState === "maintenance",
@@ -177,7 +178,7 @@ const Preview = () => {
                     "retaining",
                     "complete",
                     "blocked",
-                  ].includes(phase!)
+                  ].includes(requireFixtureValue(phase))
                 ) {
                   history.health.legacyRetirement = {
                     phase: phase as NonNullable<
@@ -195,7 +196,7 @@ const Preview = () => {
                     history.state = "unavailable";
                     history.reason = "retirement-incomplete";
                   }
-                  history.collection!.enabled = false;
+                  requireFixtureValue(history.collection).enabled = false;
                   history.health.legacyLogsPending = phase !== "complete";
                 }
               }
@@ -224,4 +225,4 @@ const Preview = () => {
     </>
   );
 };
-createRoot(document.getElementById("root")!).render(<Preview />);
+createRoot(requireFixtureValue(document.getElementById("root"))).render(<Preview />);

@@ -21,6 +21,7 @@ import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import { failed, linkedPr, ok, prHeadResponse, setup } from "./test/plugin-harness";
 import type { HostCall, PullRequestResult } from "./test/plugin-harness";
+import { requireFixtureValue } from "./require-fixture-value.test-support.js";
 
 function withPrState(state: "OPEN" | "MERGED" | "CLOSED") {
   return {
@@ -886,7 +887,7 @@ describe("pr-poller", () => {
   });
 
   it("runs at most 4 refreshes at the same time", async () => {
-    const pending: Array<() => void> = [];
+    const pending: (() => void)[] = [];
     const threads = [1, 2, 3, 4, 5, 6].map((index) => ({
       id: `thr_${index}`,
       environmentId: `env_${index}`,
@@ -911,7 +912,7 @@ describe("pr-poller", () => {
     await settle();
     expect(overviewRefreshes(harness)).toHaveLength(4);
 
-    pending.shift()!();
+    requireFixtureValue(pending.shift())();
     await settle();
     expect(overviewRefreshes(harness)).toHaveLength(5);
     run.controller.abort();
@@ -1722,7 +1723,7 @@ describe("getReview", () => {
     if (result.kind !== "ok") {
       throw new Error(`expected ok, got ${result.kind}`);
     }
-    expect(result.threads.placed[0]!.thread.comments[0]!.body).toBe(
+    expect(result.threads.placed[0].thread.comments[0].body).toBe(
       `![shot](${SIGNED_ATTACHMENT_URL})`,
     );
   });
@@ -1984,7 +1985,7 @@ describe("new comments", () => {
 
     const saved = await harness.behavior.callRpc("markCommentsSeen", {
       threadId: "thr_1",
-      commentIds: [REPLIES[0]!],
+      commentIds: [REPLIES[0]],
     });
 
     expect(saved).toEqual({ kind: "ok" });
@@ -2472,7 +2473,7 @@ describe("draft media", () => {
     expect(drafts).toMatchObject({ kind: "ok", draftMedia: expected });
     const calls = renderCalls(harness);
     expect(calls).toHaveLength(2);
-    expect(calls[0]!.input).toEqual({
+    expect(calls[0].input).toEqual({
       owner: "collibra",
       repo: "frontend",
       text: `<img alt="" src="${asset(ID_A)}">\n<img alt="" src="${asset(ID_B)}">`,
@@ -2820,7 +2821,7 @@ describe("createCommentDraft", () => {
     });
 
     const [draft] = await commentDraftsOf(harness);
-    expect(result).toEqual({ kind: "created", draftId: draft!.id });
+    expect(result).toEqual({ kind: "created", draftId: draft.id });
     expect(draft).toEqual({
       id: expect.stringMatching(/^[a-z0-9]{8}$/),
       path: DRAFT_FILE,
@@ -3442,7 +3443,7 @@ describe("review queue", () => {
     if (result.kind !== "ok") {
       throw new Error(result.message);
     }
-    const api = result.needsReview.find((group) => group.repo === "acme/api")!;
+    const api = requireFixtureValue(result.needsReview.find((group) => group.repo === "acme/api"));
     expect(api.prs.map(({ number, state }) => [number, state])).toContainEqual([41, "merged"]);
     expect(api.prs.map(({ number }) => number)).not.toContain(42);
   });
@@ -3487,7 +3488,7 @@ describe("review queue", () => {
     if (result.kind !== "ok") {
       throw new Error(result.message);
     }
-    const api = result.needsReview.find((group) => group.repo === "acme/api")!;
+    const api = requireFixtureValue(result.needsReview.find((group) => group.repo === "acme/api"));
     expect(
       api.prs.map(({ number, projectIds, thread }) => ({ number, projectIds, thread })),
     ).toEqual([
@@ -3553,7 +3554,7 @@ describe("review queue", () => {
     if (result.kind !== "ok") {
       throw new Error(result.message);
     }
-    const api = result.needsReview.find((group) => group.repo === "acme/api")!;
+    const api = requireFixtureValue(result.needsReview.find((group) => group.repo === "acme/api"));
     expect(api.prs.map(({ number, thread }) => ({ number, thread }))).toEqual([
       {
         number: 15,
@@ -3564,7 +3565,7 @@ describe("review queue", () => {
         thread: { id: "thr_review", status: "idle", isReviewThread: true, returned: null },
       },
     ]);
-    expect(harness.experimental_hostRpcCalls[0]!.input).toEqual({
+    expect(harness.experimental_hostRpcCalls[0].input).toEqual({
       tracked: [{ owner: "acme", repo: "api", number: 12 }],
     });
   });
@@ -3599,7 +3600,7 @@ describe("review queue", () => {
 
     expect(await harness.behavior.callRpc("markQueueSeen", { prs })).toEqual({ kind: "ok" });
 
-    const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+    const update = requireFixtureValue(harness.realtimeSignals.at(-1)).payload as LoadedReviewQueue;
     expect(update).toMatchObject({ kind: "ok", hasUnseen: false });
     expect(harness.experimental_hostRpcCalls).toHaveLength(loadCalls);
   });
@@ -3672,11 +3673,13 @@ describe("startReview", () => {
     await settle();
 
     expect(harness.experimental_hostRpcCalls).toHaveLength(loadCalls);
-    const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+    const update = requireFixtureValue(harness.realtimeSignals.at(-1)).payload as LoadedReviewQueue;
     if (update.kind !== "ok") {
       throw new Error(update.message);
     }
-    const row = update.needsReview.flatMap((group) => group.prs).find((pr) => pr.number === 15)!;
+    const row = requireFixtureValue(
+      update.needsReview.flatMap((group) => group.prs).find((pr) => pr.number === 15),
+    );
     expect(row.thread?.id).toBe("thr_review");
   });
 
@@ -3709,7 +3712,8 @@ describe("startReview", () => {
       expect(
         harness.experimental_hostRpcCalls.filter((call) => call.method === "fetchReviewQueue"),
       ).toHaveLength(1);
-      const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+      const update = requireFixtureValue(harness.realtimeSignals.at(-1))
+        .payload as LoadedReviewQueue;
       expect(update).toMatchObject({ kind: "ok", hasReturned: true });
     },
   );
@@ -3739,7 +3743,7 @@ describe("startReview", () => {
       kind: "ok",
     });
 
-    const update = harness.realtimeSignals.at(-1)!.payload as LoadedReviewQueue;
+    const update = requireFixtureValue(harness.realtimeSignals.at(-1)).payload as LoadedReviewQueue;
     expect(update).toMatchObject({ kind: "ok", hasReturned: false });
   });
 
@@ -3830,7 +3834,7 @@ describe("runPrAction", () => {
   readyRepository.pullRequest.mergeStateStatus = "CLEAN";
   readyRepository.pullRequest.isMergeQueueEnabled = false;
   const readyContexts =
-    readyRepository.pullRequest.commits.nodes[0]!.commit.statusCheckRollup.contexts;
+    readyRepository.pullRequest.commits.nodes[0].commit.statusCheckRollup.contexts;
   readyContexts.nodes = readyContexts.nodes.filter((node) => node.conclusion === "SUCCESS");
   readyContexts.pageInfo.hasNextPage = false;
 

@@ -7,12 +7,12 @@ import { abortable } from "../activity/activity-cancellation.js";
 import type { AuthState } from "./pi-auth.js";
 import { accountProof } from "./correlation.js";
 
-export type AccountDependencies = {
-  auth(signal: AbortSignal): Promise<AuthState>;
-  read(token: string, signal: AbortSignal): Promise<QuotaRead>;
+export interface AccountDependencies {
+  auth: (signal: AbortSignal) => Promise<AuthState>;
+  read: (token: string, signal: AbortSignal) => Promise<QuotaRead>;
   activityRead?: (token: string, signal: AbortSignal) => Promise<ActivityRead>;
   now?: () => number;
-};
+}
 const unavailable = (reason: QuotaReason): QuotaView => ({
   state: "unavailable",
   reason,

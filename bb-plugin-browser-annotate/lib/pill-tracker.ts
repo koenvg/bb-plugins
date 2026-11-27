@@ -1,10 +1,10 @@
 export const PILL_REMOVAL_DELAY_MS = 3000;
 
 export interface PillTrackerDeps {
-  remove(threadId: string, id: string): Promise<unknown>;
-  clearResolved(threadId: string): Promise<{ removed: string[] }>;
-  hide(id: string): void;
-  show(id: string): void;
+  remove: (threadId: string, id: string) => Promise<unknown>;
+  clearResolved: (threadId: string) => Promise<{ removed: string[] }>;
+  hide: (id: string) => void;
+  show: (id: string) => void;
   delayMs?: number;
 }
 

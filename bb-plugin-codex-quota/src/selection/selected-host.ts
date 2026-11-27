@@ -1,25 +1,31 @@
 import type { z } from "zod";
 
-export type HostSelection = { hostId: string | null; generation: number };
-export type HostRequest = { hostId: string; generation: number };
+export interface HostSelection {
+  hostId: string | null;
+  generation: number;
+}
+export interface HostRequest {
+  hostId: string;
+  generation: number;
+}
 type Failure =
   | "no-selection"
   | "foreign-host"
   | "selection-changed"
   | "host-offline"
   | "unsupported";
-type RequestOptions<T> = {
+interface RequestOptions<T> {
   schema: z.ZodType<T>;
-  unavailable(reason: Failure): T;
-  call(signal: AbortSignal): Promise<unknown>;
+  unavailable: (reason: Failure) => T;
+  call: (signal: AbortSignal) => Promise<unknown>;
   errorReason?: "host-offline" | "unsupported";
   timeoutMs?: number;
   signal?: AbortSignal;
-};
+}
 
 /** One owner for selected-host privacy checks and request cancellation. */
 export function createSelectedHost(deps: {
-  enrolled(hostId: string): Promise<{ status: string } | null>;
+  enrolled: (hostId: string) => Promise<{ status: string } | null>;
 }) {
   let selected: HostSelection = { hostId: null, generation: 0 };
   let selectionRequest = 0;

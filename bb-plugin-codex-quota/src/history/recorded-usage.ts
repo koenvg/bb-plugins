@@ -1,12 +1,12 @@
-export type TokenClasses = {
+export interface TokenClasses {
   input: number;
   output: number;
   cacheRead: number;
   cacheWrite: number;
   reasoning: number;
-};
+}
 /** Internal usage facts. Pi's existing scalar ownership proof remains separate. */
-export type RecordedUsageFact = {
+export interface RecordedUsageFact {
   eventId: string;
   occurredAt: string;
   workspace: string;
@@ -22,4 +22,4 @@ export type RecordedUsageFact = {
         providerThreadId: string;
         rootSessionId: string | null;
       };
-};
+}

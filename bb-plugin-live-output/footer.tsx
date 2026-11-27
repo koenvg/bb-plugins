@@ -3,7 +3,10 @@ import { createPortal } from "react-dom";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { type OutputSnapshotOwner, useOutputSnapshot } from "./use-output-snapshot";
 
-type Target = { button: HTMLButtonElement; container: HTMLSpanElement };
+interface Target {
+  button: HTMLButtonElement;
+  container: HTMLSpanElement;
+}
 const itemSelector = '[data-footer-item="plugin:live-output/rate"]';
 const triggerSelector = `${itemSelector} button[data-sidebar="menu-button"]`;
 
@@ -77,7 +80,8 @@ export function createOutputFooter(getOwner: OutputSnapshotOwner) {
           }
         }
         for (const button of buttons) {
-          if (!attached.has(button)) {
+          let target = attached.get(button);
+          if (!target) {
             const container = document.createElement("span");
             serial += 1;
             container.id = `${id}-rate-${serial}`;
@@ -85,10 +89,11 @@ export function createOutputFooter(getOwner: OutputSnapshotOwner) {
             // Keep pointer clicks on the host button, not the overlay's portal ancestry.
             container.style.pointerEvents = "none";
             button.append(container);
-            attached.set(button, { button, container });
+            target = { button, container };
+            attached.set(button, target);
             changed = true;
           }
-          const container = attached.get(button)!.container;
+          const { container } = target;
           const descriptions = (button.getAttribute("aria-describedby") ?? "")
             .split(/\s+/)
             .filter(Boolean);

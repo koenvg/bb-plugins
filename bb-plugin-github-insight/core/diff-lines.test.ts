@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkAnchor, diffLines } from "./diff-lines";
 import type { Anchor } from "./diff-lines";
 import type { ReviewFile } from "./pr-files";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const file: ReviewFile = {
   path: "src/a.ts",
@@ -27,7 +28,7 @@ function anchor(fields: Partial<Anchor>): Anchor {
 
 describe("diffLines", () => {
   it("reads the new and old lines of each hunk", () => {
-    const lines = diffLines(file.patch!);
+    const lines = diffLines(requireFixtureValue(file.patch));
 
     expect([...lines.additions]).toEqual([10, 11, 12, 13, 41, 42]);
     expect([...lines.deletions]).toEqual([10, 11, 12, 40, 41]);

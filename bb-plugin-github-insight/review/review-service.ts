@@ -58,7 +58,7 @@ export interface ReviewBasis {
 }
 
 type NewCommentDraft = { anchor: Anchor } & (
-  | { source: "agent"; readBody(): Promise<string> }
+  | { source: "agent"; readBody: () => Promise<string> }
   | { source: "user" }
 );
 
@@ -89,30 +89,30 @@ interface LoadedPr {
 }
 
 interface ReviewServiceDeps {
-  resolvePr(threadId: string, options?: LookupOptions): Promise<PrResolution>;
-  fetchPrFilesPage(target: PrTarget, page: number): Promise<unknown>;
-  fetchReviewThreadsPage(target: PrTarget, after: string | null): Promise<unknown>;
-  fetchPrHead(target: PrTarget): Promise<unknown>;
-  fetchImageMergeBase?(target: PrTarget, refs: PrImageRefs): Promise<unknown>;
-  readPrVideo?(
+  resolvePr: (threadId: string, options?: LookupOptions) => Promise<PrResolution>;
+  fetchPrFilesPage: (target: PrTarget, page: number) => Promise<unknown>;
+  fetchReviewThreadsPage: (target: PrTarget, after: string | null) => Promise<unknown>;
+  fetchPrHead: (target: PrTarget) => Promise<unknown>;
+  fetchImageMergeBase?: (target: PrTarget, refs: PrImageRefs) => Promise<unknown>;
+  readPrVideo?: (
     target: PrTarget,
     request: { owner: string; repo: string; sha: string; path: string },
-  ): Promise<VideoWireResult>;
-  readPrImage?(
+  ) => Promise<VideoWireResult>;
+  readPrImage?: (
     target: PrTarget,
     request: { owner: string; repo: string; sha: string; path: string },
-  ): Promise<ImageWireResult>;
+  ) => Promise<ImageWireResult>;
   drafts: DraftStore;
   viewed: ViewedMarksStore;
-  newCommentBasis(pr: PullRequestRef): Promise<{ markedAt: number | null; seen: Set<string> }>;
-  markCommentsSeen(pr: PullRequestRef, ids: readonly string[]): Promise<ActionResult>;
-  publishDrafts(update: ReviewUpdated): void;
-  publishReview(update: ReviewUpdated): void;
-  sendMessage(threadId: string, text: string): Promise<"sent" | "queued">;
-  renderMarkdown(target: PrTarget, text: string): Promise<string>;
+  newCommentBasis: (pr: PullRequestRef) => Promise<{ markedAt: number | null; seen: Set<string> }>;
+  markCommentsSeen: (pr: PullRequestRef, ids: readonly string[]) => Promise<ActionResult>;
+  publishDrafts: (update: ReviewUpdated) => void;
+  publishReview: (update: ReviewUpdated) => void;
+  sendMessage: (threadId: string, text: string) => Promise<"sent" | "queued">;
+  renderMarkdown: (target: PrTarget, text: string) => Promise<string>;
   signMedia: SignMedia;
-  now(): number;
-  newDraftId(): string;
+  now: () => number;
+  newDraftId: () => string;
 }
 
 export type ReviewService = ReturnType<typeof createReviewService>;
@@ -293,7 +293,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
       return Object.fromEntries(
         signed
           .split("\n")
-          .map((url, index) => [urls[index]!, url] as const)
+          .map((url, index) => [urls[index], url] as const)
           .filter(([original, url]) => url !== original),
       );
     } catch {

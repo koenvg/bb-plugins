@@ -1,6 +1,7 @@
 import { test, expect, noOverflow, capture } from "./fixtures.js";
 import { chart } from "./calendar-driver.js";
 import { layout } from "./chart-layout.js";
+import { requireFixtureValue } from "../../src/require-fixture-value.test-support.js";
 
 for (const width of [320, 375, 430, 1280]) {
   test(`quota layout ${width} keeps controls readable and axes whole`, async ({ page }, info) => {
@@ -11,7 +12,11 @@ for (const width of [320, 375, 430, 1280]) {
     const check = async () => {
       const boxes = await page.evaluate(() => {
         const rect = (selector: string) => {
-          const r = document.querySelector(selector)!.getBoundingClientRect();
+          const element2 = document.querySelector(selector);
+          if (element2 == null) {
+            throw new Error("Missing browser fixture value: document.querySelector(selector)");
+          }
+          const r = element2.getBoundingClientRect();
           return { y: r.y, right: r.right, width: r.width };
         };
         return {
@@ -37,7 +42,7 @@ for (const width of [320, 375, 430, 1280]) {
         element.style.width = "375px";
       });
       await expect
-        .poll(async () => (await page.locator(".ts-chart").boundingBox())!.width)
+        .poll(async () => requireFixtureValue(await page.locator(".ts-chart").boundingBox()).width)
         .toBe(311);
       await check();
     }
@@ -49,7 +54,7 @@ for (const width of [320, 375, 430, 1280]) {
       const measurements = await layout(page);
       expect(measurements.y.every((label) => !label.includes("."))).toBe(true);
       expect(measurements.axisSpacing?.contained).toBe(true);
-      expect(measurements.axisSpacing!.gap).toBeGreaterThanOrEqual(8);
+      expect(requireFixtureValue(measurements.axisSpacing).gap).toBeGreaterThanOrEqual(8);
     }
     await capture(page, info, `quota-layout-${width}`);
   });
@@ -66,7 +71,7 @@ test("coarse-pointer controls have 44px touch targets", async ({ page }) => {
     page.getByRole("button", { name: "Latest", exact: true }),
     page.getByRole("button", { name: "Refresh allowance" }),
   ]) {
-    expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(requireFixtureValue(await control.boundingBox()).height).toBeGreaterThanOrEqual(44);
   }
   await expect(page.getByText("Inspect a date", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Inspect / })).toHaveCount(0);

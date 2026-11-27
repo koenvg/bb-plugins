@@ -72,7 +72,7 @@ function coverage(values: Day["coverage"][], incomplete: boolean): Day["coverage
     truncated: values.some((value) => value.truncated),
   };
 }
-export type CombinedReport = {
+export interface CombinedReport {
   query: CalendarQuery;
   days: Day[];
   observedAt: string;
@@ -87,7 +87,7 @@ export type CombinedReport = {
     excludedTokens: number;
   };
   incomplete: boolean;
-};
+}
 /** Merge only recorded machine usage. Account feeds never enter these totals.
  * Cached dates are aligned by their actual calendar date, not array position.
  */
@@ -201,7 +201,7 @@ export function combineReports(input: MachineReports, query: CalendarQuery): Com
   return {
     query,
     days,
-    observedAt: available.map((row) => row.report.observedAt).sort()[0]!,
+    observedAt: available.map((row) => row.report.observedAt).sort()[0],
     previous: available.some((row) => row.report.previous),
     next: available.some((row) => row.report.next),
     summary: {

@@ -54,12 +54,12 @@ export type HistoryScope =
   | { kind: "host" }
   | { kind: "workspace"; workspace: string }
   | { kind: "thread"; verifiedThread: string; workspace?: string };
-export type CoverageQuery = {
+export interface CoverageQuery {
   start: string;
   end: string;
   workspace?: string;
   verifiedThread?: string;
-};
+}
 export function historyScope(
   query: Pick<CoverageQuery, "workspace" | "verifiedThread">,
 ): HistoryScope {
@@ -68,13 +68,13 @@ export function historyScope(
   }
   return query.workspace ? { kind: "workspace", workspace: query.workspace } : { kind: "host" };
 }
-type EvidenceRow = {
+interface EvidenceRow {
   workspace: string | null;
   thread_id: string | null;
   started: string;
   ended: string;
   kind: string;
-};
+}
 /** Interrupted or budget-limited ingestion has unknown original scope and instants.
  * It affects every retained interval on this host until a full reconciliation clears it. */
 export function recordReconciliation(db: HistoryDatabase, pending: boolean) {

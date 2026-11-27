@@ -4,7 +4,7 @@ import { pinToTop } from "../../review-ui/pin-to-top";
 
 export interface FileNavigation {
   current: string | null;
-  jumpTo(path: string): void;
+  jumpTo: (path: string) => void;
 }
 
 export function useFileNavigation(

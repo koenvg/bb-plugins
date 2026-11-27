@@ -4,6 +4,7 @@ import { useState } from "react";
 import { QuotaDashboard } from "../src/quota/quota-view.js";
 import { HistoryReadinessPanel } from "../src/history/history-view.js";
 import type { HistoryReadiness } from "../src/history/history-contract.js";
+import { requireFixtureValue } from "../src/require-fixture-value.test-support.js";
 
 export const syntheticHistory: HistoryReadiness = {
   state: "available",
@@ -89,7 +90,7 @@ const Preview = () => {
                 ? {
                     ...syntheticHistory,
                     collection: {
-                      ...syntheticHistory.collection!,
+                      ...requireFixtureValue(syntheticHistory.collection),
                       attribution: {
                         discovery: "partial",
                         backlog: true,
@@ -110,4 +111,4 @@ const Preview = () => {
     </>
   );
 };
-createRoot(document.getElementById("root")!).render(<Preview />);
+createRoot(requireFixtureValue(document.getElementById("root"))).render(<Preview />);

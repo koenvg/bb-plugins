@@ -82,9 +82,11 @@ function mountOutputView(
     }
   }
   function latest() {
+    const point = points().at(-1);
+    if (!point) return;
     cursor.setState({
       anchor: "value",
-      value: { x: points().at(-1)!.second },
+      value: { x: point.second },
       source: "programmatic",
       pinned: false,
     });
@@ -134,6 +136,10 @@ function mountOutputView(
   const unsubscribe = cursor.subscribe(syncEscape);
   function definition(): DomChartDefinition<RatePoint, number, number> {
     const data = points();
+    const last = data.at(-1);
+    if (!last) {
+      throw new Error("Output chart requires at least one point.");
+    }
     const line = lineY(data, {
       id: "output-rate",
       key: "second",
@@ -159,7 +165,7 @@ function mountOutputView(
       ],
       scales: {
         x: {
-          scale: scaleLinear().domain([data[0]!.second, data.at(-1)!.second]),
+          scale: scaleLinear().domain([data[0].second, last.second]),
           axis: false,
           nice: false,
         },
@@ -182,7 +188,7 @@ function mountOutputView(
             placement: "auto",
             className: "live-output-rate-tooltip",
             content: (selected) => {
-              const point = selected[0]!.datum;
+              const point = selected[0].datum;
               return {
                 title: new Date(point.second * 1000).toISOString(),
                 rows: [
@@ -252,8 +258,8 @@ export const OutputRateChart = ({
   const [axes, setAxes] = useState<Axes>([]);
   useLayoutEffect(() => {
     if (mounted.current) mounted.current.update(view, availability);
-    else
-      mounted.current = mountOutputView(container.current!, view, availability, setBody, setAxes);
+    else if (container.current)
+      mounted.current = mountOutputView(container.current, view, availability, setBody, setAxes);
   }, [view, availability]);
   useLayoutEffect(
     () => () => {

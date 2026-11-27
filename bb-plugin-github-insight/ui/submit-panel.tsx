@@ -82,7 +82,7 @@ export const SubmitPanel = ({
     body: summary.text,
     commentCount,
   });
-  const selected = rules.find((rule) => rule.event === event) ?? rules[0]!;
+  const selected = rules.find((rule) => rule.event === event) ?? rules[0];
 
   async function submit() {
     setBusy(true);

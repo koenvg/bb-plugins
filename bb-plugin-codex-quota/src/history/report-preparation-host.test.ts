@@ -8,6 +8,9 @@ import { createHostHistory } from "./history-host.js";
 import { openHistoryDatabase } from "./storage/history-storage.js";
 import { initializeHistory, projectCompactRecord } from "./storage/history-projection.js";
 import { usageRecordSchema } from "./collection/usage-record.js";
+import type { z } from "zod";
+import type { hostPreparationSchema } from "./report-preparation-contract.js";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 const now = Date.parse("2026-10-01T12:00:00Z");
@@ -22,7 +25,7 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
   const directory = join(dataDir, "history");
   await mkdir(directory);
   const path = join(directory, "usage-v1.sqlite");
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, new Date(now).toISOString());
   const control = JSON.stringify({
     protocol: 2,
@@ -86,9 +89,7 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
     { experimental_paths: { dataDir, tempDir: join(dataDir, "temp") } },
   );
   try {
-    let result: import("zod").z.infer<
-      typeof import("./report-preparation-contract.js").hostPreparationSchema
-    >;
+    let result: z.infer<typeof hostPreparationSchema>;
     const progress = new Set<string>();
     let calls = 0;
     do {
@@ -127,7 +128,7 @@ it("prepares multiple host batches without reading bodies, maintaining history, 
     expect(bodyRead).not.toHaveBeenCalled();
     expect(await readFile(join(directory, "collector-control-v1.json"), "utf8")).toBe(control);
     expect(await readFile(join(directory, "usage-v1.jsonl"), "utf8")).toBe(body);
-    const after = (await openHistoryDatabase(path))!;
+    const after = requireFixtureValue(await openHistoryDatabase(path));
     try {
       expect(after.prepare("SELECT * FROM history_retention").all()).toEqual(retention);
       expect(
@@ -151,7 +152,7 @@ it("rejects unsafe control before opening the index for writes", async () => {
   const directory = join(dataDir, "history");
   await mkdir(directory);
   const path = join(directory, "usage-v1.sqlite");
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, new Date(now).toISOString());
   db.close();
   await writeFile(join(directory, "collector-control-v1.json"), "invalid");
@@ -159,7 +160,7 @@ it("rejects unsafe control before opening the index for writes", async () => {
   const history = createHostHistory();
   try {
     expect(
-      await history.prepare!({
+      await requireFixtureValue(history.prepare)({
         dataDir,
         signal: new AbortController().signal,
         identities: { hostId: "host_a", generation: 1, offset: 0, total: 0, rows: [] },

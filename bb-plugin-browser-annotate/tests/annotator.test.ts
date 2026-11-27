@@ -7,6 +7,7 @@ import { annotatorCallScript, annotatorInstallScript } from "../lib/page/script"
 import type { Annotation, CreateInput } from "../lib/annotation";
 import { createHiddenPins } from "../lib/hidden-pins";
 import { createPillTracker } from "../lib/pill-tracker";
+import { requireFixtureValue } from "../require-fixture-value.test-support.js";
 
 type TestWindow = Window & { __bbBrowserAnnotate?: AnnotatorApi };
 const win = window as TestWindow;
@@ -45,7 +46,7 @@ function host() {
   return document.querySelector("bb-browser-annotate") as HTMLElement;
 }
 function shadow() {
-  return host().shadowRoot!;
+  return requireFixtureValue(host().shadowRoot);
 }
 function layer() {
   return shadow().querySelector(".layer") as HTMLElement;
@@ -170,7 +171,7 @@ describe("hover and selection", () => {
     ) as CSSStyleRule;
     expect(rule.style.getPropertyValue("border")).toBe("2px solid rgb(255, 255, 255)");
     expect(rule.style.getPropertyValue("box-shadow")).toContain("0 0 0 1px rgba(0,0,0,.85)");
-    expect(shadow().querySelector(".tag")!.textContent).toBe("a 80×30");
+    expect(requireFixtureValue(shadow().querySelector(".tag")).textContent).toBe("a 80×30");
   });
 
   it("selects the element box on click and saves it with the comment", () => {
@@ -269,7 +270,7 @@ describe("submission capture lifecycle", () => {
       capture: async () => {
         captured.push({
           visibility: host().style.visibility,
-          pins: [...shadow().querySelectorAll(".pin")].map((pin) => pin.textContent!),
+          pins: [...shadow().querySelectorAll(".pin")].map((pin) => pin.textContent),
         });
         return { base64: "capture", width: 1440, height: 900 };
       },
@@ -308,7 +309,7 @@ describe("submission capture lifecycle", () => {
 
       expect(captured).toEqual([{ visibility: "hidden", pins: [] }]);
       expect([...shadow().querySelectorAll(".pin")].map((pin) => pin.textContent)).toEqual(["2"]);
-      expect(annotations[0]!.comment).toBe("First capture");
+      expect(annotations[0].comment).toBe("First capture");
     } finally {
       tracker.dispose();
       unsubscribe();
@@ -359,7 +360,7 @@ describe("comment entry", () => {
     expect(host()).toBe(originalHost);
     expect(textarea()).toBe(originalForm);
     expect(textarea().value).toBe("Keep this draft");
-    expect(shadow().querySelector(".pin")!.textContent).toBe("1");
+    expect(requireFixtureValue(shadow().querySelector(".pin")).textContent).toBe("1");
     press(textarea(), "Enter");
     expect(posted).toEqual([
       {
@@ -410,7 +411,9 @@ describe("comment entry", () => {
 
     api.saveFailed("Screenshot failed");
     expect(textarea().disabled).toBe(false);
-    expect(shadow().querySelector(".error")!.textContent).toBe("Screenshot failed");
+    expect(requireFixtureValue(shadow().querySelector(".error")).textContent).toBe(
+      "Screenshot failed",
+    );
 
     press(textarea(), "Enter");
     api.saved();
@@ -445,7 +448,7 @@ describe("comment entry", () => {
         isFixed: true,
       },
     ]);
-    shadow().querySelector<HTMLElement>(".pin")!.click();
+    requireFixtureValue(shadow().querySelector<HTMLElement>(".pin")).click();
 
     api.saved();
 
@@ -495,7 +498,7 @@ describe("pins", () => {
   });
 
   it("edits a comment from its pin", () => {
-    badges()[0]!.click();
+    badges()[0].click();
     expect(textarea().value).toBe("Too much padding");
     textarea().value = "Use 8px";
     press(textarea(), "Enter");
@@ -505,7 +508,7 @@ describe("pins", () => {
   });
 
   it("deletes from its pin", () => {
-    badges()[1]!.click();
+    badges()[1].click();
     (shadow().querySelector("button.danger") as HTMLButtonElement).click();
 
     expect(posted).toEqual([{ type: "delete", id: "b" }]);
@@ -513,7 +516,7 @@ describe("pins", () => {
 
   it("keeps pins clickable when annotate mode is off", () => {
     api.setMode(false);
-    badges()[0]!.click();
+    badges()[0].click();
 
     expect(textarea()).not.toBeNull();
   });

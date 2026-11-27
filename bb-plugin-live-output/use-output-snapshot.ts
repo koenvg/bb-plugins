@@ -3,7 +3,9 @@ import { useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { OutputSnapshot, rpcContract } from "./contract";
 
 export type OutputSnapshotOwner = (window: Window) => ReturnType<typeof createPollingOwner>;
-type SnapshotRpc = { call(method: "snapshot"): Promise<OutputSnapshot> };
+interface SnapshotRpc {
+  call: (method: "snapshot") => Promise<OutputSnapshot>;
+}
 const emptyState = () => ({
   snapshot: null as OutputSnapshot | null,
   failed: false,

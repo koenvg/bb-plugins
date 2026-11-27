@@ -11,6 +11,10 @@ import { maintainHistory } from "../storage/history-retention.js";
 import { usageRecordSchema } from "../collection/usage-record.js";
 import { recordCoverage } from "../collection/history-coverage.js";
 import { acceptIdentityBatch, reconcileIdentity } from "../identity/identity-storage.js";
+import type { CalendarQuery } from "./calendar-contract.js";
+import type { HistoryDatabase } from "../storage/history-storage.js";
+import type { ImportCommand } from "../import/import-contract.js";
+import { requireFixtureValue } from "../../require-fixture-value.test-support.js";
 
 const roots: string[] = [];
 const now = Date.parse("2026-10-01T12:00:00Z");
@@ -23,7 +27,7 @@ async function calendarFixture(clock = now) {
   const dataDir = join(root, "data");
   await mkdir(join(dataDir, "history"), { recursive: true });
   const path = join(dataDir, "history/usage-v1.sqlite");
-  const db = (await openHistoryDatabase(path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(path));
   initializeHistory(db, new Date(clock).toISOString(), false);
   maintainHistory(db, clock);
   const history = createHostHistory({ now: () => clock, agentDir: () => join(root, "agent") });
@@ -47,7 +51,7 @@ async function calendarFixture(clock = now) {
     history,
     harness,
     read: async (
-      query: import("./calendar-contract.js").CalendarQuery = {
+      query: CalendarQuery = {
         startDate: "2026-09-01",
         timezone: "UTC",
         group: "workspace" as const,
@@ -63,7 +67,7 @@ async function calendarFixture(clock = now) {
   };
 }
 function put(
-  db: import("../storage/history-storage.js").HistoryDatabase,
+  db: HistoryDatabase,
   n: number,
   at = "2026-09-15T12:00:00.000Z",
   workspace = "/original",
@@ -339,7 +343,7 @@ it("returns exact safe totals but refuses unsafe aggregate overflow", async () =
   put(f.db, 1, undefined, "/huge", Number.MAX_SAFE_INTEGER);
   f.db.close();
   expect((await f.read()).summary.totalTokens).toBe(Number.MAX_SAFE_INTEGER);
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   put(db, 2, undefined, "/another", 1);
   db.close();
   expect(
@@ -380,7 +384,7 @@ it("uses durable unfinished and canceled import evidence to prevent a false scop
   });
   reconcileIdentity(f.db, new AbortController().signal);
   f.db.close();
-  const input = (command: import("../import/import-contract.js").ImportCommand) => ({
+  const input = (command: ImportCommand) => ({
     hostId: "host_a",
     knownWorkspaces: [workspace],
     command,
@@ -434,7 +438,7 @@ it("keeps unsupported headers and WAL databases untouched and no-query readiness
   const f = await calendarFixture();
   f.db.close();
   const { readFile } = await import("node:fs/promises");
-  const db = (await openHistoryDatabase(f.path))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path));
   db.exec("PRAGMA user_version=99");
   db.close();
   const before = await readFile(f.path);
@@ -447,7 +451,7 @@ it("keeps unsupported headers and WAL databases untouched and no-query readiness
     }),
   ).toEqual({ state: "unavailable", reason: "storage-incompatible" });
   expect((await readFile(f.path)).equals(before)).toBe(true);
-  const repaired = (await openHistoryDatabase(f.path))!;
+  const repaired = requireFixtureValue(await openHistoryDatabase(f.path));
   repaired.exec("PRAGMA user_version=4; PRAGMA journal_mode=WAL");
   repaired.close();
   const walBefore = await readFile(f.path);
@@ -502,7 +506,9 @@ it("reports retained import-only usage independently of collector assets without
   roots.push(root);
   const dataDir = join(root, "data");
   await mkdir(join(dataDir, "history"), { recursive: true });
-  const db = (await openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite")))!;
+  const db = requireFixtureValue(
+    await openHistoryDatabase(join(dataDir, "history/usage-v1.sqlite")),
+  );
   initializeHistory(db, new Date(now).toISOString(), false);
   maintainHistory(db, now);
   db.transaction(() =>
@@ -721,7 +727,7 @@ it("expires dormant detail and ranges by the read clock after persistent reopen,
     previous: false,
   });
   expect((await readFile(f.path)).equals(before)).toBe(true);
-  const db = (await openHistoryDatabase(f.path, true))!;
+  const db = requireFixtureValue(await openHistoryDatabase(f.path, true));
   expect(db.prepare("SELECT count(*) AS n FROM usage_events").get()).toEqual({ n: 1 });
   db.close();
 });
