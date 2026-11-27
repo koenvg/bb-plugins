@@ -172,36 +172,11 @@ it("regroups repeated DST instants and indexes executed compact aggregate and mo
   const compactReads = capture.executed.filter((execution) =>
     /\bFROM usage_compact\b/i.test(execution.sql),
   );
-  expect(compactReads.length).toBeGreaterThan(0);
-  const aggregates = compactReads.filter(
-    (execution) => execution.method === "get" && execution.sql.includes("sum(c.total)"),
+  // One indexed read per local day serves totals and both model breakdowns.
+  const detailReads = compactReads.filter((execution) =>
+    /\bJOIN usage_events\b/i.test(execution.sql),
   );
-  const tokenModels = compactReads.filter(
-    (execution) =>
-      execution.method === "all" &&
-      execution.sql.includes("GROUP BY model") &&
-      execution.sql.includes("AS knownTokens"),
-  );
-  const costModels = compactReads.filter(
-    (execution) =>
-      execution.method === "all" &&
-      execution.sql.includes("GROUP BY model") &&
-      execution.sql.includes("AS pricedRecords"),
-  );
-  expect(aggregates).toHaveLength(3);
-  expect(tokenModels).toHaveLength(3);
-  expect(costModels).toHaveLength(3);
-  expect(aggregates[1].values.slice(-3)).toEqual([
-    "/original",
-    "2026-11-01T07:00:00.000Z",
-    "2026-11-02T08:00:00.000Z",
-  ]);
-  expect(tokenModels[1].values[0]).toBe("/original");
-  expect(tokenModels[1].values.slice(-2)).toEqual([
-    "2026-11-01T07:00:00.000Z",
-    "2026-11-02T08:00:00.000Z",
-  ]);
-  expect(costModels.map((execution) => execution.values.slice(-3))).toEqual([
+  expect(detailReads.map((execution) => execution.values.slice(-3))).toEqual([
     ["/original", "2026-11-01T00:00:00.000Z", "2026-11-01T07:00:00.000Z"],
     ["/original", "2026-11-01T07:00:00.000Z", "2026-11-02T08:00:00.000Z"],
     ["/original", "2026-11-02T08:00:00.000Z", "2026-11-02T12:00:00.000Z"],
