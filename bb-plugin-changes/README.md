@@ -18,7 +18,7 @@ Open **Changes** from the new-tab list in a thread's right panel.
 - Branch diffs compare with `origin/<default branch>` when that remote branch exists, else with the local default branch.
 - The top shows the file count and the added lines (green) and deleted lines (red), for example `2 files +34 -5`.
 - **Unified view** and **Split view** are the two icon buttons next to Refresh.
-- Each file has its own section. Sections show folders first, then files, by name, at each folder level: `src/ui/a.ts`, then `src/b.ts`, then `README.md`. PNG, JPEG, GIF and WebP files show before/after previews. Other binary files show "Binary file". A file that is too large shows "Diff too large". A diff loads when its section comes near the visible area.
+- Each file has its own section. Sections show folders first, then files, by name, at each folder level: `src/ui/a.ts`, then `src/b.ts`, then `README.md`. PNG, JPEG, GIF and WebP files show before/after previews. Other binary files show "Binary file". A file that is too large shows "Diff too large". A diff loads when its section comes near the visible area. A diff far from the visible area shows only its header, at its full height, until you scroll back to it.
 - **Refresh** (the arrow icon) loads the diff again. The last diff stays visible while it loads.
 
 Image previews accept up to 4 MiB per side. They load only near the visible area while expanded and release content when collapsed or scrolled away. Each failed side has its own Retry. Committed previews use pinned revisions. **All changes** and **Uncommitted** show live working-tree content on the after side, read separately from the file list. Refresh invalidates previews immediately. The SDK can allocate its larger upstream read before the plugin enforces the 4 MiB acceptance limit. SVG previews are deferred; SVG keeps its text diff, comments and viewed marks. Image previews have no line comments or viewed marks.
@@ -107,6 +107,7 @@ The plugin never commits, pushes, or writes to GitHub.
 ## Known limits
 
 - bb's own Changes tab stays visible next to this one.
+- The browser's find (Cmd/Ctrl+F) does not find lines in a diff far from the visible area.
 - The marks of deleted threads stay in kv storage.
 - bb 0.44 can fail to list the branch commits for some branches. Then the picker shows no commits, and the diff still loads. The plugin log shows "Branch commits unavailable".
 
@@ -122,5 +123,7 @@ bb plugin build
 The diff, comment form, and comment card come from [`../review-ui`](../review-ui).
 
 Run [`test:bb-renderer`](tests/bb-renderer/README.md) to check filename controls and context expansion against running BB without installing the candidate plugin. This separate acceptance check uses BB's renderer and native file viewer. It requires an owned local thread; CI's fixture tests do not replace it.
+
+Run [`test:perf-browser`](tests/perf-browser/README.md) to measure scroll time, jank, heap and DOM size on a 400-file diff, and to compare two versions.
 
 Run [`test:video-browser`](tests/video-browser/README.md) for an unauthenticated, owned local component fixture. This proves native video playback and responsive layout, not installed BB playback or GitHub authentication.

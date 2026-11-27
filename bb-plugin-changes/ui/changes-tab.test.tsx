@@ -124,6 +124,66 @@ class VisibleAtOnce {
   disconnect() {}
 }
 
+class ControlledObserver {
+  static all: ControlledObserver[] = [];
+  static last = new Map<string | undefined, { isIntersecting: boolean; height: number }>();
+  readonly targets: Element[] = [];
+  readonly options: IntersectionObserverInit;
+  private readonly callback: IntersectionObserverCallback;
+
+  static reset() {
+    ControlledObserver.all = [];
+    ControlledObserver.last = new Map();
+  }
+  static reportAll(rootMargin: string, isIntersecting: boolean, height = 0) {
+    ControlledObserver.last.set(rootMargin, { isIntersecting, height });
+    for (const observer of ControlledObserver.all) {
+      if (observer.options.rootMargin === rootMargin) {
+        observer.report(observer.targets, isIntersecting, height);
+      }
+    }
+  }
+
+  constructor(callback: IntersectionObserverCallback, options: IntersectionObserverInit = {}) {
+    this.callback = callback;
+    this.options = options;
+    ControlledObserver.all.push(this);
+  }
+  observe(target: Element) {
+    this.targets.push(target);
+    const last = ControlledObserver.last.get(this.options.rootMargin);
+    if (last !== undefined) {
+      this.report([target], last.isIntersecting, last.height);
+    }
+  }
+  disconnect() {
+    ControlledObserver.all = ControlledObserver.all.filter((observer) => observer !== this);
+  }
+  report(targets: Element[], isIntersecting: boolean, height: number) {
+    this.callback(
+      targets.map(
+        (target) =>
+          ({
+            isIntersecting,
+            target,
+            boundingClientRect: { height } as DOMRectReadOnly,
+          }) as IntersectionObserverEntry,
+      ),
+      this as unknown as IntersectionObserver,
+    );
+  }
+}
+const comeNear = () =>
+  act(() => {
+    ControlledObserver.reportAll("4000px 0px", true);
+    ControlledObserver.reportAll("800px 0px", true);
+  });
+const goFar = (height: number) =>
+  act(() => {
+    ControlledObserver.reportAll("800px 0px", false, height);
+    ControlledObserver.reportAll("4000px 0px", false, height);
+  });
+
 beforeAll(() => {
   vi.stubGlobal("IntersectionObserver", VisibleAtOnce);
 });
@@ -361,6 +421,36 @@ async function addComment(slot: Slot, button: string, text: string) {
   fireEvent.change(slot.getByRole("textbox", { name: "Comment" }), { target: { value: text } });
   fireEvent.click(slot.getByRole("button", { name: "Add to review" }));
 }
+
+describe("far-away diffs", () => {
+  beforeEach(() => {
+    ControlledObserver.reset();
+    vi.stubGlobal("IntersectionObserver", ControlledObserver);
+  });
+  afterEach(() => {
+    vi.stubGlobal("IntersectionObserver", VisibleAtOnce);
+  });
+
+  it("replaces a diff that scrolls far away with its header at the same height, and renders it again when it comes back", async () => {
+    const slot = renderTab();
+    await slot.findByRole("region", { name: "src/a.ts" });
+    comeNear();
+    await slot.findByTestId("file-diff");
+
+    goFar(640);
+
+    expect(slot.queryByTestId("file-diff")).toBeNull();
+    const section = slot.getByRole("region", { name: "src/a.ts" });
+    expect(section.style.height).toBe("640px");
+    expect(within(section).getByRole("checkbox", { name: "Viewed src/a.ts" })).toBeTruthy();
+
+    comeNear();
+
+    expect(await slot.findByTestId("file-diff")).toBeTruthy();
+    expect(section.style.height).toBe("");
+    expect(callsTo(slot, "getPatches")).toHaveLength(1);
+  });
+});
 
 describe("Changes tab", () => {
   it("is a flush thread panel action named Changes, not offered on root compose", () => {
@@ -2050,6 +2140,28 @@ describe("Changes text context", () => {
       },
     });
   }
+  it("keeps loaded context while the file is far away", async () => {
+    ControlledObserver.reset();
+    vi.stubGlobal("IntersectionObserver", ControlledObserver);
+    try {
+      const slot = renderTab({ getChanges: () => value, getTextContext: ready });
+      await slot.findByRole("region", { name: "src/a.ts" });
+      comeNear();
+      fireEvent.click(await slot.findByRole("button", { name: "Load context" }));
+      await waitFor(() =>
+        expect(slot.getByLabelText("After contents").textContent).toBe("prefix\nnew\nsuffix\n"),
+      );
+
+      goFar(400);
+      comeNear();
+
+      expect(slot.getByLabelText("After contents").textContent).toBe("prefix\nnew\nsuffix\n");
+      expect(callsTo(slot, "getTextContext")).toHaveLength(1);
+    } finally {
+      vi.stubGlobal("IntersectionObserver", VisibleAtOnce);
+    }
+  });
+
   it("loads on demand, preserves drafts and refuses revealed-line comments", async () => {
     const slot = renderTab({ getChanges: () => value, getTextContext: ready });
     const button = await slot.findByRole("button", { name: "Load context" });
