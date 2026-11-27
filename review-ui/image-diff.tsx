@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export type ImageSide = "before" | "after";
 export interface ImageLabel {
@@ -15,7 +15,7 @@ export type ImageResult =
     };
 type ImageState =
   | { kind: "loading" }
-  | { kind: "ready"; url: string }
+  | { kind: "ready"; url: string; release: () => void }
   | Exclude<ImageResult, { kind: "ready" }>;
 export interface ReviewImageDiffProps {
   before: ImageLabel | null;
@@ -64,40 +64,47 @@ const ImageFigure = ({
   active: boolean;
   load: ReviewImageDiffProps["load"];
 }) => {
-  const [state, setState] = useState<ImageState>({ kind: "loading" });
   const [retry, setRetry] = useState(0);
-  const url = useRef<string | null>(null);
   const path = label?.path;
   const revision = label?.revision;
+  const request = useMemo(
+    () => (active && path !== undefined ? { side, load, path, revision, retry } : null),
+    [active, path, side, load, revision, retry],
+  );
+  const [settled, setSettled] = useState<{ request: typeof request; result: ImageState } | null>(
+    null,
+  );
   useEffect(() => {
+    if (!request) return;
     const controller = new AbortController();
-    function release() {
-      if (url.current !== null) URL.revokeObjectURL(url.current);
-      url.current = null;
-    }
-    setState({ kind: "loading" });
-    if (active && path !== undefined) {
-      void load(side, controller.signal)
-        .then((result) => {
-          if (controller.signal.aborted) return;
-          if (result.kind === "ready") {
-            url.current = URL.createObjectURL(result.blob);
-            setState({ kind: "ready", url: url.current });
-          } else setState(result);
-          return;
-        })
-        .catch(() => {
-          if (!controller.signal.aborted)
-            setState({ kind: "error", code: "read", message: "Could not load image" });
-        });
-    }
+    let url: string | null = null;
+    const release = () => {
+      if (url !== null) URL.revokeObjectURL(url);
+      url = null;
+    };
+    const settle = (result: ImageState) => setSettled({ request, result });
+    const { load: loadSide, side: requestedSide } = request;
+    void loadSide(requestedSide, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        if (result.kind === "ready") {
+          url = URL.createObjectURL(result.blob);
+          settle({ kind: "ready", url, release });
+        } else settle(result);
+        return;
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          settle({ kind: "error", code: "read", message: "Could not load image" });
+      });
     return () => {
       controller.abort();
       release();
     };
-  }, [side, path, revision, active, load, retry]);
+  }, [request]);
   const title = side === "before" ? "Before" : "After";
-  const shown = active ? state : { kind: "loading" as const };
+  const shown: ImageState =
+    request && settled?.request === request ? settled.result : { kind: "loading" };
   return (
     <figure className="m-0 min-w-0 text-xs">
       <figcaption className="flex flex-col gap-1 py-2" style={{ minHeight: 68 }}>
@@ -140,12 +147,14 @@ const ImageFigure = ({
             alt={`${title}: ${label.path} (${label.revision})`}
             style={{ width: "100%", height: "100%", objectFit: "contain" }}
             onError={() => {
-              if (url.current !== null) URL.revokeObjectURL(url.current);
-              url.current = null;
-              setState({
-                kind: "error",
-                code: "decode",
-                message: "Browser could not decode this image",
+              shown.release();
+              setSettled({
+                request,
+                result: {
+                  kind: "error",
+                  code: "decode",
+                  message: "Browser could not decode this image",
+                },
               });
             }}
           />
