@@ -4,7 +4,9 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { parsePatchFiles, type DiffLineAnnotation, type SelectedLineRange } from "@pierre/diffs";
-import { ReviewFileDiff } from "./review-file-diff";
+import { ReviewFileDiff, type ReviewFileDiffProps } from "./review-file-diff";
+
+const receivedOptions: unknown[] = [];
 
 vi.mock("@pierre/diffs/react", () => ({
   FileDiff: ({
@@ -26,6 +28,9 @@ vi.mock("@pierre/diffs/react", () => ({
     renderHeaderMetadata?: () => ReactNode;
   }) => (
     <div
+      ref={() => {
+        receivedOptions.push(options);
+      }}
       data-testid="diff"
       data-style={options.diffStyle}
       data-collapsed={String(options.collapsed ?? false)}
@@ -50,7 +55,10 @@ vi.mock("@pierre/diffs/react", () => ({
   ),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  receivedOptions.length = 0;
+});
 
 const fileDiff =
   (
@@ -146,4 +154,39 @@ it("turns off the gutter utility when there is no add-comment handler", () => {
 
   expect(view.getByTestId("diff").dataset.gutterUtility).toBe("false");
   expect(view.getByTestId("diff").dataset.hasGutterClick).toBe("false");
+});
+
+it("keeps the diff options when a re-render passes new callbacks, and calls the latest one", () => {
+  const first = vi.fn();
+  const latest = vi.fn();
+  const props = {
+    fileDiff,
+    annotations: [],
+    view: "split",
+    theme: { name: "github", mode: "light" },
+  } satisfies Partial<ReviewFileDiffProps<string>>;
+  const view = render(
+    <ReviewFileDiff
+      {...props}
+      renderAnnotation={() => null}
+      onAddComment={first}
+      onToggleCollapsed={() => {}}
+      onPostRender={() => {}}
+    />,
+  );
+  view.rerender(
+    <ReviewFileDiff
+      {...props}
+      renderAnnotation={() => null}
+      onAddComment={latest}
+      onToggleCollapsed={() => {}}
+      onPostRender={() => {}}
+    />,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "old" }));
+
+  expect(new Set(receivedOptions).size).toBe(1);
+  expect(first).not.toHaveBeenCalled();
+  expect(latest).toHaveBeenCalledWith("deletions", 4);
 });
