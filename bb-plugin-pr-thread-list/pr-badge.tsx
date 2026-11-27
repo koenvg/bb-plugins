@@ -47,6 +47,11 @@ export const PrBadgeView = ({
             <Icon
               name={mark.icon}
               className={`size-3 ${mark.spin ? "motion-safe:animate-spin" : ""}`}
+              style={
+                mark.spin
+                  ? { animationDuration: "1.6s", animationTimingFunction: "steps(8, end)" }
+                  : undefined
+              }
             />
             {mark.count ?? null}
           </Tip>

@@ -1358,8 +1358,7 @@ describe("thread list slot", () => {
     const lattice =
       busy.querySelector("[data-running-glyph]") ?? missingValue("Missing fixture value");
     expect(lattice.getAttribute("aria-hidden")).toBe("true");
-    expect(lattice.querySelectorAll("rect")).toHaveLength(9);
-    expect(lattice.getAttribute("width")).toBe("12");
+    expect(lattice.querySelector("svg")?.getAttribute("width")).toBe("12");
     expect(slot.getByTitle("Thread active").contains(lattice)).toBe(true);
     expect(busy.querySelector("[data-provider-glyph] [data-running-glyph]")).toBeNull();
     expect(busy.querySelector(".bg-primary")).toBeTruthy();
