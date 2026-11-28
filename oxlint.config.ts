@@ -3474,7 +3474,6 @@ export default defineConfig({
         "bb-plugin-github-insight/ui/branch-update.test.tsx",
         "bb-plugin-github-insight/ui/file-diff.tsx",
         "bb-plugin-github-insight/ui/files-tab.test.tsx",
-        "bb-plugin-github-insight/ui/hide-host-pr-strip.test.ts",
         "bb-plugin-github-insight/ui/insight-status.test.tsx",
         "bb-plugin-github-insight/ui/merge-flow.test.tsx",
         "bb-plugin-github-insight/ui/pr-action-lifecycle.test.tsx",

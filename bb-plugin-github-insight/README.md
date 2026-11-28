@@ -6,14 +6,17 @@ Shows a thread's pull request in a **PR** tab in the thread's right panel. The t
 
 Install and enable [Changes](../bb-plugin-changes) to show live workspace counts beside GitHub Insight's PR status. The changed-file count and line counts come from the workspace, not the PR. Select the Git summary to open Changes, or use its chevron to pick a file. Select the PR status to open PR Overview.
 
-Hide the built-in composer segments to avoid duplicate status and remove the built-in merge-base picker:
+### Hide BB's built-in PR segment
+
+On BB 0.50.1 or later, run this command to hide the built-in PR status and actions above the composer without hiding GitHub Insight's PR status:
 
 ```sh
 bb plugin config bb--github-pr-status set showPullRequest false
-bb plugin config bb--git set showGitChanges false
 ```
 
-Keep both built-in plugins enabled. GitHub Insight and Changes use their RPCs, and these settings do not disable the built-in tabs. Nothing changes the settings automatically.
+Keep the built-in GitHub PR Status plugin enabled so GitHub Insight can find the thread's PR. This setting does not change the built-in Git segment or Diff tab. To show the built-in PR segment again, run the same command with `true`.
+
+If Changes duplicates the built-in Git summary, you can hide that summary separately with `bb plugin config bb--git set showGitChanges false`. This also removes the built-in merge-base picker. Keep the built-in Git plugin enabled so Changes can use its RPC. This setting does not disable the Diff tab.
 
 ## PR tab
 
@@ -65,7 +68,6 @@ app (PR tab) --getInsight/refresh--> server --fetchOverviewPage--> host (gh api 
 - `ui/overview-tab.tsx`: the Overview sub-tab. The PR header (number, state, "Updated <age>", refresh button, title, then `head → base`, lines added and removed, changed files, and author), one summary line (`prSummaryLine` in `ui/pr-status-view.ts`: the queue state, "Auto-merge on", the first blocker with "+N more", or "Ready to merge"), the merge action ("Merge" or "Enqueue" button in `ui/merge-action-button.tsx`), the merge blockers when there are 2 or more, the reviewers, and the checks. Failed, cancelled, waiting, and running checks show open. Passed and skipped share one collapsed line, for example "52 passed, 2 skipped". A required check has a "required" label. A failed refresh shows the error with a retry button, and keeps the last good data with its time.
 - `ui/pr-availability.ts`: the last PR result per thread in the window. `useInsight` writes each accepted load there (a PR sets it, no PR deletes it, a failed load keeps it) and seeds a thread switch from it, so the PR tab and banner show the last PR at once with a spinner while the new load runs.
 - `ui/composer-banner.tsx`: the banner above the thread's composer. `ui/pr-status-view.ts` picks lifecycle, queue detail, and valid actions for both views; `core/banner.ts` selects compact blockers (see "Merge and enqueue"). The text opens the PR tab.
-- `ui/hide-host-pr-strip.ts`: a content script that hides bb's own PR link and Merge button above the composer, so the banner is the only merge control. bb has no setting for this, so the CSS targets bb's DOM (`section[aria-label="Thread context before sending"]`). The changed-files toggle stays. Check the selectors after a bb upgrade.
 - `queue/review-queue-service.ts`: builds the Pull Requests panel data (see "Pull Requests panel"). The `review-queue` service calls `fetchReviewQueue` on bb's primary host, adds the matching projects, the linked thread, and the reviewed state to each PR, and keeps the result in plugin kv storage.
 - `pr-panel-navigation.ts` and `ui/use-pr-panel-navigation.ts`: the sidebar badge records a one-shot PR-panel request in the current window before navigating. A receiver in this plugin opens its own `pr` action when the matching thread mounts, even if its blocker banner is hidden. The newest request wins; accepted requests are consumed, ordinary sidebar navigation cancels them, and abandoned requests expire after 30 seconds. Requests are not stored on the server, persisted across reloads, or broadcast to other clients.
 - `ui/files-tab.tsx`: the Files sub-tab. The file count, a refresh button, and one diff per file at the PR head. `ui/file-diff.tsx` is the only file that imports `@pierre/diffs` (see design D4 of the `pr-review-threads` change). PNG, JPEG, GIF and WebP files show before/after previews. Other files without a patch show "Diff not available". `placeThreads` puts each thread on its line (RIGHT on the new side, LEFT on the old side). A thread that is outdated, has no line, or whose line or file is not in the diff goes to the "Outdated" section at the top. Resolved threads show only with "Show resolved", collapsed. Each open thread has a reply box with "Post", "Post + resolve", and "Resolve". A resolved thread has "Unresolve". A failed post keeps the text in the box. When the user has a pending review on GitHub, GitHub adds the reply to that review, and the tab says "Reply added to your pending review".
