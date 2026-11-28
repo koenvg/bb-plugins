@@ -22,7 +22,7 @@ type PiAssistantEventType =
   | "toolcall_start"
   | "unknown";
 
-type PiMessageBoundaryRole = "assistant" | "custom" | "toolResult" | "user" | "unknown";
+type PiMessageBoundaryRole = "assistant" | "custom" | "system" | "toolResult" | "user" | "unknown";
 
 type PiSdkEventType =
   | "agent_end"
@@ -168,6 +168,7 @@ function toPiMessageBoundaryRole(role: string | undefined): PiMessageBoundaryRol
   switch (role) {
     case "assistant":
     case "custom":
+    case "system":
     case "toolResult":
     case "user":
       return role;
