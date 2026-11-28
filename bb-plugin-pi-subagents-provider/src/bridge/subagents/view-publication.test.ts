@@ -8,6 +8,102 @@ const owner = { sessionId: "pi", sessionFile: "/owned/session", generation: 1 };
 const node = { id: "run", kind: "subagent", label: "reviewer", state: "running" } as const;
 afterEach(() => vi.useRealTimers());
 
+it("publishes oversized observations only when rows change, including an omitted run", () => {
+  vi.useFakeTimers();
+  const states: ViewState[] = [];
+  const view = createViewStore((state) => states.push(state));
+  const session = { ...owner, sessionId: "s".repeat(320) };
+  const roots = Array.from({ length: 10 }, (_, i) => ({
+    ...node,
+    kind: "workflow" as const,
+    id: `run-${i}`,
+    children: Array.from({ length: 8 }, (_, j) => ({
+      ...node,
+      kind: "step" as const,
+      id: `step:${j}`,
+    })),
+  }));
+
+  view.background(session, roots, false);
+  expect(states).toHaveLength(1);
+  expect(states[0]?.omitted).toBeGreaterThan(0);
+  expect(states[0]?.rows.some((row) => row.runId === "run-0")).toBe(false);
+  expect(states[0]?.rows.some((row) => row.kind === "step" && !row.parentId)).toBe(true);
+  for (let i = 0; i < 9; i++) {
+    view.background(session, structuredClone(roots), false);
+    vi.advanceTimersByTime(275);
+  }
+  expect(states).toHaveLength(1);
+
+  const updated = roots.map((root) =>
+    root.id === "run-0" ? { ...root, label: "new progress" } : root,
+  );
+  view.background(session, updated, false);
+  expect(states).toHaveLength(1);
+  vi.advanceTimersByTime(250);
+  expect(states).toHaveLength(2);
+  expect(states[1]?.rows.find((row) => row.runId === "run-0")).toMatchObject({
+    label: "new progress",
+    state: "running",
+  });
+
+  const completed = updated.map((root) =>
+    root.id === "run-0" ? { ...root, state: "complete" as const } : root,
+  );
+  view.background(session, completed, false);
+  expect(states).toHaveLength(3);
+  expect(states[2]?.rows.find((row) => row.runId === "run-0")?.state).toBe("complete");
+  view.background(session, structuredClone(completed), false);
+  vi.advanceTimersByTime(275);
+  expect(states).toHaveLength(3);
+  for (const state of states)
+    expect(Buffer.byteLength(JSON.stringify(state))).toBeLessThanOrEqual(65_536);
+});
+
+it("publishes the terminal step's capture when its unchanged workflow was omitted", () => {
+  const states: ViewState[] = [];
+  const view = createViewStore((state) => states.push(state));
+  const step = { ...node, kind: "step", id: "step:0" } as const;
+  const otherStep = { ...step, id: "step:1" };
+  const workflow = {
+    ...node,
+    kind: "workflow" as const,
+    id: "workflow",
+    children: [step, otherStep],
+  };
+  const otherWorkflows = Array.from({ length: 14 }, (_, i) => ({
+    ...workflow,
+    id: `workflow-${i}`,
+    children: Array.from({ length: 8 }, (_, j) => ({ ...step, id: `step:${j}` })),
+  }));
+  view.background(owner, [workflow, ...otherWorkflows], false);
+  expect(states[0]?.rows).toHaveLength(128);
+  expect(states[0]?.rows.some((row) => row.runId === "workflow")).toBe(false);
+  const completed = { ...workflow, children: [{ ...step, state: "complete" as const }, otherStep] };
+  const targets = view.background(owner, [completed, ...otherWorkflows], false);
+  const target =
+    targets.find(
+      (candidate) => candidate.asyncId === "workflow" && candidate.childId === "step:0",
+    ) ?? missingValue("Expected completed step capture target");
+  view.captureIfCurrent(target, {
+    status: "captured",
+    capturedAt: 10,
+    finalOutput: "child output",
+  });
+
+  const rows = states.at(-1)?.rows ?? missingValue("Expected a published view");
+  const parent = rows.find((row) => row.runId === "workflow");
+  expect(rows.find((row) => row.id === target.id)).toMatchObject({
+    parentId: parent?.id,
+    state: "complete",
+    capture: { finalOutput: "child output" },
+  });
+  expect(parent).toBeDefined();
+  expect(states).toHaveLength(3);
+  view.background(owner, [completed, ...otherWorkflows], false);
+  expect(states).toHaveLength(3);
+});
+
 it("publishes all twenty useful emoji capture summaries inside the complete JSON budget", () => {
   const states: ViewState[] = [];
   const view = createViewStore(

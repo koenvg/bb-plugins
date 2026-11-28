@@ -26,6 +26,7 @@ interface ViewObservationOptions extends Partial<ViewAssessment> {
   foreground?: readonly { details: unknown; final: boolean }[];
   recaptureRuns?: ReadonlySet<string>;
 }
+type BackgroundRow = Omit<ViewRow, "observedAt" | "capture">;
 const terminal = (state: string) => !["running", "queued", "unknown", "detached"].includes(state);
 const ownerKey = (owner: ViewOwner) =>
   JSON.stringify([owner.sessionId, owner.sessionFile, owner.generation]);
@@ -39,6 +40,7 @@ const comparable = (state: ViewState) =>
   );
 export function createViewStore(publish: (state: ViewState) => void, now = Date.now) {
   const rows = new Map<string, ViewRow>();
+  let lastBackgroundRows = new Map<string, BackgroundRow>();
   const disposedOwners = new Set<string>();
   let activeOwner: string | undefined;
   let retired = false;
@@ -110,11 +112,16 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
     timer.unref?.();
   }
   function acceptOwner(owner: ViewOwner) {
-    if (retired || disposedOwners.has(ownerKey(owner))) return false;
-    activeOwner = ownerKey(owner);
+    const key = ownerKey(owner);
+    if (retired || disposedOwners.has(key)) return false;
+    if (activeOwner !== key) lastBackgroundRows.clear();
+    activeOwner = key;
     return true;
   }
-  function put(row: ViewRow): boolean {
+  function put(
+    row: ViewRow,
+    background?: { unchanged?: boolean; retainParent?: () => void },
+  ): boolean {
     const parsed = rowSchema.safeParse(row);
     if (!parsed.success) {
       omitted++;
@@ -125,9 +132,15 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
     const validated = parsed.data;
     const previous = rows.get(row.id);
     if (
+      background?.unchanged &&
+      (!previous || (row.parentId && !previous.parentId && !rows.has(row.parentId)))
+    )
+      return false;
+    if (
       isDeepStrictEqual(previous && { ...previous, observedAt: 0 }, { ...validated, observedAt: 0 })
     )
       return false;
+    background?.retainParent?.();
     rows.delete(row.id);
     rows.set(row.id, validated);
     return true;
@@ -171,19 +184,20 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
       availability = options.availability ?? "available";
       reason = options.reason ?? "";
       const targets: CaptureTarget[] = [];
+      const observed = new Map<string, BackgroundRow>();
       function visit(
         node: RunNode,
         path: string[],
-        parentId: string | undefined,
+        parent: { id: string; retain: () => void } | undefined,
         canonicalOwner: string | undefined,
       ) {
         const canonical = node.kind === "workflow" || node.kind === "subagent";
         const owningRun = canonical ? node.id : canonicalOwner;
         const id = JSON.stringify([owner.sessionId, "background", ...path, node.id]);
         const previous = rows.get(id);
-        const row: ViewRow = {
+        const projection: BackgroundRow = {
           id,
-          parentId,
+          parentId: parent?.id,
           runId: node.id,
           sessionId: owner.sessionId,
           generation: owner.generation,
@@ -198,6 +212,9 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
             currentTool: node.activity?.currentTool,
           }),
           incomplete,
+        };
+        const row: ViewRow = {
+          ...projection,
           observedAt: now(),
           capture: previous?.capture,
         };
@@ -209,26 +226,39 @@ export function createViewStore(publish: (state: ViewState) => void, now = Date.
             capturedAt: previous?.capture?.capturedAt ?? now(),
             reason: "Canonical inspection owner is unavailable for this projected descendant",
           };
-        const changed = put(row);
-        if (
-          owningRun &&
-          (changed ||
-            (options.recaptureRuns?.has(owningRun) &&
-              (node.kind === "subagent" || (node.kind === "step" && node.id === "step:0"))) ||
-            (parentId === undefined && options.settledRoots?.has(node.id)))
-        )
-          targets.push({
-            ...owner,
-            id,
-            asyncId: owningRun,
-            kind: node.kind,
-            childId: canonical ? undefined : node.id,
-            terminal: terminal(node.state),
-          });
+        observed.set(id, projection);
+        const target: CaptureTarget | undefined = owningRun
+          ? {
+              ...owner,
+              id,
+              asyncId: owningRun,
+              kind: node.kind,
+              childId: canonical ? undefined : node.id,
+              terminal: terminal(node.state),
+            }
+          : undefined;
+        const recapture =
+          target &&
+          ((options.recaptureRuns?.has(target.asyncId) &&
+            (node.kind === "subagent" || (node.kind === "step" && node.id === "step:0"))) ||
+            (parent === undefined && options.settledRoots?.has(node.id)));
+        function retain(unchanged: boolean) {
+          if (put(row, { unchanged, retainParent: parent?.retain }) && target && !recapture)
+            targets.push(target);
+        }
+        retain(isDeepStrictEqual(lastBackgroundRows.get(id), projection));
+        if (target && recapture) targets.push(target);
+        const parentForChildren = {
+          id,
+          retain() {
+            if (!rows.has(id)) retain(false);
+          },
+        };
         for (const child of node.children ?? [])
-          visit(child, [...path, node.id], id, canonical ? owningRun : undefined);
+          visit(child, [...path, node.id], parentForChildren, canonical ? owningRun : undefined);
       }
       for (const root of roots) visit(root, [], undefined, root.id);
+      lastBackgroundRows = observed;
       for (const event of options.foreground ?? [])
         putForeground(owner, event.details, event.final);
       emit(options.foreground?.some((event) => event.final));
