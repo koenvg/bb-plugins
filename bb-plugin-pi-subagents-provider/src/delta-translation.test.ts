@@ -217,6 +217,23 @@ it("isolates unfinished reasoning by thread and parent and clears it on reset", 
 });
 
 describe("pi delta translation equivalence", () => {
+  it.each([false, true])("drops Pi system message boundaries (active turn: %s)", (activeTurn) => {
+    const harness = createHarness();
+    if (activeTurn) harness.translate(sdkMessage(loadFixture("agent-start.json")));
+    const message = {
+      role: "system",
+      content: "",
+      sections: { instructions: "Synthetic internal prompt" },
+      timestamp: 0,
+    };
+
+    const events = ["message_start", "message_end"].flatMap((type) =>
+      harness.translate(sdkMessage({ type, message })),
+    );
+
+    expect(events).toEqual([]);
+  });
+
   it("keeps turn_start as internal noise while agent_start owns the bb turn", () => {
     const harness = createHarness();
     harness.translate(loadFixture("agent-start.json"));
