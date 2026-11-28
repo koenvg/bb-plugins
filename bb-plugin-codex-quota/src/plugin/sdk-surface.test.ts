@@ -90,24 +90,26 @@ describe("public SDK and quota-only boundary", () => {
       ],
     });
     expect(scan.privateDependencies).toEqual([]);
-    // The scanner cannot resolve owned runtime artifacts. Exceptions match complete expressions.
+    // The scanner cannot resolve owned runtime artifacts.
+    const normalizeTestSpecifier = (specifier: string) =>
+      specifier.replace(/^(\/\* @vite-ignore \*\/)\s*/u, "$1 ");
     const testSeams = new Map<string, readonly string[]>([
       [
         "src/history/collection/collector-compatibility.test.ts",
         [
-          `/* @vite-ignore */\n      \`data:text/javascript;base64,\${Buffer.from(packagedCollectorAsset(root)).toString("base64")}\``,
+          `/* @vite-ignore */ \`data:text/javascript;base64,\${Buffer.from(packagedCollectorAsset(root)).toString("base64")}\``,
         ],
       ],
       [
         "src/history/collection/collector-entry.test.ts",
         [
-          `/* @vite-ignore */\n    \`data:text/javascript,\${encodeURIComponent(\`export default \${COLLECTOR_ENTRY}\`)}\``,
+          `/* @vite-ignore */ \`data:text/javascript,\${encodeURIComponent(\`export default \${COLLECTOR_ENTRY}\`)}\``,
         ],
       ],
       [
         "src/history/collection/history-legacy.test.ts",
         [
-          `/* @vite-ignore */\n      \`data:text/javascript,\${encodeURIComponent(\`export default \${LEGACY_ENTRY}\`)}\``,
+          `/* @vite-ignore */ \`data:text/javascript,\${encodeURIComponent(\`export default \${LEGACY_ENTRY}\`)}\``,
         ],
       ],
       [
@@ -161,16 +163,23 @@ describe("public SDK and quota-only boundary", () => {
           .map((expression) => `${importKeyword}(${expression});`)
           .join("\n"),
       );
+      const collectorEntry = "src/history/collection/collector-entry.test.ts";
+      mkdirSync(dirname(join(probeRoot, collectorEntry)), { recursive: true });
+      const collectorExpression = `\`data:text/javascript,\${encodeURIComponent(\`export default \${COLLECTOR_ENTRY}\`)}\``;
+      writeFileSync(
+        join(probeRoot, collectorEntry),
+        `${importKeyword}(/* @vite-ignore */\t${collectorExpression});`,
+      );
       writeFileSync(
         join(probeRoot, "scripts/unexpected.mjs"),
         `${importKeyword}(${knownExpression});`,
       );
       const probe = scanPluginSources(probeRoot);
-      expect(probe.violations).toHaveLength(4);
+      expect(probe.violations).toHaveLength(5);
       const unexpected = probe.violations.filter(
         (entry) =>
           entry.reason !== "dynamic-specifier" ||
-          !testSeams.get(entry.file)?.includes(entry.specifier),
+          !testSeams.get(entry.file)?.includes(normalizeTestSpecifier(entry.specifier)),
       );
       expect(unexpected).toHaveLength(3);
       expect(unexpected).toEqual(
@@ -259,7 +268,7 @@ describe("public SDK and quota-only boundary", () => {
         }
         return (
           entry.reason !== "dynamic-specifier" ||
-          !testSeams.get(entry.file)?.includes(entry.specifier)
+          !testSeams.get(entry.file)?.includes(normalizeTestSpecifier(entry.specifier))
         );
       }),
     ).toEqual([]);
