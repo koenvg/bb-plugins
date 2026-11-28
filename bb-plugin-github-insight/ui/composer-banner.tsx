@@ -1,4 +1,10 @@
-import { experimental_useAppPanel, useComposer } from "@get-bb/plugin-sdk/app";
+import {
+  experimental_useAppPanel,
+  experimental_useThreadContextKind,
+  useComposer,
+} from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadContextSegmentInput } from "@get-bb/plugin-sdk/app";
+import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { MergeActionButton, MergeConfirmation } from "./merge-action-button";
@@ -13,22 +19,80 @@ import { useReportThreadOpened } from "./use-report-thread-opened";
 import { PR_ACTION_BUSY_LABEL } from "./pr-operations";
 
 const TEXT_BUTTON_CLASS =
-  "flex min-h-8 min-w-0 flex-1 items-center gap-1.5 px-3 py-1.5 text-left text-xs hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
+  "flex min-h-8 min-w-10 flex-1 items-center gap-1.5 overflow-hidden px-2 py-1.5 text-left text-xs hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
-export const ComposerBanner = () => {
-  const { scope } = useComposer();
-  if (scope.kind !== "thread") {
-    return null;
-  }
-  return <ThreadBanner key={scope.threadId} threadId={scope.threadId} />;
+type ComposerPrState = {
+  insight: ReturnType<typeof useInsight>;
+  palette: ReturnType<typeof usePaletteMerge>;
 };
 
-const ThreadBanner = ({ threadId }: { threadId: string }) => {
+const composerStates = new Map<string, ComposerPrState>();
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function useComposerPrState(threadId: string) {
+  return useSyncExternalStore(subscribe, () => composerStates.get(threadId));
+}
+
+export const ComposerPrController = () => {
+  const { scope } = useComposer();
+  return scope.kind === "thread" ? (
+    <ThreadController key={scope.threadId} threadId={scope.threadId} />
+  ) : null;
+};
+
+const ThreadController = ({ threadId }: { threadId: string }) => {
   usePrPanelNavigation(threadId);
   useReportThreadOpened(threadId);
   const insight = useInsight(threadId);
   usePrefetchPr(threadId, insight.result?.kind === "ok");
   const palette = usePaletteMerge(threadId, insight);
+  const published = useRef<ComposerPrState>(undefined);
+  useLayoutEffect(() => {
+    const state = { insight, palette };
+    published.current = state;
+    composerStates.set(threadId, state);
+    for (const listener of listeners) {
+      listener();
+    }
+  }, [insight, palette, threadId]);
+  useLayoutEffect(
+    () => () => {
+      if (composerStates.get(threadId) !== published.current) {
+        return;
+      }
+      composerStates.delete(threadId);
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+    [threadId],
+  );
+  return null;
+};
+
+export function usePrSummaryVisible({ threadId }: ExperimentalThreadContextSegmentInput) {
+  const kind = experimental_useThreadContextKind();
+  const state = useComposerPrState(threadId);
+  return (
+    kind === "banner" &&
+    state !== undefined &&
+    (state.insight.result?.kind !== "no_pr" ||
+      state.palette.state.kind !== "idle" ||
+      state.palette.operation.kind !== "idle")
+  );
+}
+
+export const ComposerBanner = ({ threadId }: ExperimentalThreadContextSegmentInput) => {
+  const state = useComposerPrState(threadId);
+  return state === undefined ? null : <ThreadBanner threadId={threadId} {...state} />;
+};
+
+const ThreadBanner = ({ threadId, insight, palette }: ComposerPrState & { threadId: string }) => {
   const panel = experimental_useAppPanel();
   const { result, refreshing, refresh } = insight;
   const { state, operation } = palette;
@@ -83,7 +147,7 @@ const ThreadBanner = ({ threadId }: { threadId: string }) => {
               aria-hidden="true"
               className="size-3.5 animate-spin motion-reduce:animate-none"
             />
-            Refreshing…
+            <span className="sr-only">Refreshing…</span>
           </output>
         )}
       </div>
@@ -92,7 +156,7 @@ const ThreadBanner = ({ threadId }: { threadId: string }) => {
 
   const handleDismiss = palette.dismiss;
   return (
-    <>
+    <div className="min-w-min flex-1 [overflow-wrap:anywhere]">
       {normalBanner()}
       {result?.kind === "error" && (
         <div className="px-3 py-1.5">
@@ -143,7 +207,7 @@ const ThreadBanner = ({ threadId }: { threadId: string }) => {
           confirm={palette.confirm}
         />
       )}
-    </>
+    </div>
   );
 };
 

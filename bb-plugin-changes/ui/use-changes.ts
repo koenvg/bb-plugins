@@ -6,6 +6,7 @@ import { messageOf } from "../core/changes";
 
 export interface ChangesState {
   result: ChangesResult | null;
+  loadedTarget: DiffTarget | null;
   loading: boolean;
   generation: number;
   refresh: () => void;
@@ -13,7 +14,7 @@ export interface ChangesState {
 
 export function useChanges(threadId: string, target: DiffTarget): ChangesState {
   const rpc = useRpc<typeof rpcContract>();
-  const [result, setResult] = useState<ChangesResult | null>(null);
+  const [loaded, setLoaded] = useState<{ result: ChangesResult; target: DiffTarget } | null>(null);
   const [loading, setLoading] = useState(false);
   const latestRequest = useRef(0);
   const [generation, setGeneration] = useState(0);
@@ -28,7 +29,7 @@ export function useChanges(threadId: string, target: DiffTarget): ChangesState {
     if (request !== latestRequest.current) {
       return;
     }
-    setResult(next);
+    setLoaded({ result: next, target });
     setLoading(false);
   }, [rpc, threadId, target]);
 
@@ -39,5 +40,11 @@ export function useChanges(threadId: string, target: DiffTarget): ChangesState {
     };
   }, [load]);
 
-  return { result, loading, generation, refresh: () => void load() };
+  return {
+    result: loaded?.result ?? null,
+    loadedTarget: loaded?.target ?? null,
+    loading,
+    generation,
+    refresh: () => void load(),
+  };
 }

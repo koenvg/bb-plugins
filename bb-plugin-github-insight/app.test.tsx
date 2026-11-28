@@ -13,6 +13,7 @@ import { postIntent, useCommandIntent } from "./ui/command-intents";
 import { GITHUB_COMMANDS } from "./ui/commands";
 import { forgetInsights } from "./ui/pr-availability";
 import { requireFixtureValue } from "./require-fixture-value.test-support.js";
+import { prSummarySlot } from "./test/pr-summary.test-support";
 
 const app = await loadPluginApp(() => import("./app"));
 const prTab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
@@ -726,13 +727,7 @@ describe("PR tab enqueue", () => {
   });
 });
 
-const banner = requireFixtureValue(
-  requireFixtureValue(
-    requireFixtureValue(
-      app.composerCustomizations.find((customization) => customization.id === "pr-insight"),
-    ).banners,
-  ).find((entry) => entry.id === "merge-blockers"),
-);
+const banner = prSummarySlot(app);
 
 function renderBanner(
   result: InsightResult | (() => InsightResult),

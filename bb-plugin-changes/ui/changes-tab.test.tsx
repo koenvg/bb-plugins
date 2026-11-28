@@ -6,6 +6,7 @@ import type { ImageWireResult } from "../core/image-content";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { experimental_makePanelController } from "@get-bb/plugin-sdk/testing";
 import type { ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import type { ReactNode } from "react";
 import { parsePatchFiles } from "@pierre/diffs";
@@ -20,6 +21,7 @@ import type {
 } from "../core/changes";
 import { patchIdentity } from "../core/patch-identity";
 import type { GetViewedResult, UpdateViewedResult } from "../core/viewed-files";
+import { openChanges } from "./changes-navigation";
 import { OUTLINE_WIDTH_KEY } from "./use-outline-width";
 import type { VideoWireResult } from "../core/video-content";
 import { requireFixtureValue } from "../require-fixture-value.test-support.js";
@@ -1974,6 +1976,66 @@ describe("file outline", () => {
         name: new RegExp(`^${name.replace(".", "\\.")}`),
       });
     }
+
+    it("opens the requested comparison and selects the file when its target finishes loading", async () => {
+      const threadId = "thr_composer_navigation";
+      const panel = experimental_makePanelController({ openTab: () => true });
+      openChanges(panel, threadId, { kind: "branch_committed", mergeBaseBranch: "origin/release" });
+
+      layOut({ "src/a.ts": 500, "src/z.ts": 500 });
+      let finish: (result: ChangesResult) => void = () => {};
+      const getChanges = vi
+        .fn<NonNullable<Handlers["getChanges"]>>()
+        .mockReturnValueOnce(A_ONLY)
+        .mockImplementationOnce(
+          () =>
+            new Promise<ChangesResult>((resolve) => {
+              finish = resolve;
+            }),
+        );
+      const slot = renderTab({ getChanges }, threadId);
+      await slot.findByRole("navigation", { name: "Files" });
+      expect(getChanges.mock.calls).toEqual([
+        [{ threadId, target: { kind: "branch_committed", mergeBaseBranch: "origin/release" } }],
+      ]);
+
+      act(() => openChanges(panel, threadId, { kind: "uncommitted" }, "src/z.ts"));
+      expect(getChanges).toHaveBeenLastCalledWith({ threadId, target: { kind: "uncommitted" } });
+      await act(async () => finish(changes([file("src/a.ts"), file("src/z.ts")])));
+      const area = requireFixtureValue(
+        slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]"),
+      );
+      expect(area.scrollTop).toBe(500);
+      const files = within(slot.getByRole("navigation", { name: "Files" }));
+      await waitFor(() =>
+        expect(files.getByRole("button", { name: /z\.ts/ }).getAttribute("aria-current")).toBe(
+          "true",
+        ),
+      );
+    });
+
+    it("reloads the selected comparison once to reach a file that was not in the open tab", async () => {
+      const threadId = "thr_live_files";
+      const target = { kind: "uncommitted" } as const;
+      const panel = experimental_makePanelController({ openTab: () => true });
+      openChanges(panel, threadId, target);
+      layOut({ "src/a.ts": 500, "src/z.ts": 500 });
+      const getChanges = vi
+        .fn<NonNullable<Handlers["getChanges"]>>()
+        .mockReturnValueOnce(A_ONLY)
+        .mockReturnValueOnce(changes([file("src/a.ts"), file("src/z.ts")]));
+      const slot = renderTab({ getChanges }, threadId);
+      await slot.findByRole("navigation", { name: "Files" });
+      expect(row(slot, "a.ts")).toBeTruthy();
+
+      await act(async () => openChanges(panel, threadId, target, "src/z.ts"));
+      expect(getChanges.mock.calls).toEqual([[{ threadId, target }], [{ threadId, target }]]);
+      const area = requireFixtureValue(
+        slot.container.querySelector<HTMLElement>("[data-diff-scroll-area]"),
+      );
+      expect(area.scrollTop).toBe(500);
+      expect(row(slot, "z.ts").getAttribute("aria-current")).toBe("true");
+    });
 
     it("scrolls the clicked file to the top of the diff", async () => {
       const slot = await renderFiles(["a.ts", "b.ts", "c.ts"]);

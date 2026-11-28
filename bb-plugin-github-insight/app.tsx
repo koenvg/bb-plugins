@@ -1,6 +1,6 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { GITHUB_COMMANDS } from "./ui/commands";
-import { ComposerBanner } from "./ui/composer-banner";
+import { ComposerBanner, ComposerPrController, usePrSummaryVisible } from "./ui/composer-banner";
 import { hideHostPrStrip } from "./ui/hide-host-pr-strip";
 import { PrRailBadge } from "./ui/pr-rail-badge";
 import { usePrSidebarBadge } from "./ui/pr-sidebar-badge";
@@ -30,7 +30,14 @@ export default definePluginApp((app) => {
   app.composer.customize({
     id: "pr-insight",
     scopes: ["thread"],
-    banners: [{ id: "merge-blockers", component: ComposerBanner }],
+    banners: [{ id: "pr-controller", chrome: "bare", component: ComposerPrController }],
+  });
+  app.slots.experimental_threadContextSegment({
+    id: "pr-insight",
+    title: "GitHub Insight",
+    group: "2_pullRequest",
+    summary: ComposerBanner,
+    useVisible: usePrSummaryVisible,
   });
   app.contentScripts.register(hideHostPrStrip);
   for (const command of GITHUB_COMMANDS) {

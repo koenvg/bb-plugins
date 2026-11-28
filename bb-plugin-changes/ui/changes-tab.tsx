@@ -24,6 +24,7 @@ import { FileSection } from "./file-section";
 import { NotInDiff } from "./not-in-diff";
 import { SendFeedbackDialog } from "./send-feedback-dialog";
 import { useChanges } from "./use-changes";
+import { clearChangesDestination, useChangesDestination } from "./changes-navigation";
 import { useFileNavigation } from "./use-file-navigation";
 import { usePatches } from "./use-patches";
 import type { LoadedChanges, PatchState, Patches } from "./use-patches";
@@ -38,9 +39,10 @@ export const ChangesTab = ({ threadId }: { threadId: string }) => {
 const ALL_CHANGES: DiffTarget = { kind: "all" };
 
 const ChangesTabContent = ({ threadId }: { threadId: string }) => {
-  const [target, setTarget] = useState<DiffTarget>(ALL_CHANGES);
+  const destination = useChangesDestination(threadId);
+  const [target, setTarget] = useState<DiffTarget>(() => destination?.target ?? ALL_CHANGES);
   const [view, setView] = useState<DiffView>("unified");
-  const { result, loading, generation, refresh } = useChanges(threadId, target);
+  const { result, loadedTarget, loading, generation, refresh } = useChanges(threadId, target);
   const review = usePendingReview(threadId);
   const feedback = useSendFeedback(threadId);
   const loaded = result?.kind === "ok" ? result : null;
@@ -49,7 +51,7 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
     [loaded],
   );
   const patches = usePatches(threadId, sorted);
-  const viewed = useViewed(threadId, sorted, patches);
+  const viewed = useViewed(threadId, sorted?.viewedTarget ?? loadedTarget, sorted, patches);
   const files = sorted?.files ?? NO_FILES;
   const commentCounts = useMemo(() => countByPath(review.comments), [review.comments]);
   const paths = useMemo(() => files.map((file) => file.path), [files]);
@@ -63,13 +65,46 @@ const ChangesTabContent = ({ threadId }: { threadId: string }) => {
   }, [virtualizer]);
 
   const handleJumpTo = navigation.jumpTo;
+  const refreshedDestination = useRef<typeof destination>(undefined);
+  useLayoutEffect(() => {
+    if (destination === undefined) {
+      return;
+    }
+    if (targetKey(target) !== targetKey(destination.target)) {
+      setTarget(destination.target);
+      return;
+    }
+    if (destination.path !== undefined) {
+      if (loadedTarget !== target || loading) {
+        return;
+      }
+      if (
+        loaded !== null &&
+        !paths.includes(destination.path) &&
+        refreshedDestination.current !== destination
+      ) {
+        refreshedDestination.current = destination;
+        refresh();
+        return;
+      }
+      handleJumpTo(destination.path);
+    }
+    clearChangesDestination(threadId, destination);
+  }, [destination, handleJumpTo, loaded, loadedTarget, loading, paths, refresh, target, threadId]);
+
+  const chooseTarget = (next: DiffTarget) => {
+    if (destination !== undefined) {
+      clearChangesDestination(threadId, destination);
+    }
+    setTarget(next);
+  };
   const handleSend = feedback.send;
   const handleClose = feedback.close;
   return (
     <div className="@container flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center gap-3">
-          <TargetPicker target={target} commits={loaded?.commits ?? []} onChange={setTarget} />
+          <TargetPicker target={target} commits={loaded?.commits ?? []} onChange={chooseTarget} />
           {loaded !== null && <DiffSummary files={files} viewed={viewed.counts} />}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -367,7 +402,7 @@ const TargetPicker = ({
     <select
       aria-label="Diff target"
       className="h-7 rounded-md border border-border bg-background px-2 text-xs"
-      value={targetKey(target)}
+      value={target.kind === "commit" ? targetKey(target) : target.kind}
       onChange={(event) => onChange(parseTarget(event.target.value))}
     >
       {STATIC_TARGETS.map(({ value, label }) => (

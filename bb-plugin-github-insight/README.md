@@ -2,6 +2,19 @@
 
 Shows a thread's pull request in a **PR** tab in the thread's right panel. The tab has two sub-tabs. **Overview** shows the merge blockers, reviewers, checks, and the PR conversation, and lets you add a PR comment. **Files** shows the PR's diff from GitHub, with the review threads on their lines. A **Pull Requests** nav panel lists the PRs that wait for your review or were requested from your teams in "Needs review" and "Reviewed", starts a hidden review thread for a PR, and keeps a PR reviewed until its author pushes.
 
+## Composer context row
+
+Install and enable [Changes](../bb-plugin-changes) to show live workspace counts beside GitHub Insight's PR status. The changed-file count and line counts come from the workspace, not the PR. Select the Git summary to open Changes, or use its chevron to pick a file. Select the PR status to open PR Overview.
+
+Hide the built-in composer segments to avoid duplicate status and remove the built-in merge-base picker:
+
+```sh
+bb plugin config bb--github-pr-status set showPullRequest false
+bb plugin config bb--git set showGitChanges false
+```
+
+Keep both built-in plugins enabled. GitHub Insight and Changes use their RPCs, and these settings do not disable the built-in tabs. Nothing changes the settings automatically.
+
 ## PR tab
 
 ```

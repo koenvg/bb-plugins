@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../contract";
-import { messageOf, targetOf } from "../core/changes";
+import { messageOf } from "../core/changes";
+import type { DiffTarget } from "../core/changes";
 import { patchIdentity } from "../core/patch-identity";
 import { canMark, viewedSummary } from "../core/viewed-files";
 import { EMPTY_ENTRY, viewedFiles, viewedKey } from "../core/viewed-store";
@@ -23,11 +24,12 @@ export interface Viewed {
 
 export function useViewed(
   threadId: string,
+  loadedTarget: DiffTarget | null,
   changes: LoadedChanges | null,
   patches: Patches,
 ): Viewed {
   const rpc = useRpc<typeof rpcContract>();
-  const target = useMemo(() => (changes === null ? null : targetOf(changes.query)), [changes]);
+  const target = changes === null ? null : loadedTarget;
   const key = target === null ? null : viewedKey(threadId, target);
   const read = useCallback(() => (key === null ? EMPTY_ENTRY : viewedFiles.get(key)), [key]);
   const entry = useSyncExternalStore(viewedFiles.subscribe, read);
