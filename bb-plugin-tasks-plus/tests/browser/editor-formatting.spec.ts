@@ -66,6 +66,7 @@ test("selection formatting survives menu hide, reappearance and React cleanup", 
 
 test("an open mention follows its anchor after a remote description update", async ({ page }) => {
   await page.goto("/tests/task-commands.html?mentionRefresh");
+  await page.addStyleTag({ content: ".tiptap > p:first-child { padding-block-end: 32px; }" });
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
