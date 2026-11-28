@@ -102,13 +102,12 @@ export const WorkspaceSummary = ({
         onClick={() => openChanges(panel, threadId, target)}
       >
         <Icon name="FileDiff" aria-hidden="true" className="size-3.5 shrink-0" />
-        <span className="shrink-[2] truncate">{label}</span>
-        <span
-          aria-hidden="true"
-          className="flex min-w-0 flex-wrap items-center gap-x-1 tabular-nums"
-        >
-          <span className="whitespace-nowrap">{fileCount}</span>
-          {showLines && <DiffStat additions={stats.insertions} deletions={stats.deletions} />}
+        <span aria-hidden="true" className="flex min-w-0 flex-wrap items-center gap-x-1">
+          <span className="truncate">{label}</span>
+          <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
+            {fileCount}
+            {showLines && <DiffStat additions={stats.insertions} deletions={stats.deletions} />}
+          </span>
         </span>
       </button>
       <button
