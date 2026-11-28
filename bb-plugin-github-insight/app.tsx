@@ -1,7 +1,6 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { GITHUB_COMMANDS } from "./ui/commands";
 import { ComposerBanner, ComposerPrController, usePrSummaryVisible } from "./ui/composer-banner";
-import { hideHostPrStrip } from "./ui/hide-host-pr-strip";
 import { PrRailBadge } from "./ui/pr-rail-badge";
 import { usePrSidebarBadge } from "./ui/pr-sidebar-badge";
 import { PrPanel } from "./ui/pr-panel";
@@ -39,7 +38,6 @@ export default definePluginApp((app) => {
     summary: ComposerBanner,
     useVisible: usePrSummaryVisible,
   });
-  app.contentScripts.register(hideHostPrStrip);
   for (const command of GITHUB_COMMANDS) {
     app.commands.register(command);
   }
