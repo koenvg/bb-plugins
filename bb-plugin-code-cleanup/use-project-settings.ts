@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRealtime, useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { ProjectState, SettingsContract } from "./rpc";
 
@@ -46,7 +46,6 @@ function reconcile(view: View | null, next: ProjectState, holdBaseline = false):
   };
 }
 
-/** Project reads, draft reconciliation, and local write serialization share one request generation. */
 export function useProjectSettings(
   projectId: string,
   sharedWriteLock?: { current: boolean },
@@ -60,10 +59,11 @@ export function useProjectSettings(
   const [pending, setPending] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const selection = useRef(projectId);
-  selection.current = projectId;
+  const [reloading, setReloading] = useState(false);
   const baselineHeld = useRef(holdBaseline);
-  baselineHeld.current = holdBaseline;
+  useLayoutEffect(() => {
+    baselineHeld.current = holdBaseline;
+  }, [holdBaseline]);
   const generation = useRef(0);
   const alive = useRef(false);
   const localWriteLock = useRef(false);
@@ -74,23 +74,22 @@ export function useProjectSettings(
   const previousConnection = useRef(connection);
   const discardOnRead = useRef(false);
 
-  function refresh(discard = false) {
+  const refresh = useCallback((discard = false) => {
     // Invalidate responses before React starts the next effect.
     generation.current += 1;
     if (discard) {
       discardOnRead.current = true;
+      setReloading(true);
     }
     setAttempt((n) => n + 1);
-  }
+  }, []);
   useRealtime("settings.changed", (payload) => {
     if (!payload || typeof payload !== "object" || !("kind" in payload)) {
       return;
     }
     if (
       payload.kind === "default" ||
-      (payload.kind === "project" &&
-        "projectId" in payload &&
-        payload.projectId === selection.current)
+      (payload.kind === "project" && "projectId" in payload && payload.projectId === projectId)
     ) {
       refresh();
     }
@@ -100,7 +99,7 @@ export function useProjectSettings(
       refresh();
     }
     previousConnection.current = connection;
-  }, [connection]);
+  }, [connection, refresh]);
   useEffect(() => {
     alive.current = true;
     readKey.current = "";
@@ -109,14 +108,6 @@ export function useProjectSettings(
       generation.current += 1;
     };
   }, []);
-  useEffect(() => {
-    setView(null);
-    setReadError(null);
-    setWriteError(null);
-    setSaved(null);
-    discardOnRead.current = false;
-    generation.current += 1;
-  }, [projectId]);
   useEffect(() => {
     if (!projectId || pending) {
       return;
@@ -131,8 +122,7 @@ export function useProjectSettings(
     activeRead.current = true;
     setReading(true);
     setReadError(null);
-    const valid = () =>
-      current && alive.current && selection.current === projectId && generation.current === request;
+    const valid = () => current && alive.current && generation.current === request;
     rpc
       .call("getProject", { projectId })
       .then((result) => {
@@ -144,15 +134,18 @@ export function useProjectSettings(
         }
         const discard = discardOnRead.current;
         discardOnRead.current = false;
+        setReloading(false);
         if (discard) {
           setWriteError(null);
           setSaved(null);
         }
-        setView((old) => (discard ? loaded(result) : reconcile(old, result, baselineHeld.current)));
+        const hold = baselineHeld.current;
+        setView((old) => (discard ? loaded(result) : reconcile(old, result, hold)));
       })
       .catch((error) => {
         if (valid()) {
           discardOnRead.current = false;
+          setReloading(false);
           setReadError(message(error));
         }
       })
@@ -190,51 +183,54 @@ export function useProjectSettings(
     setSaved(null);
     // Invalidation can advance generation during a write. It schedules a later read,
     // but cannot discard the confirmed result of this serialized write.
-    const valid = () => alive.current && selection.current === target && writeLock.current;
-    try {
-      const response = await rpc.call("setPrompt", {
+    const valid = () => alive.current && writeLock.current;
+    return (async () =>
+      rpc.call("setPrompt", {
         projectId: target,
         prompt,
         expectedPrompt: expected ? expected.prompt : state.prompt,
-      });
-      if (response.state.projectId !== target) {
-        throw new Error("Project response did not match the save target.");
-      }
-      if (!valid()) {
-        return;
-      }
-      if (response.status === "conflict") {
-        setView((old) =>
-          old
-            ? {
-                ...reconcile({ ...old, changed: true }, response.state),
-                changed: true,
-                conflict: true,
-              }
-            : old,
-        );
-        return;
-      }
-      setView(loaded(response.state));
-      setSaved(
-        prompt === null
-          ? `Reset prompt for ${projectName} to plugin default.`
-          : `Saved prompt for ${projectName}.`,
-      );
-      return response.state;
-    } catch (error) {
-      if (valid()) {
-        setWriteError(message(error));
-      }
-    } finally {
-      writeLock.current = false;
-      if (alive.current) {
-        setPending(false);
-        if (refreshAfter || generation.current !== request) {
-          refresh();
+      }))()
+      .then((response) => {
+        if (response.state.projectId !== target) {
+          throw new Error("Project response did not match the save target.");
         }
-      }
-    }
+        if (!valid()) {
+          return;
+        }
+        if (response.status === "conflict") {
+          setView((old) =>
+            old
+              ? {
+                  ...reconcile({ ...old, changed: true }, response.state),
+                  changed: true,
+                  conflict: true,
+                }
+              : old,
+          );
+          return;
+        }
+        setView(loaded(response.state));
+        setSaved(
+          prompt === null
+            ? `Reset prompt for ${projectName} to plugin default.`
+            : `Saved prompt for ${projectName}.`,
+        );
+        return response.state;
+      })
+      .catch((error: unknown) => {
+        if (valid()) {
+          setWriteError(message(error));
+        }
+      })
+      .finally(() => {
+        writeLock.current = false;
+        if (alive.current) {
+          setPending(false);
+          if (refreshAfter || generation.current !== request) {
+            refresh();
+          }
+        }
+      });
   }
   function edit(text: string) {
     if (writeLock.current || discardOnRead.current) {
@@ -260,8 +256,7 @@ export function useProjectSettings(
     pending,
     writeError,
     saved,
-    writeLock,
-    reloading: discardOnRead.current,
+    reloading,
     refresh,
     persist,
     edit,

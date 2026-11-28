@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useComposer } from "@get-bb/plugin-sdk/app";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -165,17 +165,28 @@ it("opens a visible compact PR panel when the destination mounts", async () => {
   const CompactHost = () => {
     const { scope } = useComposer();
     const threadId = scope.kind === "thread" ? scope.threadId : null;
-    const [drawerThreadId, setDrawerThreadId] = useState<string | null>(null);
+    const drawerRef = useRef<HTMLElement>(null);
+    const scopeKey = threadId ?? "";
     // BB resets its transient drawer on thread changes in a parent effect.
-    useEffect(() => setDrawerThreadId(null), [threadId]);
-    openDrawer = () => {
-      setDrawerThreadId(threadId);
-      return true;
-    };
+    useEffect(() => {
+      const drawer = drawerRef.current;
+      if (drawer !== null && drawer.dataset.threadId === scopeKey) drawer.hidden = true;
+    }, [scopeKey]);
+    useLayoutEffect(() => {
+      const drawer = drawerRef.current;
+      openDrawer = () => {
+        if (drawer === null) return false;
+        drawer.hidden = false;
+        return true;
+      };
+      return () => {
+        openDrawer = () => false;
+      };
+    }, []);
     return (
       <>
         <Banner />
-        <aside aria-label="PR panel" hidden={drawerThreadId !== threadId}>
+        <aside ref={drawerRef} aria-label="PR panel" data-thread-id={scopeKey} hidden>
           PR
         </aside>
       </>

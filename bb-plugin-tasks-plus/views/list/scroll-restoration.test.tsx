@@ -254,6 +254,18 @@ describe("useListScrollRestoration", () => {
       <Harness
         scopeKey="grow|"
         contentReady
+        loading
+        revision={30}
+        scrollHeight={1120}
+        onReady={capture}
+      />,
+    );
+    expect(node.scrollTop).toBe(620);
+
+    view.rerender(
+      <Harness
+        scopeKey="grow|"
+        contentReady
         loading={false}
         revision={40}
         scrollHeight={1498}

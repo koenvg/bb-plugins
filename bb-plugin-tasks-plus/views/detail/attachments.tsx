@@ -151,17 +151,15 @@ export const AttachmentsGrid = ({
     setConfirm(null);
     setLightbox((current) => (current?.id === attachment.id ? null : current));
     setPending((current) => new Set(current).add(attachment.id));
-    try {
-      await onRemove(attachment);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setPending((current) => {
-        const next = new Set(current);
-        next.delete(attachment.id);
-        return next;
+    await Promise.try(() => onRemove(attachment))
+      .catch((error: unknown) => onError(errorMessage(error)))
+      .finally(() => {
+        setPending((current) => {
+          const next = new Set(current);
+          next.delete(attachment.id);
+          return next;
+        });
       });
-    }
   };
 
   if (attachments.length === 0) return null;

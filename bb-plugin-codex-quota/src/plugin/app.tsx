@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { definePluginApp, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server.js";
@@ -24,10 +32,13 @@ const QUOTA_ICON = "codex-quota-battery";
 function useAccountsApi() {
   const rpc = useRpc<typeof rpcContract>();
   const reference = useRef(rpc);
-  reference.current = rpc;
-  const api = useRef<AccountsApi | null>(null);
-  api.current ??= (input) => reference.current.call("machineAccountsV2", input);
-  return api.current;
+  useLayoutEffect(() => {
+    reference.current = rpc;
+  }, [rpc]);
+  return useCallback<AccountsApi>(
+    (input) => reference.current.call("machineAccountsV2", input),
+    [],
+  );
 }
 function useAccounts() {
   return useSyncExternalStore(shared.subscribe, shared.getSnapshot);
@@ -60,14 +71,17 @@ const QuotaRefreshOwner = () => {
 const MachineManagement = ({ machines }: { machines: Machine[] }) => {
   const rpc = useRpc<typeof rpcContract>();
   const [open, setOpen] = useState<string | null>(null);
-  const [selection, setSelection] = useState<{ hostId: string | null; generation: number } | null>(
-    null,
-  );
+  const [selection, setSelection] = useState<{
+    value: { hostId: string | null; generation: number };
+    revision: number;
+  } | null>(null);
   const [failed, setFailed] = useState(false);
   const details = useRef<HTMLDetailsElement>(null);
   const revision = useRef(0);
   const current = useRef(open);
-  current.current = open;
+  useLayoutEffect(() => {
+    current.current = open;
+  }, [open]);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -94,7 +108,7 @@ const MachineManagement = ({ machines }: { machines: Machine[] }) => {
         if (next.hostId !== id) {
           setFailed(true);
         } else {
-          setSelection(next);
+          setSelection({ value: next, revision: request });
         }
       }
     } catch {
@@ -145,8 +159,8 @@ const MachineManagement = ({ machines }: { machines: Machine[] }) => {
                 </p>
               ) : selection ? (
                 <HistoryReadinessSection
-                  selection={selection}
-                  selectionRevision={revision.current}
+                  selection={selection.value}
+                  selectionRevision={selection.revision}
                   isActive={() =>
                     mounted.current &&
                     details.current?.open === true &&
@@ -172,15 +186,19 @@ const QuotaPage = () => {
   const state = useAccountsOwner();
   const rpc = useRpc<typeof rpcContract>();
   const reference = useRef(rpc);
-  reference.current = rpc;
-  const read = useRef((input: Parameters<typeof rpc.call<"machineReports">>[1]) =>
-    reference.current.call("machineReports", input),
-  );
-  const snapshot = useRef((input: Parameters<typeof rpc.call<"machineReportSnapshot">>[1]) =>
-    reference.current.call("machineReportSnapshot", input),
-  );
-  const prepare = useRef((input: { refresh: boolean }) =>
-    reference.current.call("machinePreparation", { refresh: input.refresh }),
+  useLayoutEffect(() => {
+    reference.current = rpc;
+  }, [rpc]);
+  const reports = useMemo(
+    () => ({
+      read: (input: Parameters<typeof rpc.call<"machineReports">>[1]) =>
+        reference.current.call("machineReports", input),
+      snapshot: (input: Parameters<typeof rpc.call<"machineReportSnapshot">>[1]) =>
+        reference.current.call("machineReportSnapshot", input),
+      prepare: (input: { refresh: boolean }) =>
+        reference.current.call("machinePreparation", { refresh: input.refresh }),
+    }),
+    [],
   );
   const machines = state.data?.machines ?? [];
   return (
@@ -214,9 +232,9 @@ const QuotaPage = () => {
           <h2 className="mb-3 text-base font-semibold">Recorded usage</h2>
           <MachineReportPanel
             now={state.now}
-            snapshot={snapshot.current}
-            read={read.current}
-            prepare={prepare.current}
+            snapshot={reports.snapshot}
+            read={reports.read}
+            prepare={reports.prepare}
           />
         </section>
       </div>

@@ -26,7 +26,8 @@ interface Registration {
 interface Session {
   taskKey: string;
   rootRef: RefObject<HTMLElement | null>;
-  loadedKey: string | null;
+  isReady: () => boolean;
+  setReady: (ready: boolean) => void;
   registrations: Set<Registration>;
   activationFrame: number | null;
 }
@@ -52,7 +53,7 @@ function isShown(root: HTMLElement | null): boolean {
 
 function resolve(action: TaskDetailAction): { session: Session; handler: () => void } | null {
   const eligible = [...sessions].filter(
-    (session) => session.loadedKey === session.taskKey && isShown(session.rootRef.current),
+    (session) => session.isReady() && isShown(session.rootRef.current),
   );
   const [session] = eligible;
   if (!session || eligible.length !== 1) return null;
@@ -101,19 +102,20 @@ export const TaskCommandProvider = ({
   rootRef: RefObject<HTMLElement | null>;
   children: ReactNode;
 }) => {
-  const session = useMemo<Session | null>(
-    () =>
-      taskKey === null
-        ? null
-        : {
-            taskKey,
-            rootRef,
-            loadedKey: null,
-            registrations: new Set(),
-            activationFrame: null,
-          },
-    [taskKey, rootRef],
-  );
+  const session = useMemo<Session | null>(() => {
+    if (taskKey === null) return null;
+    let ready = false;
+    return {
+      taskKey,
+      rootRef,
+      isReady: () => ready,
+      setReady: (next) => {
+        ready = next;
+      },
+      registrations: new Set(),
+      activationFrame: null,
+    };
+  }, [taskKey, rootRef]);
   useLayoutEffect(() => {
     if (!session) return;
     sessions.add(session);
@@ -129,10 +131,10 @@ export function useTaskCommandReadiness(taskKey: string, ready: boolean): void {
   const session = useContext(TaskCommandContext);
   useLayoutEffect(() => {
     if (!session || session.taskKey !== taskKey || !ready) return;
-    session.loadedKey = taskKey;
+    session.setReady(true);
     return () => {
       cancelActivation(session);
-      session.loadedKey = null;
+      session.setReady(false);
     };
   }, [session, taskKey, ready]);
 }

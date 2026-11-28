@@ -117,3 +117,66 @@ for (const route of ["table.html", "index.html"]) {
     );
   });
 }
+
+test("project deletion stays locked through count retry and while deletion is pending", async ({
+  page,
+}) => {
+  await page.goto("/project-settings-preview/table.html");
+  const open = page.getByRole("button", { name: "Delete HOME", exact: true });
+  await expect(open).toBeEnabled();
+  await page.getByRole("button", { name: "Fail next task count", exact: true }).click();
+  await page.getByRole("button", { name: "Fail next deletion", exact: true }).click();
+  await open.click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+  const prefix = dialog.getByRole("textbox", { name: "Type HOME to confirm" });
+  const submit = dialog.getByRole("button", { name: "Delete project and tasks" });
+  await prefix.fill("HOME");
+  await expect(dialog.getByRole("alert")).toContainText("Could not count tasks");
+  await expect(submit).toBeDisabled();
+  await dialog.getByRole("button", { name: "Retry task count" }).click();
+  await expect(submit).toBeDisabled();
+  await expect(dialog).toContainText("Delete this project and all 42 tasks?");
+  await expect(submit).toBeEnabled();
+  await expect(page.locator("#evidence")).toContainText('"deleteCalls": 0');
+
+  await submit.click();
+  await expect(dialog.getByRole("button", { name: "Deleting…" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("alert")).toContainText("Could not delete HOME");
+  await expect(prefix).toHaveValue("HOME");
+  await expect(page.locator("#evidence")).toContainText('"deleteCalls": 1');
+  await submit.click();
+  await expect(dialog).toBeHidden();
+  await expect(open).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete WORK", exact: true })).toBeEnabled();
+  await expect(page.locator("#evidence")).toContainText('"deleteCalls": 2');
+});
+
+test("keeps a deleted project hidden while its inventory refresh fails", async ({ page }) => {
+  await page.goto("/project-settings-preview/table.html");
+  const table = page.getByRole("table", { name: "Projects", exact: true });
+  const home = table.getByRole("textbox", { name: "Project name for HOME" });
+  const work = table.getByRole("textbox", { name: "Project name for WORK" });
+  await expect(home).toBeEnabled();
+  await work.fill("Keep this draft");
+  await page.getByRole("button", { name: "Fail post-delete refresh", exact: true }).click();
+  await table.getByRole("button", { name: "Delete HOME", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "Type HOME to confirm" }).fill("HOME");
+  await dialog.getByRole("button", { name: "Delete project and tasks" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("alert")).toContainText("Fixture post-delete inventory unavailable");
+  await expect(home).toHaveCount(0);
+  await expect(work).toHaveValue("Keep this draft");
+
+  await page.getByRole("button", { name: "Allow inventory reads", exact: true }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(table).toHaveAttribute("aria-busy", "false");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(home).toHaveCount(0);
+  await expect(work).toHaveValue("Keep this draft");
+  await expect(page.locator("#evidence")).toContainText('"deleteCalls": 1');
+});

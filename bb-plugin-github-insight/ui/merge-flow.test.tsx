@@ -389,9 +389,9 @@ describe("palette merge without side-panel navigation", () => {
     const f = fixture();
     const pending = deferred<ActionResult>();
     f.write.mockImplementation(() => pending.promise);
-    f.mountBanner();
+    const chat = f.mountBanner();
     const panel = f.mountTab();
-    await screen.findByText("Ready to merge");
+    await within(chat.container).findByText("Ready to merge");
     fireEvent.click(within(panel.container).getByRole("tab", { name: "Files" }));
     const selectedTab = () =>
       within(panel.container).getByRole("tab", { selected: true }).querySelector("[data-tab-label]")

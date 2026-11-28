@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fail as missingValue } from "node:assert/strict";
 import { act, renderHook } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { makeTask } from "../../test-fixtures.js";
 import {
@@ -78,6 +79,28 @@ describe("useExpandedTasks", () => {
     act(() => result.current.toggle(entry("T1")));
 
     expect(result.current.isExpanded(entry("T1"))).toBe(true);
+    expect(loadExpandedTasks("all")).toEqual(new Set(["T1"]));
+  });
+
+  it("commits the next scope's persisted expansion without exposing the previous scope", () => {
+    storeExpandedTasks("all", new Set(["T1"]), known);
+    storeExpandedTasks("project", new Set(["T2"]), known);
+    const commits: boolean[][] = [];
+    const { rerender } = renderHook(
+      ({ scope }) => {
+        const { isExpanded } = useExpandedTasks(scope, null, known);
+        useLayoutEffect(() => {
+          commits.push([isExpanded(entry("T1")), isExpanded(entry("T2"))]);
+        });
+      },
+      { initialProps: { scope: "all" } },
+    );
+    expect(commits.at(-1)).toEqual([true, false]);
+    commits.length = 0;
+
+    rerender({ scope: "project" });
+    expect(commits.length).toBeGreaterThan(0);
+    expect(commits.every(([first, second]) => first === false && second === true)).toBe(true);
     expect(loadExpandedTasks("all")).toEqual(new Set(["T1"]));
   });
 

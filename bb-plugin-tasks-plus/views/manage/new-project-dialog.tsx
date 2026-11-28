@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useFolders, useProjects, useTasksQuery, useTasksRpc } from "../../shell/data.js";
 import { useTasksNavigation } from "../../shell/routes.js";
 import { PROJECT_PREFIX_PATTERN } from "../../shared/contract.js";
@@ -35,11 +35,10 @@ const NO_FOLDER = "__none__";
 const NEW_FOLDER = "__new__";
 
 interface NewProjectDialogProps {
-  open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export const NewProjectDialog = ({ open, onOpenChange }: NewProjectDialogProps) => {
+export const NewProjectDialog = ({ onOpenChange }: NewProjectDialogProps) => {
   const rpc = useTasksRpc();
   const navigation = useTasksNavigation();
   const projects = useProjects();
@@ -61,19 +60,6 @@ export const NewProjectDialog = ({ open, onOpenChange }: NewProjectDialogProps) 
     return result.bbProjects;
   }, []);
   const bbProjectList = bbProjects.data ?? [];
-
-  useEffect(() => {
-    if (!open) return;
-    setName("");
-    setPrefix("");
-    setPrefixTouched(false);
-    setColor(DEFAULT_COLOR);
-    setFolderId(null);
-    setNewFolderMode(false);
-    setNewFolderName("");
-    setLinkedBbProjectId(null);
-    setError(null);
-  }, [open]);
 
   const prefixError = useMemo(() => {
     if (prefix === "") return null;
@@ -120,25 +106,25 @@ export const NewProjectDialog = ({ open, onOpenChange }: NewProjectDialogProps) 
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    try {
-      const { project } = await rpc.call("createProject", {
+    await Promise.try(() =>
+      rpc.call("createProject", {
         name: name.trim(),
         prefix,
         color,
         folderId,
         linkedBbProjectId,
-      });
-      onOpenChange(false);
-      navigation.go({ kind: "project", projectId: project.id, view: null });
-    } catch (submitError) {
-      setError(describeCreateProjectError(submitError));
-    } finally {
-      setSubmitting(false);
-    }
+      }),
+    )
+      .then(({ project }) => {
+        onOpenChange(false);
+        navigation.go({ kind: "project", projectId: project.id, view: null });
+      })
+      .catch((submitError: unknown) => setError(describeCreateProjectError(submitError)))
+      .finally(() => setSubmitting(false));
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-md"
         onKeyDown={(event) => {

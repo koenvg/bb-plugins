@@ -116,6 +116,23 @@ export function useResponsiveOverlayBehavior() {
   };
 }
 
+function createOpenState() {
+  let open: boolean | undefined;
+  const listeners = new Set<() => void>();
+  return {
+    read: () => open,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    set(next: boolean) {
+      if (next === open) return;
+      open = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
 export function useResponsiveRoot(
   controlledOpen: boolean | undefined,
   controlledOnChange: ((open: boolean) => void) | undefined,
@@ -123,7 +140,12 @@ export function useResponsiveRoot(
 ): ResponsiveOverlayContextValue {
   const { presentation } = useResponsiveOverlayBehavior();
   const isCompactViewport = presentation === "drawer";
-  const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
+  const internal = React.useMemo(() => createOpenState(), []);
+  const readOpen = () => internal.read() ?? defaultOpen;
+  const internalOpen = React.useSyncExternalStore(internal.subscribe, readOpen, readOpen);
+  React.useLayoutEffect(() => {
+    if (internal.read() === undefined) internal.set(defaultOpen);
+  }, [internal, defaultOpen]);
   const isControlled = controlledOpen !== undefined;
   const visible = React.useContext(PaneVisibilityContext);
   const requestedOpen = isControlled ? controlledOpen : internalOpen;
@@ -135,11 +157,11 @@ export function useResponsiveRoot(
         blurActiveKeyboardInputBeforeOverlayClose();
       }
       if (!isControlled) {
-        setInternalOpen(next);
+        internal.set(next);
       }
       controlledOnChange?.(next);
     },
-    [isCompactViewport, isControlled, controlledOnChange, open],
+    [isCompactViewport, isControlled, controlledOnChange, open, internal],
   );
 
   React.useLayoutEffect(() => {
@@ -321,8 +343,14 @@ export const ResponsiveDrawerShell = ({
   children,
 }: ResponsiveDrawerShellProps) => {
   const { isContentRealized } = useResponsiveDrawerRealization({ open });
-  const [wasOpen, setWasOpen] = React.useState(open);
-  React.useLayoutEffect(() => setWasOpen(open), [open]);
+  const committed = React.useMemo(() => createOpenState(), []);
+  const readCommittedOpen = () => committed.read() ?? open;
+  const wasOpen = React.useSyncExternalStore(
+    committed.subscribe,
+    readCommittedOpen,
+    readCommittedOpen,
+  );
+  React.useLayoutEffect(() => committed.set(open), [committed, open]);
 
   // Commit one closed shell so even placeholder dismissal runs close autofocus.
   if (!open && !isContentRealized && !wasOpen) {

@@ -4,33 +4,36 @@ import { errorMessage } from "../../shared/errors.js";
 export type TaskEditPatch = Partial<
   Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "labelIds">
 >;
-export type SaveOutcome = { ok: true } | { ok: false; errorMessage: string };
-export interface EditSnapshot {
+export type SaveOutcome<Confirmation = undefined> =
+  | { ok: true; confirmation?: Confirmation }
+  | { ok: false; errorMessage: string };
+export interface EditSnapshot<Confirmation = undefined> {
   draft: TaskEditPatch;
   pending: boolean;
   saving: boolean;
   error: string | null;
+  confirmation?: Confirmation;
 }
-export interface TaskEditSession {
+export interface TaskEditSession<Confirmation = undefined> {
   readonly taskId: string;
   stage: (patch: TaskEditPatch, delayMs?: number) => void;
   flush: () => Promise<SaveOutcome>;
-  getSnapshot: () => EditSnapshot;
+  getSnapshot: () => EditSnapshot<Confirmation>;
   subscribe: (listener: () => void) => () => void;
 }
 
 /** One mounted ticket's autosaves. flush confirms every edit, including edits
  * made during the request. A failed attempt retains the latest draft for retry.
  * The immutable taskId and single drain prevent cross-task and out-of-order writes. */
-export function createTaskEditSession(
+export function createTaskEditSession<Confirmation = undefined>(
   taskId: string,
   options: {
-    save: (taskId: string, patch: TaskEditPatch) => Promise<SaveOutcome>;
+    save: (taskId: string, patch: TaskEditPatch) => Promise<SaveOutcome<Confirmation>>;
     onError?: (message: string) => void;
     schedule?: (run: () => void, delayMs: number) => () => void;
   },
-): TaskEditSession {
-  let snapshot: EditSnapshot = {
+): TaskEditSession<Confirmation> {
+  let snapshot: EditSnapshot<Confirmation> = {
     draft: {},
     pending: false,
     saving: false,
@@ -44,7 +47,7 @@ export function createTaskEditSession(
     cancelTimer = undefined;
   };
   const listeners = new Set<() => void>();
-  const publish = (change: Partial<EditSnapshot>) => {
+  const publish = (change: Partial<EditSnapshot<Confirmation>>) => {
     snapshot = { ...snapshot, ...change };
     listeners.forEach((listener) => listener());
   };
@@ -69,7 +72,7 @@ export function createTaskEditSession(
         }
         const attempt = pending;
         pending = {};
-        let outcome: SaveOutcome;
+        let outcome: SaveOutcome<Confirmation>;
         try {
           outcome = await options.save(taskId, attempt);
         } catch (error) {
@@ -87,7 +90,10 @@ export function createTaskEditSession(
         for (const key of Object.keys(attempt) as (keyof TaskEditPatch)[]) {
           if (!(key in pending)) Reflect.deleteProperty(draft, key);
         }
-        publish({ draft });
+        publish({
+          draft,
+          ...(outcome.confirmation === undefined ? {} : { confirmation: outcome.confirmation }),
+        });
         void saveNext();
       } catch (error) {
         reject(error);

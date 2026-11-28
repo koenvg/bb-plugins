@@ -60,31 +60,36 @@ function withMediaSlots(content: string): MediaSlots {
   return { markdown, media };
 }
 
-type RepoImageState =
-  | { kind: "loading" }
-  | { kind: "ready"; url: string }
-  | { kind: "error"; message: string };
+type RepoImageState = { kind: "ready"; url: string } | { kind: "error"; message: string };
 
 const RepoImage = ({ file, alt }: { file: RepoFile; alt: string }) => {
   const threadId = useRepoImageThread();
   const rpc = useRpc<typeof rpcContract>();
-  const [state, setState] = useState<RepoImageState>({ kind: "loading" });
   const { owner, repo, sha, path } = file;
+  const request = useMemo(
+    () => ({ rpc, args: { threadId, owner, repo, sha, path } }),
+    [rpc, threadId, owner, repo, sha, path],
+  );
+  const [result, setResult] = useState<{
+    request: typeof request;
+    state: RepoImageState;
+  } | null>(null);
+  const state = result?.request === request ? result.state : null;
   useEffect(() => {
     let live = true;
     let url: string | null = null;
-    setState({ kind: "loading" });
-    rpc
-      .call("getPrBodyImage", { threadId, owner, repo, sha, path })
+    const publish = (state: RepoImageState) => setResult({ request, state });
+    request.rpc
+      .call("getPrBodyImage", request.args)
       .then(imageBlobResult)
       .then(
         (result) => {
           if (!live) return;
           if (result.kind === "ready") {
             url = URL.createObjectURL(result.blob);
-            setState({ kind: "ready", url });
+            publish({ kind: "ready", url });
           } else {
-            setState({
+            publish({
               kind: "error",
               message: result.kind === "error" ? result.message : "Image not found",
             });
@@ -92,7 +97,7 @@ const RepoImage = ({ file, alt }: { file: RepoFile; alt: string }) => {
         },
         (error: unknown) => {
           if (live)
-            setState({
+            publish({
               kind: "error",
               message: error instanceof Error ? error.message : "Could not load image",
             });
@@ -102,13 +107,13 @@ const RepoImage = ({ file, alt }: { file: RepoFile; alt: string }) => {
       live = false;
       if (url !== null) URL.revokeObjectURL(url);
     };
-  }, [rpc, threadId, owner, repo, sha, path]);
-  return state.kind === "ready" ? (
+  }, [request]);
+  return state?.kind === "ready" ? (
     <img src={state.url} alt={alt} className="max-w-full" />
   ) : (
     <span
       className="text-muted-foreground"
-      title={state.kind === "error" ? state.message : undefined}
+      title={state?.kind === "error" ? state.message : undefined}
     >
       {alt}
     </span>

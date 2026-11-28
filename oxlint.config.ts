@@ -85,7 +85,6 @@ export default defineConfig({
     "react/exhaustive-deps": "off",
     "react/button-has-type": "off",
     "react/exhaustive-effect-dependencies": "off",
-    "react/globals": "off",
     "react/hook-use-state": "off",
     "react/hooks": "off",
     "react/immutability": "off",
@@ -485,10 +484,270 @@ export default defineConfig({
     },
     {
       files: [
+        "bb-plugin-codex-quota/src/history/calendar/calendar-panel.tsx",
         "bb-plugin-codex-quota/src/machines/report-view.tsx",
         "bb-plugin-pi-subagents-provider/src/ui/subagents-view.tsx",
+        "bb-plugin-tasks-plus/editor/tasks-editor.tsx",
+        "bb-plugin-tasks-plus/scripts/navigation-benchmark/local-host.test.tsx",
+        "bb-plugin-tasks-plus/shell/ticket-panel.tsx",
+        "bb-plugin-tasks-plus/views/detail/task-session.tsx",
       ],
       rules: { "react/hook-use-state": react.rules["react/hook-use-state"] },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/shell/task-detail-commands.tsx"],
+      rules: { "react/immutability": react.rules["react/immutability"] },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/shell/task-data.tsx"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/immutability": react.rules["react/immutability"],
+        "react/memo-dependencies": react.rules["react/memo-dependencies"],
+      },
+    },
+    {
+      files: ["bb-plugin-codex-quota/scripts/identity-preview.tsx"],
+      rules: { "react/purity": react.rules["react/purity"] },
+    },
+    {
+      files: ["bb-plugin-codex-quota/src/machines/use-report.ts"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/hook-use-state": react.rules["react/hook-use-state"],
+        "react/memo-dependencies": react.rules["react/memo-dependencies"],
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-codex-quota/src/activity/activity-view.tsx"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/hook-use-state": react.rules["react/hook-use-state"],
+        "react/purity": react.rules["react/purity"],
+        "react/refs": react.rules["react/refs"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/use-task-edits.ts"],
+      rules: {
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: [
+        "bb-plugin-github-insight/ui/pr-markdown.tsx",
+        "bb-plugin-tasks-plus/shell/browse-keyboard.ts",
+      ],
+      rules: { "react/set-state-in-effect": react.rules["react/set-state-in-effect"] },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/submit-panel.tsx"],
+      rules: { "react/purity": react.rules["react/purity"] },
+    },
+    {
+      files: [
+        "bb-plugin-github-insight/ui/overview-tab.tsx",
+        "bb-plugin-github-insight/ui/review-queue-list.tsx",
+        "bb-plugin-github-insight/ui/review-thread.tsx",
+        "bb-plugin-github-insight/ui/timeline.tsx",
+        "bb-plugin-github-insight/ui/viewer-review-badge.tsx",
+      ],
+      rules: { "react/purity": react.rules["react/purity"] },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/viewer-review-badge.tsx"],
+      rules: { "react/refs": react.rules["react/refs"] },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/timeline.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/files-tab.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/use-palette-merge.ts"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/pr-summary.tsx"],
+      rules: { "react/purity": react.rules["react/purity"] },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/manage/projects-section.tsx"],
+      rules: {
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/work-status-data.ts"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/memo-dependencies": react.rules["react/memo-dependencies"],
+        "react/refs": react.rules["react/refs"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/detail/attachment-preview.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/immutability": react.rules["react/immutability"],
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/use-list-controls.ts"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/immutability": react.rules["react/immutability"],
+        "react/refs": react.rules["react/refs"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/webhooks/settings-section.tsx"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/refs": react.rules["react/refs"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/board/index.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/shell/browse-workspace.tsx"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/memo-dependencies": react.rules["react/memo-dependencies"],
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/components/ui/responsive-overlay.tsx"],
+      rules: { "react/set-state-in-effect": react.rules["react/set-state-in-effect"] },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/use-list-data.ts"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/memo-dependencies": react.rules["react/memo-dependencies"],
+        "react/no-deriving-state-in-effects": react.rules["react/no-deriving-state-in-effects"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/detail/index.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/hook-use-state": react.rules["react/hook-use-state"],
+        "react/refs": react.rules["react/refs"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/manage/new-task-dialog.tsx"],
+      rules: { "react/rule-suppression": react.rules["react/rule-suppression"] },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/overview-tab.tsx"],
+      rules: { "react/set-state-in-effect": react.rules["react/set-state-in-effect"] },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/review-queue-list.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/detail/rail.tsx"],
+      rules: {
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/shell/data.ts"],
+      rules: {
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/selection-tree.ts"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/refs": react.rules["react/refs"],
+      },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/use-comment-navigation.ts"],
+      rules: {
+        "react/preserve-manual-memoization": react.rules["react/preserve-manual-memoization"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/pr-panel-navigation.test.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/embed/index.tsx"],
+      rules: {
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/manage/project-delete-dialog.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/scroll-restoration.ts"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+      },
+    },
+    {
+      files: ["bb-plugin-tasks-plus/views/list/expanded-tasks.ts"],
+      rules: {
+        "react/no-deriving-state-in-effects": react.rules["react/no-deriving-state-in-effects"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
     },
     {
       files: ["bb-plugin-changes/ui/use-file-context.ts"],
@@ -505,7 +764,12 @@ export default defineConfig({
       rules: { "react/set-state-in-effect": react.rules["react/set-state-in-effect"] },
     },
     {
-      files: ["bb-plugin-changes/ui/file-section.tsx"],
+      files: [
+        "bb-plugin-changes/ui/file-section.tsx",
+        "bb-plugin-codex-quota/src/history/calendar/calendar-panel.tsx",
+        "bb-plugin-codex-quota/src/history/calendar/report-preparation.ts",
+        "bb-plugin-codex-quota/src/history/import/import-view.tsx",
+      ],
       rules: {
         "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
       },
@@ -521,14 +785,99 @@ export default defineConfig({
         "bb-plugin-changes/ui/use-changes.ts",
         "bb-plugin-code-cleanup/use-project-overview.ts",
         "bb-plugin-code-cleanup/use-project-settings.ts",
+        "bb-plugin-codex-quota/src/history/calendar/calendar-panel.tsx",
+        "bb-plugin-codex-quota/src/history/calendar/report-preparation.ts",
+        "bb-plugin-codex-quota/src/history/import/import-view.tsx",
         "bb-plugin-codex-quota/src/plugin/app.tsx",
       ],
       rules: { "react/exhaustive-deps": react.rules["react/exhaustive-deps"] },
     },
     {
       files: [
+        "bb-plugin-github-insight/ui/use-insight.ts",
+        "bb-plugin-github-insight/ui/use-thread-result.ts",
+      ],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/memo-dependencies": react.rules["react/memo-dependencies"],
+      },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/use-review-queue.ts"],
+      rules: {
+        "react/exhaustive-deps": react.rules["react/exhaustive-deps"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+      },
+    },
+    {
+      files: ["bb-plugin-browser-annotate/app.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-github-insight/ui/use-thread-result.ts"],
+      rules: {
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-code-cleanup/use-project-overview.ts"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-code-cleanup/prompt-dialog.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+      },
+    },
+    {
+      files: ["bb-plugin-code-cleanup/use-project-settings.ts"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/refs": react.rules["react/refs"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: ["bb-plugin-code-cleanup/preview/main.tsx"],
+      rules: {
+        "react/exhaustive-effect-dependencies": react.rules["react/exhaustive-effect-dependencies"],
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: [
+        "bb-plugin-tasks-plus/components/staged-attachments.tsx",
+        "bb-plugin-tasks-plus/views/manage/new-project-dialog.tsx",
+      ],
+      rules: {
+        "react/set-state-in-effect": react.rules["react/set-state-in-effect"],
+        "react/todo": react.rules["react/todo"],
+      },
+    },
+    {
+      files: [
+        "bb-plugin-codex-quota/src/history/calendar/report-preparation.ts",
+        "bb-plugin-codex-quota/src/plugin/app.tsx",
+        "bb-plugin-github-insight/ui/new-comment-glow.tsx",
         "bb-plugin-github-insight/ui/overview-tab.tsx",
+        "bb-plugin-github-insight/ui/thread-actions.tsx",
+        "bb-plugin-tasks-plus/scripts/navigation-benchmark/local-host.test.tsx",
         "bb-plugin-tasks-plus/shell/sidebar-accessory.tsx",
+        "bb-plugin-tasks-plus/tests/stats.tsx",
+        "bb-plugin-tasks-plus/views/detail/attachments.tsx",
+        "bb-plugin-tasks-plus/views/detail/threads.tsx",
+        "bb-plugin-tasks-plus/views/labels-picker.tsx",
         "bb-plugin-tasks-plus/views/list/work-status-data.ts",
       ],
       rules: { "react/todo": react.rules["react/todo"] },
@@ -643,8 +992,20 @@ export default defineConfig({
     },
     {
       files: [
+        "bb-plugin-codex-quota/src/history/calendar/calendar-panel.tsx",
+        "bb-plugin-codex-quota/src/history/calendar/report-preparation.ts",
+        "bb-plugin-codex-quota/src/history/history-view.tsx",
+        "bb-plugin-codex-quota/src/history/import/import-view.tsx",
+        "bb-plugin-codex-quota/src/plugin/app.tsx",
         "bb-plugin-compose-chat/effects/react-bits/ElectricBorder.tsx",
+        "bb-plugin-pi-subagents-provider/src/ui/subagents-view.tsx",
         "bb-plugin-pr-thread-list/app.tsx",
+        "bb-plugin-tasks-plus/components/ui/menu-item-hover.tsx",
+        "bb-plugin-tasks-plus/editor/tasks-editor.tsx",
+        "bb-plugin-tasks-plus/shell/app-shell.tsx",
+        "bb-plugin-tasks-plus/shell/shortcut-provider.tsx",
+        "bb-plugin-tasks-plus/shell/sidebar-accessory.tsx",
+        "bb-plugin-tasks-plus/shell/ticket-panel.tsx",
       ],
       rules: { "react/refs": react.rules["react/refs"] },
     },
@@ -664,7 +1025,10 @@ export default defineConfig({
       rules: { "react/exhaustive-deps": react.rules["react/exhaustive-deps"] },
     },
     {
-      files: ["bb-plugin-markdown-reader/app.tsx"],
+      files: [
+        "bb-plugin-github-insight/ui/new-comment-glow.tsx",
+        "bb-plugin-markdown-reader/app.tsx",
+      ],
       rules: { "react/memo-dependencies": react.rules["react/memo-dependencies"] },
     },
     {

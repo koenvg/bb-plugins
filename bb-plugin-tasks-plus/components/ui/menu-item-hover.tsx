@@ -50,7 +50,9 @@ export function useMenuItemHover(handlers?: MenuItemHoverHandlers): {
   const isLastHovered = lastHoveredId === id;
 
   const handlersRef = React.useRef(handlers);
-  handlersRef.current = handlers;
+  React.useLayoutEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
 
   const onPointerEnter = React.useCallback(
     (event: React.PointerEvent) => {

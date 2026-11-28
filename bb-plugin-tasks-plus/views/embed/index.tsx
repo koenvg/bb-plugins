@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   PluginMessageDirectiveProps,
   ExperimentalThreadActionTabProps,
@@ -28,17 +28,28 @@ type TaskEmbedState =
   | { kind: "not_found" }
   | { kind: "error" };
 
+const LOADING_EMBED = { kind: "loading" } as const;
+
 function useTaskEmbed(taskKey: string): {
   state: TaskEmbedState;
   retry: () => void;
 } {
   const rpc = useTasksRpc();
-  const [state, setState] = useState<TaskEmbedState>({ kind: "loading" });
+  const lookupTarget = useMemo(() => ({ rpc, taskKey }), [rpc, taskKey]);
+  const [result, setResult] = useState<{
+    target: typeof lookupTarget;
+    state: TaskEmbedState;
+  } | null>(null);
+  const state = result?.target === lookupTarget ? result.state : LOADING_EMBED;
   const seqRef = useRef(0);
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useLayoutEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const refresh = useCallback(() => {
+    const { rpc, taskKey } = lookupTarget;
+    const publish = (state: TaskEmbedState) => setResult({ target: lookupTarget, state });
     if (taskKey === "") return;
     const seq = ++seqRef.current;
     const lookup = rpc.call("getTaskByKey", { taskKey });
@@ -47,18 +58,20 @@ function useTaskEmbed(taskKey: string): {
       try {
         result = await lookup;
       } catch {
-        if (seq === seqRef.current) setState({ kind: "error" });
+        if (seq === seqRef.current) publish({ kind: "error" });
         return;
       }
       const { task } = result;
       if (seq !== seqRef.current) return;
-      setState(task ? { kind: "found", task } : { kind: "not_found" });
+      publish(task ? { kind: "found", task } : { kind: "not_found" });
     })();
-  }, [rpc, taskKey]);
+  }, [lookupTarget]);
 
   useEffect(() => {
-    setState({ kind: "loading" });
     refresh();
+    return () => {
+      seqRef.current += 1;
+    };
   }, [refresh]);
 
   const onEvent = useCallback(
@@ -257,9 +270,9 @@ const TaskEmbedPanelContent = ({ params, threadId }: ExperimentalThreadActionTab
   const resolvedKey =
     requestedKey || (linked.isLoading || linked.error ? undefined : linked.data?.[0]?.key || "");
   const [lastResolvedKey, setLastResolvedKey] = useState(requestedKey);
-  useEffect(() => {
-    if (resolvedKey !== undefined) setLastResolvedKey(resolvedKey);
-  }, [resolvedKey]);
+  if (resolvedKey !== undefined && resolvedKey !== lastResolvedKey) {
+    setLastResolvedKey(resolvedKey);
+  }
   const taskKey = useSafeTaskTarget(resolvedKey ?? lastResolvedKey);
   const feedback = !requestedKey ? (
     linked.isLoading ? (

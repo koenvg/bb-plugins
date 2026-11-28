@@ -1,8 +1,8 @@
 import {
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -16,8 +16,10 @@ import { Button } from "../components/ui/button.js";
 // BB mounts the page and its fixed tab as separate React trees. Share only the
 // plugin-owned outlet, not editor state. The page keeps owning the portal's React
 // tree, so hiding or replacing a host tab cannot unmount an edit session.
-const outlets = new Set<HTMLElement>();
-const outletPanels = new Map<HTMLElement, ReturnType<typeof experimental_useAppPanel>>();
+const outlets = new Map<
+  HTMLElement,
+  { panel: ReturnType<typeof experimental_useAppPanel>; identity: symbol }
+>();
 let owner: HTMLElement | null = null;
 const contents = new Set<HTMLElement>();
 const listeners = new Set<() => void>();
@@ -27,6 +29,7 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener);
 };
 const currentOutlet = () => owner;
+const currentOwner = () => (owner ? outlets.get(owner)?.identity : undefined);
 const claimOutlet = (element: HTMLElement) => {
   if (!outlets.has(element) || owner === element) return;
   owner = element;
@@ -36,27 +39,26 @@ const hasContent = () => contents.size > 0;
 
 const TicketTab = () => {
   const root = useRef<HTMLDivElement>(null);
+  const identity = useMemo(() => Symbol(), []);
   const panel = experimental_useAppPanel();
   const populated = useSyncExternalStore(subscribe, hasContent);
-  const active = useSyncExternalStore(subscribe, currentOutlet);
+  const active = useSyncExternalStore(subscribe, currentOwner);
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
-    outlets.add(element);
     // First outlet keeps the editor until the user explicitly moves it.
-    outletPanels.set(element, panel);
+    outlets.set(element, { panel, identity });
     if (!owner) owner = element;
     notify();
     return () => {
       outlets.delete(element);
-      if (owner === element) owner = outlets.values().next().value ?? null;
-      outletPanels.delete(element);
+      if (owner === element) owner = outlets.keys().next().value ?? null;
       notify();
     };
-  }, [panel]);
+  }, [panel, identity]);
   return (
     <div ref={root} className="h-full min-h-0 min-w-0 overflow-hidden">
-      {populated && active !== root.current && (
+      {populated && active !== undefined && active !== identity && (
         <div className="p-6 text-sm text-muted-foreground">
           <p>The ticket is open in another pane.</p>
           <Button
@@ -111,7 +113,8 @@ export function useOpenTicketPanel() {
     latest.current = panel;
   }, [panel]);
   return useCallback(() => {
-    if (owner && outletPanels.get(owner) === latest.current && outletIsVisible(owner)) return true;
+    if (owner && outlets.get(owner)?.panel === latest.current && outletIsVisible(owner))
+      return true;
     return latest.current.openTab({
       tab: ticketTab,
     });
@@ -137,11 +140,11 @@ export const TicketPanelContent = ({
   const session = useTasksSession();
   useLayoutEffect(() => session?.onPendingTransition(onReveal), [session, onReveal]);
   const parking = useRef<HTMLDivElement>(null);
-  const [container] = useState(() => {
+  const container = useMemo(() => {
     const element = document.createElement("div");
     element.className = "@container h-full min-h-0 min-w-0";
     return element;
-  });
+  }, []);
   const scope = useRef<HTMLElement | null>(container);
   useShortcutScope(scope);
   useLayoutEffect(() => {

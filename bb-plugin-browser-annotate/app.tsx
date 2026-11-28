@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { definePluginApp, useComposers, useRealtime, useRpc, useSdk } from "@get-bb/plugin-sdk/app";
 import type { PluginComposerApi } from "@get-bb/plugin-sdk/app";
 import { CHANGED_CHANNEL } from "./lib/annotation";
@@ -37,6 +37,27 @@ function useLatest<T>(value: T) {
   return ref;
 }
 
+function createControllerSlot() {
+  let controller: AnnotateController | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => controller,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    publish(next: AnnotateController | null) {
+      if (controller === next) {
+        return;
+      }
+      controller = next;
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
 export const AnnotateControl = ({
   threadId,
   tabId,
@@ -57,7 +78,8 @@ export const AnnotateControl = ({
     const nextError = message.trim() || "Browser Annotate could not run on this page.";
     setError((current) => (replaceCurrent ? nextError : (current ?? nextError)));
   }, []);
-  const [controller, setController] = useState<AnnotateController | null>(null);
+  const controllerSlot = useMemo(() => createControllerSlot(), []);
+  const controller = useSyncExternalStore(controllerSlot.subscribe, controllerSlot.getSnapshot);
 
   useEffect(() => {
     if (!page) {
@@ -83,13 +105,13 @@ export const AnnotateControl = ({
       onModeChange: setOn,
       onError: reportError,
     });
-    setController(created);
+    controllerSlot.publish(created);
     return () => {
       created.dispose();
-      setController(null);
+      controllerSlot.publish(null);
       setOn(false);
     };
-  }, [threadId, tabId, page, rpc, capturer, composer, hiddenPins, reportError]);
+  }, [threadId, tabId, page, rpc, capturer, composer, hiddenPins, reportError, controllerSlot]);
 
   useEffect(() => {
     if (!controller || error) {
@@ -133,14 +155,10 @@ export const AnnotateControl = ({
       return;
     }
     setPending(true);
-    try {
-      await controller.setMode(next);
-      setError(null);
-    } catch (error) {
-      reportError(error, true);
-    } finally {
-      setPending(false);
-    }
+    await (async () => controller.setMode(next))()
+      .then(() => setError(null))
+      .catch((error: unknown) => reportError(error, true))
+      .finally(() => setPending(false));
   };
 
   return (
@@ -207,22 +225,38 @@ export const PillSync = ({ hiddenPins }: { hiddenPins: HiddenPins }) => {
     isSubmitting: composer.isSubmitting,
   }));
   const draftKey = JSON.stringify(drafts);
-  const latestDrafts = useLatest(drafts);
-  const latestComposers = useLatest(threadComposers);
   const composerKey = threadComposers.map((composer) => composer.key).join("\u0000");
+  const observed = useRef("");
+  const submissions = useRef<{ key: string; unsubscribe: () => void } | null>(null);
 
-  useEffect(() => () => tracker.dispose(), [tracker]);
+  useEffect(
+    () => () => {
+      tracker.dispose();
+      observed.current = "";
+      submissions.current?.unsubscribe();
+      submissions.current = null;
+    },
+    [tracker],
+  );
   useEffect(() => {
-    for (const { threadId, ids, isSubmitting } of latestDrafts.current) {
-      tracker.observe(threadId, ids, isSubmitting);
+    if (observed.current !== draftKey) {
+      observed.current = draftKey;
+      for (const { threadId, ids, isSubmitting } of drafts) {
+        tracker.observe(threadId, ids, isSubmitting);
+      }
     }
-  }, [draftKey, tracker, latestDrafts]);
-  useEffect(() => {
-    const unsubscribes = latestComposers.current.map((composer) =>
+    if (submissions.current?.key === composerKey) {
+      return;
+    }
+    submissions.current?.unsubscribe();
+    const unsubscribes = threadComposers.map((composer) =>
       composer.onSubmitted(() => tracker.submitted(composer.scope.threadId)),
     );
-    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, [composerKey, tracker, latestComposers]);
+    submissions.current = {
+      key: composerKey,
+      unsubscribe: () => unsubscribes.forEach((unsubscribe) => unsubscribe()),
+    };
+  });
 
   return null;
 };

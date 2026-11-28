@@ -180,6 +180,22 @@ it("performs one trailing live read when preparation settles during an outstandi
   await waitFor(() => expect(hook.result.current.view?.summary.totalTokens).toBe(2400));
 });
 
+it("uses a replacement reader on retry without restarting the same query", async () => {
+  const first = vi.fn().mockResolvedValue(observation(query, 1200));
+  const replacement = vi.fn().mockResolvedValue(observation(query, 2400));
+  const hook = renderHook(({ selected, read }) => useMachineReport(selected, 0, read), {
+    initialProps: { selected: query, read: first },
+  });
+  await waitFor(() => expect(hook.result.current.view?.summary.totalTokens).toBe(1200));
+  hook.rerender({ selected: { ...query }, read: replacement });
+  expect(replacement).not.toHaveBeenCalled();
+
+  act(() => hook.result.current.retry());
+  await waitFor(() => expect(hook.result.current.view?.summary.totalTokens).toBe(2400));
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(replacement).toHaveBeenCalledExactlyOnceWith({ query, prepare: false, refresh: false });
+});
+
 it("preserves a certified zero while its live reread is pending", async () => {
   const zero = reportsFixture(query, now);
   for (const row of zero.machines) {

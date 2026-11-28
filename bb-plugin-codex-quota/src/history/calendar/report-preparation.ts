@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { HistoryRequest } from "../history-contract.js";
 import { preparationSchema } from "../report-preparation-contract.js";
 import type { PreparationRequest } from "../report-preparation-contract.js";
@@ -16,17 +16,21 @@ export function useReportPreparation(
   prepare?: (input: PreparationRequest) => Promise<unknown>,
 ) {
   const key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}`;
-  const latest = useRef(key);
-  latest.current = key;
-  const api = useRef(prepare);
-  api.current = prepare;
+  const { hostId, generation } = selection;
   const [retry, setRetry] = useState(0);
+  const runKey = `${key}:${retry}`;
+  const latest = useRef(runKey);
+  const api = useRef(prepare);
+  useLayoutEffect(() => {
+    latest.current = runKey;
+    api.current = prepare;
+  }, [runKey, prepare]);
   const [result, setResult] = useState<{ key: string; state: State; revision: number } | null>(
     null,
   );
-  const enabled = !!prepare && !!selection.hostId && !selectionPending;
+  const enabled = !!prepare && !!hostId && !selectionPending;
   useEffect(() => {
-    if (!enabled || !selection.hostId) {
+    if (!enabled || !hostId) {
       return;
     }
     let disposed = false;
@@ -39,9 +43,9 @@ export function useReportPreparation(
     let failures = 0;
     let stalls = 0;
     let previous = "";
-    const frozen = { hostId: selection.hostId, generation: selection.generation };
+    const frozen = { hostId, generation };
     const valid = () =>
-      !disposed && latest.current === key && document.visibilityState === "visible";
+      !disposed && latest.current === runKey && document.visibilityState === "visible";
     const publish = (state: State) => {
       phase = state;
       setResult((old) => ({
@@ -78,6 +82,15 @@ export function useReportPreparation(
       }
       const epoch = visibilityEpoch;
       inFlight = true;
+      await batch(epoch).finally(() => {
+        inFlight = false;
+        const requestRetired = epoch !== visibilityEpoch;
+        if (requestRetired) {
+          schedule(0);
+        }
+      });
+    };
+    const batch = async (epoch: number) => {
       try {
         const refresh = batches === 0;
         batches += 1;
@@ -113,12 +126,6 @@ export function useReportPreparation(
           return;
         }
         schedule(DELAY * 2 ** failures);
-      } finally {
-        inFlight = false;
-        // A resumed page waits for its retired request before continuing through durable cursors.
-        if (epoch !== visibilityEpoch) {
-          schedule(0);
-        }
       }
     };
     const visibility = () => {
@@ -137,7 +144,7 @@ export function useReportPreparation(
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [key, enabled, retry]);
+  }, [key, runKey, enabled, hostId, generation]);
   return {
     state: enabled && result?.key === key ? result.state : null,
     revision: result?.key === key ? result.revision : 0,

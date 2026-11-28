@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   TASK_PRIORITIES,
   TASK_STATUSES,
@@ -84,21 +84,23 @@ export const NewTaskDialog = ({
   const titleRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    setSelectedProjectId(projectId);
-    setTitle("");
-    setDescription("");
-    setStatus(defaultStatus ?? "todo");
-    setPriority("none");
-    setLabelIds([]);
-    setDueDate("");
-    setLabelQuery("");
-    setPendingFiles([]);
-    setCreatedTask(null);
-    setError(null);
-    // oxlint-disable-next-line react/exhaustive-deps
-  }, [open]);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setSelectedProjectId(projectId);
+      setTitle("");
+      setDescription("");
+      setStatus(defaultStatus ?? "todo");
+      setPriority("none");
+      setLabelIds([]);
+      setDueDate("");
+      setLabelQuery("");
+      setPendingFiles([]);
+      setCreatedTask(null);
+      setError(null);
+    }
+  }
 
   const projectList = projects.data ?? [];
   const effectiveProjectId = selectedProjectId ?? projectId ?? projectList[0]?.id ?? null;
@@ -130,10 +132,11 @@ export const NewTaskDialog = ({
       setLabelIds((current) => [...current, label.id]);
       setLabelQuery("");
     } catch (createError) {
-      setError(errorMessage(createError));
-    } finally {
       setCreatingLabel(false);
+      setError(errorMessage(createError));
+      return;
     }
+    setCreatingLabel(false);
   };
 
   const stageMore = (files: File[]) => {
@@ -158,9 +161,9 @@ export const NewTaskDialog = ({
     onOpenChange(next);
   };
 
+  const finishAfterUploads = useEffectEvent(finish);
   useEffect(() => {
-    if (createdTask && pendingFiles.length === 0) finish(createdTask);
-    // oxlint-disable-next-line react/exhaustive-deps
+    if (createdTask && pendingFiles.length === 0) finishAfterUploads(createdTask);
   }, [createdTask, pendingFiles.length]);
 
   const hasOversized = pendingFiles.some((entry) => entry.status === "oversized");
@@ -188,6 +191,7 @@ export const NewTaskDialog = ({
       });
       if (!result.ok) {
         setError(result.error.message);
+        setSubmitting(false);
         return;
       }
       const staged = pendingFiles.filter((entry) => entry.status === "staged");
@@ -197,6 +201,7 @@ export const NewTaskDialog = ({
       if (failed.length > 0) {
         setPendingFiles((files) => settleStagedUploads(files, staged, failed));
         setCreatedTask(result.task);
+        setSubmitting(false);
         return;
       }
       if (createMore) {
@@ -210,10 +215,11 @@ export const NewTaskDialog = ({
         finish(result.task);
       }
     } catch (submitError) {
-      setError(errorMessage(submitError));
-    } finally {
       setSubmitting(false);
+      setError(errorMessage(submitError));
+      return;
     }
+    setSubmitting(false);
   };
 
   const selectedLabels = useMemo(

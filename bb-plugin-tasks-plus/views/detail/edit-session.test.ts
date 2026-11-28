@@ -9,6 +9,22 @@ function deferred<T>() {
 }
 
 describe("task edits and safe transitions", () => {
+  it("never exposes the old saved title when retiring a draft with a server confirmation", async () => {
+    const reply = deferred<SaveOutcome<{ title: string }>>();
+    const edit = createTaskEditSession("A", { save: () => reply.promise });
+    const titles: string[] = [];
+    edit.subscribe(() => {
+      const { draft, confirmation } = edit.getSnapshot();
+      titles.push(draft.title ?? confirmation?.title ?? "Old saved title");
+    });
+    edit.stage({ title: "Draft title" });
+    const saving = edit.flush();
+    reply.resolve({ ok: true, confirmation: { title: "Server title" } });
+    expect(await saving).toEqual({ ok: true });
+    expect(titles).not.toContain("Old saved title");
+    expect(titles.at(-1)).toBe("Server title");
+    expect(edit.getSnapshot().draft).toEqual({});
+  });
   it("serializes every field and commits only the latest destination after newer edits save", async () => {
     const attempts: {
       taskId: string;

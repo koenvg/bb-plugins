@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 export type LoadMode = "load" | "refresh";
 
@@ -17,86 +17,123 @@ export interface ThreadResultState<R> {
   patch: (change: (result: R | ErrorResult) => R | ErrorResult) => void;
 }
 
+type FetchResult<R> = (threadId: string, mode: LoadMode) => Promise<R>;
+
+interface RequestSnapshot<R> {
+  loaded: { threadId: string; result: R | ErrorResult } | null;
+  loadingThreadId: string | null;
+  refreshingThreadId: string | null;
+  generation: number;
+}
+
+function createThreadRequests<R>() {
+  let state: RequestSnapshot<R> = {
+    loaded: null,
+    loadingThreadId: null,
+    refreshingThreadId: null,
+    generation: 0,
+  };
+  const listeners = new Set<() => void>();
+  let latestRequest = 0;
+  let refreshOwner: { threadId: string; reloadRequested: boolean } | null = null;
+  const publish = (patch: Partial<RequestSnapshot<R>>) => {
+    state = { ...state, ...patch };
+    listeners.forEach((notify) => notify());
+  };
+
+  async function load(threadId: string, fetch: FetchResult<R>, mode: LoadMode) {
+    const request = ++latestRequest;
+    if (mode === "load" && state.loadingThreadId !== threadId) {
+      publish({ generation: request, loadingThreadId: threadId });
+    } else if (mode === "refresh" && state.refreshingThreadId !== threadId) {
+      publish({ generation: request, refreshingThreadId: threadId });
+    }
+    const result = await fetch(threadId, mode).catch((error: unknown): ErrorResult => ({
+      kind: "error",
+      message: error instanceof Error ? error.message : String(error),
+    }));
+    if (request !== latestRequest) return null;
+    publish({
+      loaded: { threadId, result },
+      generation: request,
+      loadingThreadId: state.loadingThreadId === threadId ? null : state.loadingThreadId,
+    });
+    return result;
+  }
+
+  return {
+    getSnapshot: () => state,
+    subscribe(notify: () => void) {
+      listeners.add(notify);
+      return () => {
+        listeners.delete(notify);
+      };
+    },
+    start(threadId: string, fetch: FetchResult<R>) {
+      if (state.refreshingThreadId !== null) publish({ refreshingThreadId: null });
+      void load(threadId, fetch, "load");
+      return () => {
+        latestRequest += 1;
+        refreshOwner = null;
+      };
+    },
+    reload(threadId: string, fetch: FetchResult<R>) {
+      if (refreshOwner?.threadId === threadId) refreshOwner.reloadRequested = true;
+      else void load(threadId, fetch, "load");
+    },
+    async refresh(threadId: string, fetch: FetchResult<R>) {
+      const owner = { threadId, reloadRequested: false };
+      refreshOwner = owner;
+      const finish = () => {
+        if (refreshOwner !== owner) return false;
+        refreshOwner = null;
+        if (state.refreshingThreadId === threadId) publish({ refreshingThreadId: null });
+        return true;
+      };
+      let result: R | ErrorResult | null;
+      try {
+        result = await load(threadId, fetch, "refresh");
+        while (result !== null && refreshOwner === owner && owner.reloadRequested) {
+          owner.reloadRequested = false;
+          const queuedReload = load(threadId, fetch, "load");
+          result = await queuedReload;
+        }
+      } catch (error) {
+        finish();
+        throw error;
+      }
+      return finish() ? result : null;
+    },
+    patch(threadId: string, change: (result: R | ErrorResult) => R | ErrorResult) {
+      if (state.loaded?.threadId === threadId) {
+        publish({ loaded: { threadId, result: change(state.loaded.result) } });
+      }
+    },
+  };
+}
+
 export function useThreadResult<R>(
   threadId: string,
-  fetch: (threadId: string, mode: LoadMode) => Promise<R>,
+  fetch: FetchResult<R>,
   snapshot?: (threadId: string) => R | null,
 ): ThreadResultState<R> {
-  const [loaded, setLoaded] = useState<{
-    threadId: string;
-    result: R | ErrorResult;
-  } | null>(null);
-  const [refreshingThreadId, setRefreshingThreadId] = useState<string | null>(null);
-  const [loadingThreadId, setLoadingThreadId] = useState<string | null>(null);
-  const latestRequest = useRef(0);
-  const refreshOwner = useRef<{ threadId: string; reloadRequested: boolean } | null>(null);
+  const requests = useMemo(() => createThreadRequests<R>(), []);
+  const state = useSyncExternalStore(requests.subscribe, requests.getSnapshot);
+  useEffect(() => requests.start(threadId, fetch), [requests, threadId, fetch]);
 
-  const load = useCallback(
-    async (mode: LoadMode) => {
-      const request = ++latestRequest.current;
-      if (mode === "load") setLoadingThreadId(threadId);
-      const result = await fetch(threadId, mode).catch((error: unknown): ErrorResult => ({
-        kind: "error",
-        message: error instanceof Error ? error.message : String(error),
-      }));
-      if (request !== latestRequest.current) return null;
-      setLoaded({ threadId, result });
-      setLoadingThreadId((current) => (current === threadId ? null : current));
-      return result;
-    },
-    [fetch, threadId],
-  );
-
-  useEffect(() => {
-    setRefreshingThreadId(null);
-    void load("load");
-    return () => {
-      latestRequest.current++;
-      refreshOwner.current = null;
-    };
-  }, [load]);
-
-  const reload = useCallback(() => {
-    const owner = refreshOwner.current;
-    if (owner?.threadId === threadId) owner.reloadRequested = true;
-    else void load("load");
-  }, [load, threadId]);
-
-  const refresh = useCallback(async () => {
-    const owner = { threadId, reloadRequested: false };
-    refreshOwner.current = owner;
-    setRefreshingThreadId(threadId);
-    try {
-      let result = await load("refresh");
-      // The server publishes changes before replying. Reconcile those signals
-      // after the response instead of letting them cancel their own refresh.
-      while (result !== null && refreshOwner.current === owner && owner.reloadRequested) {
-        owner.reloadRequested = false;
-        result = await load("load");
-      }
-      return refreshOwner.current === owner ? result : null;
-    } finally {
-      if (refreshOwner.current === owner) {
-        refreshOwner.current = null;
-        setRefreshingThreadId((current) => (current === threadId ? null : current));
-      }
-    }
-  }, [load, threadId]);
-
+  const reload = useCallback(() => requests.reload(threadId, fetch), [requests, threadId, fetch]);
+  const refresh = useCallback(() => requests.refresh(threadId, fetch), [requests, threadId, fetch]);
   const patch = useCallback(
-    (change: (result: R | ErrorResult) => R | ErrorResult) =>
-      setLoaded((current) =>
-        current?.threadId === threadId ? { threadId, result: change(current.result) } : current,
-      ),
-    [threadId],
+    (change: (result: R | ErrorResult) => R | ErrorResult) => requests.patch(threadId, change),
+    [requests, threadId],
   );
-
-  const result = loaded?.threadId === threadId ? loaded.result : (snapshot?.(threadId) ?? null);
+  const result =
+    state.loaded?.threadId === threadId ? state.loaded.result : (snapshot?.(threadId) ?? null);
   return {
     result,
-    generation: latestRequest.current,
-    refreshing: refreshingThreadId === threadId,
-    revalidating: loadingThreadId === threadId && result !== null,
+    generation: state.generation,
+    refreshing: state.refreshingThreadId === threadId,
+    revalidating: state.loadingThreadId === threadId && result !== null,
     reload,
     refresh,
     patch,

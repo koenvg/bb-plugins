@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   type ReactNode,
   type RefObject,
@@ -39,20 +40,23 @@ export const ShortcutProvider = ({
 }) => {
   const registrations = useRef<HandlersRef[]>([]);
   const scopes = useRef<RefObject<HTMLElement | null>[]>([]);
-  const registry = useRef({
-    registerScope(root: RefObject<HTMLElement | null>) {
-      scopes.current = [...scopes.current, root];
-      return () => {
-        scopes.current = scopes.current.filter((entry) => entry !== root);
-      };
-    },
-    register(handlers: HandlersRef) {
-      registrations.current = [...registrations.current, handlers];
-      return () => {
-        registrations.current = registrations.current.filter((entry) => entry !== handlers);
-      };
-    },
-  });
+  const registry = useMemo(
+    () => ({
+      registerScope(root: RefObject<HTMLElement | null>) {
+        scopes.current = [...scopes.current, root];
+        return () => {
+          scopes.current = scopes.current.filter((entry) => entry !== root);
+        };
+      },
+      register(handlers: HandlersRef) {
+        registrations.current = [...registrations.current, handlers];
+        return () => {
+          registrations.current = registrations.current.filter((entry) => entry !== handlers);
+        };
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -87,9 +91,7 @@ export const ShortcutProvider = ({
   }, [rootRef]);
 
   return (
-    <ShortcutRegistryContext.Provider value={registry.current}>
-      {children}
-    </ShortcutRegistryContext.Provider>
+    <ShortcutRegistryContext.Provider value={registry}>{children}</ShortcutRegistryContext.Provider>
   );
 };
 

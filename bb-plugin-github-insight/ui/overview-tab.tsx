@@ -1,11 +1,11 @@
-import { useEffect, useId, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { UrlLink, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { countOf, type Blocker } from "../core/blockers";
 import type { Check, CheckStatus } from "../core/checks";
 import type { CheckFailure } from "../core/failure";
 import type { InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
-import { relativeTime } from "../core/relative-time";
+import { RelativeAge } from "./relative-age";
 import { reviewerKey, type Reviewer } from "../core/reviewers";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -56,19 +56,20 @@ function usePrCommands(
   { result, refreshing, refresh }: ReturnType<typeof useInsight>,
 ) {
   const navigate = useBbNavigate();
-  const [intent, setIntent] = useState<IntentOf<"overview"> | null>(null);
-  useCommandIntent(threadId, "overview", setIntent);
+  const [command, setCommand] = useState<{ intent: IntentOf<"overview"> } | null>(null);
+  const handled = useRef<typeof command>(null);
+  useCommandIntent(threadId, "overview", (intent) => setCommand({ intent }));
 
   useEffect(() => {
-    if (intent === null || result === null || refreshing) return;
-    setIntent(null);
-    if (intent === "refresh") {
+    if (command === null || command === handled.current || result === null || refreshing) return;
+    handled.current = command;
+    if (command.intent === "refresh") {
       refresh();
       return;
     }
     if (result.kind !== "ok") return;
-    if (intent === "open-on-github") navigate.openUrl(result.insight.pr.url);
-  }, [intent, result, refreshing, refresh, navigate]);
+    navigate.openUrl(result.insight.pr.url);
+  }, [command, result, refreshing, refresh, navigate]);
 }
 
 interface OverviewTabProps {
@@ -529,9 +530,7 @@ const DataAge = ({ refreshedAt, updating }: { refreshedAt: number; updating: boo
         </output>
       )}
       Updated{" "}
-      <time dateTime={readAt.toISOString()} title={readAt.toLocaleString()}>
-        {relativeTime(readAt, new Date())}
-      </time>
+      <RelativeAge date={readAt} dateTime={readAt.toISOString()} title={readAt.toLocaleString()} />
     </span>
   );
 };

@@ -28,17 +28,6 @@ export function focusedTaskKey(container: HTMLElement | null): string | null {
   );
 }
 
-export function forFocusedTask(
-  container: () => HTMLElement | null,
-  act: (taskKey: string) => void,
-): () => boolean | undefined {
-  return () => {
-    const taskKey = focusedTaskKey(container());
-    if (taskKey === null) return false;
-    act(taskKey);
-  };
-}
-
 function currentItem(
   container: HTMLElement,
   items: readonly HTMLElement[],

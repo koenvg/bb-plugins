@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -51,9 +52,27 @@ it.each(["checks", "ready"])(
     let latest: TaskWorkStatus | undefined;
     let reject!: (reason: Error) => void;
     let calls = 0;
+    let readinessAtCommit: string | null | undefined;
     const Probe = () => {
-      latest = useTaskListMeta([task], "all").data?.get(task.id);
-      return <PrSummary taskKey={task.key} meta={latest} />;
+      const meta = useTaskListMeta([task], "all").data?.get(task.id);
+      const summary = useRef<HTMLDivElement>(null);
+      const [render, setRender] = useState(0);
+      useLayoutEffect(() => {
+        latest = meta;
+      }, [meta]);
+      useLayoutEffect(() => {
+        if (render > 0) {
+          readinessAtCommit = summary.current?.querySelector("a")?.getAttribute("aria-label");
+        }
+      }, [render]);
+      return (
+        <div ref={summary}>
+          <button type="button" onClick={() => setRender(render + 1)}>
+            Rerender summary
+          </button>
+          <PrSummary taskKey={task.key} meta={meta} />
+        </div>
+      );
     };
     const slot = renderSlot(
       {
@@ -140,6 +159,20 @@ it.each(["checks", "ready"])(
     await act(() => vi.advanceTimersByTimeAsync(60_000));
     expect(calls).toBe(2);
     expect(latest?.pullRequests.items[0]?.details).toBe("available");
+    expect(slot.getByRole("link", { name: /Open GitHub PR/ }).textContent).toContain(
+      mode === "ready" ? "Ready to merge" : "Checks failing",
+    );
+    if (mode === "ready") {
+      vi.setSystemTime(Date.now() + 1);
+      fireEvent.click(slot.getByRole("button", { name: "Rerender summary" }));
+      expect(readinessAtCommit).toBe("Open GitHub PR acme/bb #42, Open");
+    } else {
+      await act(() => vi.advanceTimersByTimeAsync(1));
+      expect(slot.getByRole("button", { name: /PR details/ }).textContent).toContain(
+        "Details stale",
+      );
+    }
+    expect(calls).toBe(2);
     await act(() => vi.advanceTimersByTimeAsync(60_000));
     expect(calls).toBe(2);
     expect(latest?.pullRequests.items[0]?.details).toBe("stale");
@@ -167,6 +200,77 @@ it.each(["checks", "ready"])(
     expect(vi.getTimerCount()).toBe(0);
   },
 );
+
+it("retires both readiness claims when a second row expires during the shared timer callback", () => {
+  vi.useFakeTimers();
+  const observedAt = new Date("2026-10-02T11:00:00Z").getTime();
+  const firstExpiry = observedAt + 60 * 60_000 + 1;
+  vi.setSystemTime(firstExpiry - 1);
+  const status = (number: number, refreshedAt: number): TaskWorkStatus => ({
+    availability: "available",
+    observedAt: new Date(refreshedAt).toISOString(),
+    threads: [],
+    pullRequests: {
+      availability: "available",
+      unavailableThreadIds: [],
+      items: [
+        {
+          number,
+          url: `https://github.com/acme/bb/pull/${number}`,
+          title: `Work ${number}`,
+          state: "open",
+          updatedAt: new Date(refreshedAt).toISOString(),
+          threadIds: [],
+          details: "available",
+          rich: {
+            refreshedAt: new Date(refreshedAt).toISOString(),
+            checks: { ...counts, failed: 0, running: 0, failedNames: [] },
+            reviewers: { ...reviewers, pending: 0, approved: 1, pendingNames: [] },
+            conditions: [],
+            readiness: "ready",
+          },
+        },
+      ],
+    },
+  });
+  const first = status(42, observedAt);
+  const second = status(43, observedAt + 1);
+  const slot = renderSlot(
+    {
+      component: () => (
+        <>
+          <PrSummary taskKey="A-1" meta={first} />
+          <PrSummary taskKey="A-2" meta={second} />
+        </>
+      ),
+    },
+    {},
+  );
+  const linkNames = () =>
+    slot
+      .getAllByRole("link", { name: /Open GitHub PR/ })
+      .map((link) => link.getAttribute("aria-label"));
+  expect(linkNames()).toEqual([
+    "Open GitHub PR acme/bb #42, Open, Ready to merge",
+    "Open GitHub PR acme/bb #43, Open, Ready to merge",
+  ]);
+  const clock = vi.spyOn(Date, "now").mockReturnValue(firstExpiry + 1);
+  clock
+    .mockReturnValueOnce(firstExpiry)
+    .mockReturnValueOnce(firstExpiry)
+    .mockReturnValueOnce(firstExpiry);
+  try {
+    act(() => vi.advanceTimersByTime(2));
+    expect(linkNames()).toEqual([
+      "Open GitHub PR acme/bb #42, Open",
+      "Open GitHub PR acme/bb #43, Open",
+    ]);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    clock.mockRestore();
+    slot.lifecycle.unmount();
+  }
+});
 
 it("shares optional detection and settled metadata successes, absence and failures across the actual 501-row sequential refresh, then authoritatively re-reads", async () => {
   let phase = 0;
@@ -254,7 +358,10 @@ it("shares optional detection and settled metadata successes, absence and failur
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
   const Probe = () => {
-    latest = useTaskListMeta(tasks, "all").data;
+    const { data } = useTaskListMeta(tasks, "all");
+    useLayoutEffect(() => {
+      latest = data;
+    }, [data]);
     const handleRefresh = useTasksRefresh().refresh;
     return (
       <button type="button" onClick={handleRefresh}>

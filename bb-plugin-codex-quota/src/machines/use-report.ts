@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CalendarQuery } from "../history/calendar/calendar-contract.js";
 import { reportsSchema } from "./machines-contract.js";
 import type { MachineReports } from "./machines-contract.js";
@@ -22,20 +22,22 @@ export function useMachineReport(
   snapshot?: SnapshotReader,
 ) {
   const key = JSON.stringify(query);
-  const readers = useRef({ read, snapshot });
-  readers.current = { read, snapshot };
   const [source, setSource] = useState<{ key: string; value: MachineReports } | null>(null);
-  const [attempt, retry] = useState(0);
+  const [attempt, setAttempt] = useState(0);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const schedule = useRef<(() => void) | null>(null);
   const trigger = JSON.stringify([key, revision, attempt]);
+  const requestInputs = useRef({ read, snapshot, query, trigger });
+  useLayoutEffect(() => {
+    requestInputs.current = { read, snapshot, query, trigger };
+  }, [read, snapshot, query, trigger]);
   const scheduled = useRef(trigger);
   useEffect(() => {
+    const { query, trigger } = requestInputs.current;
     scheduled.current = trigger;
     if (!query) {
       schedule.current = null;
-      setPending(false);
       return;
     }
     let active = true;
@@ -59,7 +61,7 @@ export function useMachineReport(
       setPending(true);
       void Promise.resolve()
         .then(() =>
-          active ? readers.current.read({ query, prepare: false, refresh: false }) : null,
+          active ? requestInputs.current.read({ query, prepare: false, refresh: false }) : null,
         )
         .then((raw) => {
           if (!active) {
@@ -92,9 +94,9 @@ export function useMachineReport(
     schedule.current = request;
     setFailed(false);
     // Neither optional storage nor remote collection can hold the other's first result.
-    if (readers.current.snapshot) {
+    if (requestInputs.current.snapshot) {
       void Promise.resolve()
-        .then(() => (active ? readers.current.snapshot?.({ query }) : null))
+        .then(() => (active ? requestInputs.current.snapshot?.({ query }) : null))
         .then((raw) => {
           if (!active || livePublished) {
             return;
@@ -122,14 +124,14 @@ export function useMachineReport(
   const current = source?.key === key && query ? source.value : null;
   const view = useMemo(
     () => (current && query ? combineReports(current, query) : null),
-    [current, key],
+    [current, query],
   );
   return {
     current,
     view,
-    loading: pending && !view,
-    refreshing: pending && !!view,
+    loading: query !== null && pending && !view,
+    refreshing: query !== null && pending && !!view,
     failed,
-    retry: () => retry((value) => value + 1),
+    retry: () => setAttempt((value) => value + 1),
   };
 }

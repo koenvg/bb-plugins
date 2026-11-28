@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { LinkedQueuePr, QueueSection, rpcContract } from "../contract";
 import { prKey, type PullRequestRef } from "../core/pr-ref";
-import { relativeTime } from "../core/relative-time";
+import { RelativeAge } from "./relative-age";
 import {
   agentStateOf,
   ATTENTION_TEXT,
@@ -150,14 +150,17 @@ export const ReviewQueueLists = ({
 }) => {
   const { view, error, refreshing, refresh } = queue;
   const rpc = useRpc<typeof rpcContract>();
-  const [archived, setArchived] = useState<ReadonlySet<string>>(new Set());
+  const [archiveScope, setArchiveScope] = useState({ view });
+  const committedArchiveScope = useRef(archiveScope);
+  const [archived, setArchived] = useState(() => ({ scope: archiveScope, ids: new Set<string>() }));
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [agentFilter, setAgentFilter] = useState<ActiveAgentState | null>(null);
 
-  useEffect(() => {
-    setArchived(new Set());
-  }, [view]);
+  if (archiveScope.view !== view) setArchiveScope({ view });
+  useLayoutEffect(() => {
+    committedArchiveScope.current = archiveScope;
+  }, [archiveScope]);
 
   useEffect(() => {
     if (!view?.hasUnseen) return;
@@ -196,20 +199,30 @@ export const ReviewQueueLists = ({
     setBusyKey(key, true);
     try {
       const result = await rpc.call("archiveReview", { threadId });
-      if (result.kind === "ok") setArchived((ids) => new Set(ids).add(threadId));
-      else setActionError(result.message);
+      if (result.kind === "ok") {
+        const scope = committedArchiveScope.current;
+        setArchived((current) => ({
+          scope,
+          ids: new Set(current.scope === scope ? current.ids : []).add(threadId),
+        }));
+      } else {
+        setActionError(result.message);
+      }
     } catch (error) {
-      setActionError(messageOf(error));
-    } finally {
       setBusyKey(key, false);
+      setActionError(messageOf(error));
+      return;
     }
+    setBusyKey(key, false);
   }
 
   const withoutArchivedThreads = (section: QueueSection): QueueSection =>
     section.map((group) => ({
       repo: group.repo,
       prs: group.prs.map((pr) =>
-        pr.thread !== null && archived.has(pr.thread.id) ? { ...pr, thread: null } : pr,
+        pr.thread !== null && archived.scope === archiveScope && archived.ids.has(pr.thread.id)
+          ? { ...pr, thread: null }
+          : pr,
       ),
     }));
   const needsReview = withoutArchivedThreads(view?.needsReview ?? []);
@@ -257,12 +270,11 @@ export const ReviewQueueLists = ({
               <>
                 <span className="text-xs tabular-nums text-subtle-foreground">
                   Updated{" "}
-                  <time
+                  <RelativeAge
+                    date={new Date(view.loadedAt)}
                     dateTime={new Date(view.loadedAt).toISOString()}
                     title={new Date(view.loadedAt).toLocaleString()}
-                  >
-                    {relativeTime(new Date(view.loadedAt), new Date())}
-                  </time>
+                  />
                 </span>
                 <RefreshButton refreshing={refreshing} refresh={refresh} />
               </>
@@ -538,13 +550,12 @@ const QueueRow = ({
               <Separator />
             </>
           )}
-          <time
+          <RelativeAge
+            date={new Date(pr.updatedAt)}
             dateTime={pr.updatedAt}
             title={new Date(pr.updatedAt).toLocaleString()}
             className="shrink-0 tabular-nums"
-          >
-            {relativeTime(new Date(pr.updatedAt), new Date())}
-          </time>
+          />
           <Separator />
           <span className="shrink-0">{ci.text}</span>
           {decision !== null && (

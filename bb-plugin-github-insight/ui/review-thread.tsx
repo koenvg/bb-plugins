@@ -2,7 +2,7 @@ import { useId, useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import { relativeTime } from "../core/relative-time";
+import { RelativeAge } from "./relative-age";
 import type { ReviewComment, ReviewThread } from "../core/review-threads";
 import { JUMPED_RING, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON, TEXTAREA } from "./controls";
 import { useJumpHighlight } from "./jump-highlight";
@@ -130,12 +130,11 @@ const CommentView = ({ comment, trailing }: { comment: ReviewComment; trailing: 
           href={comment.url}
           className="shrink-0 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         >
-          <time
+          <RelativeAge
+            date={createdAt}
             dateTime={createdAt.toISOString()}
             title={createdAt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
-          >
-            {relativeTime(createdAt, new Date())}
-          </time>
+          />
         </UrlLink>
         {trailing !== null && <div className="ml-auto shrink-0">{trailing}</div>}
       </div>

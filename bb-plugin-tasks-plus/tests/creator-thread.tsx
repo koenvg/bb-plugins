@@ -103,9 +103,13 @@ function updateStatus(status: typeof task.status | undefined) {
 const slot = renderSlot(
   requireFixture(app.navPanels[0], "app.navPanels[0]"),
   {
-    subPath: new URLSearchParams(location.search).has("board")
+    subPath: params.has("board")
       ? `${project.id}?view=board`
-      : "task/CRT-1",
+      : params.has("list")
+        ? params.has("project")
+          ? project.id
+          : "all"
+        : "task/CRT-1",
   },
   {
     sdk: {

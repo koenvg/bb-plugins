@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -71,7 +71,7 @@ export const BrowseWorkspace = ({
     latestNoProjects.current = noProjects;
   }, [noProjects]);
   const listRef = useRef<HTMLElement>(null);
-  const listShortcutOwner = useRef({ rootRef: listRef, allowUnfocused: true }).current;
+  const listShortcutOwner = useMemo(() => ({ rootRef: listRef, allowUnfocused: true }), []);
   const detailRef = useRef<HTMLElement>(null);
   const canRestoreSectionFocus = useCallback(() => {
     const list = listRef.current;
@@ -79,22 +79,30 @@ export const BrowseWorkspace = ({
     return Boolean(list && detail && canRestoreBrowseFocus(list, detail));
   }, []);
   const detailScroll = useRef({ key: selectedKey, top: 0 });
-  const focus = useBrowseFocus(selectedKey, listRef, detailRef);
+  const {
+    cancel: cancelFocus,
+    arm: armFocus,
+    onReady: handleReady,
+  } = useBrowseFocus(selectedKey, listRef, detailRef);
   const latestOrder = useRef(order);
   useLayoutEffect(() => {
     latestOrder.current = order;
   }, [order]);
-  const returnFocus = useRef(false);
+  const [returnFocusRevision, setReturnFocusRevision] = useState(0);
+  const lastReturnedFocus = useRef(0);
   // List and detail can confirm the same removal in one refresh.
-  const clearing = useRef(false);
+  const clearing = useRef({ selectedKey, pending: false });
   useLayoutEffect(() => {
-    clearing.current = false;
+    if (clearing.current.selectedKey !== selectedKey) {
+      clearing.current = { selectedKey, pending: false };
+    }
   }, [selectedKey]);
 
   const commitSelection = useCallback(
     (taskKey: string | null) => {
-      if (taskKey === null && clearing.current) return;
-      clearing.current = taskKey === null;
+      const origin = clearing.current;
+      if (taskKey === null && origin.pending) return;
+      origin.pending = taskKey === null;
       navigate.toPluginPanel(PANEL_PATH, {
         subPath: tasksRouteToSubPath({
           ...route,
@@ -107,7 +115,7 @@ export const BrowseWorkspace = ({
   );
   const requestContextChange = useCallback(
     (commit: () => void) => {
-      focus.cancel();
+      cancelFocus();
       void session.request(() => {
         previews.warm([]);
         commit();
@@ -116,42 +124,41 @@ export const BrowseWorkspace = ({
         setContextRevision((revision) => revision + 1);
       });
     },
-    [session, focus.cancel, previews],
+    [session, cancelFocus, previews],
   );
   const requestSelection = useCallback(
-    (taskKey: string | null, target?: BrowseFocusTarget) => {
-      focus.cancel();
+    (taskKey: string, target?: BrowseFocusTarget) => {
+      cancelFocus();
       // Reveal on the user's request, not after a delayed save. A later host
       // tab switch must not be undone when that save eventually finishes.
-      if (taskKey) openTicket();
+      openTicket();
       void session.request(() => {
         // A saved navigation must still point at a confirmed visible result.
-        if (
-          target &&
-          (taskKey === null ||
-            !latestOrder.current.settled ||
-            !latestOrder.current.keys.includes(taskKey))
-        )
+        if (target && (!latestOrder.current.settled || !latestOrder.current.keys.includes(taskKey)))
           return;
         // Only an accepted destination consumes its reveal. A failed request
         // retains this callback for Retry, while cancellation consumes nothing.
         revealedSelection.current = taskKey;
-        if (target && taskKey) focus.arm(taskKey, target);
+        if (target) armFocus(taskKey, target);
         if (taskKey !== selectedKey || !target) commitSelection(taskKey);
       });
     },
-    [session, commitSelection, selectedKey, focus.cancel, focus.arm, openTicket],
+    [session, commitSelection, selectedKey, cancelFocus, armFocus, openTicket],
   );
 
+  const presentInOrder = selectedKey !== null && order.settled && order.keys.includes(selectedKey);
+  if (selectedKey !== validatedKey && (selectedKey === null || presentInOrder)) {
+    setValidatedKey(selectedKey);
+  }
   useEffect(() => {
-    if (selectedKey === null) {
-      setValidatedKey(null);
-      return;
+    if (selectedKey !== null && selectedKey !== validatedKey && order.settled) {
+      cancelFocus();
+      void session.request(() => {
+        revealedSelection.current = null;
+        commitSelection(null);
+      });
     }
-    if (selectedKey === validatedKey || !order.settled) return;
-    if (order.keys.includes(selectedKey)) setValidatedKey(selectedKey);
-    else requestSelection(null);
-  }, [selectedKey, validatedKey, order, requestSelection]);
+  }, [selectedKey, validatedKey, order, cancelFocus, session, commitSelection]);
 
   const openTaskLink = useCallback(
     (taskKey: string) => {
@@ -164,12 +171,12 @@ export const BrowseWorkspace = ({
   const onMissing = useCallback(
     (taskKey: string, stillUnavailable: () => boolean = () => true) => {
       if (taskKey !== selectedKey) return;
-      focus.cancel();
+      cancelFocus();
       void session.request(() => {
         if (stillUnavailable()) commitSelection(null);
       });
     },
-    [selectedKey, session, commitSelection, focus.cancel],
+    [selectedKey, session, commitSelection, cancelFocus],
   );
   // A restored or externally accepted selection reveals the native Ticket tab.
   // Closing or switching tabs alone must not trigger an automatic reopen.
@@ -177,17 +184,19 @@ export const BrowseWorkspace = ({
     if (selectedKey && selectedKey !== revealedSelection.current) openTicket();
     revealedSelection.current = selectedKey;
   }, [selectedKey, openTicket]);
+  const unavailableContext = useMemo(
+    () => (noProjects && selectedKey ? { selectedKey, contextRevision } : null),
+    [noProjects, selectedKey, contextRevision],
+  );
   useEffect(() => {
-    if (noProjects && selectedKey) onMissing(selectedKey, () => latestNoProjects.current);
-  }, [noProjects, selectedKey, onMissing, contextRevision]);
+    if (unavailableContext) {
+      onMissing(unavailableContext.selectedKey, () => latestNoProjects.current);
+    }
+  }, [unavailableContext, onMissing]);
   // A current settled order validates a destination in this accepted render.
   // Initial/unsettled routes still wait; a previously validated editor stays
   // mounted while authoritative removal crosses the pending-edit barrier.
-  const readyKey =
-    selectedKey === validatedKey ||
-    (selectedKey && order.settled && order.keys.includes(selectedKey))
-      ? selectedKey
-      : null;
+  const readyKey = selectedKey === validatedKey || presentInOrder ? selectedKey : null;
   useAdjacentTaskPreviews(readyKey, {
     keys: order.keys,
     settled: order.settled && order.scope === scope && !noProjects,
@@ -198,13 +207,13 @@ export const BrowseWorkspace = ({
     if (detailScroll.current.key !== selectedKey) {
       detailScroll.current = { key: selectedKey, top: 0 };
     }
-    if (!detailHidden && detailRef.current) {
+    if (detailOutlet?.contains(detailRef.current) && detailRef.current) {
       detailRef.current.scrollTop = detailScroll.current.top;
     }
-  }, [detailHidden, selectedKey, detailOutlet]);
+  }, [selectedKey, detailOutlet]);
   const backToList = () =>
     requestContextChange(() => {
-      returnFocus.current = true;
+      setReturnFocusRevision((revision) => revision + 1);
       setPaneUnavailable(false);
     });
   const paging = useBrowseShortcuts({
@@ -219,9 +228,9 @@ export const BrowseWorkspace = ({
     const list = listRef.current;
     const detail = detailRef.current;
     if (!list || !detail) return;
-    const requestedReturn = returnFocus.current;
+    const requestedReturn = lastReturnedFocus.current !== returnFocusRevision;
     if (requestedReturn && recovering) return;
-    returnFocus.current = false;
+    lastReturnedFocus.current = returnFocusRevision;
     // Hiding a mounted pane must not leave its controls holding keyboard focus.
     // Resize never focuses an editor, nor steals focus from another BB pane.
     if (
@@ -232,8 +241,7 @@ export const BrowseWorkspace = ({
         list.querySelector<HTMLElement>('[data-nav-item][aria-current="true"]') ?? list;
       target.focus({ preventScroll: true });
     }
-  }, [detailHidden, contextRevision, recovering]);
-  const handleReady = focus.onReady;
+  }, [detailHidden, returnFocusRevision, recovering]);
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" data-browse-layout="native">
       {recovering && (

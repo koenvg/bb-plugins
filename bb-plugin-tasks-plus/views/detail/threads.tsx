@@ -166,15 +166,17 @@ export const DispatchControl = ({
     busy.current = true;
     onMenuReadinessChange?.(false);
     setDispatching(true);
-    try {
+    await Promise.try(async () => {
       if (!(await confirmBlockedWork(task)) || !mounted.current) return;
       await rpc.call("delegate", { taskId: task.id, presetId });
-    } catch (error) {
-      if (mounted.current) onError(errorMessage(error));
-    } finally {
-      busy.current = false;
-      if (mounted.current) setDispatching(false);
-    }
+    })
+      .catch((error: unknown) => {
+        if (mounted.current) onError(errorMessage(error));
+      })
+      .finally(() => {
+        busy.current = false;
+        if (mounted.current) setDispatching(false);
+      });
   };
 
   const pickPreset = (preset: Preset) => {
@@ -290,17 +292,15 @@ export const ThreadsSection = ({
 
   const performDetach = async (thread: TaskThread) => {
     setPending((current) => new Set(current).add(thread.id));
-    try {
-      await onDetach(thread);
-    } catch (error) {
-      onError(errorMessage(error));
-    } finally {
-      setPending((current) => {
-        const next = new Set(current);
-        next.delete(thread.id);
-        return next;
+    await Promise.try(() => onDetach(thread))
+      .catch((error: unknown) => onError(errorMessage(error)))
+      .finally(() => {
+        setPending((current) => {
+          const next = new Set(current);
+          next.delete(thread.id);
+          return next;
+        });
       });
-    }
   };
 
   const activeCount = threads.filter(isActiveThread).length;

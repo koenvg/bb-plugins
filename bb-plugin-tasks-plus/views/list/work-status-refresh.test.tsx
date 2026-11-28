@@ -2,7 +2,7 @@
 import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import type { ComponentProps } from "react";
+import { useLayoutEffect, type ComponentProps } from "react";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { createStore, registerTasksApi } from "../../api/index.js";
@@ -166,7 +166,10 @@ it("shares thread reads across sequential visible chunks, retains every associat
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
   const Probe = ({ rows }: { rows: Task[] }) => {
-    latest = useTaskListMeta(rows, "all").data;
+    const { data } = useTaskListMeta(rows, "all");
+    useLayoutEffect(() => {
+      latest = data;
+    }, [data]);
     const refresh = useTasksRefresh();
     const handleRefresh = refresh.refresh;
     return (
@@ -424,7 +427,10 @@ it("shares settled environment successes, absence and failures across 501 sequen
   registerTasksApi(bb, store);
   let latest: Map<string, TaskWorkStatus> | undefined;
   const Probe = () => {
-    latest = useTaskListMeta(tasks, "all").data;
+    const { data } = useTaskListMeta(tasks, "all");
+    useLayoutEffect(() => {
+      latest = data;
+    }, [data]);
     const handleRefresh = useTasksRefresh().refresh;
     return (
       <button type="button" onClick={handleRefresh}>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { importViewSchema, importUnavailable } from "./import-contract.js";
 import type { ImportCommand, ImportView } from "./import-contract.js";
 import type { HistoryRequest } from "../history-contract.js";
@@ -38,11 +38,14 @@ export const ImportPanel = ({
 }: Props) => {
   const key = `${selection.hostId ?? ""}:${selection.generation}:${selectionRevision}:${selectionPending}`;
   const currentKey = useRef(key);
-  currentKey.current = key;
   const callRef = useRef(call);
-  callRef.current = call;
   const activeRef = useRef(isActive);
-  activeRef.current = isActive;
+  useLayoutEffect(() => {
+    currentKey.current = key;
+    callRef.current = call;
+    activeRef.current = isActive;
+  }, [key, call, isActive]);
+  const { hostId, generation } = selection;
   const sequence = useRef(0);
   const mounted = useRef(true);
   const [observation, setObservation] = useState<{
@@ -66,49 +69,44 @@ export const ImportPanel = ({
           ordinary: view?.configuration?.ordinaryRoots.join("\n") ?? "",
           workspaces: view?.configuration?.workspaces.join("\n") ?? "",
         };
-  const activate = (command: ImportCommand) => {
-    if (selectionPending || !selection.hostId) {
-      return;
-    }
-    const seq = (sequence.current += 1);
-    const scope = key;
-    const input = {
-      hostId: selection.hostId,
-      generation: selection.generation,
-      command,
-    };
-    const valid = () =>
-      mounted.current &&
-      currentKey.current === scope &&
-      sequence.current === seq &&
-      (activeRef.current?.() ?? true);
-    setBusy({ key, seq });
-    void Promise.resolve()
-      .then(() => (valid() ? callRef.current(input) : null))
-      .then((value) => {
-        if (!valid()) {
-          return;
-        }
-        const parsed = importViewSchema.safeParse(value);
-        setObservation({
-          key: scope,
-          view: parsed.success ? parsed.data : importUnavailable("unsupported"),
-        });
-      })
-      .catch(() => {
-        if (valid()) {
+  const activate = useCallback(
+    (command: ImportCommand) => {
+      if (selectionPending || !hostId) {
+        return;
+      }
+      const seq = (sequence.current += 1);
+      const input = { hostId, generation, command };
+      const valid = () =>
+        mounted.current &&
+        currentKey.current === key &&
+        sequence.current === seq &&
+        (activeRef.current?.() ?? true);
+      setBusy({ key, seq });
+      void Promise.resolve()
+        .then(() => (valid() ? callRef.current(input) : null))
+        .then((value) => {
+          if (!valid()) {
+            return;
+          }
+          const parsed = importViewSchema.safeParse(value);
           setObservation({
-            key: scope,
-            view: importUnavailable("unsupported"),
+            key,
+            view: parsed.success ? parsed.data : importUnavailable("unsupported"),
           });
-        }
-      })
-      .finally(() => {
-        if (valid()) {
-          setBusy(null);
-        }
-      });
-  };
+        })
+        .catch(() => {
+          if (valid()) {
+            setObservation({ key, view: importUnavailable("unsupported") });
+          }
+        })
+        .finally(() => {
+          if (valid()) {
+            setBusy(null);
+          }
+        });
+    },
+    [selectionPending, hostId, generation, key],
+  );
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -121,7 +119,7 @@ export const ImportPanel = ({
     return () => {
       sequence.current += 1;
     };
-  }, [key]);
+  }, [activate]);
   const pending = selectionPending || busy?.key === key;
   const unfinished = view?.generation?.state === "stopped";
   const field = (label: string, name: "bbRoot" | "ordinary" | "workspaces", multiline = false) => (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { z } from "zod";
 import { tasksRpcContract, type TasksRpcContract } from "../shared/contract.js";
@@ -63,7 +63,9 @@ export function useInvalidation(
   onInvalidate: () => void,
 ): void {
   const ref = useRef({ channels, onInvalidate });
-  ref.current = { channels, onInvalidate };
+  useLayoutEffect(() => {
+    ref.current = { channels, onInvalidate };
+  });
   const fire = useCallback((channel: InvalidationChannel) => {
     if (ref.current.channels.includes(channel)) ref.current.onInvalidate();
   }, []);
@@ -98,16 +100,20 @@ export function useTasksQueryWithRefresh<T>(
 ): TasksQuery<T> {
   const rpc = useTasksRpc();
   const { generation, beginGenerationWork, endGenerationWork } = refreshState;
-  const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
   const depsKey = JSON.stringify(deps);
+  const scope = useMemo(
+    () => ({ rpc, depsKey, generation, beginGenerationWork, endGenerationWork }),
+    [rpc, depsKey, generation, beginGenerationWork, endGenerationWork],
+  );
+  const requestInputs = useRef({ scope, fetcher, options });
+  useLayoutEffect(() => {
+    requestInputs.current = { scope, fetcher, options };
+  });
   const [state, setState] = useState<{
     data: T | undefined;
     error: string | null;
     isLoading: boolean;
-    depsKey: string;
+    scope: typeof scope;
   }>(() => ({
     data:
       options.snapshot === undefined
@@ -115,18 +121,17 @@ export function useTasksQueryWithRefresh<T>(
         : readQuerySnapshot(options.snapshot.name, options.snapshot.schema),
     error: null,
     isLoading: true,
-    depsKey,
+    scope,
   }));
   const seqRef = useRef(0);
   const previousGenerationRef = useRef(generation);
-  const refresh = useCallback(() => {
-    // Retained data is only a snapshot until this request succeeds. Entry
-    // restoration must not validate project deletion during any refresh.
-    setState((current) => ({ ...current, isLoading: true }));
+  const startRequest = useCallback((inputs: typeof requestInputs.current) => {
     const seq = ++seqRef.current;
-    const { snapshot, reconcile } = optionsRef.current;
+    const { scope, fetcher, options } = inputs;
+    const { rpc, depsKey } = scope;
+    const { snapshot, reconcile } = options;
     const snapshotRevision = snapshot === undefined ? 0 : claimQuerySnapshotRevision(snapshot.name);
-    return fetcherRef.current(rpc).then(
+    return fetcher(rpc).then(
       (data) => {
         if (snapshot !== undefined) {
           writeQuerySnapshot(snapshot.name, data, snapshotRevision);
@@ -134,25 +139,32 @@ export function useTasksQueryWithRefresh<T>(
         if (seq !== seqRef.current) return;
         return void setState((current) => ({
           data: reconcile
-            ? reconcile(current.depsKey === depsKey ? current.data : undefined, data)
+            ? reconcile(current.scope.depsKey === depsKey ? current.data : undefined, data)
             : data,
           error: null,
           isLoading: false,
-          depsKey,
+          scope,
         }));
       },
       (queryError: unknown) => {
         if (seq !== seqRef.current) return;
         setState((current) => ({
-          data: current.depsKey === depsKey ? current.data : undefined,
+          data: current.scope.depsKey === depsKey ? current.data : undefined,
           error: errorMessage(queryError),
           isLoading: false,
-          depsKey,
+          scope,
         }));
       },
     );
-  }, [rpc, depsKey]);
+  }, []);
+  const refresh = useCallback(() => {
+    setState((current) => ({ ...current, isLoading: true }));
+    return startRequest(requestInputs.current);
+  }, [startRequest]);
   useEffect(() => {
+    const inputs = requestInputs.current;
+    if (inputs.scope !== scope) return;
+    const { generation, beginGenerationWork, endGenerationWork } = scope;
     const generationBumped = previousGenerationRef.current !== generation;
     previousGenerationRef.current = generation;
     if (generationBumped) beginGenerationWork();
@@ -162,19 +174,18 @@ export function useTasksQueryWithRefresh<T>(
       settled = true;
       endGenerationWork();
     };
-    void refresh().finally(finish);
+    void startRequest(inputs).finally(finish);
     return () => {
       finish();
     };
-  }, [refresh, generation, beginGenerationWork, endGenerationWork]);
+  }, [scope, startRequest]);
   useInvalidation(channels, refresh);
   return {
     data: state.data,
-    error: state.depsKey === depsKey ? state.error : null,
+    error: state.scope.depsKey === depsKey ? state.error : null,
     // Inputs can change before the fetch effect runs. Retain the old data for
     // display, but never let callers treat it as a settled current result.
-    isLoading:
-      state.isLoading || state.depsKey !== depsKey || previousGenerationRef.current !== generation,
+    isLoading: state.isLoading || state.scope !== scope,
     refresh,
   };
 }

@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import type { ListTreeEntry, groupListTree } from "./lib.js";
 
 export interface RenderedListTree {
@@ -32,28 +39,60 @@ export function useSelectionTree(
   onUnavailable?: SelectionUnavailable,
   reconcileRevision = 0,
 ) {
-  const previous = useRef(candidate);
-  const missing =
-    selectedKey !== null && !visibleTreeTasks(candidate).some((task) => task.key === selectedKey);
-  const retained = Boolean(
-    onUnavailable &&
-    missing &&
-    visibleTreeTasks(previous.current).some((task) => task.key === selectedKey),
+  const origin = useMemo(() => createRenderedOrigin(), []);
+  const missing = selectedKey !== null && !hasVisibleTask(candidate, selectedKey);
+  const readOrigin = useCallback(
+    () => (missing && onUnavailable && selectedKey !== null ? origin.read(selectedKey) : null),
+    [missing, onUnavailable, origin, selectedKey],
   );
-  const tree = retained ? previous.current : candidate;
-  const latest = useRef({ selectedKey, missing, settled });
+  const retainedTree = useSyncExternalStore(origin.subscribe, readOrigin);
+  const retained = retainedTree !== null;
+  const tree = retainedTree ?? candidate;
+  const request = useMemo(
+    () => ({ selectedKey, missing, settled, reconcileRevision }),
+    [selectedKey, missing, settled, reconcileRevision],
+  );
+  const latest = useRef(request);
   useLayoutEffect(() => {
-    latest.current = { selectedKey, missing, settled };
-    previous.current = tree;
-  });
+    latest.current = request;
+    origin.commit(tree);
+  }, [origin, request, tree]);
   // reconcileRevision comes only from accepted non-selection context commits.
   // Failure alone must not resubmit this request or silently retry an autosave.
   useEffect(() => {
-    if (!selectedKey || !missing || !settled) return;
-    onUnavailable?.(selectedKey, () => {
+    if (
+      latest.current !== request ||
+      !request.selectedKey ||
+      !request.missing ||
+      !request.settled
+    ) {
+      return;
+    }
+    onUnavailable?.(request.selectedKey, () => {
       const current = latest.current;
-      return current.selectedKey === selectedKey && current.missing && current.settled;
+      return current.selectedKey === request.selectedKey && current.missing && current.settled;
     });
-  }, [selectedKey, missing, settled, onUnavailable, reconcileRevision]);
+  }, [request, onUnavailable]);
   return { tree, retained };
+}
+
+function hasVisibleTask(tree: RenderedListTree, taskKey: string): boolean {
+  return visibleTreeTasks(tree).some((task) => task.key === taskKey);
+}
+
+function createRenderedOrigin() {
+  let previous: RenderedListTree | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    read: (key: string) => (previous !== null && hasVisibleTask(previous, key) ? previous : null),
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    commit(tree: RenderedListTree) {
+      if (previous === tree) return;
+      previous = tree;
+      for (const listener of listeners) listener();
+    },
+  };
 }

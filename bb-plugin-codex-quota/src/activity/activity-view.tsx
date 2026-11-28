@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { emptyActivity } from "./activity-contract.js";
 import type { ActivityView } from "./activity-contract.js";
 import { visibleActivity } from "./activity-cache.js";
@@ -154,11 +154,9 @@ export const ActivityPanel = ({
   );
 };
 const ActivityBody = ({ selection, read }: { selection: ActivitySelection; read: ActivityApi }) => {
-  const readRef = useRef(read);
-  readRef.current = read;
-  const [store] = useState(
-    () => new ActivityRequestState((input, signal) => readRef.current(input, signal)),
-  );
+  const store = useMemo(() => new ActivityRequestState(), []);
+  useLayoutEffect(() => store.setReader(read), [store, read]);
+  const { hostId, generation } = selection;
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
   useEffect(() => {
     let visible = false;
@@ -168,7 +166,7 @@ const ActivityBody = ({ selection, read }: { selection: ActivitySelection; read:
       if (next !== visible) {
         visible = next;
         if (next) {
-          store.open(selection);
+          store.open({ hostId, generation });
           timer = setInterval(synchronize, 1000);
         } else {
           if (timer !== null) {
@@ -194,7 +192,7 @@ const ActivityBody = ({ selection, read }: { selection: ActivitySelection; read:
       window.removeEventListener("focus", synchronize);
       store.close();
     };
-  }, [store, selection.hostId, selection.generation]);
+  }, [store, hostId, generation]);
   return (
     <ActivityPanel
       view={state.view}
@@ -230,7 +228,7 @@ export const AccountActivity = ({
         (selectionPending ? (
           <ActivityPanel
             view={emptyActivity("selection-changed")}
-            now={Date.now()}
+            now={0}
             selectionPending
             onRefresh={() => {}}
           />

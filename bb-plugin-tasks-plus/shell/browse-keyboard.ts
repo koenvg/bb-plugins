@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useState, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { focusedTaskKey } from "../views/keyboard-navigation.js";
 import type { VisibleTaskOrder } from "../views/list/index.js";
 import { useShortcuts } from "./shortcut-provider.js";
@@ -11,20 +11,26 @@ type PaneRef = RefObject<HTMLElement | null>;
 /** Focus is an accepted navigation effect, not a second selected identity.
  * Arm only inside request(commit), never from its shared boolean promise. */
 export function useBrowseFocus(selectedKey: string | null, listRef: PaneRef, detailRef: PaneRef) {
-  const [intent, setIntent] = useState<{
+  const pendingFocus = useRef<{
     key: string;
     origin: string | null;
     target: BrowseFocusTarget;
   } | null>(null);
-  const [, setReadyRevision] = useState(0);
-  const cancel = useCallback(() => setIntent(null), []);
+  const [, setFocusRevision] = useState(0);
+  const scheduleFocusCheck = useCallback(() => setFocusRevision((revision) => revision + 1), []);
+  const cancel = useCallback(() => {
+    pendingFocus.current = null;
+  }, []);
   const arm = useCallback(
-    (key: string, target: BrowseFocusTarget) => setIntent({ key, origin: selectedKey, target }),
-    [selectedKey],
+    (key: string, target: BrowseFocusTarget) => {
+      pendingFocus.current = { key, origin: selectedKey, target };
+      scheduleFocusCheck();
+    },
+    [selectedKey, scheduleFocusCheck],
   );
-  const onReady = useCallback(() => setReadyRevision((revision) => revision + 1), []);
 
   useLayoutEffect(() => {
+    const intent = pendingFocus.current;
     if (!intent) return;
     if (selectedKey !== intent.key) {
       if (selectedKey !== intent.origin) cancel();
@@ -50,7 +56,7 @@ export function useBrowseFocus(selectedKey: string | null, listRef: PaneRef, det
     target.focus({ preventScroll: true });
     if (target !== detail) target.scrollIntoView({ block: "nearest", inline: "nearest" });
   });
-  return { cancel, arm, onReady };
+  return { cancel, arm, onReady: scheduleFocusCheck };
 }
 
 /** The list report is the only paging order. Recompute from committed identity,

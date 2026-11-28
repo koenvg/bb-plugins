@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type { TaskWorkStatus } from "../../shared/contract.js";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Icon } from "@/components/ui/icon";
 import { COARSE_POINTER_TEXT_SM_CLASS } from "@/components/ui/coarse-pointer-sizing";
-import { ageRichDetails } from "../../shared/work-status-freshness.js";
+import { ageRichDetails, nextRichDetailsChange } from "../../shared/work-status-freshness.js";
 import {
   aggregatePrs,
   currentConditions,
@@ -54,6 +54,80 @@ const GitHubLink = ({ pr, compact = false }: { pr: WorkPr; compact?: boolean }) 
   );
 };
 
+type FreshnessSubscription = { nextChange: () => number; notify: () => void };
+const freshnessSubscriptions = new Set<FreshnessSubscription>();
+let freshnessTimer: ReturnType<typeof setTimeout> | undefined;
+let scheduledChange = Infinity;
+
+function scheduleFreshnessCheck(at: number) {
+  if (at >= scheduledChange) return;
+  clearTimeout(freshnessTimer);
+  scheduledChange = at;
+  freshnessTimer = setTimeout(recheckFreshness, Math.min(at - Date.now(), 2 ** 31 - 1));
+}
+
+function recheckFreshness() {
+  scheduledChange = Infinity;
+  freshnessTimer = undefined;
+  let nextChange = Infinity;
+  for (const subscription of freshnessSubscriptions) {
+    nextChange = Math.min(nextChange, subscription.nextChange());
+    subscription.notify();
+  }
+  scheduleFreshnessCheck(nextChange);
+}
+
+function createFreshnessSnapshot(items: readonly WorkPr[]) {
+  let sampledAt = -Infinity;
+  let nextChange = -Infinity;
+  let snapshot = items;
+  function read() {
+    const now = Date.now();
+    if (now >= sampledAt && now < nextChange) return snapshot;
+    const aged = items.map((pr) => ageRichDetails(pr, now));
+    if (
+      aged.some((pr, index) => {
+        const previous = snapshot[index];
+        return pr.details !== previous.details || pr.detailsReason !== previous.detailsReason;
+      })
+    ) {
+      snapshot = aged;
+    }
+    sampledAt = now;
+    nextChange = items.reduce(
+      (earliest, pr) => Math.min(earliest, nextRichDetailsChange(pr, now)),
+      Infinity,
+    );
+    return snapshot;
+  }
+  return {
+    read,
+    subscribe(notify: () => void) {
+      const subscription = {
+        notify,
+        nextChange: () => {
+          read();
+          return nextChange;
+        },
+      };
+      freshnessSubscriptions.add(subscription);
+      scheduleFreshnessCheck(subscription.nextChange());
+      return () => {
+        freshnessSubscriptions.delete(subscription);
+        if (freshnessSubscriptions.size !== 0) return;
+        clearTimeout(freshnessTimer);
+        freshnessTimer = undefined;
+        scheduledChange = Infinity;
+      };
+    },
+  };
+}
+
+function useAgedDetails(items: readonly WorkPr[] | undefined): readonly WorkPr[] {
+  const freshness = useMemo(() => createFreshnessSnapshot(items ?? []), [items]);
+  return useSyncExternalStore(freshness.subscribe, freshness.read);
+}
+
 /** Read-only lifecycle, check/review conditions, bounded aggregates and drill-down. */
 export const PrSummary = ({
   taskKey,
@@ -65,15 +139,15 @@ export const PrSummary = ({
   const navigate = useBbNavigate();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const prs = meta?.pullRequests;
+  const items = useAgedDetails(prs?.items);
   if (!meta)
     return (
       <span className={CHIP} aria-busy="true">
         PRs loading
       </span>
     );
-  const prs = meta.pullRequests;
   // Older/missing wire data is uncertainty, never authoritative absence.
-  const items = (prs?.items ?? []).map((pr) => ageRichDetails(pr, Date.now()));
   const unavailable = prs?.unavailableThreadIds ?? [];
   if (prs?.availability === "available" && items.length === 0) return null;
   const buckets = aggregatePrs(items);

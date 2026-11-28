@@ -175,40 +175,45 @@ export function useSessionProjects() {
     readRevision: resource.readRevision,
   };
 }
+function createLabelGroup(
+  data: ReturnType<typeof createSessionData>,
+  projectIds: readonly string[],
+) {
+  const resources = projectIds.map((id) => data.labels(id));
+  let last = resources.map((resource) => resource.read());
+  const combine = () => ({
+    data: last.every((state) => state.data !== undefined)
+      ? last.flatMap((state) => state.data ?? [])
+      : undefined,
+    error: last.find((state) => state.error)?.error ?? null,
+    isLoading: last.some((state) => state.isLoading),
+    current: last.every((state) => state.current),
+  });
+  let snapshot = combine();
+  return {
+    read() {
+      const next = resources.map((resource) => resource.read());
+      if (next.some((state, index) => state !== last[index])) {
+        last = next;
+        snapshot = combine();
+      }
+      return snapshot;
+    },
+    subscribe(listener: () => void) {
+      const releases = resources.map((resource) => resource.subscribe(listener));
+      return () => releases.forEach((release) => release());
+    },
+    load: async () => {
+      await Promise.all(resources.map((resource) => resource.load()));
+    },
+    invalidate: () => resources.forEach((resource) => resource.invalidate()),
+  };
+}
+
 export function useSessionLabelsForProjects(projectIds: readonly string[]) {
   const data = useSessionData();
   const ids = JSON.stringify(projectIds);
-  const group = useMemo(() => {
-    const resources = projectIds.map((id) => data.labels(id));
-    let last = resources.map((resource) => resource.read());
-    const combine = () => ({
-      data: last.every((state) => state.data !== undefined)
-        ? last.flatMap((state) => state.data ?? [])
-        : undefined,
-      error: last.find((state) => state.error)?.error ?? null,
-      isLoading: last.some((state) => state.isLoading),
-      current: last.every((state) => state.current),
-    });
-    let snapshot = combine();
-    return {
-      read() {
-        const next = resources.map((resource) => resource.read());
-        if (next.some((state, index) => state !== last[index])) {
-          last = next;
-          snapshot = combine();
-        }
-        return snapshot;
-      },
-      subscribe(listener: () => void) {
-        const releases = resources.map((resource) => resource.subscribe(listener));
-        return () => releases.forEach((release) => release());
-      },
-      load: async () => {
-        await Promise.all(resources.map((resource) => resource.load()));
-      },
-      invalidate: () => resources.forEach((resource) => resource.invalidate()),
-    };
-  }, [data, ids]);
+  const group = useMemo(() => createLabelGroup(data, JSON.parse(ids) as string[]), [data, ids]);
   return useInventory(group);
 }
 export function useSessionPresets() {

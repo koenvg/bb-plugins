@@ -67,13 +67,13 @@ export const syntheticHistory: HistoryReadiness = {
     },
   },
 };
-const Preview = () => {
+const Preview = ({ now }: { now: number }) => {
   const [hostId, setHostId] = useState<string | null>("synthetic-host");
   return (
     <>
       <p>Synthetic attribution preview. No installed acceptance.</p>
       <QuotaDashboard
-        now={Date.now()}
+        now={now}
         selectedHostId={hostId}
         hosts={[
           { id: "synthetic-host", name: "Synthetic host", status: "connected" },
@@ -111,4 +111,6 @@ const Preview = () => {
     </>
   );
 };
-createRoot(requireFixtureValue(document.getElementById("root"))).render(<Preview />);
+createRoot(requireFixtureValue(document.getElementById("root"))).render(
+  <Preview now={Date.now()} />,
+);

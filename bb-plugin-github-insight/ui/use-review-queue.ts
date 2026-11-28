@@ -17,6 +17,7 @@ export function useReviewQueue(): ReviewQueueState {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const latestResult = useRef(0);
+  const invalidate = useCallback(() => ++latestResult.current, []);
 
   const apply = useCallback((result: ReviewQueueResult) => {
     if (result.kind === "loading") return;
@@ -31,30 +32,30 @@ export function useReviewQueue(): ReviewQueueState {
   }, []);
 
   const track = useCallback(
-    async (call: () => Promise<ReviewQueueResult>) => {
-      const request = ++latestResult.current;
-      const isLatest = () => request === latestResult.current;
-      try {
-        const result = await call();
-        if (isLatest()) apply(result);
-      } catch (error) {
-        if (isLatest()) setError(messageOf(error));
-      }
+    (call: () => Promise<ReviewQueueResult>) => {
+      const request = invalidate();
+      return (async () => call())()
+        .then((result) => {
+          if (request === latestResult.current) apply(result);
+        })
+        .catch((error: unknown) => {
+          if (request === latestResult.current) setError(messageOf(error));
+        });
     },
-    [apply],
+    [apply, invalidate],
   );
 
   useEffect(() => {
     void track(() => rpc.call("getReviewQueue", {}));
     return () => {
-      latestResult.current++;
+      invalidate();
     };
-  }, [rpc, track]);
+  }, [rpc, track, invalidate]);
 
   useRealtime(REVIEW_QUEUE_UPDATED_CHANNEL, (payload) => {
     const update = readReviewQueueUpdate(payload);
     if (update === null) return;
-    latestResult.current++;
+    invalidate();
     apply(update);
   });
 

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import type { Task } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { useTasksRpc } from "../../shell/data.js";
@@ -18,43 +25,65 @@ interface ListTaskEditController {
   edit: (task: Task, patch: TaskEdit) => void;
 }
 
+function createListEditStore() {
+  let entries: TaskEntries = new Map();
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => entries,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    update(change: (previous: TaskEntries) => TaskEntries) {
+      const next = change(entries);
+      if (next === entries) return;
+      entries = next;
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
 export function useListTaskEdits(
   serverTasks: readonly Task[] | undefined,
   onError: (message: string) => void,
 ): ListTaskEditController {
   const rpc = useTasksRpc();
-  const [entries, setEntries] = useState<TaskEntries>(() => new Map());
+  const store = useMemo(() => createListEditStore(), []);
+  const entries = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const genRef = useRef(0);
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+  useLayoutEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
-    if (serverTasks === undefined) return;
-    setEntries((prev) => reconcileEntries(prev, serverTasks));
-  }, [serverTasks]);
+    if (serverTasks !== undefined) store.update((prev) => reconcileEntries(prev, serverTasks));
+  }, [serverTasks, store]);
 
   const edit = useCallback(
     (task: Task, patch: TaskEdit) => {
       const gen = (genRef.current += 1);
-      setEntries((prev) => beginEdit(prev, task.id, patch, gen));
+      store.update((prev) => beginEdit(prev, task.id, patch, gen));
 
       void rpc.call("updateTask", { taskId: task.id, ...patch }).then(
         (result) => {
           if (result.ok) {
-            setEntries((prev) => settleSuccess(prev, task.id, patch, gen, result.task));
+            store.update((prev) => settleSuccess(prev, task.id, patch, gen, result.task));
           } else {
-            setEntries((prev) => settleFailure(prev, task.id, patch, gen));
+            store.update((prev) => settleFailure(prev, task.id, patch, gen));
             onErrorRef.current(result.error.message);
           }
           return;
         },
         (updateError: unknown) => {
-          setEntries((prev) => settleFailure(prev, task.id, patch, gen));
+          store.update((prev) => settleFailure(prev, task.id, patch, gen));
           onErrorRef.current(errorMessage(updateError));
         },
       );
     },
-    [rpc],
+    [rpc, store],
   );
 
   const pending = useMemo(() => pendingIds(entries), [entries]);

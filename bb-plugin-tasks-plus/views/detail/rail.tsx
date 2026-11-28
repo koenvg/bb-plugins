@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
   Label,
   Project,
@@ -270,13 +270,13 @@ const DispatchTargetMenu = ({
 }) => {
   const rpc = useTasksRpc();
   const { triggerRef, contentRef, onOpenAutoFocus, onCloseAutoFocus } = usePropertyMenuFocus(open);
-  const [selection, setSelection] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const linkedBbProjectId = project.linkedBbProjectId;
   const linkedName = bbProjects.find((candidate) => candidate.id === linkedBbProjectId)?.name;
-  useEffect(() => {
-    if (open) setSelection(linkedBbProjectId);
-  }, [open, linkedBbProjectId]);
+  const [draft, setDraft] = useState({ open, linkedBbProjectId, selection: linkedBbProjectId });
+  if (open !== draft.open || linkedBbProjectId !== draft.linkedBbProjectId) {
+    setDraft({ open, linkedBbProjectId, selection: open ? linkedBbProjectId : draft.selection });
+  }
 
   const save = async (linkedId: string | null) => {
     if (saving) return;
@@ -288,10 +288,11 @@ const DispatchTargetMenu = ({
       });
       onOpenChange(false);
     } catch (saveError) {
-      onError(errorMessage(saveError));
-    } finally {
       setSaving(false);
+      onError(errorMessage(saveError));
+      return;
     }
+    setSaving(false);
   };
 
   return (
@@ -320,8 +321,8 @@ const DispatchTargetMenu = ({
           This link applies to all tasks in {project.name}.
         </p>
         <BbProjectLinkPicker
-          value={selection}
-          onChange={setSelection}
+          value={draft.selection}
+          onChange={(selection) => setDraft({ ...draft, selection })}
           bbProjects={bbProjects}
           noneLabel={linkedBbProjectId !== null ? "Unlink" : "Not linked"}
         />
@@ -340,7 +341,12 @@ const DispatchTargetMenu = ({
           ) : (
             <span />
           )}
-          <Button size="sm" className="h-7" disabled={saving} onClick={() => void save(selection)}>
+          <Button
+            size="sm"
+            className="h-7"
+            disabled={saving}
+            onClick={() => void save(draft.selection)}
+          >
             Save
           </Button>
         </div>
