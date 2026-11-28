@@ -139,13 +139,10 @@ function useReviewCommands(
   });
 
   const loadedWithoutReview = result !== null && result.kind !== "ok";
-  useEffect(() => {
-    if (!loadedWithoutReview) {
-      return;
-    }
+  if (loadedWithoutReview && (submitRequested || stepRequested !== null)) {
     setSubmitRequested(false);
     setStepRequested(null);
-  }, [loadedWithoutReview, submitRequested, stepRequested]);
+  }
 
   const submit = useMemo<SubmitRequest | undefined>(
     () => (submitRequested ? { onHandled: () => setSubmitRequested(false) } : undefined),
@@ -287,12 +284,15 @@ const ReviewContent = ({
     () => commentDrafts.length > 0 || summaryDraft !== null,
   );
   const submitRequest = requests.submit;
-  useEffect(() => {
-    if (!submitRequest) {
-      return;
+  const [acceptedSubmit, setAcceptedSubmit] = useState<SubmitRequest | undefined>();
+  if (submitRequest !== acceptedSubmit) {
+    setAcceptedSubmit(submitRequest);
+    if (submitRequest) {
+      setSubmitOpen(true);
     }
-    setSubmitOpen(true);
-    submitRequest.onHandled();
+  }
+  useEffect(() => {
+    submitRequest?.onHandled();
   }, [submitRequest]);
   const openIds = useMemo(() => openThreads(threads).map(({ thread }) => thread.id), [threads]);
   const { selection, selectedIds, deselect } = useThreadSelectionState(openIds);
@@ -344,18 +344,20 @@ const ReviewContent = ({
     commentStep.onHandled();
   }, [commentStep, step]);
   const jumpToFirstThread = navigation.jumpToFirstThread;
+  const jumpTargets = useMemo(
+    () => (jump === null ? [] : threadsWithComments(threads, jump.commentIds)),
+    [threads, jump],
+  );
+  if (!showResolved && jumpTargets.length > 0 && jumpTargets.every(({ resolved }) => resolved)) {
+    setShowResolved(true);
+  }
   useEffect(() => {
     if (jump === null) {
       return;
     }
-    const targets = threadsWithComments(threads, jump.commentIds);
-    if (!showResolved && targets.length > 0 && targets.every(({ resolved }) => resolved)) {
-      setShowResolved(true);
-      return;
-    }
-    jumpToFirstThread(new Set(targets.map(({ id }) => id)));
+    jumpToFirstThread(new Set(jumpTargets.map(({ id }) => id)));
     jump.onHandled();
-  }, [jump, threads, showResolved, jumpToFirstThread]);
+  }, [jump, jumpTargets, jumpToFirstThread]);
   const { create, createError } = useNewComments();
   const viewed = usePrViewed(threadId, files, viewedMarks, newCommentHolders.paths);
   const canAddComment = head.state === "OPEN" && draftsByCommit.older.length === 0;

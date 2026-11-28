@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { fail as missingValue } from "node:assert/strict";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { startTransition, Suspense, use } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ViewRow, ViewState } from "../subagents-contract.js";
 import { SubagentsView } from "./subagents-view.js";
@@ -375,6 +376,64 @@ it("repairs focus only when navigation hides focused content and never steals co
   );
   expect(document.activeElement).toBe(composer);
 });
+
+it.each(["discarded", "committed"] as const)(
+  "does not move focus after a suspended navigation is %s",
+  async (outcome) => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    const attemptedNavigation = vi.fn();
+    const PendingDestination = () => {
+      attemptedNavigation();
+      use(promise);
+      return null;
+    };
+    function display(snapshot: ViewState, target?: string) {
+      return (
+        <>
+          <input aria-label="Composer" />
+          <Suspense fallback="Loading destination">
+            <SubagentsView state={snapshot} target={target} />
+            {target && <PendingDestination />}
+          </Suspense>
+        </>
+      );
+    }
+
+    const view = render(display(state));
+    open(view, "Alpha");
+    const reader = view.getByRole("region", { name: "Captured conversation" });
+    reader.focus();
+    try {
+      await act(async () => {
+        startTransition(() => view.rerender(display(state, "Beta")));
+      });
+      expect(attemptedNavigation).toHaveBeenCalled();
+      expect(selected(view)).toEqual(["Alpha"]);
+      expect(document.activeElement).toBe(reader);
+
+      if (outcome === "discarded") {
+        const refreshed = snapshot(
+          row("Alpha", {
+            capture: { status: "captured", capturedAt: 20, task: "Refreshed Alpha" },
+          }),
+          beta,
+        );
+        view.rerender(display(refreshed));
+        expect(within(reader).getByText("Refreshed Alpha")).toBeTruthy();
+        expect(selected(view)).toEqual(["Alpha"]);
+        expect(document.activeElement).toBe(reader);
+      } else {
+        const composer = view.getByRole("textbox", { name: "Composer" });
+        composer.focus();
+        await act(async () => resolve());
+        expect(selected(view)).toEqual(["Beta"]);
+        expect(document.activeElement).toBe(composer);
+      }
+    } finally {
+      await act(async () => resolve());
+    }
+  },
+);
 
 it("gives every viewer unique ARIA relationships, including a row literally named agents", () => {
   const view = render(

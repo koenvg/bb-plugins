@@ -74,6 +74,37 @@ describe("account activity disclosure and presentation", () => {
     expect(page.queryByText("42")).toBeNull();
     expect(read).toHaveBeenCalledTimes(1);
   });
+  it("keeps the open activity view and uses a replacement reader on the next refresh", async () => {
+    let now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const read = vi.fn(async () => fresh());
+    const replacement = vi.fn(async () => {
+      const view = fresh();
+      return {
+        ...view,
+        snapshot: { ...view.snapshot, summary: { ...view.snapshot.summary, lifetimeTokens: 84 } },
+      };
+    });
+    const selection = { hostId: "a", generation: 1 };
+    const page = render(<AccountActivity selection={selection} read={read} />);
+    await toggle(page.container, true);
+    await page.findByText("42");
+
+    await act(async () => {
+      page.rerender(<AccountActivity selection={{ ...selection }} read={replacement} />);
+    });
+    expect(page.getByText("42")).toBeTruthy();
+    expect(replacement).not.toHaveBeenCalled();
+
+    now += 31_000;
+    fireEvent.click(page.getByRole("button", { name: "Refresh activity" }));
+    await page.findByText("84");
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(replacement).toHaveBeenCalledExactlyOnceWith(
+      { ...selection, refresh: true },
+      expect.any(AbortSignal),
+    );
+  });
   it("hides stale identity on host changes and ignores delayed output after disposal", async () => {
     let resolve!: (result: ReturnType<typeof fresh>) => void;
     const read = vi.fn(

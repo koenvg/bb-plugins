@@ -18,7 +18,7 @@ declare global {
 
 async function setup(page: Page) {
   const requests: RequestRecord[] = [];
-  const state = { failMove: false };
+  const state = { failMove: false, moveGate: null as Promise<void> | null };
   const tasks = [
     makeTask({ id: "task-1", projectId: "project-1", title: "First card", labelIds: ["label-1"] }),
     makeTask({
@@ -94,6 +94,7 @@ async function setup(page: Page) {
         result = { projects: [] };
         break;
       case "boardMove": {
+        if (state.moveGate) await state.moveGate;
         if (state.failMove) {
           result = tasksRpcContract.boardMove.output.parse({
             ok: false,
@@ -287,4 +288,149 @@ test("drag ordering survives task refresh and failed moves restore the card", as
   expect(fixture.counts()).toEqual({ ...before, tasks: before.tasks + 1 });
   await expect(first).toContainText("Fixture agent");
   await expect(first.getByLabel("1 attachments")).toBeVisible();
+});
+
+test("an accepted inventory replaces the optimistic columns while a move is pending", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  const moveGate = Promise.withResolvers<void>();
+  fixture.state.moveGate = moveGate.promise;
+  fixture.state.failMove = true;
+  const first = page.getByRole("button", { name: "Open TSK-1: First card", exact: true });
+  const firstDone = page.locator('[data-board-column="done"]').getByRole("button", {
+    name: "Open TSK-1: First card",
+    exact: true,
+  });
+  const refreshed = page.locator('[data-board-column="todo"]').getByRole("button", {
+    name: "Open TSK-1: Refreshed first card",
+    exact: true,
+  });
+  try {
+    await first.focus();
+    await page.keyboard.press("s");
+    await page.getByRole("menuitem", { name: "Done", exact: true }).click();
+    await expect(firstDone).toBeVisible();
+    await expect
+      .poll(() => fixture.requests.filter(({ method }) => method === "boardMove").length)
+      .toBe(1);
+
+    const task = fixture.tasks[0] ?? missingValue("Expected first task");
+    task.title = "Refreshed first card";
+    await page.evaluate(() =>
+      window.boardFixture.emitRealtime("tasks:changed", {
+        taskId: "task-1",
+        projectId: "project-1",
+      }),
+    );
+    await expect(refreshed).toBeVisible();
+    await expect(firstDone).toHaveCount(0);
+  } finally {
+    moveGate.resolve();
+  }
+  await expect(page.getByRole("alert")).toHaveText("Fixture move refused");
+  await expect(refreshed).toBeVisible();
+
+  fixture.tasks.push(
+    makeTask({ id: "task-b", key: "NEW-1", projectId: "project-2", title: "Replacement card" }),
+  );
+  await page.getByRole("button", { name: "Switch tracker" }).click();
+  await expect(page.getByRole("button", { name: "Open NEW-1: Replacement card" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+for (const scenario of ["tracker switch", "reparent"] as const) {
+  test(`a drag cannot move a card removed by ${scenario}`, async ({ page }) => {
+    const fixture = await setup(page);
+    const first = page.getByRole("button", { name: "Open TSK-1: First card", exact: true });
+    const replacementKey = scenario === "tracker switch" ? "NEW-1" : "TSK-2";
+    const replacementName = scenario === "tracker switch" ? "Replacement card" : "Second card";
+    const replacement = page.getByRole("button", {
+      name: `Open ${replacementKey}: ${replacementName}`,
+      exact: true,
+    });
+    const start = (await first.boundingBox()) ?? missingValue("Expected old card bounds");
+    await page.mouse.move(start.x + 40, start.y + 15);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 52, start.y + 15);
+    await expect(page.locator(".cursor-grabbing")).toBeVisible();
+
+    if (scenario === "tracker switch") {
+      fixture.tasks.push(
+        makeTask({ id: "task-b", key: "NEW-1", projectId: "project-2", title: "Replacement card" }),
+      );
+      await page.getByRole("button", { name: "Switch tracker" }).evaluate((button) => {
+        if (!(button instanceof HTMLButtonElement)) throw new Error("Expected tracker button");
+        button.click();
+      });
+    } else {
+      const task = fixture.tasks[0] ?? missingValue("Expected first task");
+      task.parentTaskId = "task-2";
+      await page.evaluate(() =>
+        window.boardFixture.emitRealtime("tasks:changed", {
+          taskId: "task-1",
+          projectId: "project-1",
+        }),
+      );
+    }
+    await expect(first).toHaveCount(0);
+    await expect(replacement).toBeVisible();
+    const target = (await replacement.boundingBox()) ?? missingValue("Expected replacement bounds");
+    await page.mouse.move(target.x + 40, target.y + 15);
+    await page.mouse.up();
+
+    await replacement.focus();
+    await page.keyboard.press("s");
+    await page.getByRole("menuitem", { name: "Done", exact: true }).click();
+    const done = page.locator('[data-board-column="done"]');
+    await expect(
+      done.getByRole("button", { name: `Open ${replacementKey}: ${replacementName}` }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        fixture.requests
+          .filter(({ method }) => method === "boardMove")
+          .map(({ input }) => input.taskId),
+      )
+      .toEqual([scenario === "tracker switch" ? "task-b" : "task-2"]);
+  });
+}
+
+test("confirming blocked work cannot move a card reparented while the prompt was open", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  const task = fixture.tasks[0] ?? missingValue("Expected first task");
+  task.blockedBy = [{ id: "task-2", key: "TSK-2", title: "Second card", status: "todo" }];
+  task.blocked = true;
+  await emit(page, "tasks:changed", { taskId: "task-1", projectId: "project-1" });
+  const first = page.getByRole("button", { name: "Open TSK-1: First card", exact: true });
+  await first.focus();
+  await page.keyboard.press("s");
+  await page.getByRole("menuitem", { name: "In Progress", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "TSK-1 is blocked" });
+  await expect(dialog).toBeVisible();
+
+  task.parentTaskId = "task-2";
+  await page.evaluate(() =>
+    window.boardFixture.emitRealtime("tasks:changed", {
+      taskId: "task-1",
+      projectId: "project-1",
+    }),
+  );
+  await expect(first).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Start anyway" }).click();
+  await expect(dialog).toHaveCount(0);
+  const second = page.getByRole("button", { name: "Open TSK-2: Second card", exact: true });
+  await second.focus();
+  await page.keyboard.press("s");
+  await page.getByRole("menuitem", { name: "Done", exact: true }).click();
+  await expect(page.locator('[data-board-column="done"]')).toContainText("Second card");
+  await expect
+    .poll(() =>
+      fixture.requests
+        .filter(({ method }) => method === "boardMove")
+        .map(({ input }) => input.taskId),
+    )
+    .toEqual(["task-2"]);
 });

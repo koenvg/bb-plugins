@@ -12,7 +12,11 @@ export function useInsight(threadId: string) {
       rpc.call(mode === "refresh" ? "refresh" : "getInsight", { threadId: id }),
     [rpc],
   );
-  const state = useThreadResult(threadId, fetchInsight, insightSnapshot);
+  const { refresh: refreshResult, ...state } = useThreadResult(
+    threadId,
+    fetchInsight,
+    insightSnapshot,
+  );
 
   const preserveLastGood = useCallback(
     (result: InsightResult | null): InsightResult | null => {
@@ -25,8 +29,8 @@ export function useInsight(threadId: string) {
   );
   const result = preserveLastGood(state.result);
   const refresh = useCallback(
-    async () => preserveLastGood(await state.refresh()),
-    [state.refresh, preserveLastGood],
+    async () => preserveLastGood(await refreshResult()),
+    [refreshResult, preserveLastGood],
   );
 
   useEffect(() => {

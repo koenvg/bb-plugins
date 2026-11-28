@@ -109,11 +109,11 @@ export const ThreadActionsProvider = ({
       if (busyIds.current.has(reviewThreadId)) return;
       busyIds.current.add(reviewThreadId);
       update(reviewThreadId, { busy: true, error: null });
-      try {
-        update(reviewThreadId, { ...(await run()), busy: false });
-      } finally {
-        busyIds.current.delete(reviewThreadId);
-      }
+      await (async () => run())()
+        .then((patch) => update(reviewThreadId, { ...patch, busy: false }))
+        .finally(() => {
+          busyIds.current.delete(reviewThreadId);
+        });
     },
     [update],
   );

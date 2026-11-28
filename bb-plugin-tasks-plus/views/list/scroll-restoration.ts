@@ -86,8 +86,11 @@ export function useListScrollRestoration(
 ): void {
   const { contentReady, loading, revision, visible = true } = state;
   const restoredScope = useRef<string | null>(null);
-  const pending = useRef<number | null>(null);
-  const lastApplied = useRef<number | null>(null);
+  const pending = useRef<{
+    target: number;
+    applied: number;
+    revision?: ListScrollState["revision"];
+  }>(null);
   const lastOffset = useRef<number | null>(null);
 
   useLayoutEffect(() => {
@@ -106,25 +109,26 @@ export function useListScrollRestoration(
     const saved = readListScroll(scopeKey);
     if (saved === null) {
       el.scrollTop = 0;
-      lastApplied.current = 0;
       pending.current = null;
       return;
     }
     const clamped = resolveRestoreTarget(saved, el.scrollHeight, el.clientHeight);
     el.scrollTop = clamped;
-    lastApplied.current = clamped;
-    pending.current = clamped < saved && loading ? saved : null;
+    pending.current = clamped < saved && loading ? { target: saved, applied: clamped } : null;
   }, [ref, scopeKey, contentReady, loading, visible]);
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (el === null) return;
     if (!visible || restoredScope.current !== scopeKey) return;
-    if (pending.current === null) return;
-    const clamped = resolveRestoreTarget(pending.current, el.scrollHeight, el.clientHeight);
+    const restore = pending.current;
+    if (!restore || (loading && restore.revision === revision)) return;
+    const clamped = resolveRestoreTarget(restore.target, el.scrollHeight, el.clientHeight);
     el.scrollTop = clamped;
-    lastApplied.current = clamped;
-    if (clamped >= pending.current || !loading) pending.current = null;
+    pending.current =
+      clamped < restore.target && loading
+        ? { target: restore.target, applied: clamped, revision }
+        : null;
   }, [ref, scopeKey, revision, loading, visible]);
 
   useLayoutEffect(() => {
@@ -134,10 +138,8 @@ export function useListScrollRestoration(
     let raf = 0;
     const onScroll = () => {
       if (restoredScope.current !== scopeKey) return;
-      if (
-        pending.current !== null &&
-        Math.abs(el.scrollTop - (lastApplied.current ?? el.scrollTop)) > 2
-      ) {
+      const restore = pending.current;
+      if (restore && Math.abs(el.scrollTop - restore.applied) > 2) {
         pending.current = null;
       }
       lastOffset.current = el.scrollTop;

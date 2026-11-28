@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { ListTreeEntry } from "./lib.js";
 
 export const EXPANDED_TASKS_STORAGE_KEY = "bb-tasks:list-expanded";
@@ -85,18 +85,19 @@ export function useExpandedTasks(
   filterKey: string | null,
   knownIds: ReadonlySet<string>,
 ) {
-  const [saved, setSaved] = useState(() => loadExpandedTasks(scope));
-  useEffect(() => {
-    setSaved(loadExpandedTasks(scope));
-  }, [scope]);
+  const [expansion, setExpansion] = useState(() => ({ scope, saved: loadExpandedTasks(scope) }));
+  const saved = expansion.scope === scope ? expansion.saved : loadExpandedTasks(scope);
+  if (expansion.scope !== scope) {
+    setExpansion({ scope, saved });
+  }
   const [session, setSession] = useState<SessionToggles>({
     filterKey,
     overrides: NO_OVERRIDES,
   });
-  useEffect(() => {
-    setSession({ filterKey, overrides: NO_OVERRIDES });
-  }, [filterKey]);
   const overrides = session.filterKey === filterKey ? session.overrides : NO_OVERRIDES;
+  if (session.filterKey !== filterKey) {
+    setSession({ filterKey, overrides });
+  }
 
   const isExpanded = useCallback(
     (entry: ListTreeEntry): boolean =>
@@ -113,7 +114,7 @@ export function useExpandedTasks(
         if (next.has(id)) next.delete(id);
         else next.add(id);
         storeExpandedTasks(scope, next, knownIds);
-        setSaved(next);
+        setExpansion({ scope, saved: next });
         return;
       }
       setSession({

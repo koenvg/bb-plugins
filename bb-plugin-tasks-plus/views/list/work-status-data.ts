@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 import { useInvalidation, useTasksRpc } from "../../shell/data.js";
 import { readTasksRefreshGeneration, subscribeTasksRefresh } from "../../shell/refresh.js";
 import { WORK_STATUS_TASK_LIMIT, type Task, type TaskWorkStatus } from "../../shared/contract.js";
@@ -40,71 +40,92 @@ interface Observation {
   error: string | null;
 }
 
-/** One coalesced visible-list refresh, independent of task/detail query contracts. */
-export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") {
-  const rpc = useTasksRpc();
-  const ids = [...new Set((tasks ?? []).map((task) => task.id))].sort();
-  const key = JSON.stringify([scope, ids]);
-  const input = useRef({ rpc, ids, key, version: 0 });
-  const retained = useRef({ scope, byTaskId: new Map<string, Observation>() });
-  if (retained.current.scope !== scope) {
-    retained.current = { scope, byTaskId: new Map() };
-  } else if (input.current.key !== key) {
-    retained.current.byTaskId = new Map(
-      ids.flatMap((id) => {
-        const observation = retained.current.byTaskId.get(id);
-        return observation ? [[id, observation] as const] : [];
-      }),
-    );
-  }
-  input.current = {
-    rpc,
-    ids,
-    key,
-    version: input.current.version + (input.current.key === key ? 0 : 1),
-  };
-  const mounted = useRef(false);
-  const running = useRef(false);
-  const refreshes = useRef({ requested: 0, settled: 0, generation: readTasksRefreshGeneration() });
-  const [, setRevision] = useState(0);
-  const publish = useCallback(() => {
-    for (const [id, observation] of retained.current.byTaskId) {
-      const meta = ageStatus(observation.meta);
-      if (meta !== observation.meta) retained.current.byTaskId.set(id, { ...observation, meta });
-    }
-    setRevision((revision) => revision + 1);
-  }, []);
-  const observeGeneration = useCallback(() => {
-    const generation = readTasksRefreshGeneration();
-    if (refreshes.current.generation === generation) return false;
-    refreshes.current.generation = generation;
-    refreshes.current.requested++;
-    return true;
-  }, []);
+interface ReaderInput {
+  scope: string;
+  ids: string[];
+  rpc: ReturnType<typeof useTasksRpc>;
+}
 
-  const drain = useCallback(() => {
-    if (!mounted.current || running.current) return;
-    running.current = true;
+interface ReaderSnapshot {
+  input: ReaderInput | null;
+  observations: ReadonlyMap<string, Observation>;
+  refreshing: boolean;
+}
+
+function selectObservations(ids: readonly string[], previous: ReadonlyMap<string, Observation>) {
+  return new Map(
+    ids.flatMap((id) => {
+      const observation = previous.get(id);
+      return observation ? [[id, observation] as const] : [];
+    }),
+  );
+}
+
+function createWorkStatusReader() {
+  let input: ReaderInput | null = null;
+  let version = 0;
+  let byTaskId = new Map<string, Observation>();
+  let mounted = false;
+  let running = false;
+  const refreshes = { requested: 0, settled: 0, generation: 0 };
+  let snapshot: ReaderSnapshot = { input, observations: byTaskId, refreshing: false };
+  const listeners = new Set<() => void>();
+
+  function publish() {
+    for (const [id, observation] of byTaskId) {
+      const meta = ageStatus(observation.meta);
+      if (meta !== observation.meta) {
+        if (byTaskId === snapshot.observations) byTaskId = new Map(byTaskId);
+        byTaskId.set(id, { ...observation, meta });
+      }
+    }
+    const refreshing = refreshes.requested > refreshes.settled;
+    if (
+      snapshot.input === input &&
+      snapshot.observations === byTaskId &&
+      snapshot.refreshing === refreshing
+    )
+      return;
+    snapshot = { input, observations: byTaskId, refreshing };
+    for (const listener of listeners) listener();
+  }
+
+  function observeGeneration() {
+    const generation = readTasksRefreshGeneration();
+    if (refreshes.generation === generation) return false;
+    refreshes.generation = generation;
+    refreshes.requested++;
+    return true;
+  }
+
+  function drain() {
+    if (!mounted || running) return;
+    running = true;
     const fail = (cause: unknown) => {
-      running.current = false;
+      running = false;
       throw cause;
     };
     const refreshPass = (): Promise<void> =>
       Promise.try(() => {
-        if (!mounted.current) {
-          running.current = false;
+        if (!mounted) {
+          running = false;
           return;
         }
         observeGeneration();
-        const current = input.current;
-        const previous = retained.current.byTaskId;
-        const { requested, settled, generation } = refreshes.current;
+        const current = input;
+        const passVersion = version;
+        if (current === null) {
+          running = false;
+          return;
+        }
+        const previous = byTaskId;
+        const { requested, settled, generation } = refreshes;
         const full = requested > settled;
         const targetIds = full ? current.ids : current.ids.filter((id) => !previous.has(id));
         if (targetIds.length === 0) {
-          refreshes.current.settled = requested;
+          refreshes.settled = requested;
           publish();
-          running.current = false;
+          running = false;
           return;
         }
         publish();
@@ -123,22 +144,13 @@ export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") 
           }
         };
         const readChunk = async (offset: number) => {
-          if (
-            offset >= targetIds.length ||
-            !mounted.current ||
-            input.current.version !== current.version
-          ) {
+          if (offset >= targetIds.length || !mounted || version !== passVersion) {
             if (refreshId) await releaseRefresh(refreshId);
             // The shared clock can advance before React renders the new generation.
             observeGeneration();
-            if (
-              mounted.current &&
-              input.current.version === current.version &&
-              refreshes.current.generation === generation
-            ) {
-              for (const [id, observation] of observations)
-                retained.current.byTaskId.set(id, observation);
-              if (full) refreshes.current.settled = requested;
+            if (mounted && version === passVersion && refreshes.generation === generation) {
+              byTaskId = new Map([...byTaskId, ...observations]);
+              if (full) refreshes.settled = requested;
               publish();
             }
             void refreshPass().catch(fail);
@@ -177,17 +189,17 @@ export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") 
         return readChunk(0);
       });
     void refreshPass().catch(fail);
-  }, [observeGeneration, publish]);
-  const refresh = useCallback(() => {
-    if (!mounted.current) return;
-    refreshes.current.requested++;
+  }
+  function refresh() {
+    if (!mounted) return;
+    refreshes.requested++;
     // Coalescing must not freeze current rich PR claims while an RPC is pending.
     publish();
     drain();
-  }, [drain, publish]);
+  }
 
-  useEffect(() => {
-    mounted.current = true;
+  function mount() {
+    mounted = true;
     const unsubscribe = subscribeTasksRefresh(() => {
       if (!observeGeneration()) return;
       publish();
@@ -195,24 +207,70 @@ export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") 
     });
     const timer = window.setInterval(refresh, 60_000);
     return () => {
-      mounted.current = false;
-      input.current = { ...input.current, version: input.current.version + 1 };
+      mounted = false;
+      version++;
       unsubscribe();
       window.clearInterval(timer);
     };
-  }, [drain, observeGeneration, publish, refresh]);
-  useEffect(drain, [key, drain]);
-  useInvalidation(["threads:changed"], refresh);
-  const observations = retained.current.byTaskId;
+  }
+
+  return {
+    read: () => snapshot,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    commit(next: ReaderInput) {
+      if (input === next) return;
+      if (input === null) refreshes.generation = readTasksRefreshGeneration();
+      if (input?.scope !== next.scope || input.rpc !== next.rpc) {
+        byTaskId = new Map();
+      } else {
+        byTaskId = selectObservations(next.ids, byTaskId);
+      }
+      input = next;
+      version++;
+      publish();
+    },
+    mount,
+    start(committed: ReaderInput) {
+      if (input === committed) drain();
+    },
+    refresh,
+  };
+}
+
+export function useTaskListMeta(tasks: readonly Task[] | undefined, scope = "") {
+  const rpc = useTasksRpc();
+  const idsKey = JSON.stringify([...new Set((tasks ?? []).map((task) => task.id))].sort());
+  const input = useMemo<ReaderInput>(
+    () => ({ rpc, scope, ids: JSON.parse(idsKey) as string[] }),
+    [rpc, scope, idsKey],
+  );
+  const reader = useMemo(() => createWorkStatusReader(), []);
+  const snapshot = useSyncExternalStore(reader.subscribe, reader.read);
+  useLayoutEffect(() => {
+    reader.commit(input);
+  }, [reader, input]);
+  useEffect(() => reader.mount(), [reader]);
+  useEffect(() => {
+    reader.start(input);
+  }, [reader, input]);
+  useInvalidation(["threads:changed"], reader.refresh);
+
+  const observations = useMemo(() => {
+    if (snapshot.input === input) return snapshot.observations;
+    if (snapshot.input?.scope !== input.scope || snapshot.input.rpc !== input.rpc)
+      return new Map<string, Observation>();
+    return selectObservations(input.ids, snapshot.observations);
+  }, [snapshot, input]);
   return {
     data:
-      observations.size || ids.length === 0
+      observations.size || input.ids.length === 0
         ? new Map([...observations].map(([id, observation]) => [id, observation.meta]))
         : undefined,
     error: [...observations.values()].find((observation) => observation.error)?.error ?? null,
-    isLoading:
-      refreshes.current.requested > refreshes.current.settled ||
-      ids.some((id) => !observations.has(id)),
-    refresh,
+    isLoading: snapshot.refreshing || input.ids.some((id) => !observations.has(id)),
+    refresh: reader.refresh,
   };
 }

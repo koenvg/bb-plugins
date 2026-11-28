@@ -1,6 +1,6 @@
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { ReviewVerdict, ViewerReview } from "../core/pr-head";
-import { relativeTime } from "../core/relative-time";
+import { RelativeAge } from "./relative-age";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
@@ -41,22 +41,26 @@ export const ViewerReviewBadge = ({
   review: ViewerReview | null;
   headOid: string;
 }) => {
-  const reviewOnMount = useRef(review?.submittedAt);
+  const submitted = review?.submittedAt;
+  const reviewOnMount = useRef(submitted);
+  const badge = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    badge.current?.toggleAttribute("data-new-review", submitted !== reviewOnMount.current);
+  }, [submitted]);
   if (review === null) return null;
 
   const verdict = VERDICTS[review.state];
   const submittedAt = new Date(review.submittedAt);
-  const justSubmitted = review.submittedAt !== reviewOnMount.current;
   const newCommits = review.commitOid !== null && review.commitOid !== headOid;
   return (
     <span
       key={review.submittedAt}
+      ref={badge}
       title={submittedAt.toLocaleString()}
       className={cn(
-        "inline-flex h-5 min-w-0 items-center gap-1 rounded-full pl-1.5 pr-2 text-foreground",
+        "group/viewer-review inline-flex h-5 min-w-0 items-center gap-1 rounded-full pl-1.5 pr-2 text-foreground",
+        "data-[new-review]:duration-500 data-[new-review]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[new-review]:animate-in data-[new-review]:fade-in data-[new-review]:zoom-in-90 motion-reduce:data-[new-review]:zoom-in-100",
         verdict.pillClass,
-        justSubmitted &&
-          "duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] animate-in fade-in zoom-in-90 motion-reduce:zoom-in-100",
       )}
     >
       <Icon
@@ -64,14 +68,11 @@ export const ViewerReviewBadge = ({
         className={cn(
           "size-3.5 shrink-0",
           verdict.iconClass,
-          justSubmitted &&
-            "duration-500 [animation-delay:150ms] ease-[cubic-bezier(0.16,1,0.3,1)] fill-mode-both animate-in fade-in zoom-in-150 spin-in-[-45deg] motion-reduce:animate-none",
+          "group-data-[new-review]/viewer-review:duration-500 group-data-[new-review]/viewer-review:[animation-delay:150ms] group-data-[new-review]/viewer-review:ease-[cubic-bezier(0.16,1,0.3,1)] group-data-[new-review]/viewer-review:fill-mode-both group-data-[new-review]/viewer-review:animate-in group-data-[new-review]/viewer-review:fade-in group-data-[new-review]/viewer-review:zoom-in-150 group-data-[new-review]/viewer-review:spin-in-[-45deg] motion-reduce:group-data-[new-review]/viewer-review:animate-none",
         )}
       />
       <span className="truncate font-medium">{verdict.text}</span>
-      <span className="shrink-0 text-muted-foreground">
-        {relativeTime(submittedAt, new Date())}
-      </span>
+      <RelativeAge date={submittedAt} className="shrink-0 text-muted-foreground" />
       {newCommits && (
         <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
           <span aria-hidden className="size-1.5 rounded-full bg-attention" />

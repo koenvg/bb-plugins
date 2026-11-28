@@ -1,6 +1,6 @@
 import { FixtureMarkdown } from "./markdown";
 import { FixtureIcon } from "./icons";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { PluginAppDefinition, PluginSettingsSectionRegistration } from "@get-bb/plugin-sdk";
 import { requireFixtureValue } from "../require-fixture-value.test-support.js";
@@ -56,6 +56,26 @@ const FixtureNotifications = () => {
   }, []);
   return null;
 };
+
+async function requestDefault(value?: boolean) {
+  const scenario = new URLSearchParams(location.search).get("scenario") ?? "normal";
+  const response = await fetch(
+    `/fixture-default?scenario=${encodeURIComponent(scenario)}`,
+    value === undefined
+      ? {}
+      : {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enableByDefault: value }),
+        },
+  );
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error);
+  }
+  return body;
+}
+
 const FixtureDefault = () => {
   const [field, setField] = useState<{
     descriptor: { label: string; description?: string };
@@ -63,37 +83,29 @@ const FixtureDefault = () => {
   } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  async function load(value?: boolean) {
-    setPending(true);
-    setError(null);
-    try {
-      const response = await fetch(
-        `/fixture-default?scenario=${encodeURIComponent(new URLSearchParams(location.search).get("scenario") ?? "normal")}`,
-        value === undefined
-          ? {}
-          : {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ enableByDefault: value }),
-            },
-      );
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error);
-      }
-      setField(body);
-      for (const signal of body.signals) {
-        signals.dispatchEvent(new CustomEvent(signal.channel, { detail: signal.payload }));
-      }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Default request failed");
-    } finally {
-      setPending(false);
-    }
-  }
+  const load = useCallback(
+    (value?: boolean) =>
+      requestDefault(value)
+        .then((body) => {
+          setField(body);
+          for (const signal of body.signals) {
+            signals.dispatchEvent(new CustomEvent(signal.channel, { detail: signal.payload }));
+          }
+        })
+        .catch((error: unknown) => {
+          setError(error instanceof Error ? error.message : "Default request failed");
+        }),
+    [],
+  );
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
+
+  function changeDefault(value: boolean) {
+    setPending(true);
+    setError(null);
+    void load(value).finally(() => setPending(false));
+  }
   return (
     <section
       className="code-cleanup-settings"
@@ -110,7 +122,7 @@ const FixtureDefault = () => {
               aria-labelledby="fixture-default-label"
               aria-checked={field.value}
               disabled={pending}
-              onClick={() => void load(!field.value)}
+              onClick={() => changeDefault(!field.value)}
             >
               {field.value ? "On" : "Off"}
             </button>

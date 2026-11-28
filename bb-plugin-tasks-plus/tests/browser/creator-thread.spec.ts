@@ -156,6 +156,30 @@ test("creator uses a nonblank fallback title", async ({ page }) => {
   await expect(attribution.getByText("thr_creator", { exact: true })).toBeVisible();
 });
 
+test("list subtask expansion survives reload and remains separate from the project list", async ({
+  page,
+}) => {
+  const url = "/tests/creator-thread.html?list&relations=mixed";
+  await page.goto(url);
+  const child = page.getByRole("button", { name: /Open CRT-4:/ });
+  const expand = page.getByRole("button", { name: "Expand subtasks of CRT-1" });
+  const collapse = page.getByRole("button", { name: "Collapse subtasks of CRT-1" });
+  await expect(expand).toBeVisible();
+  await expect(child).toHaveCount(0);
+  await expand.click();
+  await expect(child).toBeVisible();
+  await page.reload();
+  await expect(collapse).toBeVisible();
+  await expect(child).toBeVisible();
+
+  await page.goto(`${url}&project`);
+  await expect(expand).toBeVisible();
+  await expect(child).toHaveCount(0);
+  await page.goto(url);
+  await expect(collapse).toBeVisible();
+  await expect(child).toBeVisible();
+});
+
 test("board drag and keyboard moves succeed with an open creator", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

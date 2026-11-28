@@ -268,6 +268,44 @@ describe("mention extension", () => {
     expect(screen.container.querySelector('[data-task-mention="TSK-42"]')).toBeTruthy();
   });
 
+  it("moves an open mention menu when a controlled edit moves the same suggestion", async () => {
+    const instance: { editor?: Editor } = {};
+    const mentionItems = vi.fn(async () => [
+      { type: "task" as const, id: "1", key: "TSK-42", title: "Round-trip review" },
+    ]);
+    const onChange = vi.fn();
+    const editor = (value: string) => (
+      <TasksEditor
+        value={value}
+        onChange={onChange}
+        mentionItems={mentionItems}
+        onEditorReady={(ready) => {
+          instance.editor = ready;
+        }}
+      />
+    );
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+    bounds.mockImplementation(function (this: HTMLElement) {
+      const bottom = this.closest(".tiptap")?.querySelector("h2") ? 80 : 20;
+      return new DOMRect(6, 0, 12, bottom);
+    });
+    try {
+      const screen = render(editor("before\n\n@"));
+      (instance.editor ?? missingValue("Expected editor")).commands.setTextSelection(10);
+      const menu = await screen.findByRole("list", { name: "Mention a task or thread" });
+      expect(menu.style.top).toBe("24px");
+      expect(mentionItems).toHaveBeenCalledTimes(1);
+
+      screen.rerender(editor("## before\n\n@"));
+      expect(getEditorSurface(screen.container).querySelector("h2")?.textContent).toBe("before");
+      expect(menu.style.top).toBe("84px");
+      expect(mentionItems).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {
+      bounds.mockRestore();
+    }
+  });
+
   it("stays inert without a mentionItems prop", async () => {
     const instanceRef: { current: Editor | null } = { current: null };
     const screen = render(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   useRealtime,
   useRealtimeConnectionState,
@@ -11,7 +11,9 @@ export function useTasksBadge(): ExperimentalBadge | null {
   useCommandNavigator();
   const rpc = useTasksRpc();
   const rpcRef = useRef(rpc);
-  rpcRef.current = rpc;
+  useLayoutEffect(() => {
+    rpcRef.current = rpc;
+  }, [rpc]);
   const connectionState = useRealtimeConnectionState();
   const requestState = useRef({
     isMounted: true,

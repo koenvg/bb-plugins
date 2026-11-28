@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRpc, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../plugin/server.js";
 import { historyReadinessSchema, historyUnavailable } from "./history-contract.js";
@@ -73,16 +73,18 @@ export const HistoryReadinessPanel = ({
     view: HistoryReadiness;
   } | null>(null);
   const readRef = useRef(read);
-  readRef.current = read;
   const controlRef = useRef(control);
-  controlRef.current = control;
   const activeRef = useRef(isActive);
-  activeRef.current = isActive;
   const [controlling, setControlling] = useState<string | null>(null);
   const [acknowledgment, setAcknowledgment] = useState<string | null>(null);
   const scope = `${key}:${attempt}`;
   const latestScope = useRef(scope);
-  latestScope.current = scope;
+  useLayoutEffect(() => {
+    readRef.current = read;
+    controlRef.current = control;
+    activeRef.current = isActive;
+    latestScope.current = scope;
+  }, [read, control, isActive, scope]);
   useEffect(() => {
     if (selectionPending || !selection.hostId) {
       return;
@@ -431,24 +433,28 @@ export const HistoryReadinessSection = ({
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const rpcRef = useRef(rpc);
-  rpcRef.current = rpc;
-  const read = useRef((input: HistoryRequest) => rpcRef.current.call("historyReadiness", input));
-  const control = useRef((input: CollectorRequest) =>
-    rpcRef.current.call("collectorControl", input),
-  );
-  const importCall = useRef((input: HistoryRequest & { command: ImportCommand }) =>
-    rpcRef.current.call("historicalImport", input),
+  useLayoutEffect(() => {
+    rpcRef.current = rpc;
+  }, [rpc]);
+  const history = useMemo(
+    () => ({
+      read: (input: HistoryRequest) => rpcRef.current.call("historyReadiness", input),
+      control: (input: CollectorRequest) => rpcRef.current.call("collectorControl", input),
+      importCall: (input: HistoryRequest & { command: ImportCommand }) =>
+        rpcRef.current.call("historicalImport", input),
+    }),
+    [],
   );
   return (
     <HistoryReadinessPanel
       isActive={isActive}
-      importCall={importCall.current}
+      importCall={history.importCall}
       onOpenThread={(threadId) => navigate.toThread(threadId)}
       selection={selection}
       selectionPending={selectionPending}
       selectionRevision={selectionRevision}
-      read={read.current}
-      control={control.current}
+      read={history.read}
+      control={history.control}
     />
   );
 };

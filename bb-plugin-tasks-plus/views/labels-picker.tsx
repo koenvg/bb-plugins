@@ -36,17 +36,18 @@ export const LabelsPicker = ({
   const createLabel = async (name: string) => {
     if (!name || creating) return;
     setCreating(true);
-    try {
-      const { label } = await rpc.call("createLabel", {
+    await Promise.try(() =>
+      rpc.call("createLabel", {
         projectId: task.projectId,
         name,
         color: DEFAULT_COLOR,
-      });
-      onChange([...task.labelIds, label.id]);
-      setQuery("");
-    } finally {
-      setCreating(false);
-    }
+      }),
+    )
+      .then(({ label }) => {
+        onChange([...task.labelIds, label.id]);
+        setQuery("");
+      })
+      .finally(() => setCreating(false));
   };
 
   const labelList = labels ?? [];

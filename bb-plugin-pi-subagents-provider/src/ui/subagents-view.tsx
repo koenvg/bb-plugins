@@ -1,7 +1,6 @@
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import {
   Component,
-  createRef,
   type KeyboardEvent,
   type ReactNode,
   useId,
@@ -155,76 +154,95 @@ function transition(tabs: Tabs, event: TabEvent): Tabs {
   return { opened: tabs.opened.filter((id) => id !== event.id), active, external };
 }
 
+interface SnapshotProps<Value, Snapshot> {
+  children: ReactNode;
+  value: Value;
+  capture(previous: Value): Snapshot;
+  committed(previous: Value, snapshot?: Snapshot): void;
+}
+
+class CommitSnapshot<Value, Snapshot> extends Component<
+  SnapshotProps<Value, Snapshot>,
+  unknown,
+  Snapshot
+> {
+  override getSnapshotBeforeUpdate(previous: SnapshotProps<Value, Snapshot>): Snapshot {
+    return this.props.capture(previous.value);
+  }
+
+  override componentDidUpdate(
+    previous: SnapshotProps<Value, Snapshot>,
+    _previousState: unknown,
+    snapshot?: Snapshot,
+  ) {
+    this.props.committed(previous.value, snapshot);
+  }
+
+  override render() {
+    return this.props.children;
+  }
+}
+
 type ReadingSnapshot = { anchor: Element; top: number } | null;
 
-class ConversationReader extends Component<
-  { children: ReactNode; active: boolean },
-  unknown,
-  ReadingSnapshot
-> {
-  private reader = createRef<HTMLElement>();
-  private savedScroll = 0;
+const ConversationReader = ({ children, active }: { children: ReactNode; active: boolean }) => {
+  const reader = useRef<HTMLElement>(null);
+  const savedScroll = useRef(0);
 
-  override getSnapshotBeforeUpdate(
-    previous: Readonly<{ children: ReactNode; active: boolean }>,
-  ): ReadingSnapshot {
-    const reader = this.reader.current;
-    if (!previous.active || !reader) return null;
-    if (!this.props.active) {
-      this.savedScroll = reader.scrollTop;
+  function capture(wasActive: boolean): ReadingSnapshot {
+    const element = reader.current;
+    if (!wasActive || !element) return null;
+    if (!active) {
+      savedScroll.current = element.scrollTop;
       return null;
     }
-    const focused = reader.ownerDocument.activeElement;
-    const rect = reader.getBoundingClientRect();
+    const focused = element.ownerDocument.activeElement;
+    const rect = element.getBoundingClientRect();
     const top = Math.max(0, rect.top);
     const bottom = Math.min(window.innerHeight, rect.bottom);
     const focusedRect =
-      focused !== reader && focused && reader.contains(focused)
+      focused !== element && focused && element.contains(focused)
         ? focused.getBoundingClientRect()
         : null;
     const focusedChild =
       focusedRect && focusedRect.top >= top && focusedRect.top < bottom ? focused : null;
-    if (!reader.scrollTop && !focusedChild) return null;
+    if (!element.scrollTop && !focusedChild) return null;
     const anchor =
       focusedChild ??
       (bottom > top
-        ? reader.ownerDocument.elementFromPoint?.(rect.left + rect.width / 2, (top + bottom) / 2)
+        ? element.ownerDocument.elementFromPoint?.(rect.left + rect.width / 2, (top + bottom) / 2)
         : null);
-    if (!anchor || anchor === reader || !reader.contains(anchor)) return null;
+    if (!anchor || anchor === element || !element.contains(anchor)) return null;
     return { anchor, top: anchor.getBoundingClientRect().top };
   }
 
-  override componentDidUpdate(
-    previous: Readonly<{ children: ReactNode; active: boolean }>,
-    _previousState: unknown,
-    snapshot?: ReadingSnapshot,
-  ) {
-    const reader = this.reader.current;
-    if (!reader) return;
-    if (!previous.active && this.props.active) {
-      reader.scrollTop = this.savedScroll;
+  function commit(wasActive: boolean, snapshot?: ReadingSnapshot) {
+    const element = reader.current;
+    if (!element) return;
+    if (!wasActive && active) {
+      element.scrollTop = savedScroll.current;
       return;
     }
-    if (!this.props.active || !snapshot?.anchor.isConnected) return;
+    if (!active || !snapshot?.anchor.isConnected) return;
     // Use the actual anchor delta so native scroll anchoring/clamping is not applied twice.
     const shift = snapshot.anchor.getBoundingClientRect().top - snapshot.top;
-    if (shift) reader.scrollTop += shift;
+    if (shift) element.scrollTop += shift;
   }
 
-  override render() {
-    const readingTabIndex = this.props.active ? 0 : -1;
-    return (
+  const readingTabIndex = active ? 0 : -1;
+  return (
+    <CommitSnapshot value={active} capture={capture} committed={commit}>
       <section
-        ref={this.reader}
+        ref={reader}
         className="pi-subagents-transcript"
         aria-label="Captured conversation"
         tabIndex={readingTabIndex}
       >
-        {this.props.children}
+        {children}
       </section>
-    );
-  }
-}
+    </CommitSnapshot>
+  );
+};
 
 const CapturedConversation = ({
   row,
@@ -391,6 +409,8 @@ const CapturedConversation = ({
   );
 };
 
+type FocusSnapshot = { kind: "tab" } | { kind: "overview"; node: Element; index: number } | null;
+
 export const SubagentsView = ({
   state,
   loading = false,
@@ -429,36 +449,42 @@ export const SubagentsView = ({
   const prefix = useId();
   const tabId = (tab: Tab) => `${prefix}-tab-${tabKey(tab)}`;
   const panelId = (tab: Tab) => `${prefix}-panel-${tabKey(tab)}`;
-  const focused = root.current?.ownerDocument.activeElement;
-  const focusedOverviewIndex = buttons.current.findIndex((button) => button === focused);
-  if (focused && root.current?.contains(focused)) {
+  function captureFocus(): FocusSnapshot {
+    const focused = root.current?.ownerDocument.activeElement;
+    if (!focused || !root.current?.contains(focused)) return null;
     const panel = focused.closest<HTMLElement>("[role=tabpanel]");
     if (panel) {
       const panelTab: Tab =
         panel.dataset.rowId === undefined ? agentsTab : { kind: "row", id: panel.dataset.rowId };
       const evicted =
         panelTab.kind === "row" && !rows.has(panelTab.id) && focused.closest("article");
-      if (!sameTab(panelTab, tabs.active) || evicted) focusRequested.current = true;
+      if (!sameTab(panelTab, tabs.active) || evicted) return { kind: "tab" };
     }
+    const index = buttons.current.findIndex((button) => button === focused);
+    return index < 0 ? null : { kind: "overview", node: focused, index };
   }
-  useLayoutEffect(() => {
+  function repairFocus(_previous: Tab, snapshot?: FocusSnapshot) {
     const button = tabButtons.current.get(tabKey(tabs.active));
-    if (focusRequested.current) {
+    if (focusRequested.current || snapshot?.kind === "tab") {
       focusRequested.current = false;
       button?.focus({ preventScroll: true });
     } else if (
-      focusedOverviewIndex >= 0 &&
-      !focused?.isConnected &&
+      snapshot?.kind === "overview" &&
+      !snapshot.node.isConnected &&
       tabs.active.kind === "agents"
     ) {
-      (
-        buttons.current[Math.min(focusedOverviewIndex, overviewEntries.length - 1)] ?? button
-      )?.focus({
+      (buttons.current[Math.min(snapshot.index, overviewEntries.length - 1)] ?? button)?.focus({
         preventScroll: true,
       });
     }
+  }
+  useLayoutEffect(() => {
     if (!sameTab(lastRevealed.current, tabs.active)) {
-      button?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+      tabButtons.current.get(tabKey(tabs.active))?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: "instant",
+      });
       lastRevealed.current = tabs.active;
     }
   });
@@ -593,7 +619,7 @@ export const SubagentsView = ({
   }
   const targetRow = target ? rows.get(target) : undefined;
   const targetAvailable = targetRow?.source === "background" && !targetRow.parentId;
-  return (
+  const content = (
     <section ref={root} aria-label="Subagents" className="pi-subagents">
       <div role="tablist" aria-label="Subagent views" className="pi-subagents-tablist">
         {renderTab(agentsTab)}
@@ -773,5 +799,10 @@ export const SubagentsView = ({
         })}
       </div>
     </section>
+  );
+  return (
+    <CommitSnapshot value={tabs.active} capture={captureFocus} committed={repairFocus}>
+      {content}
+    </CommitSnapshot>
   );
 };

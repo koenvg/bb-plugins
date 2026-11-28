@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Editor, isNodeSelection, type ChainedCommands } from "@tiptap/core";
 import { BubbleMenuPlugin } from "@tiptap/extension-bubble-menu";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -117,6 +117,14 @@ interface MentionPopoverState {
   selectedIndex: number;
 }
 
+type MentionPosition = { top: number; left: number };
+type PositionedMention = MentionPopoverState & { position: MentionPosition | null };
+
+function readMentionPosition(mention: MentionPopoverState): MentionPosition | null {
+  const rect = mention.clientRect?.();
+  return rect ? { top: rect.bottom + 4, left: rect.left } : null;
+}
+
 interface BubbleAction {
   id: string;
   label: string;
@@ -215,30 +223,42 @@ export const TasksEditor = ({
   const editorRef = useRef<Editor | null>(null);
   const lastMarkdownRef = useRef(value);
   const changeRef = useRef(onChange);
-  changeRef.current = onChange;
   const placeholderRef = useRef(placeholder);
-  placeholderRef.current = placeholder;
   const uploadRef = useRef(onUploadImage);
-  uploadRef.current = onUploadImage;
   const attachFilesRef = useRef(onAttachFiles);
-  attachFilesRef.current = onAttachFiles;
   const mentionItemsRef = useRef(mentionItems);
-  mentionItemsRef.current = mentionItems;
   const openThreadRef = useRef(onOpenThread);
-  openThreadRef.current = onOpenThread;
   const readyRef = useRef(onEditorReady);
-  readyRef.current = onEditorReady;
   const initialValueRef = useRef(value);
+  useLayoutEffect(() => {
+    changeRef.current = onChange;
+    placeholderRef.current = placeholder;
+    uploadRef.current = onUploadImage;
+    attachFilesRef.current = onAttachFiles;
+    mentionItemsRef.current = mentionItems;
+    openThreadRef.current = onOpenThread;
+    readyRef.current = onEditorReady;
+  }, [
+    onChange,
+    placeholder,
+    onUploadImage,
+    onAttachFiles,
+    mentionItems,
+    onOpenThread,
+    onEditorReady,
+  ]);
 
-  const [, setRevision] = useState(0);
-  const [mention, setMentionState] = useState<MentionPopoverState | null>(null);
-  const mentionRef = useRef<MentionPopoverState | null>(null);
-  const setMention = (next: MentionPopoverState | null) => {
-    mentionRef.current = next;
-    setMentionState(next);
-  };
-  const setMentionRef = useRef(setMention);
-  setMentionRef.current = setMention;
+  const [formatting, setFormatting] = useState<ReadonlySet<string>>(() => new Set());
+  const [mention, setMention] = useState<PositionedMention | null>(null);
+  const mentionRef = useRef<PositionedMention | null>(null);
+  const publishMention = useCallback(
+    (next: MentionPopoverState | null, position = next ? readMentionPosition(next) : null) => {
+      const positioned = next ? { ...next, position } : null;
+      mentionRef.current = positioned;
+      setMention(positioned);
+    },
+    [],
+  );
 
   useEffect(() => {
     ensureEditorStyles();
@@ -255,7 +275,7 @@ export const TasksEditor = ({
       getItems: (query) => mentionItemsRef.current?.(query) ?? Promise.resolve([]),
       onChange: (props: SuggestionProps<MentionItem, MentionItem>) => {
         const previous = mentionRef.current;
-        setMentionRef.current({
+        publishMention({
           items: props.items,
           clientRect: props.clientRect ?? null,
           command: props.command,
@@ -265,19 +285,19 @@ export const TasksEditor = ({
           ),
         });
       },
-      onExit: () => setMentionRef.current(null),
+      onExit: () => publishMention(null),
       onKeyDown: (event) => {
         const state = mentionRef.current;
         if (!state || state.items.length === 0) return false;
         if (event.key === "ArrowDown") {
-          setMentionRef.current({
+          publishMention({
             ...state,
             selectedIndex: (state.selectedIndex + 1) % state.items.length,
           });
           return true;
         }
         if (event.key === "ArrowUp") {
-          setMentionRef.current({
+          publishMention({
             ...state,
             selectedIndex: (state.selectedIndex - 1 + state.items.length) % state.items.length,
           });
@@ -289,7 +309,7 @@ export const TasksEditor = ({
           return true;
         }
         if (event.key === "Escape") {
-          setMentionRef.current(null);
+          publishMention(null);
           return true;
         }
         return false;
@@ -366,7 +386,26 @@ export const TasksEditor = ({
       lastMarkdownRef.current = markdown;
       changeRef.current(markdown);
     });
-    editor.on("transaction", () => setRevision((current) => current + 1));
+    const publishFormatting = () => {
+      const next = new Set(
+        BUBBLE_ACTIONS.filter((action) => action.isActive(editor)).map((action) => action.id),
+      );
+      setFormatting((current) =>
+        current.size === next.size && [...next].every((id) => current.has(id)) ? current : next,
+      );
+    };
+    if (variant === "doc") {
+      publishFormatting();
+    }
+    editor.on("transaction", () => {
+      if (variant === "doc") publishFormatting();
+      const current = mentionRef.current;
+      if (!current?.items.length) return;
+      const position = readMentionPosition(current);
+      if (current.position?.top !== position?.top || current.position?.left !== position?.left) {
+        publishMention(current, position);
+      }
+    });
     readyRef.current?.(editor);
     const root = rootRef.current;
     const onClick = (event: MouseEvent) => {
@@ -382,10 +421,10 @@ export const TasksEditor = ({
     return () => {
       root.removeEventListener("click", onClick);
       editorRef.current = null;
-      setMentionRef.current(null);
+      publishMention(null);
       editor.destroy();
     };
-  }, [variant]);
+  }, [variant, publishMention]);
 
   useEffect(() => {
     initialValueRef.current = value;
@@ -395,8 +434,6 @@ export const TasksEditor = ({
     editor.commands.setContent(value, { emitUpdate: false });
   }, [value]);
 
-  const editor = editorRef.current;
-  const mentionRect = mention?.clientRect?.() ?? null;
   const taskItems = (mention?.items ?? [])
     .map((item, index) => ({ item, index }))
     .filter((entry) => entry.item.type === "task");
@@ -466,10 +503,10 @@ export const TasksEditor = ({
               size="icon"
               variant="ghost"
               aria-label={action.label}
-              aria-pressed={editor ? action.isActive(editor) : false}
+              aria-pressed={formatting.has(action.id)}
               className={cn(
                 "size-7 text-muted-foreground",
-                editor && action.isActive(editor) ? "bg-accent text-accent-foreground" : undefined,
+                formatting.has(action.id) ? "bg-accent text-accent-foreground" : undefined,
               )}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
@@ -488,7 +525,7 @@ export const TasksEditor = ({
         <ul
           aria-label="Mention a task or thread"
           className="fixed z-50 max-h-64 w-72 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
-          style={mentionRect ? { top: mentionRect.bottom + 4, left: mentionRect.left } : undefined}
+          style={mention.position ?? undefined}
         >
           {taskItems.length > 0 ? (
             <li

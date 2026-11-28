@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useSyncExternalStore, type RefObject } from "react";
 import { offsetFromTop, pinToTop, type PinTarget } from "../../review-ui/pin-to-top";
 import { stickyHeaderHeight } from "../../review-ui/review-file-diff";
 import type { CommentStop } from "../core/comment-stops";
@@ -27,26 +27,21 @@ export function useCommentNavigation(
   content: RefObject<HTMLElement | null>,
   stops: readonly CommentStop[],
 ): CommentNavigation {
-  const [current, setCurrent] = useState(0);
-  const [jumpMark, setJumpMark] = useState<JumpMark | null>(null);
-  const pin = useRef<Pin | null>(null);
+  const session = useMemo(() => createNavigationSession(), []);
+  const { current, jumpMark } = useSyncExternalStore(session.subscribe, session.read);
 
-  const pinnedIndex = useCallback((): number | null => {
-    if (pin.current === null) return null;
-    const index = indexOf(stops, pin.current.stop);
-    if (index === -1) pin.current.release();
-    return index === -1 ? null : index;
-  }, [stops]);
-
-  const updateCurrent = useCallback(() => {
-    const area = scrollArea.current;
-    if (area === null || stops.length === 0) return;
-    setCurrent(pinnedIndex() ?? currentIndex(area, stops));
-  }, [scrollArea, stops, pinnedIndex]);
+  useLayoutEffect(() => {
+    if (stops.length === 0) session.releasePin();
+  }, [session, stops.length]);
 
   useEffect(() => {
     const area = scrollArea.current;
     if (area === null) return;
+    const updateCurrent = () => {
+      const currentArea = scrollArea.current;
+      if (currentArea === null || stops.length === 0) return;
+      session.measure(session.pinnedIndex(stops) ?? currentIndex(currentArea, stops));
+    };
     updateCurrent();
     let frame: number | null = null;
     const schedule = () => {
@@ -64,47 +59,13 @@ export function useCommentNavigation(
       observer.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [scrollArea, content, updateCurrent]);
+  }, [scrollArea, content, stops, session]);
 
-  useEffect(() => () => pin.current?.release(), []);
+  useEffect(() => session.releasePin, [session]);
 
-  const jumpTo = useCallback(
-    (index: number) => {
-      const area = scrollArea.current;
-      if (area === null) return;
-      const stop = stops[index];
-      pin.current?.release();
-      const entry: Pin = { stop, release: () => {} };
-      pin.current = entry;
-      setCurrent(index);
-      setJumpMark((mark) => ({ stop, token: (mark?.token ?? 0) + 1 }));
-      entry.release = pinToTop(
-        area,
-        content.current,
-        () => locate(area, stop),
-        () => {
-          if (pin.current === entry) pin.current = null;
-        },
-      );
-    },
-    [scrollArea, content, stops],
-  );
-
-  const step = useCallback(
-    (direction: StepDirection) => {
-      const area = scrollArea.current;
-      if (area === null || stops.length === 0) return;
-      jumpTo(wrap(targetIndex(area, stops, pinnedIndex(), direction), stops.length));
-    },
-    [scrollArea, stops, pinnedIndex, jumpTo],
-  );
-
-  const jumpToFirstThread = useCallback(
-    (threadIds: ReadonlySet<string>) => {
-      const index = stops.findIndex(({ kind, id }) => kind === "thread" && threadIds.has(id));
-      if (index !== -1) jumpTo(index);
-    },
-    [stops, jumpTo],
+  const { step, jumpToFirstThread } = useMemo(
+    () => createJumpControls(scrollArea, content, stops, session),
+    [scrollArea, content, stops, session],
   );
 
   return {
@@ -113,6 +74,74 @@ export function useCommentNavigation(
     jumpMark,
     step,
     jumpToFirstThread,
+  };
+}
+
+function createNavigationSession() {
+  let snapshot: { current: number; jumpMark: JumpMark | null } = { current: 0, jumpMark: null };
+  let pin: Pin | null = null;
+  const listeners = new Set<() => void>();
+  const publish = (next: typeof snapshot) => {
+    snapshot = next;
+    for (const listener of listeners) listener();
+  };
+  return {
+    read: () => snapshot,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    measure(current: number) {
+      if (current !== snapshot.current) publish({ ...snapshot, current });
+    },
+    pinnedIndex(stops: readonly CommentStop[]): number | null {
+      if (pin === null) return null;
+      const index = indexOf(stops, pin.stop);
+      if (index === -1) pin.release();
+      return index === -1 ? null : index;
+    },
+    releasePin() {
+      pin?.release();
+    },
+    jump(area: HTMLElement, content: HTMLElement | null, current: number, stop: CommentStop) {
+      pin?.release();
+      const entry: Pin = { stop, release: () => {} };
+      pin = entry;
+      publish({ current, jumpMark: { stop, token: (snapshot.jumpMark?.token ?? 0) + 1 } });
+      entry.release = pinToTop(
+        area,
+        content,
+        () => locate(area, stop),
+        () => {
+          if (pin === entry) pin = null;
+        },
+      );
+    },
+  };
+}
+
+function createJumpControls(
+  scrollArea: RefObject<HTMLElement | null>,
+  content: RefObject<HTMLElement | null>,
+  stops: readonly CommentStop[],
+  session: ReturnType<typeof createNavigationSession>,
+): Pick<CommentNavigation, "step" | "jumpToFirstThread"> {
+  return {
+    step(direction) {
+      const area = scrollArea.current;
+      if (area === null || stops.length === 0) return;
+      const index = wrap(
+        targetIndex(area, stops, session.pinnedIndex(stops), direction),
+        stops.length,
+      );
+      session.jump(area, content.current, index, stops[index]);
+    },
+    jumpToFirstThread(threadIds) {
+      const area = scrollArea.current;
+      if (area === null) return;
+      const index = stops.findIndex(({ kind, id }) => kind === "thread" && threadIds.has(id));
+      if (index !== -1) session.jump(area, content.current, index, stops[index]);
+    },
   };
 }
 

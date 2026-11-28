@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ComponentProps,
@@ -106,9 +107,14 @@ const RowAction = ({
 export const WebhookSettingsSection = () => {
   const rpc = useRpc<typeof webhookRpcContract>();
   const rpcRef = useRef(rpc);
-  rpcRef.current = rpc;
+  useLayoutEffect(() => {
+    rpcRef.current = rpc;
+  }, [rpc]);
   const sectionId = useId();
   const latestRead = useRef(0);
+  const invalidateReads = useCallback(() => {
+    latestRead.current++;
+  }, []);
   const operation = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const urlInput = useRef<HTMLInputElement>(null);
@@ -149,10 +155,8 @@ export const WebhookSettingsSection = () => {
   }, []);
   useEffect(() => {
     void refresh();
-    return () => {
-      latestRead.current++;
-    };
-  }, [refresh]);
+    return invalidateReads;
+  }, [refresh, invalidateReads]);
   useRealtime(WEBHOOKS_CHANGED, () => {
     void refresh(true);
   });
@@ -184,7 +188,7 @@ export const WebhookSettingsSection = () => {
 
   function failed(code: WebhookActionError): Feedback {
     if (code === "invalid_stored") {
-      latestRead.current++;
+      invalidateReads();
       setSettings({ state: "blocked" });
     } else if (code === "not_found" || code === "tracker_not_found") {
       void refresh();
@@ -213,52 +217,51 @@ export const WebhookSettingsSection = () => {
       });
       if (!result.ok) {
         setAddFeedback(failed(result.code));
-        return;
+      } else {
+        form.reset();
+        setScope("");
+        setAddFeedback({ message: "Webhook added.", savedId: result.endpoint.id });
+        await refresh();
       }
-      form.reset();
-      setScope("");
-      setAddFeedback({ message: "Webhook added.", savedId: result.endpoint.id });
-      await refresh();
     } catch {
       setAddFeedback(failed("storage_error"));
-    } finally {
-      done();
     }
+    done();
   }
 
   async function test(id: string) {
     if (!start({ kind: "test", id })) return;
+    let feedback: Feedback;
     try {
       const result = await rpc.call("testWebhook", { id });
-      const feedback = result.ok
+      feedback = result.ok
         ? { message: testMessage(result.outcome), error: result.outcome.code !== "delivered" }
         : failed(result.code);
-      setTests((current) => ({ ...current, [id]: feedback }));
     } catch {
-      setTests((current) => ({ ...current, [id]: failed("storage_error") }));
-    } finally {
-      done();
+      feedback = failed("storage_error");
     }
+    setTests((current) => ({ ...current, [id]: feedback }));
+    done();
   }
 
   async function rename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!renameSelection || !start({ kind: "rename", id: renameSelection.id })) return;
+    if (!renameSelection) return;
     const name = String(new FormData(event.currentTarget).get("name") ?? "");
+    if (!start({ kind: "rename", id: renameSelection.id })) return;
     setRenameFeedback(undefined);
     try {
       const result = await rpc.call("renameWebhook", { id: renameSelection.id, name });
       if (!result.ok) {
         setRenameFeedback(failed(result.code));
-        return;
+      } else {
+        await refresh();
+        setSelection(null);
       }
-      await refresh();
-      setSelection(null);
     } catch {
       setRenameFeedback(failed("storage_error"));
-    } finally {
-      done();
     }
+    done();
   }
 
   async function remove() {
@@ -268,17 +271,16 @@ export const WebhookSettingsSection = () => {
       const result = await rpc.call("deleteWebhook", { id: selected.id });
       if (!result.ok) {
         setDeleteFeedback(failed(result.code));
-        return;
+      } else {
+        afterDelete.current = healthy.endpoints.findIndex(({ id }) => id === selected.id);
+        await refresh();
+        setDeleteFeedback({ message: "Webhook deleted." });
+        setSelection(null);
       }
-      afterDelete.current = healthy.endpoints.findIndex(({ id }) => id === selected.id);
-      await refresh();
-      setDeleteFeedback({ message: "Webhook deleted." });
-      setSelection(null);
     } catch {
       setDeleteFeedback(failed("storage_error"));
-    } finally {
-      done();
     }
+    done();
   }
 
   function restoreFocus() {

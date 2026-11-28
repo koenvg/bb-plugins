@@ -1,7 +1,9 @@
 import { useRealtime } from "@get-bb/plugin-sdk/app";
-import { listAllTasks, useTasksQuery } from "../../shell/data.js";
+import { useMemo } from "react";
+import { listAllTasks, useTasksQuery, useTasksRpc } from "../../shell/data.js";
 import { useSessionLabels } from "../../shell/task-data.js";
-import type { TaskThread, TasksChangedEvent } from "../../shared/contract.js";
+import type { Task, TaskThread, TasksChangedEvent } from "../../shared/contract.js";
+import { errorMessage } from "../../shared/errors.js";
 import { isActiveThread } from "../detail/meta.js";
 
 export interface BoardCardMeta {
@@ -11,24 +13,48 @@ export interface BoardCardMeta {
   subTotal: number;
 }
 
+interface BoardInventory {
+  tasks: Task[];
+  subProgress: Map<string, { done: number; total: number }>;
+}
+
 export function useBoardData(projectId: string) {
-  const inventory = useTasksQuery(
+  const rpc = useTasksRpc();
+  const scope = useMemo(() => ({ projectId, rpc }), [projectId, rpc]);
+  const inventory = useTasksQuery<{
+    scope: typeof scope;
+    cards: BoardInventory | undefined;
+    error: string | null;
+  }>(
     async (rpc) => {
-      const tasks = await listAllTasks(rpc, { projectId });
-      const subProgress = new Map<string, { done: number; total: number }>();
-      for (const task of tasks) {
-        if (task.parentTaskId === null) continue;
-        const entry = subProgress.get(task.parentTaskId) ?? { done: 0, total: 0 };
-        entry.total += 1;
-        if (task.status === "done") entry.done += 1;
-        subProgress.set(task.parentTaskId, entry);
+      try {
+        const tasks = await listAllTasks(rpc, { projectId });
+        const subProgress = new Map<string, { done: number; total: number }>();
+        for (const task of tasks) {
+          if (task.parentTaskId === null) continue;
+          const entry = subProgress.get(task.parentTaskId) ?? { done: 0, total: 0 };
+          entry.total += 1;
+          if (task.status === "done") entry.done += 1;
+          subProgress.set(task.parentTaskId, entry);
+        }
+        return {
+          scope,
+          cards: { tasks: tasks.filter((task) => task.parentTaskId === null), subProgress },
+          error: null,
+        };
+      } catch (error) {
+        return { scope, cards: undefined, error: errorMessage(error) };
       }
-      return { projectId, tasks: tasks.filter((task) => task.parentTaskId === null), subProgress };
     },
     ["tasks:changed", "projects:changed", "threads:changed"],
     [projectId],
+    {
+      reconcile: (previous, next) =>
+        !next.cards && previous?.scope === next.scope ? { ...next, cards: previous.cards } : next,
+    },
   );
-  const current = inventory.data?.projectId === projectId ? inventory.data : undefined;
+  const result = inventory.data?.scope === scope ? inventory.data : undefined;
+  const current = result?.cards;
   const taskIds = current?.tasks.map((task) => task.id).sort() ?? [];
   const labels = useSessionLabels(projectId);
   const working = useTasksQuery(
@@ -87,10 +113,11 @@ export function useBoardData(projectId: string) {
     ]),
   );
   return {
+    scope,
     tasks: current?.tasks,
     labelsById: new Map(labels.data?.map((label) => [label.id, label])),
     metaByTaskId,
-    error: inventory.error,
+    error: result?.error ?? null,
     refresh: inventory.refresh,
   };
 }

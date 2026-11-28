@@ -28,13 +28,16 @@ export class ActivityRequestState {
   private dueAt = 0;
   private listeners = new Set<() => void>();
   private state: State;
-  private readonly read: ActivityApi;
+  private read: ActivityApi | undefined;
   private readonly now: () => number;
 
-  constructor(read: ActivityApi, now: () => number = Date.now) {
+  constructor(read?: ActivityApi, now: () => number = Date.now) {
     this.read = read;
     this.now = now;
     this.state = { view: emptyActivity(), loading: false, now: now() };
+  }
+  setReader(read: ActivityApi): void {
+    this.read = read;
   }
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -104,7 +107,7 @@ export class ActivityRequestState {
           if (!this.active || sequence !== this.sequence || signal.aborted) {
             return null;
           }
-          return this.read(input, signal);
+          return this.read?.(input, signal) ?? null;
         }),
         signal,
         null,

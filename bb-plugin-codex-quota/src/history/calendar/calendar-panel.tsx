@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../../plugin/server.js";
 import type { HistoryRequest } from "../history-contract.js";
@@ -53,27 +53,36 @@ export const CalendarReportPanel = ({
   prepare,
 }: Props) => {
   const preparation = useReportPreparation(selection, selectionPending, selectionRevision, prepare);
-  const [timezone] = useState(viewerTimezone);
-  const [start, setStart] = useState(() => (timezone ? latestStart(now, timezone) : null));
+  const [range, setRange] = useState(() => {
+    const timezone = viewerTimezone();
+    return { timezone, start: timezone ? latestStart(now, timezone) : null };
+  });
+  const { timezone, start } = range;
+  const { hostId, generation } = selection;
   const [metric, setMetric] = useState<TokenMetric>("tokens");
   const [attempt, setAttempt] = useState(0);
-  const query: CalendarQuery | null =
-    timezone && start
-      ? {
-          startDate: start,
-          timezone,
-          group: "workspace",
-          scope: { kind: "host" },
-          includeUncertain: true,
-        }
-      : null;
+  const query = useMemo<CalendarQuery | null>(
+    () =>
+      timezone && start
+        ? {
+            startDate: start,
+            timezone,
+            group: "workspace",
+            scope: { kind: "host" },
+            includeUncertain: true,
+          }
+        : null,
+    [timezone, start],
+  );
   const queryKey = query ? JSON.stringify(query) : "";
   const key = `${selection.hostId}:${selection.generation}:${selectionRevision}:${selectionPending}:${queryKey}`;
   const requestKey = `${key}:${attempt}:${preparation.revision}`;
   const latest = useRef(requestKey);
-  latest.current = requestKey;
   const readRef = useRef(read);
-  readRef.current = read;
+  useLayoutEffect(() => {
+    latest.current = requestKey;
+    readRef.current = read;
+  }, [requestKey, read]);
   const [observation, setObservation] = useState<{
     key: string;
     view: CalendarReport;
@@ -81,13 +90,13 @@ export const CalendarReportPanel = ({
     attempt: number;
   } | null>(null);
   useEffect(() => {
-    if (selectionPending || !selection.hostId || !query) {
+    if (selectionPending || !hostId || !query) {
       return;
     }
     const controller = new AbortController();
     const frozen = {
-      hostId: selection.hostId,
-      generation: selection.generation,
+      hostId,
+      generation,
       query: structuredClone(query),
     };
     const valid = () => !controller.signal.aborted && latest.current === requestKey;
@@ -113,13 +122,13 @@ export const CalendarReportPanel = ({
       .then(accept)
       .catch(() => accept(calendarUnavailable("unsupported")));
     return () => controller.abort();
-  }, [requestKey]);
+  }, [selectionPending, hostId, generation, query, queryKey, requestKey, key, attempt]);
   const current = !selectionPending && observation?.key === key ? observation : null;
   const view = current?.view.state !== "unavailable" ? current?.view : null;
   const loading =
     !!selection.hostId && !selectionPending && !!query && (!current || current.attempt !== attempt);
   const stale = !!view && (current?.stale || now - Date.parse(view.observedAt) > 5 * 60000);
-  const navigate = (next: string) => setStart(next);
+  const navigate = (next: string) => setRange((current) => ({ ...current, start: next }));
   const handleRetry = preparation.retry;
   return (
     <section
@@ -247,7 +256,7 @@ export const CalendarReportPanel = ({
               current.view.reason === "range-unavailable" &&
               timezone
             ) {
-              setStart(latestStart(now, timezone));
+              navigate(latestStart(now, timezone));
             }
             setAttempt((n) => n + 1);
           }}
@@ -272,12 +281,18 @@ export const CalendarReportSection = (props: Omit<Props, "read" | "prepare" | "n
   const now = usePageClock();
   const rpc = useRpc<typeof rpcContract>();
   const rpcRef = useRef(rpc);
-  rpcRef.current = rpc;
-  const read = useRef((input: HistoryRequest & { query: CalendarQuery }) =>
-    rpcRef.current.call("calendarReport", input),
+  useLayoutEffect(() => {
+    rpcRef.current = rpc;
+  }, [rpc]);
+  const callbacks = useMemo(
+    () => ({
+      read: (input: HistoryRequest & { query: CalendarQuery }) =>
+        rpcRef.current.call("calendarReport", input),
+      prepare: (input: PreparationRequest) => rpcRef.current.call("reportPreparation", input),
+    }),
+    [],
   );
-  const prepare = useRef((input: PreparationRequest) =>
-    rpcRef.current.call("reportPreparation", input),
+  return (
+    <CalendarReportPanel {...props} now={now} read={callbacks.read} prepare={callbacks.prepare} />
   );
-  return <CalendarReportPanel {...props} now={now} read={read.current} prepare={prepare.current} />;
 };

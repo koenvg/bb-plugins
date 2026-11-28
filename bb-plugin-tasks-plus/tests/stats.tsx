@@ -30,7 +30,7 @@ const Fixture = () => {
     let nextCall = 0;
     let frame: number;
     const followHostNavigation = () => {
-      for (; nextCall < slot.navigateCalls.length; nextCall++) {
+      for (; nextCall < slot.navigateCalls.length; nextCall += 1) {
         const call = requireFixture(slot.navigateCalls[nextCall], "slot.navigateCalls[nextCall]");
         if (call.method === "toPluginPanel" && call.path === "tasks")
           setSubPath(call.options?.subPath ?? "");

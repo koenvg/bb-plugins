@@ -26,7 +26,10 @@ test("selection formatting survives menu hide, reappearance and React cleanup", 
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(1200);
-  await toolbar.getByRole("button", { name: "Bold", exact: true }).click();
+  const bold = toolbar.getByRole("button", { name: "Bold", exact: true });
+  await expect(bold).toHaveAttribute("aria-pressed", "false");
+  await bold.click();
+  await expect(bold).toHaveAttribute("aria-pressed", "true");
   await expect(editor.locator("strong")).toHaveText("Alpha beta");
   await expect(page.getByLabel("Fixture updates")).toContainText('"description":"**Alpha beta**"');
   await page.screenshot({ path: testInfo.outputPath("selection-bold.png") });
@@ -50,8 +53,43 @@ test("selection formatting survives menu hide, reappearance and React cleanup", 
   await editor.click();
   await editor.press("ControlOrMeta+a");
   await expect(toolbar).toBeVisible();
+  await expect(bold).toHaveAttribute("aria-pressed", "true");
+  await expect(toolbar.getByRole("button", { name: "Italic", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await page.keyboard.press("Alt+0");
   await expect(page.getByRole("textbox", { name: "Task title" })).toHaveCount(0);
   await expect(toolbar).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test("an open mention follows its anchor after a remote description update", async ({ page }) => {
+  await page.goto("/tests/task-commands.html?mentionRefresh");
+  await page.addStyleTag({ content: ".tiptap > p:first-child { padding-block-end: 32px; }" });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  const editor = page.locator(".tiptap");
+  await editor.getByText("@", { exact: true }).click();
+  await editor.press("End");
+  const menu = page.getByRole("list", { name: "Mention a task or thread" });
+  const anchor = editor.locator("[data-decoration-id]");
+  await expect(menu.getByRole("button", { name: "TSK-2 Task 2" })).toBeVisible();
+  const originalBottom = await anchor.evaluate((node) => node.getBoundingClientRect().bottom);
+  const readTop = () => menu.evaluate((node) => node.getBoundingClientRect().top);
+  const originalTop = await readTop();
+  const readMenuOffset = () => menu.evaluate((node) => Number.parseFloat(node.style.top));
+  const originalOffset = await readMenuOffset();
+
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-update-mention-description")));
+  await expect(editor.getByRole("heading", { name: "before" })).toBeVisible();
+  const anchorBottom = await anchor.evaluate((node) => node.getBoundingClientRect().bottom);
+  const direction = Math.sign(anchorBottom - originalBottom);
+  expect(Math.abs(anchorBottom - originalBottom)).toBeGreaterThan(4);
+  await expect.poll(async () => direction * ((await readTop()) - originalTop)).toBeGreaterThan(4);
+  await expect
+    .poll(async () => direction * ((await readMenuOffset()) - originalOffset))
+    .toBeGreaterThan(4);
+  await expect(menu.getByRole("button", { name: "TSK-2 Task 2" })).toBeVisible();
 });

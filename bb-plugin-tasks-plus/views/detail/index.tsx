@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -12,7 +13,13 @@ import type { SingleTask, Task } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
 import { useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
-import { listAllTasks, useMentionItems, useTasksQuery, useTasksRpc } from "../../shell/data.js";
+import {
+  listAllTasks,
+  useMentionItems,
+  useTasksQuery,
+  useTasksRpc,
+  type TasksRpc,
+} from "../../shell/data.js";
 import {
   useSessionLabels,
   useSessionPresets,
@@ -208,6 +215,41 @@ const DetailSkeleton = () => {
   );
 };
 
+interface DetailSaveInput {
+  rpc: TasksRpc;
+  previews: ReturnType<typeof useTaskPreviews>;
+  savedTask: SingleTask;
+}
+
+interface DetailSaveConfirmation {
+  task: SingleTask;
+  querySnapshot: SingleTask;
+  changeId?: string;
+}
+
+function createDetailEditor(taskId: string) {
+  let input: DetailSaveInput | undefined;
+  const edits = createTaskEditSession<DetailSaveConfirmation>(taskId, {
+    save: async (taskId, patch) => {
+      if (!input) throw new Error("Task edit session has not committed");
+      const { rpc, previews, savedTask: querySnapshot } = input;
+      const result = await rpc.call("updateTask", { taskId, ...patch });
+      if (!result.ok) return { ok: false, errorMessage: result.error.message };
+      previews.invalidateReuse(result.task.key, result.changeId);
+      return {
+        ok: true,
+        confirmation: { task: result.task, querySnapshot, changeId: result.changeId },
+      };
+    },
+  });
+  return {
+    edits,
+    commit(next: DetailSaveInput) {
+      input = next;
+    },
+  };
+}
+
 const TaskDetail = ({
   task: savedTask,
   onTaskChanged,
@@ -217,8 +259,6 @@ const TaskDetail = ({
 }) => {
   const rpc = useTasksRpc();
   const previews = useTaskPreviews();
-  const previewsRef = useRef(previews);
-  previewsRef.current = previews;
   const delegationRpc = useRpc<DelegationRpcContract>();
   const navigation = useTasksNavigation();
   const { toasts, push, dismiss } = useDetailToasts();
@@ -227,37 +267,18 @@ const TaskDetail = ({
   const previewFallback = useRef<HTMLButtonElement>(null);
 
   const transition = useTasksSession();
-  const rpcRef = useRef(rpc);
-  rpcRef.current = rpc;
-  const savedTaskRef = useRef(savedTask);
-  savedTaskRef.current = savedTask;
-  const confirmedTask = useRef<{
-    task: SingleTask;
-    querySnapshot: SingleTask;
-    changeId?: string;
-  } | null>(null);
-  const [edits] = useState(() =>
-    createTaskEditSession(savedTask.id, {
-      save: async (taskId, patch) => {
-        const querySnapshot = savedTaskRef.current;
-        const result = await rpcRef.current.call("updateTask", {
-          taskId,
-          ...patch,
-        });
-        if (result.ok) {
-          confirmedTask.current = { task: result.task, querySnapshot, changeId: result.changeId };
-          previewsRef.current.invalidateReuse(result.task.key, result.changeId);
-        }
-        return result.ok ? { ok: true } : { ok: false, errorMessage: result.error.message };
-      },
-    }),
+  const taskId = savedTask.id;
+  const editor = useMemo(() => createDetailEditor(taskId), [taskId]);
+  const { edits } = editor;
+  useLayoutEffect(
+    () => editor.commit({ rpc, previews, savedTask }),
+    [editor, rpc, previews, savedTask],
   );
   const editState = useSyncExternalStore(edits.subscribe, edits.getSnapshot);
+  const confirmed = editState.confirmation;
   useEffect(() => {
-    if (!editState.pending && confirmedTask.current)
-      previews.invalidate(savedTask.key, confirmedTask.current.changeId);
-  }, [editState.pending, previews, savedTask.key]);
-  const confirmed = confirmedTask.current;
+    if (!editState.pending && confirmed) previews.invalidate(savedTask.key, confirmed.changeId);
+  }, [editState.pending, confirmed, previews, savedTask.key]);
   // A save reply may arrive after a newer realtime query. Timestamp wins;
   // identity only breaks ties against the snapshot present when the write began.
   const baseTask =
@@ -675,18 +696,23 @@ const DetailQuery = ({ taskKey, onMissing, reconcileRevision, onReady }: DetailV
   });
   // A confirmed deletion still crosses the save barrier. Keep this keyed query's
   // originating editor mounted until the workspace accepts clearing its identity.
-  const previousTask = useRef<SingleTask | null>(null);
-  useLayoutEffect(() => {
-    if (query.data) previousTask.current = query.data;
-  }, [query.data]);
-  const task = query.data ?? (onMissing && query.data === null ? previousTask.current : null);
+  const [previousTask, setPreviousTask] = useState<SingleTask | null>(null);
+  if (query.data && query.data !== previousTask) setPreviousTask(query.data);
+  const task = query.data ?? (onMissing && query.data === null ? previousTask : null);
+  const missing = useMemo(
+    () =>
+      !query.isLoading && query.error === null && query.data === null
+        ? { taskKey, reconcileRevision }
+        : null,
+    [query.isLoading, query.error, query.data, taskKey, reconcileRevision],
+  );
   useEffect(() => {
-    if (!query.isLoading && query.error === null && query.data === null)
-      onMissing?.(taskKey, () => {
-        const latest = latestQuery.current;
-        return !latest.isLoading && latest.error === null && latest.data === null;
-      });
-  }, [query.isLoading, query.error, query.data, onMissing, taskKey, reconcileRevision]);
+    if (!missing) return;
+    onMissing?.(missing.taskKey, () => {
+      const latest = latestQuery.current;
+      return !latest.isLoading && latest.error === null && latest.data === null;
+    });
+  }, [missing, onMissing]);
   if (query.data === undefined) {
     const handleRefresh = query.refresh;
     return query.error ? (

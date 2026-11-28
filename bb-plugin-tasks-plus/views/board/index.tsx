@@ -1,17 +1,18 @@
 import {
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import type { Label, Task, TaskStatus, TaskThread } from "../../shared/contract.js";
-import { useTasksRpc } from "../../shell/data.js";
 import { useBoardData, type BoardCardMeta } from "./data.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { PriorityEditor, StatusEditor, type EditFn } from "../list/property-menus.js";
 import {
-  forFocusedTask,
+  focusedTaskKey,
   moveFocusAcrossColumns,
   moveFocusInColumn,
 } from "../keyboard-navigation.js";
@@ -57,6 +58,12 @@ function groupColumns(tasks: readonly Task[]): ColumnMap {
   };
   for (const task of tasks) columns[task.status].push(task);
   return columns;
+}
+
+function findBoardTask(columns: ColumnMap, taskId: string) {
+  return Object.values(columns)
+    .flat()
+    .find((task) => task.id === taskId);
 }
 
 interface DragState {
@@ -250,29 +257,45 @@ interface BoardViewProps {
 }
 
 export const BoardView = ({ projectId }: BoardViewProps) => {
-  const rpc = useTasksRpc();
   const navigation = useTasksNavigation();
   const board = useBoardData(projectId);
 
   const [dependency, setDependency] = useState<DependencyFilter | undefined>();
-  const [columns, setColumns] = useState<ColumnMap | undefined>(undefined);
-  useEffect(() => {
-    setColumns(undefined);
-  }, [projectId]);
-  useEffect(() => {
-    if (!board.tasks) return;
-    const shown =
+  const { scope, tasks } = board;
+  const { rpc } = scope;
+  const source = useMemo(() => {
+    if (tasks === undefined) return undefined;
+    return groupColumns(
       dependency === undefined
-        ? board.tasks
-        : board.tasks.filter((task) => (task.blocked === true) === (dependency === "blocked"));
-    setColumns(groupColumns(shown));
-  }, [board.tasks, dependency]);
-  const columnsRef = useRef(columns);
-  columnsRef.current = columns;
+        ? tasks
+        : tasks.filter((task) => (task.blocked === true) === (dependency === "blocked")),
+    );
+  }, [tasks, dependency]);
+  const [move, setMove] = useState<{
+    scope: typeof scope;
+    source: ColumnMap;
+    columns: ColumnMap;
+  } | null>(null);
+  const columns = move?.scope === scope && move.source === source ? move.columns : source;
+  const committedColumns = useRef<{
+    scope: typeof scope;
+    source: ColumnMap;
+    columns: ColumnMap;
+  } | null>(null);
+  useLayoutEffect(() => {
+    committedColumns.current = source && columns ? { scope, source, columns } : null;
+    return () => {
+      committedColumns.current = null;
+    };
+  }, [scope, source, columns]);
 
-  const [drag, setDrag] = useState<DragState | null>(null);
+  const [gesture, setGesture] = useState<(DragState & { scope: typeof scope }) | null>(null);
+  const drag = gesture?.scope === scope ? gesture : null;
   const [quickAddStatus, setQuickAddStatus] = useState<TaskStatus | null>(null);
-  const [moveError, setMoveError] = useState<string | null>(null);
+  const [moveFailure, setMoveFailure] = useState<{ scope: typeof scope; message: string } | null>(
+    null,
+  );
+  const moveError = moveFailure?.scope === scope ? moveFailure.message : null;
   const boardRef = useRef<HTMLDivElement | null>(null);
   const columnRefs = useRef(new Map<TaskStatus, HTMLDivElement>());
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
@@ -285,8 +308,9 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
     y: number,
     draggedTaskId: string,
   ): { status: TaskStatus; index: number } | null => {
-    const current = columnsRef.current;
-    if (!current) return null;
+    const view = committedColumns.current;
+    if (view?.scope !== scope) return null;
+    const current = view.columns;
     const boardRect = boardRef.current?.getBoundingClientRect();
     if (
       boardRect &&
@@ -318,26 +342,31 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
 
   const commitDrop = async (taskId: string, toStatus: TaskStatus, dropIndex: number) => {
-    const task = Object.values(columnsRef.current ?? {})
-      .flat()
-      .find((entry) => entry.id === taskId);
+    const view = committedColumns.current;
+    if (view?.scope !== scope) return;
+    const task = findBoardTask(view.columns, taskId);
+    if (!task) return;
     if (
-      task &&
       toStatus === "in_progress" &&
       task.status !== "in_progress" &&
       !(await confirmBlockedWork(task))
     ) {
       return;
     }
-    const current = columnsRef.current;
-    if (!current) return;
+    const ready = committedColumns.current;
+    if (ready?.scope !== scope || !findBoardTask(ready.columns, taskId)) return;
+    const current = ready.columns;
     const neighbors = dropNeighborsForIndex(
       current[toStatus].map((task) => task.id),
       taskId,
       dropIndex,
     );
-    setMoveError(null);
-    setColumns(applyBoardMove(current, taskId, toStatus, dropIndex));
+    setMoveFailure(null);
+    setMove({
+      scope,
+      source: ready.source,
+      columns: applyBoardMove(current, taskId, toStatus, dropIndex),
+    });
     void rpc
       .call("boardMove", {
         taskId,
@@ -347,14 +376,16 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
       })
       .then(
         (result) => {
+          if (committedColumns.current?.scope !== scope) return;
           if (!result.ok) {
-            setMoveError(result.error.message);
+            setMoveFailure({ scope, message: result.error.message });
             board.refresh();
           }
           return;
         },
         (moveError) => {
-          setMoveError(errorMessage(moveError));
+          if (committedColumns.current?.scope !== scope) return;
+          setMoveFailure({ scope, message: errorMessage(moveError) });
           board.refresh();
         },
       );
@@ -374,7 +405,8 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
 
     const updateDrag = (moveEvent: PointerEvent) => {
       const target = findDropTarget(moveEvent.clientX, moveEvent.clientY, task.id);
-      setDrag({
+      setGesture({
+        scope,
         taskId: task.id,
         x: moveEvent.clientX,
         y: moveEvent.clientY,
@@ -403,7 +435,7 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
         const target = findDropTarget(upEvent.clientX, upEvent.clientY, task.id);
         if (target) void commitDrop(task.id, target.status, target.index);
       }
-      setDrag(null);
+      setGesture(null);
       suppressClickRef.current = true;
       setTimeout(() => {
         suppressClickRef.current = false;
@@ -431,10 +463,11 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
     taskKey: string;
     menu: CardMenu;
   } | null>(null);
-  const forFocusedCard = (act: (taskKey: string) => void) =>
-    forFocusedTask(() => boardRef.current, act);
-  const openCardMenu = (menu: CardMenu) =>
-    forFocusedCard((taskKey) => setCardMenu({ taskKey, menu }));
+  const openCardMenu = (menu: CardMenu) => {
+    const taskKey = focusedTaskKey(boardRef.current);
+    if (taskKey === null) return false;
+    setCardMenu({ taskKey, menu });
+  };
   const editCard: EditFn = (task, patch) => {
     if (patch.status !== undefined) {
       void commitDrop(task.id, patch.status, columns?.[patch.status].length ?? 0);
@@ -444,13 +477,17 @@ export const BoardView = ({ projectId }: BoardViewProps) => {
   };
 
   useShortcuts({
-    "board.status": openCardMenu("status"),
-    "board.priority": openCardMenu("priority"),
+    "board.status": () => openCardMenu("status"),
+    "board.priority": () => openCardMenu("priority"),
     "board.down": () => moveFocusInColumn(boardRef.current, 1),
     "board.up": () => moveFocusInColumn(boardRef.current, -1),
     "board.right": () => moveFocusAcrossColumns(boardRef.current, 1),
     "board.left": () => moveFocusAcrossColumns(boardRef.current, -1),
-    "board.open": forFocusedCard((taskKey) => navigation.go({ kind: "task", taskKey })),
+    "board.open": () => {
+      const taskKey = focusedTaskKey(boardRef.current);
+      if (taskKey === null) return false;
+      navigation.go({ kind: "task", taskKey });
+    },
   });
 
   if (columns === undefined) {

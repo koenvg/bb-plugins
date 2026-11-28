@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTasksNavigation } from "../../shell/routes.js";
 import { useShortcuts } from "../../shell/shortcut-provider.js";
 import { canRestoreBrowseFocus } from "../../shell/shortcuts.js";
-import { forFocusedTask, moveFocusInList } from "../keyboard-navigation.js";
+import { focusedTaskKey, moveFocusInList } from "../keyboard-navigation.js";
 import { useTaskListMeta } from "./data.js";
 import { useListScrollRestoration } from "./scroll-restoration.js";
 import { visibleTreeTasks, type useSelectionTree } from "./selection-tree.js";
@@ -13,7 +13,12 @@ import type { ListData } from "./use-list-data.js";
 interface ListControlOptions {
   data: Pick<
     ListData,
-    "preferenceScope" | "scopeKey" | "sectionFocus" | "filters" | "orderSettled" | "treeReady"
+    | "preferenceScope"
+    | "scopeKey"
+    | "sectionFocusRequest"
+    | "filters"
+    | "orderSettled"
+    | "treeReady"
   >;
   rendered: ReturnType<typeof useSelectionTree>;
   selectedTaskKey: string | null;
@@ -33,7 +38,7 @@ export function useListControls({
   onVisibleOrderChange,
   canRestoreSectionFocus,
 }: ListControlOptions) {
-  const { preferenceScope, scopeKey, sectionFocus, filters, orderSettled, treeReady } = data;
+  const { preferenceScope, scopeKey, sectionFocusRequest, filters, orderSettled, treeReady } = data;
   const navigation = useTasksNavigation();
   const openTaskAction = useRef({ onRequestSelection, navigation });
   useLayoutEffect(() => {
@@ -49,43 +54,47 @@ export function useListControls({
     taskKey: string;
     menu: RowMenu;
   } | null>(null);
-  const forFocusedRow = (act: (taskKey: string) => void) =>
-    forFocusedTask(() => scrollRef.current, act);
-  const openRowMenuFromShortcut = (menu: RowMenu) =>
-    forFocusedRow((taskKey) => {
-      if (onRequestSelection && taskKey !== selectedTaskKey) return;
-      setOpenRowMenu({ taskKey, menu });
-    });
+  const openFocusedRowMenu = (menu: RowMenu) => {
+    const taskKey = focusedTaskKey(scrollRef.current);
+    if (taskKey === null) return false;
+    if (!onRequestSelection || taskKey === selectedTaskKey) setOpenRowMenu({ taskKey, menu });
+  };
   useShortcuts({
     "list.next": onRequestSelection ? null : () => moveFocusInList(scrollRef.current, 1),
     "list.previous": onRequestSelection ? null : () => moveFocusInList(scrollRef.current, -1),
-    "list.open": onRequestSelection ? null : forFocusedRow((taskKey) => openTask(taskKey)),
-    "list.status": openRowMenuFromShortcut("status"),
-    "list.priority": openRowMenuFromShortcut("priority"),
-    "list.labels": openRowMenuFromShortcut("labels"),
+    "list.open": onRequestSelection
+      ? null
+      : () => {
+          const taskKey = focusedTaskKey(scrollRef.current);
+          if (taskKey === null) return false;
+          openTask(taskKey);
+        },
+    "list.status": () => openFocusedRowMenu("status"),
+    "list.priority": () => openFocusedRowMenu("priority"),
+    "list.labels": () => openFocusedRowMenu("labels"),
   });
 
   const visibleTasks = useMemo(() => visibleTreeTasks(rendered.tree), [rendered.tree]);
   const visibleKeys = JSON.stringify(visibleTasks.map((task) => task.key));
   const visibleOrderSettled = orderSettled && !rendered.retained;
   useEffect(() => {
-    const pending = sectionFocus.current;
+    const pending = sectionFocusRequest.read();
     if (!pending) return;
     if (pending.scope !== preferenceScope || !visible) {
-      sectionFocus.current = null;
+      sectionFocusRequest.clear();
       return;
     }
     const list = scrollRef.current;
     // An accepted collapse does not retain ownership of another pane or overlay.
     if (!list || !(canRestoreSectionFocus?.() ?? canRestoreBrowseFocus(list))) {
-      sectionFocus.current = null;
+      sectionFocusRequest.clear();
       return;
     }
     // A retained tree keeps the section expanded until hidden selection clears.
-    if (rendered.retained) return;
+    if (selectedTaskKey !== null && rendered.retained) return;
     const group = rendered.tree.groups.find((value) => value.status === pending.status);
     if (!group?.collapsed) return;
-    sectionFocus.current = null;
+    sectionFocusRequest.clear();
     list
       .querySelector<HTMLButtonElement>(`[data-status-group-header="${pending.status}"]`)
       ?.focus({ preventScroll: true });
@@ -96,6 +105,7 @@ export function useListControls({
     visible,
     selectedTaskKey,
     canRestoreSectionFocus,
+    sectionFocusRequest,
   ]);
   const meta = useTaskListMeta(
     treeReady ? visibleTasks : undefined,

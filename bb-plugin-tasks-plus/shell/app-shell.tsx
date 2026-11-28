@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { useProjects } from "./data.js";
 import {
@@ -101,13 +101,11 @@ const TasksAppShellContent = ({ subPath: requestedSubPath }: PluginNavPanelProps
     return () => observer.disconnect();
   }, []);
 
-  const lastBrowseRouteRef = useRef<TasksRoute | null>(null);
-  useEffect(() => {
-    if (route.kind !== "task" && route.kind !== "entry") {
-      lastBrowseRouteRef.current = route;
-    }
-  }, [route]);
-  const backFromTask = () => navigation.go(lastBrowseRouteRef.current ?? { kind: "all" });
+  const [lastBrowseRoute, setLastBrowseRoute] = useState<TasksRoute | null>(null);
+  if (route.kind !== "task" && route.kind !== "entry" && route !== lastBrowseRoute) {
+    setLastBrowseRoute(route);
+  }
+  const backFromTask = () => navigation.go(lastBrowseRoute ?? { kind: "all" });
   const noProjects = !projects.isLoading && projects.error === null && projects.data?.length === 0;
   // A selected browse editor must accept clearing before inventory can replace
   // its outlet. Stale/failed inventory is never evidence of project removal.
@@ -162,13 +160,12 @@ const TasksAppShellContent = ({ subPath: requestedSubPath }: PluginNavPanelProps
             route={route}
             projects={projects}
             pagerScope={
-              lastBrowseRouteRef.current === null
+              lastBrowseRoute === null
                 ? null
                 : {
                     projectId:
-                      lastBrowseRouteRef.current.kind === "project" ||
-                      lastBrowseRouteRef.current.kind === "stats"
-                        ? (lastBrowseRouteRef.current.projectId ?? null)
+                      lastBrowseRoute.kind === "project" || lastBrowseRoute.kind === "stats"
+                        ? (lastBrowseRoute.projectId ?? null)
                         : null,
                   }
             }
@@ -204,7 +201,7 @@ const TasksAppShellContent = ({ subPath: requestedSubPath }: PluginNavPanelProps
         {newTaskOpen ? (
           <NewTaskDialog open onOpenChange={setNewTaskOpen} projectId={newTaskProjectId} />
         ) : null}
-        {newProjectOpen ? <NewProjectDialog open onOpenChange={setNewProjectOpen} /> : null}
+        {newProjectOpen ? <NewProjectDialog onOpenChange={setNewProjectOpen} /> : null}
         <ProjectSwitcher
           open={projectSwitcherOpen}
           onOpenChange={setProjectSwitcherOpen}

@@ -34,23 +34,31 @@ export const ProjectDeleteDialog = ({
   const cancel = useRef<HTMLButtonElement | null>(null);
   const submitting = useRef(false);
   const [prefix, setPrefix] = useState("");
-  const [count, setCount] = useState<number | null>(null);
-  const [countError, setCountError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const [taskCount, setTaskCount] = useState<{
+    count: number | null;
+    countError: string | null;
+    attempt: number;
+  }>({ count: null, countError: null, attempt: 0 });
+  const { count, countError, attempt } = taskCount;
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const confirmed = count !== null && prefix === project.prefix && prefix.length > 0;
 
   useEffect(() => {
     let active = true;
-    void listAllTasks(rpc, { projectId: project.id }).then(
-      (tasks) => {
-        if (active) setCount(tasks.length);
-        return;
-      },
-      (countError) => {
-        if (active) setCountError(errorMessage(countError));
-      },
-    );
+    const settle = (result: { count: number } | { countError: string }) => {
+      if (!active) return;
+      setTaskCount((current) =>
+        current.attempt === attempt ? { ...current, ...result } : current,
+      );
+    };
+    void (async () => {
+      try {
+        const tasks = await listAllTasks(rpc, { projectId: project.id });
+        settle({ count: tasks.length });
+      } catch (error) {
+        settle({ countError: errorMessage(error) });
+      }
+    })();
     return () => {
       active = false;
     };
@@ -63,13 +71,11 @@ export const ProjectDeleteDialog = ({
   async function submit() {
     if (!confirmed || !canDelete || submitting.current || isLocked()) return;
     submitting.current = true;
-    try {
-      await onDelete();
-    } catch (error) {
-      setDeleteError(errorMessage(error));
-    } finally {
-      submitting.current = false;
-    }
+    await Promise.try(onDelete)
+      .catch((error: unknown) => setDeleteError(errorMessage(error)))
+      .finally(() => {
+        submitting.current = false;
+      });
   }
 
   return (
@@ -116,9 +122,11 @@ export const ProjectDeleteDialog = ({
               disabled={pending}
               onClick={() => {
                 if (isLocked()) return;
-                setCount(null);
-                setCountError(null);
-                setAttempt((value) => value + 1);
+                setTaskCount((current) => ({
+                  count: null,
+                  countError: null,
+                  attempt: current.attempt + 1,
+                }));
               }}
             >
               Retry task count

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ExperimentalOpenTabOptions } from "@get-bb/plugin-sdk/app";
 import { fail as missingValue } from "node:assert/strict";
-import { useEffect, useLayoutEffect, useState, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
@@ -63,21 +63,22 @@ describe("production-mounting host boundary without test renderer", () => {
       context: ReturnType<typeof useBbContext>;
       navigate: ReturnType<typeof useBbNavigate>;
       controller: ReturnType<typeof experimental_useAppPanel>;
-      mount: number;
+      mount: string;
       subPath: string;
       ticketVisible: boolean;
     };
     const latest: { snapshot?: Snapshot } = {};
     const read = () => latest.snapshot ?? missingValue("Expected navigation snapshot");
     const Consumer = ({ subPath, ticketVisible }: { subPath: string; ticketVisible: boolean }) => {
-      const [mount] = useState(() => ++created);
+      const mount = useId();
       const rpc = useRpc();
       const context = useBbContext();
       const navigate = useBbNavigate();
       const controller = experimental_useAppPanel();
       useEffect(() => {
+        created += 1;
         return () => {
-          destroyed++;
+          destroyed += 1;
         };
       }, []);
       latest.snapshot = { rpc, context, navigate, controller, mount, subPath, ticketVisible };
@@ -237,7 +238,10 @@ describe("production-mounting host boundary without test renderer", () => {
     const accepted: string[] = [];
     let navigate: ReturnType<typeof useBbNavigate>;
     const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
-      navigate = useBbNavigate();
+      const navigation = useBbNavigate();
+      useLayoutEffect(() => {
+        navigate = navigation;
+      }, [navigation]);
       const previous = useRef(subPath);
       useLayoutEffect(() => {
         if (previous.current === subPath) return;
@@ -270,10 +274,9 @@ describe("production-mounting host boundary without test renderer", () => {
     const visited: string[] = [];
     let mounts = 0;
     const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
-      useState(() => {
+      useLayoutEffect(() => {
         mounts += 1;
-        return null;
-      });
+      }, []);
       useLayoutEffect(() => {
         visited.push(subPath);
       }, [subPath]);
@@ -310,7 +313,10 @@ describe("production-mounting host boundary without test renderer", () => {
     });
     let navigate: ReturnType<typeof useBbNavigate>;
     const Consumer = ({ subPath }: { subPath: string; ticketVisible: boolean }) => {
-      navigate = useBbNavigate();
+      const navigation = useBbNavigate();
+      useLayoutEffect(() => {
+        navigate = navigation;
+      }, [navigation]);
       return <output>{subPath}</output>;
     };
     host.lifecycle.mount(container, Consumer);

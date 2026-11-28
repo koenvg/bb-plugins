@@ -69,12 +69,17 @@ export const SubmitPanel = ({
   const [event, setEvent] = useState<ReviewEvent>("COMMENT");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<SubmitReviewResult | null>(null);
-  const [submittedAt, setSubmittedAt] = useState<number | null>(null);
+  const [submission, setSubmission] = useState({ generation: 0, visible: false });
+  const { generation, visible } = submission;
   useEffect(() => {
-    if (submittedAt === null) return;
-    const timer = setTimeout(() => setSubmittedAt(null), SUBMITTED_LABEL_MS);
+    if (generation === 0) return;
+    const timer = setTimeout(() => {
+      setSubmission((current) =>
+        current.generation === generation ? { generation, visible: false } : current,
+      );
+    }, SUBMITTED_LABEL_MS);
     return () => clearTimeout(timer);
-  }, [submittedAt]);
+  }, [generation]);
 
   const rules = submitRules({
     viewerIsAuthor: head.viewerIsAuthor,
@@ -100,7 +105,7 @@ export const SubmitPanel = ({
       summary.clear();
       onWritten();
       announceSummaryWritten(threadId);
-      setSubmittedAt(Date.now());
+      setSubmission((current) => ({ generation: current.generation + 1, visible: true }));
     }
     setOutcome(result);
     setBusy(false);
@@ -165,7 +170,7 @@ export const SubmitPanel = ({
               disabled={busy || selected.disabledReason !== null}
               onClick={() => void submit()}
             >
-              <SubmitLabel busy={busy} submittedAt={submittedAt} />
+              <SubmitLabel busy={busy} submission={visible ? generation : null} />
             </button>
           </div>
           {selected.disabledReason !== null && (
@@ -210,7 +215,7 @@ export const SubmitPanel = ({
 
 const SUBMITTED_LABEL_MS = 1800;
 
-const SubmitLabel = ({ busy, submittedAt }: { busy: boolean; submittedAt: number | null }) => {
+const SubmitLabel = ({ busy, submission }: { busy: boolean; submission: number | null }) => {
   if (busy) {
     return (
       <>
@@ -219,10 +224,10 @@ const SubmitLabel = ({ busy, submittedAt }: { busy: boolean; submittedAt: number
       </>
     );
   }
-  if (submittedAt !== null) {
+  if (submission !== null) {
     return (
       <span
-        key={submittedAt}
+        key={submission}
         className="inline-flex items-center gap-1 duration-200 animate-in fade-in"
       >
         <Icon

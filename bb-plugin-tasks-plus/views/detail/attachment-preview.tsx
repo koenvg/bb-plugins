@@ -1,4 +1,12 @@
-import { useId, useMemo, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+  type RefObject,
+} from "react";
 import {
   MarkdownDocument,
   createDocumentModel,
@@ -41,7 +49,7 @@ interface FocusSession {
   trigger: HTMLElement;
 }
 type PreviewState =
-  | { kind: "closed" }
+  | { kind: "closed"; focusToken?: number }
   | {
       kind: "open";
       taskId: string;
@@ -146,6 +154,19 @@ async function loadPreview(subject: Attachment, signal: AbortSignal): Promise<Re
   }
 }
 
+function attachmentNavigation(body: RefObject<HTMLElement | null>) {
+  return {
+    container: body,
+    reveal(target: HTMLElement) {
+      const container = body.current;
+      if (!container) return;
+      container.scrollTop +=
+        target.getBoundingClientRect().top - container.getBoundingClientRect().top - 16;
+      target.focus({ preventScroll: true });
+    },
+  };
+}
+
 const AttachmentDocument = ({
   snapshot,
   view,
@@ -159,19 +180,7 @@ const AttachmentDocument = ({
 }) => {
   const namespace = useId();
   const model = useMemo(() => createDocumentModel(snapshot.text, namespace), [snapshot, namespace]);
-  const navigation = useMemo(
-    () => ({
-      container: body,
-      reveal(target: HTMLElement) {
-        const container = body.current;
-        if (!container) return;
-        container.scrollTop +=
-          target.getBoundingClientRect().top - container.getBoundingClientRect().top - 16;
-        target.focus({ preventScroll: true });
-      },
-    }),
-    [body],
-  );
+  const navigation = useMemo(() => attachmentNavigation(body), [body]);
   return (
     <MarkdownDocument
       model={model}
@@ -201,6 +210,22 @@ function usable(element: HTMLElement | null): element is HTMLElement {
   return true;
 }
 
+function createPreviewStore() {
+  let snapshot: PreviewState = { kind: "closed" };
+  const listeners = new Set<() => void>();
+  return {
+    read: () => snapshot,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    publish(next: PreviewState) {
+      snapshot = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
 export function useAttachmentPreview({
   taskId,
   confirmedAttachments,
@@ -220,7 +245,8 @@ export function useAttachmentPreview({
     }),
     [navigate.openUrl],
   );
-  const [state, setState] = useState<PreviewState>({ kind: "closed" });
+  const preview = useMemo(() => createPreviewStore(), []);
+  const state = useSyncExternalStore(preview.subscribe, preview.read);
   const runtime = useRef({
     mounted: false,
     taskId,
@@ -232,19 +258,20 @@ export function useAttachmentPreview({
   });
   const panel = useRef<HTMLDivElement>(null);
   const documentBody = useRef<HTMLElement>(null);
-  const invalidate = () => {
+  const invalidate = useCallback(() => {
     const owner = runtime.current;
     const previous = owner.ticket;
     owner.ticket = null;
     owner.sequence++;
     previous?.controller.abort();
-  };
-  const close = () => {
+  }, []);
+  const close = useCallback(() => {
     invalidate();
-    runtime.current.closedSession = runtime.current.session;
-    runtime.current.session = null;
-    setState({ kind: "closed" });
-  };
+    const owner = runtime.current;
+    owner.closedSession = owner.session;
+    owner.session = null;
+    preview.publish({ kind: "closed", focusToken: owner.closedSession?.token });
+  }, [invalidate, preview]);
   useLayoutEffect(() => {
     const owner = runtime.current;
     owner.mounted = true;
@@ -255,8 +282,9 @@ export function useAttachmentPreview({
       owner.closedSession = null;
       invalidate();
     };
-  }, [taskId]);
+  }, [taskId, invalidate]);
   useLayoutEffect(() => {
+    if (preview.read() !== state) return;
     if (
       state.kind === "open" &&
       (state.taskId !== taskId ||
@@ -264,7 +292,7 @@ export function useAttachmentPreview({
           !confirmedAttachments.some((attachment) => attachment.id === state.subject.id)))
     )
       close();
-  }, [taskId, confirmedAttachments, state]);
+  }, [taskId, confirmedAttachments, state, close, preview]);
 
   const start = (subject: Attachment, session: FocusSession) => {
     invalidate();
@@ -276,7 +304,7 @@ export function useAttachmentPreview({
       controller: new AbortController(),
     };
     owner.ticket = ticket;
-    setState({
+    preview.publish({
       kind: "open",
       taskId,
       subject,
@@ -288,15 +316,9 @@ export function useAttachmentPreview({
     void loadPreview(subject, ticket.controller.signal).then((resource) => {
       const current = runtime.current;
       if (!current.mounted || current.ticket !== ticket || current.taskId !== ticket.taskId) return;
-      return void setState((value) =>
-        current.ticket === ticket &&
-        value.kind === "open" &&
-        value.sequence === ticket.sequence &&
-        value.subject.id === ticket.attachmentId &&
-        value.taskId === ticket.taskId
-          ? { ...value, resource }
-          : value,
-      );
+      const value = preview.read();
+      if (value.kind !== "open" || value.sequence !== ticket.sequence) return;
+      return void preview.publish({ ...value, resource });
     });
   };
   const open = (subject: Attachment, trigger: HTMLElement) => {
@@ -309,8 +331,7 @@ export function useAttachmentPreview({
   const removed = (id: string) => {
     if (runtime.current.ticket?.attachmentId === id) close();
   };
-  const focusToken =
-    state.kind === "open" ? state.session.token : runtime.current.closedSession?.token;
+  const focusToken = state.kind === "open" ? state.session.token : state.focusToken;
   const restoreFocus = () => {
     const owner = runtime.current;
     const session = owner.closedSession;
@@ -324,8 +345,10 @@ export function useAttachmentPreview({
     });
   };
   const active = state.kind === "open" ? state : null;
-  const setView = (view: DocumentView) =>
-    setState((current) => (current.kind === "open" ? { ...current, view } : current));
+  const setView = (view: DocumentView) => {
+    const current = preview.read();
+    if (current.kind === "open" && current.view !== view) preview.publish({ ...current, view });
+  };
   return {
     open,
     removed,

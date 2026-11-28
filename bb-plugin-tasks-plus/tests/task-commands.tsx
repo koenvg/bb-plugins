@@ -44,6 +44,7 @@ const project = {
   linkedBbProjectId: "proj_first" as string | null,
   createdAt: "2026-07-15T00:00:00.000Z",
 };
+const mentionRefresh = new URLSearchParams(location.search).has("mentionRefresh");
 const tasks = [1, 2].map((number) =>
   makeTask({
     id: `task-${number}`,
@@ -51,6 +52,7 @@ const tasks = [1, 2].map((number) =>
     number,
     key: `TSK-${number}`,
     title: `Task ${number}`,
+    ...(mentionRefresh && number === 1 ? { description: "before\n\n@" } : {}),
     status: "todo",
     priority: "none",
   }),
@@ -325,6 +327,13 @@ const slot = renderSlot(
   },
 );
 if (durationTransport) Object.assign(window, { taskDurationFixture: slot.behavior });
+if (mentionRefresh) {
+  window.addEventListener("fixture-update-mention-description", () => {
+    const task = requireFixture(tasks[0], "tasks[0]");
+    tasks[0] = { ...task, description: "## before\n\n@" };
+    void deliverChange();
+  });
+}
 
 function requireFixture<T>(value: T | null | undefined, label: string): T {
   if (value == null) throw new Error(`Missing fixture value: ${label}`);

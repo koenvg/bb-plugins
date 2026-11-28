@@ -81,7 +81,7 @@ export function useNewCommentGlowState(
     (commentId: string) => {
       setSeen((current) => new Set(current).add(commentId));
       pending.current.add(commentId);
-      saveTimer.current ??= setTimeout(save, SAVE_DELAY_MS);
+      if (saveTimer.current === undefined) saveTimer.current = setTimeout(save, SAVE_DELAY_MS);
     },
     [save],
   );

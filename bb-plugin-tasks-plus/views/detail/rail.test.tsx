@@ -108,6 +108,42 @@ describe("dispatch target rail control", () => {
     });
   });
 
+  it("uses the updated link while open and retains an unsaved selection after a rejected save", async () => {
+    const failure = Promise.withResolvers<never>();
+    const updates: unknown[] = [];
+    const errors: string[] = [];
+    const props = { ...railProps(null), onError: (message: string) => errors.push(message) };
+    const slot = renderSlot({ component: RailHarness }, props, {
+      rpc: {
+        listBbProjects: () => ({ bbProjects: props.bbProjects }),
+        updateProject: (input: unknown) => {
+          updates.push(input);
+          return updates.length === 1 ? failure.promise : { project: projectRow(null) };
+        },
+      },
+    });
+    fireEvent.click(slot.getByRole("button", { name: "Edit dispatch target" }));
+    const picker = await slot.findByLabelText("Linked bb project");
+    expect(picker.textContent).toBe("Not linked");
+
+    slot.lifecycle.rerender(<RailHarness {...props} project={projectRow(BB_PROJECT_ID)} />);
+    expect(picker.textContent).toBe("bb monorepo");
+    fireEvent.click(picker);
+    fireEvent.click(await slot.findByRole("option", { name: "Unlink" }));
+    const save = slot.getByRole("button", { name: "Save" });
+    fireEvent.click(save);
+    expect(save.hasAttribute("disabled")).toBe(true);
+    failure.reject(new Error("Fixture dispatch save failed"));
+    await waitFor(() => expect(errors).toEqual(["Fixture dispatch save failed"]));
+    expect(picker.textContent).toBe("Unlink");
+    expect(save.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(save);
+    await waitFor(() => expect(slot.queryByLabelText("Linked bb project")).toBeNull());
+    expect(updates).toEqual([
+      { projectId: PROJECT_ID, linkedBbProjectId: null },
+      { projectId: PROJECT_ID, linkedBbProjectId: null },
+    ]);
+  });
   it("shows the linked bb project's name and unlinks it", async () => {
     const updateCalls: Record<string, unknown>[] = [];
     const slot = renderSlot({ component: RailHarness }, railProps(BB_PROJECT_ID), {

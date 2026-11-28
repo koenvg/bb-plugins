@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { useThreadResult, type LoadMode } from "./use-thread-result";
 
 afterEach(cleanup);
@@ -38,6 +39,44 @@ describe("thread result refresh ownership", () => {
     expect(hook.result.current.result).toEqual(current);
     expect(fetch.mock.calls.map(([, mode]) => mode)).toEqual(["load", "refresh", "load"]);
     expect(hook.result.current.refreshing).toBe(false);
+  });
+
+  it("loads a realtime update delivered as a refresh settles", async () => {
+    const pending = deferred<{ head: string }>();
+    let current = { head: "initial" };
+    const fetch = vi.fn((_id: string, mode: LoadMode) =>
+      mode === "refresh" ? pending.promise : Promise.resolve(current),
+    );
+    const eventDelivered = deferred<void>();
+    const hook = renderHook(() => {
+      const thread = useThreadResult("a", fetch);
+      useLayoutEffect(() => {
+        if (
+          !thread.result ||
+          !("head" in thread.result) ||
+          thread.result.head !== "manual snapshot"
+        ) {
+          return;
+        }
+        queueMicrotask(() => {
+          current = { head: "later event" };
+          thread.reload();
+          eventDelivered.resolve();
+        });
+      }, [thread.result, thread.reload]);
+      return thread;
+    });
+    await waitFor(() => expect(hook.result.current.result).toEqual({ head: "initial" }));
+
+    let refresh!: ReturnType<typeof hook.result.current.refresh>;
+    act(() => {
+      refresh = hook.result.current.refresh();
+    });
+    pending.resolve({ head: "manual snapshot" });
+    await eventDelivered.promise;
+    await refresh;
+    await waitFor(() => expect(hook.result.current.result).toEqual({ head: "later event" }));
+    expect(fetch.mock.calls.map(([, mode]) => mode)).toEqual(["load", "refresh", "load"]);
   });
 
   it("uses newer cache data when another update follows the refresh snapshot", async () => {

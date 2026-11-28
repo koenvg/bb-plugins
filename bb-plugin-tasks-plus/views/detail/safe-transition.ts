@@ -6,7 +6,7 @@ import type { TaskEditSession } from "./edit-session.js";
  * request throws on synchronous reentry or during commit, before changing the
  * destination. Requests during an active save still share the latest destination. */
 export function createSafeTaskTransition() {
-  let editor: TaskEditSession | undefined;
+  let editor: TaskEditSession<unknown> | undefined;
   let destination: (() => void) | undefined;
   let running: Promise<boolean> | undefined;
   let requesting = false;
@@ -62,7 +62,7 @@ export function createSafeTaskTransition() {
         pendingListeners.delete(listener);
       };
     },
-    register(next: TaskEditSession) {
+    register(next: TaskEditSession<unknown>) {
       editor = next;
       return () => {
         if (editor === next) editor = undefined;

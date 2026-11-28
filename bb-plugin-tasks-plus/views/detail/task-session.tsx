@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -14,7 +15,7 @@ const TasksSessionContext = createContext<ReturnType<typeof createSafeTaskTransi
 
 /** Mount once around the Tasks workspace, not once per selected ticket. */
 export const TasksSessionProvider = ({ children }: { children: ReactNode }) => {
-  const [transition] = useState(createSafeTaskTransition);
+  const transition = useMemo(() => createSafeTaskTransition(), []);
   useEffect(() => () => transition.cancel(), [transition]);
   return (
     <TasksSessionContext.Provider value={transition}>

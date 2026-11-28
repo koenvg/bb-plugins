@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { Project } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import { useProjects, useTasksRpc } from "../../shell/data.js";
@@ -24,15 +33,44 @@ interface Mutation {
   kind: "save" | "delete";
 }
 
+function createPendingDeletions() {
+  let snapshot: Readonly<Record<string, number>> = {};
+  const listeners = new Set<() => void>();
+  const publish = (next: typeof snapshot) => {
+    snapshot = next;
+    for (const listener of listeners) listener();
+  };
+  return {
+    read: () => snapshot,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    record(id: string, revision: number) {
+      publish({ ...snapshot, [id]: revision });
+    },
+    confirm(projects: readonly Project[], revision: number) {
+      const remaining = Object.entries(snapshot);
+      const unconfirmed = remaining.filter(
+        ([id, deletedAt]) => revision <= deletedAt || projects.some((project) => project.id === id),
+      );
+      if (unconfirmed.length !== remaining.length) publish(Object.fromEntries(unconfirmed));
+    },
+  };
+}
+
 export const ProjectsSection = () => {
   const inventory = useProjects();
   const rpc = useTasksRpc();
   const currentInventory = useRef(inventory);
-  currentInventory.current = inventory;
+  useLayoutEffect(() => {
+    currentInventory.current = inventory;
+  }, [inventory]);
   const mutationLock = useRef<Mutation | null>(null);
   const [pending, setPending] = useState<Mutation | null>(null);
   const [selected, setSelected] = useState<Project | null>(null);
-  const [removed, setRemoved] = useState<Record<string, number>>({});
+  const deletions = useMemo(() => createPendingDeletions(), []);
+  const removed = useSyncExternalStore(deletions.subscribe, deletions.read);
   const [notice, setNotice] = useState("");
   const trigger = useRef<HTMLButtonElement | null>(null);
   const heading = useRef<HTMLHeadingElement | null>(null);
@@ -40,25 +78,16 @@ export const ProjectsSection = () => {
   const rows = (inventory.data ?? []).filter((row) => removed[row.id] === undefined);
 
   useEffect(() => {
-    if (!isReady(inventory)) return;
-    setRemoved((previous) => {
-      const confirmed = Object.entries(previous).filter(
-        ([id, revision]) =>
-          inventory.revision > revision && !inventory.data?.some((row) => row.id === id),
-      );
-      if (confirmed.length === 0) return previous;
-      const next = { ...previous };
-      for (const [id] of confirmed) Reflect.deleteProperty(next, id);
-      return next;
-    });
-  }, [inventory]);
+    if (inventory.data !== undefined && ready)
+      deletions.confirm(inventory.data, inventory.revision);
+  }, [deletions, inventory.data, inventory.revision, ready]);
 
   function beginMutation(id: string, kind: Mutation["kind"]) {
     const current = currentInventory.current;
     if (
       mutationLock.current !== null ||
       !isReady(current) ||
-      removed[id] !== undefined ||
+      deletions.read()[id] !== undefined ||
       !current.data?.some((row) => row.id === id)
     )
       return false;
@@ -75,24 +104,27 @@ export const ProjectsSection = () => {
 
   async function deleteSelected(project: Project) {
     if (!beginMutation(project.id, "delete")) return;
+    let failure: { error: unknown } | undefined;
     try {
       const result = await rpc.call("deleteProject", { projectId: project.id, force: true });
-      if (!result.ok) throw new Error(result.error.message);
-      const revision = currentInventory.current.readRevision();
-      setRemoved((previous) => ({
-        ...previous,
-        [project.id]: revision,
-      }));
-      setNotice(
-        result.deleted
-          ? `Deleted ${project.name} (${project.prefix}) and all its tasks.`
-          : `${project.name} (${project.prefix}) is already absent.`,
-      );
-      setSelected(null);
-      inventory.refresh();
-    } finally {
-      endMutation();
+      if (!result.ok) {
+        failure = { error: new Error(result.error.message) };
+      } else {
+        const current = currentInventory.current;
+        deletions.record(project.id, current.readRevision());
+        setNotice(
+          result.deleted
+            ? `Deleted ${project.name} (${project.prefix}) and all its tasks.`
+            : `${project.name} (${project.prefix}) is already absent.`,
+        );
+        setSelected(null);
+        inventory.refresh();
+      }
+    } catch (error) {
+      failure = { error };
     }
+    endMutation();
+    if (failure) throw failure.error;
   }
 
   const restoreFocus = useCallback(() => {
@@ -137,7 +169,7 @@ export const ProjectsSection = () => {
                 key={project.id}
                 project={project}
                 inventory={inventory}
-                mutationLock={mutationLock}
+                isLocked={() => mutationLock.current !== null}
                 pendingId={pending?.id ?? null}
                 savingId={pending?.kind === "save" ? pending.id : null}
                 beginSave={(id) => beginMutation(id, "save")}
@@ -203,7 +235,7 @@ export const ProjectsSection = () => {
 const ProjectRow = ({
   project,
   inventory,
-  mutationLock,
+  isLocked,
   pendingId,
   savingId,
   onDelete,
@@ -212,7 +244,7 @@ const ProjectRow = ({
 }: {
   project: Project;
   inventory: Inventory;
-  mutationLock: RefObject<Mutation | null>;
+  isLocked: () => boolean;
   pendingId: string | null;
   savingId: string | null;
   onDelete: (project: Project, trigger: HTMLButtonElement) => void;
@@ -226,14 +258,14 @@ const ProjectRow = ({
   const [draftColor, setDraftColor] = useState(project.color);
   const [colorOpen, setColorOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const retryErrorSpace = useRef<string | null>(null);
+  const [retryErrorSpace, setRetryErrorSpace] = useState<string | null>(null);
   const observedProject = useRef(project);
   const activeSave = useRef(false);
   const overlappingProject = useRef<Project | null>(null);
   const savedThroughRevision = useRef(-1);
   const locked = pendingId !== null;
   const pending = savingId === project.id;
-  const errorSpace = error ?? (pending ? retryErrorSpace.current : null);
+  const errorSpace = error ?? (pending ? retryErrorSpace : null);
   const name = draftName.trim();
   const colorLabel =
     COLOR_PALETTE.find((swatch) => swatch.value === draftColor)?.label ?? draftColor;
@@ -263,27 +295,39 @@ const ProjectRow = ({
     activeSave.current = true;
     overlappingProject.current = null;
     // Hide the old alert on retry without moving subsequent rows while saving.
-    retryErrorSpace.current = error;
+    setRetryErrorSpace(error);
     setError(null);
+    let outcome: { project: Project; revision: number } | { error: unknown };
     try {
       const result = await rpc.call("updateProject", {
         projectId: project.id,
         name,
         color: draftColor,
       });
-      setSaved(result.project);
-      setDraftName(result.project.name);
-      setDraftColor(result.project.color);
-      savedThroughRevision.current = inventory.readRevision();
-    } catch (saveError) {
-      setError(errorMessage(saveError));
-      if (overlappingProject.current) setSaved(overlappingProject.current);
-    } finally {
-      activeSave.current = false;
-      retryErrorSpace.current = null;
-      overlappingProject.current = null;
-      endSave();
+      outcome = { project: result.project, revision: inventory.readRevision() };
+    } catch (error) {
+      outcome = { error };
     }
+    const overlap = overlappingProject.current;
+    activeSave.current = false;
+    setRetryErrorSpace(null);
+    overlappingProject.current = null;
+    endSave();
+
+    if ("error" in outcome) {
+      if (overlap) setSaved(overlap);
+      try {
+        setError(errorMessage(outcome.error));
+      } catch {
+        setError("Unknown error");
+      }
+      return;
+    }
+    const { project: updated, revision } = outcome;
+    savedThroughRevision.current = revision;
+    setSaved(updated);
+    setDraftName(updated.name);
+    setDraftColor(updated.color);
   }
 
   return (
@@ -307,7 +351,7 @@ const ProjectRow = ({
             value={draftName}
             disabled={locked}
             onChange={(event) => {
-              if (mutationLock.current === null) setDraftName(event.target.value);
+              if (!isLocked()) setDraftName(event.target.value);
             }}
           />
         </form>
@@ -325,7 +369,7 @@ const ProjectRow = ({
         <Popover
           open={colorOpen && !locked}
           onOpenChange={(open) => {
-            if (mutationLock.current === null) setColorOpen(open);
+            if (!isLocked()) setColorOpen(open);
           }}
         >
           <PopoverTrigger asChild>
@@ -357,7 +401,7 @@ const ProjectRow = ({
               <ColorSwatchPicker
                 value={draftColor}
                 onChange={(color, interaction) => {
-                  if (mutationLock.current !== null) return;
+                  if (isLocked()) return;
                   setDraftColor(color);
                   if (interaction === "activate") setColorOpen(false);
                 }}
@@ -396,7 +440,7 @@ const ProjectRow = ({
                 className="shrink-0"
                 disabled={locked}
                 onClick={() => {
-                  if (mutationLock.current !== null) return;
+                  if (isLocked()) return;
                   setDraftName(saved.name);
                   setDraftColor(saved.color);
                   setError(null);

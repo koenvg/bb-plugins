@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { Label, Task, TaskStatus } from "../../shared/contract.js";
 import type { TaskSort } from "../../shared/pagination.js";
 import { useProjects } from "../../shell/data.js";
@@ -37,49 +37,53 @@ export function useListData({
   const projects = useProjects();
   const { toasts, push, dismiss } = useDetailToasts();
   const preferenceScope = listPreferenceScope(projectId, activeOnly);
-  const [preference, setPreference] = useState<ListPreference>(() =>
-    loadListPreference(preferenceScope),
-  );
-  useEffect(() => {
-    setPreference(loadListPreference(preferenceScope));
-  }, [preferenceScope]);
+  const [scopedPreference, setScopedPreference] = useState(() => ({
+    scope: preferenceScope,
+    value: loadListPreference(preferenceScope),
+  }));
+  if (scopedPreference.scope !== preferenceScope) {
+    setScopedPreference({ scope: preferenceScope, value: loadListPreference(preferenceScope) });
+  }
+  const preference = scopedPreference.value;
+  const updatePreference = (change: (current: ListPreference) => ListPreference) => {
+    setScopedPreference((current) => {
+      if (current.scope !== preferenceScope) return current;
+      const value = change(current.value);
+      storeListPreference(current.scope, value);
+      return { scope: current.scope, value };
+    });
+  };
   const filters = preference.filters;
   const sort = preference.sort;
   const setFilters = (next: ListFilterState) => {
     onRequestContextChange(() => {
-      setPreference((current) => {
-        const updated: ListPreference = { ...current, filters: next };
-        storeListPreference(preferenceScope, updated);
-        return updated;
-      });
+      updatePreference((current) => ({ ...current, filters: next }));
     });
   };
   const setSort = (next: TaskSort) => {
     onRequestContextChange(() => {
-      setPreference((current) => {
-        const updated: ListPreference = {
-          ...current,
-          sort: next,
-        };
-        storeListPreference(preferenceScope, updated);
-        return updated;
-      });
+      updatePreference((current) => ({ ...current, sort: next }));
     });
   };
   const sectionFocus = useRef<{ scope: string; status: TaskStatus } | null>(null);
+  const sectionFocusRequest = useMemo(
+    () => ({
+      read: () => sectionFocus.current,
+      clear: () => {
+        sectionFocus.current = null;
+      },
+    }),
+    [],
+  );
   const toggleSection = (status: TaskStatus, collapsed: boolean) => {
     onRequestContextChange(() => {
       if (collapsed) sectionFocus.current = { scope: preferenceScope, status };
-      setPreference((current) => {
-        const updated: ListPreference = {
-          ...current,
-          collapsedStatuses: collapsed
-            ? [...new Set([...current.collapsedStatuses, status])]
-            : current.collapsedStatuses.filter((value) => value !== status),
-        };
-        storeListPreference(preferenceScope, updated);
-        return updated;
-      });
+      updatePreference((current) => ({
+        ...current,
+        collapsedStatuses: collapsed
+          ? [...new Set([...current.collapsedStatuses, status])]
+          : current.collapsedStatuses.filter((value) => value !== status),
+      }));
     });
   };
 
@@ -110,20 +114,20 @@ export function useListData({
     () => mergeTasks(tasksQuery.data, scopeTasks),
     [tasksQuery.data, scopeTasks],
   );
-  const edits = useListTaskEdits(serverTasks, push);
+  const { edit: editTask, entries, pending } = useListTaskEdits(serverTasks, push);
   const { confirmBlockedWork, blockedWorkDialog } = useBlockedWorkConfirm();
   const edit = useCallback<EditFn>(
     (task, patch) => {
       if (patch.status !== "in_progress" || task.status === "in_progress") {
-        onRequestContextChange(() => edits.edit(task, patch));
+        onRequestContextChange(() => editTask(task, patch));
         return;
       }
       void confirmBlockedWork(task).then((confirmed) => {
-        if (confirmed) onRequestContextChange(() => edits.edit(task, patch));
+        if (confirmed) onRequestContextChange(() => editTask(task, patch));
         return;
       });
     },
-    [onRequestContextChange, edits.edit, confirmBlockedWork],
+    [onRequestContextChange, editTask, confirmBlockedWork],
   );
 
   const labelsByProject = useMemo(() => {
@@ -142,13 +146,13 @@ export function useListData({
 
   const displayTasks = useMemo(() => {
     if (tasksQuery.data === undefined) return undefined;
-    return editedTasks(tasksQuery.data, edits.entries).filter((task) =>
+    return editedTasks(tasksQuery.data, entries).filter((task) =>
       matchesFilters(task, filters.statuses, filters.priorities, labelIds ?? []),
     );
-  }, [tasksQuery.data, edits.entries, filters.statuses, filters.priorities, labelIds]);
+  }, [tasksQuery.data, entries, filters.statuses, filters.priorities, labelIds]);
   const displayScope = useMemo(
-    () => (scopeTasks === undefined ? undefined : editedTasks(scopeTasks, edits.entries)),
-    [scopeTasks, edits.entries],
+    () => (scopeTasks === undefined ? undefined : editedTasks(scopeTasks, entries)),
+    [scopeTasks, entries],
   );
 
   const showProject = projectId === null;
@@ -164,29 +168,20 @@ export function useListData({
   );
   const groups = useMemo(() => groupListTree(tree ?? [], sort), [tree, sort]);
   const knownParentIds = useMemo(() => new Set((tree ?? []).map((entry) => entry.task.id)), [tree]);
-  const expanded = useExpandedTasks(
+  const { isExpanded, toggle: toggleExpanded } = useExpandedTasks(
     preferenceScope,
     treeFiltered ? JSON.stringify(filters) : null,
     knownParentIds,
   );
 
   const scopeKey = listScrollScopeKey({ projectId, activeOnly, filters, sort });
-  const [settledScope, setSettledScope] = useState(scopeKey);
-  const scopeChanged = settledScope !== scopeKey;
-  useEffect(() => {
-    if (!tasksQuery.isLoading) setSettledScope(scopeKey);
-  }, [scopeKey, tasksQuery.isLoading, tasksQuery.data]);
-  const routeScope = `${projectId ?? "-"}/${activeOnly}`;
-  const [settledRouteScope, setSettledRouteScope] = useState(routeScope);
-  const routeScopeChanged = settledRouteScope !== routeScope;
-  const previousRouteScope = useRef(routeScope);
-  useEffect(() => {
-    const routeScopeJustChanged = previousRouteScope.current !== routeScope;
-    previousRouteScope.current = routeScope;
-    if (!routeScopeJustChanged && !tasksQuery.isLoading) {
-      setSettledRouteScope(routeScope);
-    }
-  }, [routeScope, tasksQuery.isLoading, tasksQuery.data]);
+  const routeScope = JSON.stringify([projectId, activeOnly]);
+  const [settled, setSettled] = useState({ routeScope, scopeKey });
+  const routeScopeChanged = settled.routeScope !== routeScope;
+  const scopeChanged = settled.scopeKey !== scopeKey;
+  if (!tasksQuery.isLoading && (routeScopeChanged || scopeChanged)) {
+    setSettled({ routeScope, scopeKey });
+  }
 
   const loadError = tasksQuery.error ?? (needsScope ? scopeQuery.error : null);
   // All/Active label names cannot prove absence until the project inventory
@@ -205,7 +200,7 @@ export function useListData({
         !labels.isLoading &&
         labels.error === null &&
         labels.data !== undefined)) &&
-    edits.pending.size === 0;
+    pending.size === 0;
   const candidate = useMemo(
     () => ({
       groups: groups.map((group) => ({
@@ -213,12 +208,12 @@ export function useListData({
         collapsed: preference.collapsedStatuses.includes(group.status),
         entries: group.entries.map((entry) => ({
           ...entry,
-          expanded: expanded.isExpanded(entry),
+          expanded: isExpanded(entry),
         })),
       })),
       count: displayTasks?.length,
     }),
-    [groups, expanded.isExpanded, displayTasks?.length, preference.collapsedStatuses],
+    [groups, isExpanded, displayTasks?.length, preference.collapsedStatuses],
   );
 
   return {
@@ -238,14 +233,14 @@ export function useListData({
     projectsById,
     labelsByProject,
     edit,
-    pending: edits.pending,
-    toggleExpanded: expanded.toggle,
+    pending,
+    toggleExpanded,
     toasts,
     dismiss,
     blockedWorkDialog,
     preferenceScope,
     scopeKey,
-    sectionFocus,
+    sectionFocusRequest,
   };
 }
 

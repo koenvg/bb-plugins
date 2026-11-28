@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { InsightResult } from "../contract";
 import type { PrInsight } from "../core/overview";
 import type { RunnableMergeAction } from "../core/merge-action";
@@ -52,97 +52,119 @@ export function usePaletteMerge(threadId: string, insight: ReturnType<typeof use
     threadId,
     insight.result?.kind === "ok" ? insight.result.insight.pr.headOid : undefined,
   );
-  const [state, setState] = useState<PaletteState>(IDLE);
-  const busy = useRef(false);
-  const currentVersion = versionOf(insight.result);
+  const palette = useMemo(() => createPalette(), []);
+  const state = useSyncExternalStore(palette.subscribe, palette.read);
+  const { result, refreshing, revalidating } = insight;
+  const currentVersion = versionOf(result);
 
-  function showMessage(message: string, version = currentVersion) {
-    busy.current = false;
-    setState({ kind: "message", message, version });
-  }
-  function send(target: Target) {
-    busy.current = false;
-    setState(IDLE);
-    void run({ action: target.action.kind, expectedHeadOid: target.pr.headOid });
-  }
-  function prepare() {
-    if (busy.current || prOperations.snapshot(threadId).kind === "running") return;
-    busy.current = true;
+  useCommandIntent(threadId, "merge", () => {
+    const current = palette.read();
+    if (
+      current.kind === "preparing" ||
+      current.kind === "confirm" ||
+      prOperations.snapshot(threadId).kind === "running"
+    ) {
+      return;
+    }
+    palette.publish({ kind: "preparing" });
     dismissOperation();
-    // Mount effects can deliver an intent before the initial load state renders.
-    setState({ kind: "preparing" });
-  }
-  function prepareResult(result: InsightResult) {
-    if (prOperations.snapshot(threadId).kind === "running") {
-      busy.current = false;
-      setState(IDLE);
-      return;
-    }
-    const version = versionOf(result);
-    if (result.kind === "error") {
-      showMessage(result.message, version);
-      return;
-    }
-    if (result.kind === "no_pr") {
-      showMessage("No pull request for this thread", version);
-      return;
-    }
-    if (result.error !== null) {
-      showMessage(result.error, version);
-      return;
-    }
-    const { pr } = result.insight;
-    const { action: mergeAction } = prStatusView(result.insight);
-    if (mergeAction === null) {
-      showMessage(unavailable(result.insight), version);
-      return;
-    }
-    const target = { pr, action: mergeAction };
-    if (mergeAction.kind === "enqueue") send(target);
-    else setState({ kind: "confirm", target });
-  }
-  useCommandIntent(threadId, "merge", prepare);
+  });
 
   useEffect(() => {
+    if (palette.read() !== state) return;
     if (state.kind === "preparing") {
-      if (insight.result !== null && !insight.refreshing && !insight.revalidating) {
-        prepareResult(insight.result);
+      if (result === null || refreshing || revalidating) return;
+      if (prOperations.snapshot(threadId).kind === "running") {
+        palette.publish(IDLE);
+        return;
+      }
+      const prepared = prepareMerge(result, currentVersion);
+      if (prepared.kind === "confirm" && prepared.target.action.kind === "enqueue") {
+        palette.publish(IDLE);
+        void run({ action: "enqueue", expectedHeadOid: prepared.target.pr.headOid });
+      } else {
+        palette.publish(prepared);
       }
       return;
     }
-    if (state.kind === "message" && state.version !== currentVersion) setState(IDLE);
-    if (state.kind === "message" && operation.kind === "running") setState(IDLE);
-    if (state.kind !== "confirm") return;
-    const { target } = state;
-    const result = insight.result;
-    if (operation.kind === "running") {
-      busy.current = false;
-      setState(IDLE);
-    } else if (
-      result?.kind !== "ok" ||
-      result.insight.pr.number !== target.pr.number ||
-      result.insight.pr.url !== target.pr.url ||
-      result.insight.pr.headOid !== target.pr.headOid ||
-      JSON.stringify(prStatusView(result.insight).action) !== JSON.stringify(target.action)
+    if (
+      state.kind === "message" &&
+      (state.version !== currentVersion || operation.kind === "running")
     ) {
-      showMessage("The PR changed. Refresh and try again.");
+      palette.publish(IDLE);
+    }
+    if (state.kind !== "confirm") return;
+    if (operation.kind === "running") {
+      palette.publish(IDLE);
+    } else if (!matchesTarget(result, state.target)) {
+      palette.publish({
+        kind: "message",
+        message: "The PR changed. Refresh and try again.",
+        version: currentVersion,
+      });
     }
   }, [
     state,
+    palette,
     currentVersion,
-    insight.result,
-    insight.refreshing,
-    insight.revalidating,
+    result,
+    refreshing,
+    revalidating,
     operation.kind,
+    run,
+    threadId,
   ]);
 
   function dismiss() {
-    busy.current = false;
-    setState(IDLE);
+    palette.publish(IDLE);
     dismissOperation();
   }
   const confirm = () => {
-    if (state.kind === "confirm") send(state.target);
+    if (state.kind !== "confirm" || palette.read() !== state) return;
+    palette.publish(IDLE);
+    void run({ action: state.target.action.kind, expectedHeadOid: state.target.pr.headOid });
   };
   return { state, operation, confirm, dismiss };
+}
+
+function createPalette() {
+  let snapshot = IDLE;
+  const listeners = new Set<() => void>();
+  return {
+    read: () => snapshot,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    publish(next: PaletteState) {
+      if (next === snapshot) return;
+      snapshot = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+function prepareMerge(
+  result: InsightResult,
+  version: string,
+): Extract<PaletteState, { kind: "message" | "confirm" }> {
+  if (result.kind === "error") return { kind: "message", message: result.message, version };
+  if (result.kind === "no_pr")
+    return { kind: "message", message: "No pull request for this thread", version };
+  if (result.error !== null) return { kind: "message", message: result.error, version };
+  const { action } = prStatusView(result.insight);
+  return action === null
+    ? { kind: "message", message: unavailable(result.insight), version }
+    : { kind: "confirm", target: { pr: result.insight.pr, action } };
+}
+
+function matchesTarget(result: InsightResult | null, target: Target): boolean {
+  if (result?.kind !== "ok") return false;
+  const { pr } = result.insight;
+  return (
+    pr.number === target.pr.number &&
+    pr.url === target.pr.url &&
+    pr.headOid === target.pr.headOid &&
+    JSON.stringify(prStatusView(result.insight).action) === JSON.stringify(target.action)
+  );
 }

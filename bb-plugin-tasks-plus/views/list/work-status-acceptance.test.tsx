@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fail as missingValue } from "node:assert/strict";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
@@ -533,14 +534,17 @@ it("integrates mixed attachments, multiple/shared PRs, archive/removal/failures 
   registerTasksApi(bb, store);
   let latest: ReturnType<typeof useTaskListMeta>["data"];
   const Overview = () => {
-    latest = useTaskListMeta(tasks, "all").data;
+    const { data } = useTaskListMeta(tasks, "all");
+    useLayoutEffect(() => {
+      latest = data;
+    }, [data]);
     return (
       <>
         {tasks.map((task) => (
           <TaskRow
             key={task.id}
             task={task}
-            meta={latest?.get(task.id)}
+            meta={data?.get(task.id)}
             project={undefined}
             showProject={false}
             projectLabels={[]}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import File01Icon from "@hugeicons/core-free-icons/File01Icon";
@@ -70,45 +70,47 @@ export function useStagedAttachmentRetry(
 ) {
   const retryingRef = useRef(new Set<number>());
   return async (entry: StagedAttachment) => {
-    if (entry.owner === undefined || retryingRef.current.has(entry.id)) return;
+    const { file, owner } = entry;
+    if (owner === undefined || retryingRef.current.has(entry.id)) return;
     retryingRef.current.add(entry.id);
     setPendingFiles((files) =>
       files.map((candidate) =>
         candidate.id === entry.id ? { ...candidate, busy: true } : candidate,
       ),
     );
-    try {
-      await uploadAttachment(entry.file, entry.owner);
-      setPendingFiles((files) => files.filter((candidate) => candidate.id !== entry.id));
-      onUploaded?.();
-    } catch (error) {
-      const message = errorMessage(error);
-      setPendingFiles((files) =>
-        files.map((candidate) =>
-          candidate.id === entry.id ? { ...candidate, busy: false, error: message } : candidate,
-        ),
-      );
-    } finally {
-      retryingRef.current.delete(entry.id);
-    }
+    await Promise.try(() => uploadAttachment(file, owner))
+      .then(() => {
+        setPendingFiles((files) => files.filter((candidate) => candidate.id !== entry.id));
+        onUploaded?.();
+      })
+      .catch((error: unknown) => {
+        const message = errorMessage(error);
+        setPendingFiles((files) =>
+          files.map((candidate) =>
+            candidate.id === entry.id ? { ...candidate, busy: false, error: message } : candidate,
+          ),
+        );
+      })
+      .finally(() => {
+        retryingRef.current.delete(entry.id);
+      });
   };
 }
 
 const ChipThumbnail = ({ file }: { file: File }) => {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!file.type.startsWith("image/") || typeof URL.createObjectURL !== "function") {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-  if (!previewUrl) return null;
+  const attachPreview = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image) return;
+      const url = URL.createObjectURL(file);
+      image.src = url;
+      return () => URL.revokeObjectURL(url);
+    },
+    [file],
+  );
+  if (typeof URL.createObjectURL !== "function") return null;
   return (
     <img
-      src={previewUrl}
+      ref={attachPreview}
       alt=""
       aria-hidden
       className="size-5 shrink-0 rounded-sm border border-border object-cover"

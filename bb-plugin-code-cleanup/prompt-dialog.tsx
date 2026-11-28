@@ -88,13 +88,16 @@ export const PromptDialog = ({
       }
       confirmationOrigin.current = null;
     }
+  }, [confirmation, busy]);
+
+  useEffect(() => {
     if (!confirmation && dialog.current?.open) {
       const active = document.activeElement;
       if (!dialog.current.contains(active) || active?.matches(":disabled")) {
         title.current?.focus();
       }
     }
-  }, [confirmation, busy, conflict, writeError]);
+  });
 
   function close() {
     if (writeLock.current || closing.current) {

@@ -12,7 +12,7 @@ import { UrlLink, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import { isReviewUpdateFor, TIMELINE_UPDATED_CHANNEL } from "../core/review-updated";
 import type { rpcContract, TimelineResult } from "../contract";
 import { countOf } from "../core/blockers";
-import { relativeTime } from "../core/relative-time";
+import { RelativeAge } from "./relative-age";
 import {
   groupTimeline,
   mergeEvents,
@@ -52,6 +52,17 @@ function prOf({ prNodeId, locked, viewerCanUpdate }: LoadedPage): Conversation["
   return { prNodeId, locked, viewerCanUpdate };
 }
 
+function readTimeline(
+  rpc: ReturnType<typeof useRpc<typeof rpcContract>>,
+  threadId: string,
+  before: string | null,
+  fresh = false,
+): Promise<TimelineResult> {
+  return rpc
+    .call("getTimeline", fresh ? { threadId, before, fresh } : { threadId, before })
+    .catch((error: unknown): TimelineResult => ({ kind: "error", message: messageOf(error) }));
+}
+
 function useTimeline(threadId: string, refreshedAt: number) {
   const rpc = useRpc<typeof rpcContract>();
   const [conversation, setConversation] = useState<Conversation | null>(() =>
@@ -62,20 +73,17 @@ function useTimeline(threadId: string, refreshedAt: number) {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderError, setOlderError] = useState<string | null>(null);
   const latestRequest = useRef(0);
+  const source = useMemo(() => ({ rpc, threadId, refreshedAt }), [rpc, threadId, refreshedAt]);
+  const committedSource = useRef(source);
+  useLayoutEffect(() => {
+    committedSource.current = source;
+  }, [source]);
 
-  const read = useCallback(
-    (before: string | null, fresh = false): Promise<TimelineResult> =>
-      rpc
-        .call("getTimeline", fresh ? { threadId, before, fresh } : { threadId, before })
-        .catch((error: unknown): TimelineResult => ({ kind: "error", message: messageOf(error) })),
-    [rpc, threadId],
-  );
-
-  const reload = useCallback(
-    async (fresh = false) => {
-      const request = ++latestRequest.current;
-      const page = await read(null, fresh);
-      if (request !== latestRequest.current) return;
+  const reload = useCallback(async (fresh = false) => {
+    const source = committedSource.current;
+    const request = ++latestRequest.current;
+    return readTimeline(source.rpc, source.threadId, null, fresh).then((page) => {
+      if (request !== latestRequest.current || committedSource.current !== source) return;
       setHasPr(page.kind !== "no_pr");
       setReadError(page.kind === "error" ? page.message : null);
       if (page.kind !== "ok") return;
@@ -87,13 +95,12 @@ function useTimeline(threadId: string, refreshedAt: number) {
         olderCursor: current?.olderLoaded ? current.olderCursor : page.olderCursor,
         olderLoaded: current?.olderLoaded ?? false,
       }));
-    },
-    [read],
-  );
+    });
+  }, []);
 
   useEffect(() => {
-    void reload();
-  }, [reload, refreshedAt]);
+    if (committedSource.current === source) void reload();
+  }, [reload, source]);
 
   useRealtime(TIMELINE_UPDATED_CHANNEL, (payload) => {
     if (isReviewUpdateFor(payload, threadId)) void reload();
@@ -108,7 +115,7 @@ function useTimeline(threadId: string, refreshedAt: number) {
     if (cursor === null) return;
     setLoadingOlder(true);
     setOlderError(null);
-    const page = await read(cursor);
+    const page = await readTimeline(rpc, threadId, cursor);
     setLoadingOlder(false);
     if (page.kind !== "ok") {
       setOlderError(page.kind === "error" ? page.message : "No pull request for this thread");
@@ -371,6 +378,7 @@ const DescriptionBody = ({ body }: { body: string }) => {
   const [overflows, setOverflows] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useLayoutEffect(() => {
+    if (body.trim() === "") return;
     const element = content.current;
     if (element === null) return;
     const measure = () => setOverflows(element.scrollHeight > FOLDED_HEIGHT_PX + 1);
@@ -614,12 +622,11 @@ const EventHeader = ({
 }) => {
   const date = new Date(at);
   const time = (
-    <time
+    <RelativeAge
+      date={date}
       dateTime={date.toISOString()}
       title={date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
-    >
-      {relativeTime(date, new Date())}
-    </time>
+    />
   );
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">

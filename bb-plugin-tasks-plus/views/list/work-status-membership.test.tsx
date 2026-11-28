@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fail as missingValue } from "node:assert/strict";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { TasksRefreshProvider, useTasksRefresh } from "../../shell/refresh.js";
@@ -41,13 +42,17 @@ function fixture(
   let sharedRefresh!: () => void;
   const history: ReturnType<typeof useTaskListMeta>[] = [];
   const Probe = ({ ids, scope }: { ids: string[]; scope: string }) => {
-    latest = useTaskListMeta(
+    const query = useTaskListMeta(
       ids.map((id) => makeTask({ id })),
       scope,
     );
-    sharedRefresh = useTasksRefresh().refresh;
-    history.push(latest);
-    const handleRefresh = latest.refresh;
+    const refreshAll = useTasksRefresh().refresh;
+    useLayoutEffect(() => {
+      latest = query;
+      sharedRefresh = refreshAll;
+      history.push(query);
+    });
+    const handleRefresh = query.refresh;
     return (
       <button type="button" onClick={handleRefresh}>
         Refresh work

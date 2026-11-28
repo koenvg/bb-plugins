@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { useRealtime, useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import type { ProjectState, ProjectSummary, SettingsContract } from "./rpc";
@@ -22,10 +22,10 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
   const connection = useRealtimeConnectionState();
   const previousConnection = useRef(connection);
 
-  function refresh() {
+  const refresh = useCallback(() => {
     generation.current += 1;
     setAttempt((n) => n + 1);
-  }
+  }, []);
   useRealtime("settings.changed", (payload) => {
     if (
       payload &&
@@ -41,7 +41,7 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
       refresh();
     }
     previousConnection.current = connection;
-  }, [connection]);
+  }, [connection, refresh]);
   useEffect(() => {
     alive.current = true;
     readAttempt.current = -1;
@@ -102,42 +102,44 @@ export function useProjectOverview(editorLock: RefObject<boolean>, editorPending
     setPending(row.id);
     setWriteError(null);
     setSaved(null);
-    try {
-      const state = await rpc.call("setEnablement", { projectId: row.id, enabledOverride });
-      if (state.projectId !== row.id) {
-        throw new Error("Project response did not match the save target.");
-      }
-      if (!alive.current) {
-        return;
-      }
-      generation.current += 1;
-      setRows(
-        (old) =>
-          old?.map((item) =>
-            item.id === row.id
-              ? {
-                  ...item,
-                  enabled: state.enabled,
-                  enabledOverride: state.enabledOverride,
-                  promptSource: state.prompt === null ? "default" : "custom",
-                }
-              : item,
-          ) ?? null,
-      );
-      setSaved(`Saved settings for ${row.name}.`);
-    } catch (error) {
-      if (alive.current) {
-        setWriteError({ id: row.id, message: message(error) });
-      }
-    } finally {
-      writeLock.current = false;
-      if (alive.current) {
-        setPending(null);
-        if (refreshAfter) {
-          refresh();
+    await (async () => rpc.call("setEnablement", { projectId: row.id, enabledOverride }))()
+      .then((state) => {
+        if (state.projectId !== row.id) {
+          throw new Error("Project response did not match the save target.");
         }
-      }
-    }
+        if (!alive.current) {
+          return;
+        }
+        generation.current += 1;
+        setRows(
+          (old) =>
+            old?.map((item) =>
+              item.id === row.id
+                ? {
+                    ...item,
+                    enabled: state.enabled,
+                    enabledOverride: state.enabledOverride,
+                    promptSource: state.prompt === null ? "default" : "custom",
+                  }
+                : item,
+            ) ?? null,
+        );
+        setSaved(`Saved settings for ${row.name}.`);
+      })
+      .catch((error: unknown) => {
+        if (alive.current) {
+          setWriteError({ id: row.id, message: message(error) });
+        }
+      })
+      .finally(() => {
+        writeLock.current = false;
+        if (alive.current) {
+          setPending(null);
+          if (refreshAfter) {
+            refresh();
+          }
+        }
+      });
   }
   function confirmPrompt(state: ProjectState) {
     generation.current += 1;
