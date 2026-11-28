@@ -6,14 +6,11 @@ import { renderSidebarSlot as renderSlot } from "../bb-plugin-pr-thread-list/sid
 import { project, thread } from "../bb-plugin-pr-thread-list/fixtures";
 import { cancelPrPanelRequest } from "./pr-panel-navigation";
 import { forgetInsights } from "./ui/pr-availability";
-import { requireFixtureValue } from "./require-fixture-value.test-support.js";
+import { prSummarySlot } from "./test/pr-summary.test-support";
 
 const insightApp = await loadPluginApp(() => import("./app"));
 const sidebarApp = await loadPluginApp(() => import("../bb-plugin-pr-thread-list/app"));
-const banner = requireFixtureValue(
-  requireFixtureValue(insightApp.composerCustomizations.find((entry) => entry.id === "pr-insight"))
-    .banners,
-)[0];
+const banner = prSummarySlot(insightApp);
 afterEach(() => {
   cleanup();
   forgetInsights();

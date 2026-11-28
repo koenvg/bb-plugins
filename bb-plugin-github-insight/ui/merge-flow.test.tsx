@@ -9,11 +9,10 @@ import { GITHUB_COMMANDS } from "./commands";
 import { forgetInsights, rememberInsight } from "./pr-availability";
 import { forgetSubTabs } from "./pr-sub-tab";
 import { requireFixtureValue } from "../require-fixture-value.test-support.js";
+import { prSummarySlot } from "../test/pr-summary.test-support";
 
 const app = await loadPluginApp(() => import("../app"));
-const banner = requireFixtureValue(
-  requireFixtureValue(app.composerCustomizations.find((c) => c.id === "pr-insight")).banners,
-)[0];
+const banner = prSummarySlot(app);
 const tab = requireFixtureValue(app.threadPanelActions.find((t) => t.id === "pr"));
 const pr = {
   number: 7,

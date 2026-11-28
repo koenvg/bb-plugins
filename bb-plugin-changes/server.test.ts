@@ -598,6 +598,29 @@ describe("getImage", () => {
 });
 
 describe("getChanges", () => {
+  it.each([
+    ["origin/main", { kind: "branch_committed" }],
+    ["origin/release", undefined],
+  ] as const)(
+    "uses the composer's %s and keeps default Viewed marks when it matches",
+    async (mergeBaseBranch, viewedTarget) => {
+      const { harness, calls } = await setup();
+      const result = await harness.callRpc("getChanges", {
+        threadId: "thr_1",
+        target: { kind: "branch_committed", mergeBaseBranch },
+      });
+      expect(result).toMatchObject({ kind: "ok" });
+      if (viewedTarget === undefined) {
+        expect(result).not.toHaveProperty("viewedTarget");
+      } else {
+        expect(result).toHaveProperty("viewedTarget", viewedTarget);
+      }
+      expect(calls.diffFiles[0]).toMatchObject({
+        target: { type: "branch_committed", mergeBaseBranch },
+      });
+    },
+  );
+
   it("runs branch commits alongside the sequential checkout/file-list bracket", async () => {
     const commits = deferred<StatusResult>();
     const files = deferred<DiffFilesResult>();
@@ -1155,6 +1178,29 @@ describe("viewed marks", () => {
       v: 1,
       marks: { "src/b.ts": "5:bbbb", "src/c.ts": "5:cccc" },
     });
+  });
+
+  it("keeps the default comparison's Viewed marks separate from the composer's comparison", async () => {
+    const { harness } = await setup({
+      kv: { "viewed:v1:thr_1:branch_committed": { v: 1, marks: { "src/main.ts": "5:aaaa" } } },
+    });
+    const target = { kind: "branch_committed", mergeBaseBranch: "origin/release" } as const;
+    await harness.callRpc("updateViewed", {
+      threadId: "thr_1",
+      target,
+      set: { "src/release.ts": "5:bbbb" },
+      remove: ["src/main.ts"],
+    });
+    expect(await harness.callRpc("getViewed", { threadId: "thr_1", target })).toEqual({
+      kind: "ok",
+      marks: { "src/release.ts": "5:bbbb" },
+    });
+    expect(
+      await harness.callRpc("getViewed", {
+        threadId: "thr_1",
+        target: { kind: "branch_committed" },
+      }),
+    ).toEqual({ kind: "ok", marks: { "src/main.ts": "5:aaaa" } });
   });
 
   it("deletes the key when no marks are left", async () => {

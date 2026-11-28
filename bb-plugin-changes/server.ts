@@ -297,7 +297,12 @@ async function getChanges(
     const { baseBranch, headSha: startHead } = await workspaceBasis(sdk, environmentId);
     const query = diffQuery(target, baseBranch);
     const [commits, { diff, headSha, stable }] = await Promise.all([
-      branchCommits(sdk, environmentId, baseBranch, warn),
+      branchCommits(
+        sdk,
+        environmentId,
+        "mergeBaseBranch" in query ? query.mergeBaseBranch : baseBranch,
+        warn,
+      ),
       (async () => {
         let headSha = startHead;
         let diff = await sdk.plugins.callRpc<GitFiles>({
@@ -330,6 +335,9 @@ async function getChanges(
       kind: "ok",
       environmentId,
       query,
+      ...(target.kind === "branch_committed" && target.mergeBaseBranch === baseBranch
+        ? { viewedTarget: { kind: "branch_committed" as const } }
+        : {}),
       imageBasis:
         stable && headSha !== null
           ? { environmentId, headSha, mergeBaseRef: diff.mergeBaseRef ?? null, target }

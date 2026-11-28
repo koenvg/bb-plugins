@@ -3,7 +3,9 @@ import { z } from "zod";
 export const diffTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("all") }).strict(),
   z.object({ kind: z.literal("uncommitted") }).strict(),
-  z.object({ kind: z.literal("branch_committed") }).strict(),
+  z
+    .object({ kind: z.literal("branch_committed"), mergeBaseBranch: z.string().min(1).optional() })
+    .strict(),
   z.object({ kind: z.literal("commit"), sha: z.string().min(1) }).strict(),
 ]);
 export type DiffTarget = z.infer<typeof diffTargetSchema>;
@@ -56,6 +58,7 @@ export const changesResultSchema = z.discriminatedUnion("kind", [
     kind: z.literal("ok"),
     environmentId: z.string().min(1),
     query: diffQuerySchema,
+    viewedTarget: diffTargetSchema.optional(),
     imageBasis: changesBasisSchema.nullable().default(null),
     files: z.array(changedFileSchema),
     patches: z.record(z.string(), z.string()),
@@ -85,16 +88,16 @@ export function diffQuery(target: DiffTarget, baseBranch: string): DiffQuery {
     case "commit":
       return { target: "commit", sha: target.sha };
     case "all":
-    case "branch_committed":
       return { target: target.kind, mergeBaseBranch: baseBranch };
+    case "branch_committed":
+      return { target: target.kind, mergeBaseBranch: target.mergeBaseBranch ?? baseBranch };
   }
 }
 
-export function targetOf(query: DiffQuery): DiffTarget {
-  return query.target === "commit" ? { kind: "commit", sha: query.sha } : { kind: query.target };
-}
-
 export function targetKey(target: DiffTarget): string {
+  if (target.kind === "branch_committed" && target.mergeBaseBranch !== undefined) {
+    return `branch_committed:${encodeURIComponent(target.mergeBaseBranch)}`;
+  }
   return target.kind === "commit" ? `commit:${target.sha}` : target.kind;
 }
 

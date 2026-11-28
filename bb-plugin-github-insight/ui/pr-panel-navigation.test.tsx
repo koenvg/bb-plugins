@@ -8,13 +8,10 @@ import type { InsightResult, rpcContract } from "../contract";
 import { cancelPrPanelRequest, requestPrPanel } from "../pr-panel-navigation";
 import { useCommandIntent } from "./command-intents";
 import { forgetInsights } from "./pr-availability";
-import { requireFixtureValue } from "../require-fixture-value.test-support.js";
+import { prSummarySlot } from "../test/pr-summary.test-support";
 
 const app = await loadPluginApp(() => import("../app"));
-const banner = requireFixtureValue(
-  requireFixtureValue(app.composerCustomizations.find((entry) => entry.id === "pr-insight"))
-    .banners,
-)[0];
+const banner = prSummarySlot(app);
 afterEach(() => {
   cleanup();
   forgetInsights();
@@ -112,6 +109,22 @@ it("opens from an already-mounted receiver without waiting for insight", async (
   await act(async () => resolve(readyInsight));
   expect(slot.getByRole("button", { name: "Open" })).toBeTruthy();
   expect(slot.inspection.experimental_panelCalls).toHaveLength(1);
+});
+
+it("keeps receiving PR navigation after hiding the no-PR segment", async () => {
+  const getInsight = vi.fn(() => ({ kind: "no_pr" as const }));
+  const slot = mount("thread-b", getInsight);
+  await act(async () => {});
+  expect(slot.queryByRole("button")).toBeNull();
+  expect(getInsight).toHaveBeenCalledTimes(1);
+
+  act(() => requestPrPanel("thread-b", () => {}));
+  expect(slot.inspection.experimental_panelCalls).toEqual([
+    {
+      method: "openTab",
+      options: { tab: { id: "pr", context: { kind: "thread" }, availability: "action" } },
+    },
+  ]);
 });
 
 it("uses the new thread scope and removes the old thread's receiver", async () => {

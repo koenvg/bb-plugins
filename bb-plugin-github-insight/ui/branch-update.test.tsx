@@ -7,6 +7,7 @@ import type { ActionResult, InsightResult, LocalCommitsAhead, rpcContract } from
 import type { PrInsight } from "../core/overview";
 import { forgetInsights } from "./pr-availability";
 import { requireFixtureValue } from "../require-fixture-value.test-support.js";
+import { prSummarySlot } from "../test/pr-summary.test-support";
 
 type Methods = Pick<
   typeof rpcContract,
@@ -14,10 +15,7 @@ type Methods = Pick<
 >;
 const app = await loadPluginApp(() => import("../app"));
 const tab = requireFixtureValue(app.threadPanelActions.find((action) => action.id === "pr"));
-const banner = requireFixtureValue(
-  requireFixtureValue(app.composerCustomizations.find((entry) => entry.id === "pr-insight"))
-    .banners,
-)[0];
+const banner = prSummarySlot(app);
 
 const HEAD = "head-a";
 const behind: PrInsight = {
